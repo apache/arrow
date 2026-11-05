@@ -202,6 +202,7 @@ repos:
           # Provides the modules that aren't annotated yet, e.g. pyarrow.compute.
           - pyarrow==26.0.0
           - pyright==1.1.414
+          - pytest==9.0.2
           - scipy-stubs==1.17.1.5
           - ty==0.0.92
           - types-cffi==2.1.0.20260827

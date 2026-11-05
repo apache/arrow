@@ -50,7 +50,9 @@ JoinType: TypeAlias = Literal[
 Compression: TypeAlias = Literal[
     "gzip", "bz2", "brotli", "lz4", "lz4_frame", "lz4_raw", "zstd", "snappy"
 ]
+MapsAsPydicts: TypeAlias = Literal["lossy", "strict"]
 NullEncoding: TypeAlias = Literal["mask", "encode"]
+NullPlacement: TypeAlias = Literal["at_start", "at_end"]
 NullSelectionBehavior: TypeAlias = Literal["drop", "emit_null"]
 TimeUnit: TypeAlias = Literal["s", "ms", "us", "ns"]
 
