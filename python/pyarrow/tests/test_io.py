@@ -102,6 +102,16 @@ def test_python_file_write():
         pa.PythonFile(StringIO())
 
 
+def test_python_file_abort():
+    buf = BytesIO()
+    f = pa.PythonFile(buf, mode='w')
+    f.write(b'data')
+    f.abort()
+    assert f.closed
+    assert not buf.closed
+    assert buf.getvalue() == b'data'
+
+
 def test_python_file_read():
     data = b'some sample data'
 
@@ -987,6 +997,25 @@ def test_inmemory_write_after_closed():
 
     with pytest.raises(ValueError):
         f.write(b'not ok')
+
+
+def test_inmemory_write_after_abort():
+    f = pa.BufferOutputStream()
+    f.write(b'ok')
+    f.abort()
+    assert f.closed
+
+    with pytest.raises(ValueError):
+        f.write(b'not ok')
+
+
+def test_inmemory_read_after_abort():
+    f = pa.BufferReader(b'data')
+    f.abort()
+    assert f.closed
+
+    with pytest.raises(ValueError):
+        f.read()
 
 
 def test_buffer_protocol_ref_counting():
