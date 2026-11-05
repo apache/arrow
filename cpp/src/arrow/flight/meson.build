@@ -23,11 +23,13 @@ install_headers(
         'client.h',
         'client_middleware.h',
         'client_tracing_middleware.h',
+        'flight_data_decoder.h',
         'middleware.h',
         'otel_logging.h',
         'platform.h',
         'server_auth.h',
         'server.h',
+        'server_async.h',
         'server_middleware.h',
         'server_tracing_middleware.h',
         'test_auth_handlers.h',
@@ -45,6 +47,16 @@ install_headers(
 )
 
 grpc_dep = dependency('grpc++')
+
+# GRPC_ENABLE_ASYNC gates the async *client* paths in grpc_client.cc; 1.40 is
+# where those gRPC APIs landed.
+has_async_client = grpc_dep.version().version_compare('>=1.40.0')
+grpc_enable_async_args = has_async_client ? ['-DGRPC_ENABLE_ASYNC'] : []
+
+# The async generic *server* needs gRPC's generic callback API, which exists
+# from 1.65 on; see transport/grpc/async_grpc_compat.h, which does the C++
+# version check.  Higher floor than the async client above.
+has_async_server = grpc_dep.version().version_compare('>=1.65.0')
 abseil_sync_dep = dependency('absl_synchronization')
 
 fs = import('fs')
@@ -81,9 +93,11 @@ arrow_flight_srcs = [
     'client_cookie_middleware.cc',
     'client_tracing_middleware.cc',
     'cookie_internal.cc',
+    'flight_data_decoder.cc',
     'middleware.cc',
     'serialization_internal.cc',
     'server.cc',
+    'server_async.cc',
     'server_auth.cc',
     'server_tracing_middleware.cc',
     'transport.cc',
@@ -97,6 +111,24 @@ arrow_flight_srcs = [
     'transport/grpc/util_internal.cc',
     'types.cc',
 ]
+
+# The async generic server needs gRPC's generic callback API; see
+# async_grpc_compat.h and the CMake equivalent.
+if has_async_server
+    arrow_flight_srcs += [
+        'transport/grpc/async_grpc_service.cc',
+        'transport/grpc/async_grpc_do_get.cc',
+        'transport/grpc/async_grpc_do_put.cc',
+        'transport/grpc/async_grpc_exchange.cc',
+        'transport/grpc/async_grpc_exchange_reader.cc',
+        'transport/grpc/async_grpc_exchange_writer.cc',
+        'transport/grpc/async_grpc_handshake.cc',
+        'transport/grpc/async_grpc_streaming.cc',
+        'transport/grpc/async_grpc_unary.cc',
+    ]
+endif
+
+
 
 thread_dep = dependency('threads')
 
@@ -117,8 +149,8 @@ arrow_flight = library(
         abseil_sync_dep,
         thread_dep,
     ],
-    cpp_shared_args: ['-DARROW_FLIGHT_EXPORTING'],
-    cpp_static_args: ['-DARROW_FLIGHT_STATIC'],
+    cpp_shared_args: ['-DARROW_FLIGHT_EXPORTING'] + grpc_enable_async_args,
+    cpp_static_args: ['-DARROW_FLIGHT_STATIC'] + grpc_enable_async_args,
     gnu_symbol_visibility: 'inlineshidden',
 )
 
@@ -165,6 +197,29 @@ foreach flight_test : flight_tests
     )
     test(test_name, exc)
 endforeach
+
+if has_async_server
+    async_grpc_test = executable(
+        'flight-async-grpc-test',
+        sources: [
+            'transport/grpc/async_grpc_service_test.cc',
+            'transport/grpc/async_grpc_do_get_test.cc',
+            'transport/grpc/async_grpc_do_put_test.cc',
+            'transport/grpc/async_grpc_unary_test.cc',
+            'transport/grpc/async_grpc_streaming_test.cc',
+            'transport/grpc/async_grpc_exchange_test.cc',
+            'transport/grpc/async_grpc_handshake_test.cc',
+            # these transitively include Flight.grpc.pb.h via the fixtures
+            # header, so we must declare it here to avoid a race condition
+            flight_proto_grpc_files[1],
+        ],
+        cpp_args: grpc_enable_async_args,
+        dependencies: [arrow_test_dep, arrow_flight_test_dep],
+    )
+    # The timeout bounds the tests that would otherwise hang the suite instead
+    # of failing when a cancel/finish path regresses.
+    test('flight-async-grpc-test', async_grpc_test, timeout: 300)
+endif
 
 flight_test_dep_no_main = [
     arrow_dep,
