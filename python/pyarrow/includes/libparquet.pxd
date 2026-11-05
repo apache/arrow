@@ -358,9 +358,9 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t num_values() const
         shared_ptr[ColumnPath] path_in_schema() const
         bint is_stats_set() const
-        shared_ptr[CStatistics] statistics() const
+        shared_ptr[CStatistics] statistics() const except +
         c_bool is_geo_stats_set() const
-        shared_ptr[CParquetGeoStatistics] geo_statistics() const
+        shared_ptr[CParquetGeoStatistics] geo_statistics() const except +
         ParquetCompression compression() const
         const vector[ParquetEncoding]& encodings() const
         c_bool Equals(const CColumnChunkMetaData&) const
@@ -373,7 +373,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t total_uncompressed_size() const
         optional[int64_t] bloom_filter_offset() const
         optional[int64_t] bloom_filter_length() const
-        unique_ptr[CColumnCryptoMetaData] crypto_metadata() const
+        unique_ptr[CColumnCryptoMetaData] crypto_metadata() const except +
         optional[ParquetIndexLocation] GetColumnIndexLocation() const
         optional[ParquetIndexLocation] GetOffsetIndexLocation() const
         shared_ptr[const CKeyValueMetadata] key_value_metadata() const
@@ -389,7 +389,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t num_rows() const
         int64_t total_byte_size() const
         vector[CSortingColumn] sorting_columns() const
-        unique_ptr[CColumnChunkMetaData] ColumnChunk(int i) const
+        unique_ptr[CColumnChunkMetaData] ColumnChunk(int i) const except +
 
     cdef cppclass CFileMetaData" parquet::FileMetaData":
         c_bool Equals(const CFileMetaData&) const
@@ -404,10 +404,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         void set_file_path(const c_string& path)
         void AppendRowGroups(const CFileMetaData& other) except +
 
-        unique_ptr[CRowGroupMetaData] RowGroup(int i)
+        unique_ptr[CRowGroupMetaData] RowGroup(int i) except +
         const SchemaDescriptor* schema()
         shared_ptr[const CKeyValueMetadata] key_value_metadata() const
-        void WriteTo(COutputStream* dst) const
+        void WriteTo(COutputStream* dst) const except +
 
         inline c_bool is_encryption_algorithm_set() const
         inline EncryptionAlgorithm encryption_algorithm() const
@@ -415,7 +415,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
     cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
         " parquet::FileMetaData::Make"(const void* serialized_metadata,
-                                       uint32_t* metadata_len)
+                                       uint32_t* metadata_len) except +
 
     cdef cppclass CReaderProperties" parquet::ReaderProperties":
         CMemoryPool* memory_pool() const
