@@ -2111,14 +2111,7 @@ def test_pickle_flight_types():
         True,
         b'test app metadata'
     )
-    info2 = pickle.loads(pickle.dumps(info))
-    assert info.schema == info2.schema
-    assert info.descriptor == info2.descriptor
-    assert info.total_bytes == info2.total_bytes
-    assert info.total_records == info2.total_records
-    assert info.ordered == info2.ordered
-    assert info.app_metadata == info2.app_metadata
-    assert info.endpoints == info2.endpoints
+    assert info == pickle.loads(pickle.dumps(info))
 
 
 def test_roundtrip_errors():
