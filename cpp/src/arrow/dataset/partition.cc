@@ -37,6 +37,7 @@
 #include "arrow/scalar.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/utf8.h"
 
@@ -60,6 +61,9 @@ Result<std::string> SafeUriUnescape(std::string_view encoded) {
   }
   return decoded;
 }
+
+/// Percent-encode a single character, eg. '.' becomes "%2E".
+std::string PercentEncode(char c) { return "%" + ::arrow::HexEncode(&c, 1); }
 
 // Remove parts of the path after the last filename partition
 // separator. For example, 12_a_part-0.parquet will become 12_a_
@@ -316,7 +320,7 @@ inline std::optional<int> NextValid(const ScalarVector& values, int first_null) 
 }
 
 Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
-    const ScalarVector& values) const {
+    const ScalarVector& values, std::optional<char> segment_separator) const {
   std::vector<std::string> segments(static_cast<size_t>(schema_->num_fields()));
 
   for (int i = 0; i < schema_->num_fields(); ++i) {
@@ -332,17 +336,37 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
                                    " is not a valid path segment: '", value,
                                    "'. Use SegmentEncoding::Uri to write this value.");
           }
+          // The value can't contain the separator between segments, or it would
+          // not be parsed back correctly
+          if (segment_separator.has_value() &&
+              value.find(*segment_separator) != std::string::npos) {
+            return Status::Invalid("Partition value for '", schema_->field(i)->name(),
+                                   "' contains the partition separator '",
+                                   *segment_separator, "': '", value,
+                                   "'. Use SegmentEncoding::Uri to write this value.");
+          }
           segments[i] = std::move(value);
           break;
         }
         case SegmentEncoding::Uri: {
-          segments[i] = ::arrow::util::UriEscape(value);
-          // A "." isn't normally required to be escaped, but "." and ".." are not
-          // valid directory names, and dataset discovery skips directories starting
-          // with ".".
-          if (!segments[i].empty() && segments[i][0] == '.') {
-            segments[i] = "%2E" + segments[i].substr(1);
+          std::string escaped = ::arrow::util::UriEscape(value);
+          if (segment_separator.has_value()) {
+            size_t pos = escaped.find(*segment_separator);
+            if (pos != std::string::npos) {
+              const std::string encoded_separator = PercentEncode(*segment_separator);
+              do {
+                escaped.replace(pos, 1, encoded_separator);
+                pos = escaped.find(*segment_separator, pos + encoded_separator.size());
+              } while (pos != std::string::npos);
+            }
           }
+          // A leading "." or "_" isn't normally required to be escaped, but "." and
+          // ".." are not valid directory names, and dataset discovery skips paths
+          // starting with "." or "_" by default.
+          if (!escaped.empty() && (escaped[0] == '.' || escaped[0] == '_')) {
+            escaped.replace(0, 1, PercentEncode(escaped[0]));
+          }
+          segments[i] = std::move(escaped);
           break;
         }
         default:
@@ -437,7 +461,7 @@ Result<PartitionPathFormat> DirectoryPartitioning::FormatValues(
 Result<PartitionPathFormat> FilenamePartitioning::FormatValues(
     const ScalarVector& values) const {
   std::vector<std::string> segments;
-  ARROW_ASSIGN_OR_RAISE(segments, FormatPartitionSegments(values));
+  ARROW_ASSIGN_OR_RAISE(segments, FormatPartitionSegments(values, kFilenamePartitionSep));
   return PartitionPathFormat{
       "", fs::internal::JoinAbstractPath(std::move(segments), kFilenamePartitionSep) +
               kFilenamePartitionSep};
