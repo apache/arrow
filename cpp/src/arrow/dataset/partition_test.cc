@@ -264,6 +264,10 @@ TEST_F(TestPartitioning, DirectoryPartitioningEscapesValues) {
   AssertFormat(equal(field_ref("part"), literal("..")), "%2E.");
   AssertFormat(equal(field_ref("part"), literal(".hidden")), "%2Ehidden");
   AssertFormat(equal(field_ref("part"), literal("../escaped")), "%2E.%2Fescaped");
+  // "_" is only escaped when it is the first character
+  AssertFormat(equal(field_ref("part"), literal("a_b")), "a_b");
+  AssertFormat(equal(field_ref("part"), literal("_unknown")), "%5Funknown");
+  AssertFormat(equal(field_ref("part"), literal("__x_")), "%5F_x_");
 }
 
 TEST_F(TestPartitioning, DirectoryPartitioningEscapedValuesRoundTrip) {
@@ -282,7 +286,8 @@ TEST_F(TestPartitioning, DirectoryPartitioningEscapedValuesRoundTrip) {
                                          R"([
     ["../escaped", 0],
     [".", 1],
-    ["..", 2]
+    ["..", 2],
+    ["_unknown", 3]
   ])",
                                      });
 
@@ -309,7 +314,8 @@ TEST_F(TestPartitioning, DirectoryPartitioningEscapedValuesRoundTrip) {
   }
   std::sort(all_dirs.begin(), all_dirs.end());
   std::vector<std::string> expected_dirs = {"dataset", "dataset/%2E", "dataset/%2E.",
-                                            "dataset/%2E.%2Fescaped"};
+                                            "dataset/%2E.%2Fescaped",
+                                            "dataset/%5Funknown"};
   ASSERT_EQ(all_dirs, expected_dirs);
 
   // Read dataset back to verify partition values round-trip correctly
@@ -346,6 +352,8 @@ TEST_F(TestPartitioning, DirectoryPartitioningNoSegmentEncoding) {
   AssertFormat(equal(field_ref("part"), literal("a b")), "a b");
   AssertFormat(equal(field_ref("part"), literal("a%20b")), "a%20b");
   AssertFormat(equal(field_ref("part"), literal("<test>")), "<test>");
+  AssertFormat(equal(field_ref("part"), literal("a_b")), "a_b");
+  AssertFormat(equal(field_ref("part"), literal("_unknown")), "_unknown");
 
   // Values that aren't a single valid path segment are rejected
   AssertFormatError(equal(field_ref("part"), literal("../escaped")));
@@ -694,10 +702,17 @@ TEST_F(TestPartitioning, FilenamePartitioningEscapesValues) {
   AssertFormat(equal(field_ref("alpha"), literal("..")), "", "%2E._");
   AssertFormat(equal(field_ref("alpha"), literal(".hidden")), "", "%2Ehidden_");
   AssertFormat(equal(field_ref("alpha"), literal("../escaped")), "", "%2E.%2Fescaped_");
+  // "_" is the segment separator, so it is always escaped
+  AssertFormat(equal(field_ref("alpha"), literal("a_b")), "", "a%5Fb_");
+  AssertFormat(equal(field_ref("alpha"), literal("_unknown")), "", "%5Funknown_");
+  AssertFormat(equal(field_ref("alpha"), literal("__x_")), "", "%5F%5Fx%5F_");
   // Each segment is escaped independently
   AssertFormat(and_(equal(field_ref("alpha"), literal("a/b")),
                     equal(field_ref("beta"), literal(".hidden"))),
                "", "a%2Fb_%2Ehidden_");
+  AssertFormat(and_(equal(field_ref("alpha"), literal("a_b")),
+                    equal(field_ref("beta"), literal("c_d"))),
+               "", "a%5Fb_c%5Fd_");
 }
 
 TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
@@ -723,6 +738,12 @@ TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
   AssertFormatError(equal(field_ref("alpha"), literal("..")));
   AssertFormatError(and_(equal(field_ref("alpha"), literal("ok")),
                          equal(field_ref("beta"), literal("a/b"))));
+
+  // Values containing the "_" segment separator are rejected
+  AssertFormatError(equal(field_ref("alpha"), literal("a_b")));
+  AssertFormatError(equal(field_ref("alpha"), literal("_unknown")));
+  AssertFormatError(and_(equal(field_ref("alpha"), literal("ok")),
+                         equal(field_ref("beta"), literal("c_d"))));
 }
 
 TEST_F(TestPartitioning, DiscoverHiveSchema) {
