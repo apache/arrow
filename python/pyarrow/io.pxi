@@ -198,10 +198,7 @@ cdef class NativeFile(_Weakrefable):
         Close the stream abruptly.
 
         The stream is always closed, but whether written data is flushed or
-        discarded depends on the implementation. Output streams of
-        :class:`~pyarrow.fs.S3FileSystem` discard all written data: the
-        multipart upload is aborted and no object is written. A
-        :class:`~pyarrow.PythonFile` leaves its wrapped Python file object open.
+        discarded depends on the implementation.
         """
         if not self.closed:
             with nogil:
