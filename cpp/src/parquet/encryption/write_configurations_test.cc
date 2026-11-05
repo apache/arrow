@@ -144,6 +144,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
     ASSERT_TRUE(src.good() && dst.good())
         << "Failed to copy " << file << " to " << *output_dir_;
     dst << src.rdbuf();
+    dst.close();
     ASSERT_TRUE(dst.good()) << "Failed to write " << output_name;
   }
 };
