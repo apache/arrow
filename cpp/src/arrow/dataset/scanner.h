@@ -110,7 +110,6 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// If null, the global CPU executor will be used
   ///
   /// Note: The Executor will be ignored if use_threads is set to false
-  ///
   /// Note: For threaded Parquet scans, incremental row-group decoding is disabled
   /// when this is a caller-owned executor distinct from the I/O executor.
   arrow::internal::Executor* cpu_executor = NULLPTR;

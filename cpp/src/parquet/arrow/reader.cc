@@ -1164,12 +1164,6 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReaderI
   for (int row_group : row_groups) {
     num_rows += parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
   }
-  // The incremental pre-buffered path bypasses DecodeRowGroups(), so preserve
-  // per-column parallelism here.
-  const bool use_threads = reader_properties_.use_threads() &&
-                           (cpu_executor == nullptr ||
-                            cpu_executor != reader_properties_.io_context().executor());
-
   using ::arrow::RecordBatchIterator;
 
   // NB: This lambda will be invoked outside the scope of this call to
@@ -1177,8 +1171,14 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReaderI
   // `this` is a non-owning pointer so we are relying on the parent FileReader outliving
   // this RecordBatchReader.
   ::arrow::Iterator<RecordBatchIterator> batches = ::arrow::MakeFunctionIterator(
-      [readers, batch_schema, num_rows, cpu_executor, use_threads,
+      [readers, batch_schema, num_rows, cpu_executor,
        this]() mutable -> ::arrow::Result<RecordBatchIterator> {
+        // The incremental pre-buffered path bypasses DecodeRowGroups(), so preserve
+        // per-column parallelism here.
+        const bool use_threads =
+            reader_properties_.use_threads() &&
+            (cpu_executor == nullptr ||
+             cpu_executor != reader_properties_.io_context().executor());
         ::arrow::ChunkedArrayVector columns(readers.size());
 
         // don't reserve more rows than necessary
@@ -1351,6 +1351,10 @@ class RowGroupGenerator {
                              ? self->properties().io_context().executor()
                              : cpu_executor;
     auto shared_reader = std::shared_ptr<RecordBatchReader>(std::move(batch_reader));
+    // The batch reader uses the parent FileReaderImpl without owning it.
+    // Capturing self keeps the parent alive for the generator's lifetime. Capture
+    // it again in the submitted task so the parent also survives any Next() call
+    // that finishes after the generator is destroyed.
     RecordBatchGenerator generator =
         [self = std::move(self), shared_reader, next_executor,
          cpu_executor]() -> ::arrow::Future<std::shared_ptr<::arrow::RecordBatch>> {
