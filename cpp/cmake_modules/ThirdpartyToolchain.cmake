@@ -4440,13 +4440,19 @@ function(build_azure_sdk)
 endfunction()
 
 if(ARROW_WITH_AZURE_SDK)
-  resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
+  resolve_dependency(Azure
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowAzure
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-azure
+                     REQUIRED_VERSION
+                     1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
   if(AZURE_SDK_VENDORED AND NOT WIN32)
-    find_curl(ARROW)
+    find_curl(ARROW_AZURE)
     find_package(LibXml2 REQUIRED)
-    list(APPEND ARROW_SYSTEM_DEPENDENCIES LibXml2)
+    list(APPEND ARROW_AZURE_SYSTEM_DEPENDENCIES LibXml2)
   endif()
 endif()
 
@@ -4457,12 +4463,13 @@ if(ARROW_BUILD_STATIC)
   if(ARROW_AZURE
      AND AZURE_SDK_VENDORED
      AND NOT WIN32)
-    arrow_append_pc_system_library("libcurl" ARROW_CURL_PC "-lcurl" ARROW)
+    arrow_append_pc_system_library("libcurl" ARROW_AZURE_CURL_PC "-lcurl" ARROW_AZURE)
   endif()
   if(ARROW_AZURE
      AND AZURE_SDK_VENDORED
      AND NOT WIN32)
-    arrow_append_pc_system_library("libxml-2.0" ARROW_LIBXML2_PC "-lxml2" ARROW)
+    arrow_append_pc_system_library("libxml-2.0" ARROW_AZURE_LIBXML2_PC "-lxml2"
+                                   ARROW_AZURE)
   endif()
   if(ARROW_GCS
      AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
