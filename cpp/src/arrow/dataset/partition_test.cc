@@ -676,6 +676,55 @@ TEST_F(TestPartitioning, FilenamePartitioningFormat) {
   AssertFormat(equal(field_ref("alpha"), literal(0)), "", "0_");
 }
 
+TEST_F(TestPartitioning, FilenamePartitioningEscapesValues) {
+  partitioning_ = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", utf8()), field("beta", utf8())}));
+  written_schema_ = partitioning_->schema();
+
+  AssertFormat(equal(field_ref("alpha"), literal("plain")), "", "plain_");
+  AssertFormat(equal(field_ref("alpha"), literal("a b")), "", "a%20b_");
+  AssertFormat(equal(field_ref("alpha"), literal("100%")), "", "100%25_");
+  AssertFormat(equal(field_ref("alpha"), literal("a/b")), "", "a%2Fb_");
+  AssertFormat(equal(field_ref("alpha"), literal("ab\\cd")), "", "ab%5Ccd_");
+  AssertFormat(equal(field_ref("alpha"), literal("<test>")), "", "%3Ctest%3E_");
+  AssertFormat(equal(field_ref("alpha"), literal(":|*")), "", "%3A%7C%2A_");
+  // "." is only escaped when it is the first character of a segment
+  AssertFormat(equal(field_ref("alpha"), literal("a.b")), "", "a.b_");
+  AssertFormat(equal(field_ref("alpha"), literal(".")), "", "%2E_");
+  AssertFormat(equal(field_ref("alpha"), literal("..")), "", "%2E._");
+  AssertFormat(equal(field_ref("alpha"), literal(".hidden")), "", "%2Ehidden_");
+  AssertFormat(equal(field_ref("alpha"), literal("../escaped")), "", "%2E.%2Fescaped_");
+  // Each segment is escaped independently
+  AssertFormat(and_(equal(field_ref("alpha"), literal("a/b")),
+                    equal(field_ref("beta"), literal(".hidden"))),
+               "", "a%2Fb_%2Ehidden_");
+}
+
+TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
+  KeyValuePartitioningOptions options;
+  options.segment_encoding = SegmentEncoding::None;
+  partitioning_ = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", utf8()), field("beta", utf8())}), ArrayVector(), options);
+  written_schema_ = partitioning_->schema();
+
+  // Values are written unescaped and round-trip without decoding
+  AssertFormat(equal(field_ref("alpha"), literal("a b")), "", "a b_");
+  AssertFormat(equal(field_ref("alpha"), literal("a%20b")), "", "a%20b_");
+  AssertFormat(equal(field_ref("alpha"), literal("<test>")), "", "<test>_");
+  AssertFormat(equal(field_ref("alpha"), literal(".hidden")), "", ".hidden_");
+  AssertFormat(and_(equal(field_ref("alpha"), literal("a b")),
+                    equal(field_ref("beta"), literal("c.d"))),
+               "", "a b_c.d_");
+
+  // Values that aren't a single valid path segment are rejected
+  AssertFormatError(equal(field_ref("alpha"), literal("../escaped")));
+  AssertFormatError(equal(field_ref("alpha"), literal("a/b")));
+  AssertFormatError(equal(field_ref("alpha"), literal(".")));
+  AssertFormatError(equal(field_ref("alpha"), literal("..")));
+  AssertFormatError(and_(equal(field_ref("alpha"), literal("ok")),
+                         equal(field_ref("beta"), literal("a/b"))));
+}
+
 TEST_F(TestPartitioning, DiscoverHiveSchema) {
   auto options = HivePartitioningFactoryOptions();
   options.null_fallback = "xyz";
