@@ -23,8 +23,10 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
+#include "arrow/array/array_base.h"
+#include "arrow/array/array_run_end.h"
 #include "arrow/array/builder_base.h"
+#include "arrow/compare.h"
 
 namespace arrow {
 
@@ -161,6 +163,7 @@ class RunCompressorBuilder : public ArrayBuilder {
   std::shared_ptr<ArrayBuilder> inner_builder_;
   std::shared_ptr<const Scalar> current_value_ = NULLPTR;
   int64_t current_run_length_ = 0;
+  const EqualOptions options_ = EqualOptions::Defaults().nans_equal(true);
 };
 
 }  // namespace internal
