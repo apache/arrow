@@ -75,11 +75,29 @@ if(ARROW_GCS)
 endif()
 
 if(ARROW_AZURE)
+  set(ARROW_AZURE_TEST_EXTRA_LINK_LIBS)
+  if(ARROW_TEST_LINKAGE STREQUAL "shared")
+    list(APPEND ARROW_AZURE_TEST_EXTRA_LINK_LIBS arrow_azure_shared)
+  else()
+    list(APPEND ARROW_AZURE_TEST_EXTRA_LINK_LIBS arrow_azure_static)
+  endif()
+  list(APPEND ARROW_AZURE_TEST_EXTRA_LINK_LIBS ${AZURE_SDK_LINK_LIBRARIES})
   add_arrow_test(azurefs_test
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
-                 ${AZURE_SDK_LINK_LIBRARIES})
+                 ${ARROW_AZURE_TEST_EXTRA_LINK_LIBS})
+  if(ARROW_BUILD_TESTS AND ARROW_BUILD_SHARED)
+    add_arrow_test(azurefs_module_test
+                   SOURCES
+                   azurefs_module_test.cc
+                   EXTRA_LABELS
+                   filesystem
+                   DEFINITIONS
+                   ARROW_AZURE_LIBPATH="$<TARGET_FILE:arrow_azure_shared>"
+                   EXTRA_DEPENDENCIES
+                   arrow_azure_shared)
+  endif()
 endif()
 
 if(ARROW_S3)

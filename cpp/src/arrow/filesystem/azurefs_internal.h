@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "arrow/filesystem/azure_visibility.h"
 #include "arrow/result.h"
 
 namespace Azure::Storage::Files::DataLake {
@@ -70,7 +71,8 @@ enum class HierarchicalNamespaceSupport {
 /// account.
 /// \return kEnabled/kDisabled/kContainerNotFound (kUnknown is never
 /// returned).
-ARROW_EXPORT Result<HierarchicalNamespaceSupport> CheckIfHierarchicalNamespaceIsEnabled(
+ARROW_AZURE_EXPORT Result<HierarchicalNamespaceSupport>
+CheckIfHierarchicalNamespaceIsEnabled(
     const Azure::Storage::Files::DataLake::DataLakeFileSystemClient& adlfs_client,
     const arrow::fs::AzureOptions& options);
 

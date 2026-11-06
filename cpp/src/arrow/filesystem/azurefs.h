@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/filesystem/azure_visibility.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
@@ -59,7 +60,7 @@ class TestAzureOptions;
 /// - `AZURE_FEDERATED_TOKEN_FILE`
 ///
 /// Functions are provided for explicit configuration of credentials if that is preferred.
-struct ARROW_EXPORT AzureOptions {
+struct ARROW_AZURE_EXPORT AzureOptions {
   friend class TestAzureOptions;
 
   /// \brief The name of the Azure Storage Account being accessed.
@@ -247,7 +248,7 @@ struct ARROW_EXPORT AzureOptions {
 /// [2]: https://azure.microsoft.com/en-us/products/storage/data-lake-storage
 /// [3]:
 /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-known-issues
-class ARROW_EXPORT AzureFileSystem : public FileSystem {
+class ARROW_AZURE_EXPORT AzureFileSystem : public FileSystem {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
