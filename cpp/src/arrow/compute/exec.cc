@@ -783,7 +783,14 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   Status Execute(const ExecBatch& batch, ExecListener* listener) override {
     RETURN_NOT_OK(span_iterator_.Init(batch, exec_context()->exec_chunksize()));
 
-    if (batch.length == 0) {
+    // A dictionary-to-dictionary cast must run to preserve unreferenced dictionary
+    // values even when there are no indices to process.
+    const bool changes_dictionary_type =
+        batch.num_values() == 1 && batch.values[0].type() != nullptr &&
+        is_dictionary(batch.values[0].type()->id()) &&
+        is_dictionary(output_type_.type->id()) &&
+        !batch.values[0].type()->Equals(*output_type_.type);
+    if (batch.length == 0 && !changes_dictionary_type) {
       // For zero-length batches, we do nothing except return a zero-length
       // array of the correct output type
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> result,
