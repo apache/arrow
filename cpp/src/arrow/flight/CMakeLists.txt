@@ -203,7 +203,8 @@ set(ARROW_FLIGHT_SRCS
 # 1.65 on (see transport/grpc/async_grpc_compat.h).  This floor is higher than
 # GRPC_ENABLE_ASYNC above, which only gates the async client.
 if(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.65")
-  list(APPEND ARROW_FLIGHT_SRCS
+  list(APPEND
+       ARROW_FLIGHT_SRCS
        transport/grpc/async_grpc_service.cc
        transport/grpc/async_grpc_do_get.cc
        transport/grpc/async_grpc_do_put.cc
@@ -225,6 +226,7 @@ if(CMAKE_UNITY_BUILD AND WIN32)
                               transport/grpc/protocol_grpc_internal.cc
                               transport/grpc/util_internal.cc
                               types.cc
+                              transport_server_internal.cc
                               PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
 endif()
 

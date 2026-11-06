@@ -38,6 +38,13 @@ using HandshakeFn =
 /// DoGet, DoPut and the synchronous Flight methods (GetFlightInfo, GetSchema,
 /// PollFlightInfo, ListActions, DoAction, ListFlights, DoExchange) have a
 /// reactor. Every other method is answered UNIMPLEMENTED.
+
+// Silence warning
+// "non dll-interface class CallbackGenericService used as base for dll-interface class"
+#  ifdef _MSC_VER
+#    pragma warning(push)
+#    pragma warning(disable : 4275)
+#  endif
 class ARROW_FLIGHT_EXPORT AsyncGenericFlightService
     : public ::grpc::CallbackGenericService {
  public:
@@ -64,6 +71,9 @@ class ARROW_FLIGHT_EXPORT AsyncGenericFlightService
   /// The server class's Handshake hook. Empty when the server has none.
   HandshakeFn handshake_handler_;
 };
+#  ifdef _MSC_VER
+#    pragma warning(pop)
+#  endif
 
 #endif  // ARROW_FLIGHT_HAS_ASYNC_SERVER
 
