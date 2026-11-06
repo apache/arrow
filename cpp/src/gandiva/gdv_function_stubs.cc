@@ -19,6 +19,7 @@
 
 #include <utf8proc.h>
 
+#include <algorithm>
 #include <boost/crc.hpp>
 #include <cstdio>
 #include <sstream>
@@ -28,6 +29,7 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/double_conversion_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/value_parsing.h"
 
 #include "gandiva/encrypt_utils.h"
@@ -663,8 +665,16 @@ const char* mask_utf8_utf8_utf8_utf8(int64_t context, const char* data, int32_t 
     return nullptr;
   }
 
-  int32_t max_length =
-      std::max(upper_length, std::max(lower_length, num_length)) * data_len;
+  // Characters that are not replaced are copied as-is, so reserve at least one
+  // output byte per input byte even when all replacements are empty.
+  int32_t max_length;
+  if (ARROW_PREDICT_FALSE(arrow::internal::MultiplyWithOverflow(
+          std::max({upper_length, lower_length, num_length, 1}), data_len,
+          &max_length))) {
+    gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
+    *out_len = 0;
+    return nullptr;
+  }
   char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_length));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
