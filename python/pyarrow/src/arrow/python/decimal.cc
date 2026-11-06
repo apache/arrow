@@ -159,7 +159,7 @@ Status InternalDecimalFromPyObject(PyObject* obj, const DecimalType& arrow_type,
     return InternalDecimalFromPythonDecimal<ArrowDecimal>(obj, arrow_type, out);
   } else {
     return Status::TypeError("int or Decimal object expected, got ",
-                             Py_TYPE(obj)->tp_name);
+                             internal::PyObject_StdStringTypeName(obj));
   }
 }
 
