@@ -36,3 +36,7 @@ cd "${pyarrow_dir}"
 mypy
 pyright --stats
 ty check --verbose --output-format concise
+
+# The type annotation tests are type checked above; also run them to verify
+# the expected annotated types against the runtime types.
+pytest -r s pyarrow-stubs/tests

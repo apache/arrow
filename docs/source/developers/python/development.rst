@@ -114,6 +114,18 @@ Running Type Checkers
 We support multiple type checkers. Their configurations are in
 ``pyproject.toml``.
 
+The easiest way to run all of them is with ``pre-commit``, which installs
+the same versions of the type checkers and stub packages for everyone. This
+also lints and formats the stubs with ruff:
+
+.. code-block::
+
+   $ pre-commit run --hook-stage manual python-stubs --all-files
+
+These hooks only run on request, not on commit.
+
+To run a type checker directly instead:
+
 **mypy**
 
 To run mypy on the PyArrow codebase:
@@ -168,6 +180,48 @@ in downstream projects and for users' IDEs.
 
 Note: ``py.typed`` marker file in the ``pyarrow/`` directory indicates to type
 checkers that PyArrow supports type checking according to :pep:`561`.
+
+Testing Type Stubs
+------------------
+
+The tests in ``pyarrow-stubs/tests/`` pin down the annotated types of public
+APIs. Each check pairs :func:`typing.assert_type`, which every type checker
+verifies statically, with a runtime ``isinstance`` check:
+
+.. code-block:: python
+
+   import pyarrow.lib as lib
+
+   from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
+
+   def test_list_type() -> None:
+       lst = lib.list_(lib.int32())
+       check(assert_type(lst, lib.ListType), lib.ListType)
+       check(assert_type(lst.value_type, lib.DataType), lib.DataType)
+
+       if TYPE_CHECKING_INVALID_USAGE:
+           lib.list_(1)  # type: ignore[call-overload]
+
+The type checkers check these files as part of the regular runs above, and
+pytest runs them against the installed PyArrow to make sure the stubs agree
+with what PyArrow actually returns:
+
+.. code-block::
+
+   $ cd arrow/python
+   $ pytest pyarrow-stubs/tests
+
+Run ``pytest`` directly and pass it the directory: ``python -m pytest`` puts
+``arrow/python`` on ``sys.path``, so the source tree would be imported instead
+of the installed PyArrow.
+
+Code under ``if TYPE_CHECKING_INVALID_USAGE:`` is never executed. It should
+fail type checking, which is asserted with a ``# type: ignore[<mypy code>]``
+comment: unused ignores are reported as errors in these tests, so the test
+fails once the usage is no longer rejected. Start new test files with a
+``# mypy: warn-unused-ignores`` comment to enable this for mypy (pyright is
+configured in ``pyproject.toml``). ty doesn't honor mypy error codes, so it
+doesn't check invalid usage.
 
 Doctest
 =======
