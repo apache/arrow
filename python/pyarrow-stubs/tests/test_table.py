@@ -101,6 +101,7 @@ def test_record_batch() -> None:
     check(assert_type(batch, lib.RecordBatch), lib.RecordBatch)
 
     struct_array = batch.to_struct_array()
+    check(assert_type(struct_array, lib.StructArray), lib.StructArray)
     check(assert_type(lib.RecordBatch.from_struct_array(struct_array),
                       lib.RecordBatch),
           lib.RecordBatch)
