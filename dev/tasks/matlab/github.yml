@@ -67,6 +67,8 @@ jobs:
   macos:
     name:  {{ '${{ matrix.platform.architecture}}' }}  macOS {{ '${{ matrix.platform.macos-version }}' }} MATLAB
     runs-on: macos-{{ '${{ matrix.platform.macos-version }}' }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
     strategy:
       matrix:
         platform:
