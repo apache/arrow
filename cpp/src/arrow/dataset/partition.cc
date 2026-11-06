@@ -345,6 +345,13 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
                                    "' is not a valid path segment: '", value,
                                    "'. Use SegmentEncoding::Uri to write this value.");
           }
+          // Dataset discovery skips paths starting with "." or "_" by default, so
+          // these values would be silently dropped when reading
+          if (value[0] == '.' || value[0] == '_') {
+            return Status::Invalid("Partition value for '", schema_->field(i)->name(),
+                                   "' starts with '", value[0], "': '", value,
+                                   "'. Use SegmentEncoding::Uri to write this value.");
+          }
           // The value can't contain the separator between segments, or it would
           // not be parsed back correctly
           if (escape_filename_separator &&

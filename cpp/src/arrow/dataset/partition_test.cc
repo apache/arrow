@@ -359,7 +359,7 @@ TEST_F(TestPartitioning, DirectoryPartitioningNoSegmentEncoding) {
   AssertFormat(equal(field_ref("part"), literal("a%20b")), "a%20b");
   AssertFormat(equal(field_ref("part"), literal("<test>")), "<test>");
   AssertFormat(equal(field_ref("part"), literal("a_b")), "a_b");
-  AssertFormat(equal(field_ref("part"), literal("_unknown")), "_unknown");
+  AssertFormat(equal(field_ref("part"), literal("a.b")), "a.b");
   // Values that aren't portable to all platforms are allowed
   AssertFormat(equal(field_ref("part"), literal("a.")), "a.");
   AssertFormat(equal(field_ref("part"), literal("a ")), "a ");
@@ -369,6 +369,9 @@ TEST_F(TestPartitioning, DirectoryPartitioningNoSegmentEncoding) {
   AssertFormatError(equal(field_ref("part"), literal("a/b")));
   AssertFormatError(equal(field_ref("part"), literal(".")));
   AssertFormatError(equal(field_ref("part"), literal("..")));
+  // Values starting with "." or "_" would be skipped by dataset discovery
+  AssertFormatError(equal(field_ref("part"), literal(".hidden")));
+  AssertFormatError(equal(field_ref("part"), literal("_unknown")));
   // Backslash is a path separator on Windows, so is rejected on all platforms
   AssertFormatError(equal(field_ref("part"), literal("..\\escaped")));
   AssertFormatError(equal(field_ref("part"), literal("a\\b")));
@@ -760,7 +763,6 @@ TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
   AssertFormat(equal(field_ref("alpha"), literal("a b")), "", "a b_");
   AssertFormat(equal(field_ref("alpha"), literal("a%20b")), "", "a%20b_");
   AssertFormat(equal(field_ref("alpha"), literal("<test>")), "", "<test>_");
-  AssertFormat(equal(field_ref("alpha"), literal(".hidden")), "", ".hidden_");
   AssertFormat(and_(equal(field_ref("alpha"), literal("a b")),
                     equal(field_ref("beta"), literal("c.d"))),
                "", "a b_c.d_");
@@ -772,6 +774,8 @@ TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
   AssertFormatError(equal(field_ref("alpha"), literal("a/b")));
   AssertFormatError(equal(field_ref("alpha"), literal(".")));
   AssertFormatError(equal(field_ref("alpha"), literal("..")));
+  // Values starting with "." would be skipped by dataset discovery
+  AssertFormatError(equal(field_ref("alpha"), literal(".hidden")));
   AssertFormatError(equal(field_ref("alpha"), literal("..\\escaped")));
   AssertFormatError(equal(field_ref("alpha"), literal("a\\b")));
   AssertFormatError(and_(equal(field_ref("alpha"), literal("ok")),
