@@ -1412,6 +1412,114 @@ TEST_F(DictEncoding, CheckDecodeIndicesNoNulls) {
   CheckDict(actual_num_values, *builder);
 }
 
+// Out-of-bounds dictionary indices must be rejected by all decoding methods.
+class DictDecodingOutOfBounds : public ::testing::Test {
+ public:
+  void SetUp() override {
+    descr_ = std::make_unique<ColumnDescriptor>(schema::ByteArray("name"), 0, 0);
+    for (int i = 0; i < kDictLength; ++i) {
+      const std::string value = std::to_string(i);
+      const auto length = static_cast<uint32_t>(value.size());
+      dict_data_.append(reinterpret_cast<const char*>(&length), sizeof(length));
+      dict_data_ += value;
+    }
+  }
+
+  // RLE_DICTIONARY data with a bit width of 8: a bit-packed run of
+  // `num_groups * 8` indices with an out-of-bounds index at `bad_position`,
+  // followed by an RLE run of 8 valid indices.
+  void MakeIndices(uint32_t num_groups, uint32_t bad_position) {
+    indices_ = {/*bit_width=*/8};
+    // ULEB128-encoded bit-packed run header
+    for (uint32_t header = (num_groups << 1) | 1; header != 0; header >>= 7) {
+      indices_.push_back(
+          static_cast<uint8_t>((header & 0x7f) | (header > 0x7f ? 0x80 : 0)));
+    }
+    for (uint32_t i = 0; i < num_groups * 8; ++i) {
+      indices_.push_back(i == bad_position ? 200 : static_cast<uint8_t>(i % kDictLength));
+    }
+    indices_.push_back(/*RLE run of 8 values=*/8 << 1);
+    indices_.push_back(/*index=*/3);
+    num_values_ = static_cast<int>(num_groups * 8 + 8);
+  }
+
+  std::unique_ptr<DictDecoder<ByteArrayType>> MakeDecoder() {
+    plain_decoder_ = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr_.get());
+    plain_decoder_->SetData(kDictLength,
+                            reinterpret_cast<const uint8_t*>(dict_data_.data()),
+                            static_cast<int>(dict_data_.size()));
+    auto decoder = MakeDictDecoder<ByteArrayType>(descr_.get());
+    decoder->SetDict(plain_decoder_.get());
+    decoder->SetData(num_values_, indices_.data(), static_cast<int>(indices_.size()));
+    return decoder;
+  }
+
+ protected:
+  static constexpr int kDictLength = 10;
+  std::unique_ptr<ColumnDescriptor> descr_;
+  std::string dict_data_;
+  std::unique_ptr<TypedDecoder<ByteArrayType>> plain_decoder_;
+  std::vector<uint8_t> indices_;
+  int num_values_ = 0;
+};
+
+TEST_F(DictDecodingOutOfBounds, Decode) {
+  // The out-of-bounds index is in a bit-packed run left partially read by a previous
+  // call; decoding must not skip over it and resume with the next run.
+  MakeIndices(/*num_groups=*/2, /*bad_position=*/10);
+  std::vector<ByteArray> out(8);
+  {
+    auto decoder = MakeDecoder();
+    ASSERT_EQ(8, decoder->Decode(out.data(), 8));
+    EXPECT_THROW(decoder->Decode(out.data(), 8), ParquetException);
+  }
+  {
+    const std::vector<uint8_t> valid_bits(1, 0xff);
+    auto decoder = MakeDecoder();
+    ASSERT_EQ(8, decoder->DecodeSpaced(out.data(), 8, 0, valid_bits.data(), 0));
+    EXPECT_THROW(decoder->DecodeSpaced(out.data(), 8, 0, valid_bits.data(), 0),
+                 ParquetException);
+  }
+  // The out-of-bounds index is in a long bit-packed run, past the values that
+  // were decoded successfully.
+  MakeIndices(/*num_groups=*/129, /*bad_position=*/1028);
+  out.resize(1032);
+  {
+    auto decoder = MakeDecoder();
+    EXPECT_THROW(decoder->Decode(out.data(), 1032), ParquetException);
+  }
+  {
+    const std::vector<uint8_t> valid_bits(1032 / 8, 0xff);
+    auto decoder = MakeDecoder();
+    EXPECT_THROW(decoder->DecodeSpaced(out.data(), 1032, 0, valid_bits.data(), 0),
+                 ParquetException);
+  }
+}
+
+TEST_F(DictDecodingOutOfBounds, DecodeIndices) {
+  MakeIndices(/*num_groups=*/2, /*bad_position=*/10);
+  {
+    std::vector<int32_t> out(16);
+    auto decoder = MakeDecoder();
+    EXPECT_THROW(decoder->DecodeIndices(16, out.data()), ParquetException);
+  }
+  {
+    ::arrow::BinaryDictionary32Builder builder(default_memory_pool());
+    auto decoder = MakeDecoder();
+    decoder->InsertDictionary(&builder);
+    EXPECT_THROW(decoder->DecodeIndices(16, &builder), ParquetException);
+  }
+  {
+    // 16 non-null slots, including the out-of-bounds index, then a null slot
+    const std::vector<uint8_t> valid_bits = {0xff, 0xff, 0x00};
+    ::arrow::BinaryDictionary32Builder builder(default_memory_pool());
+    auto decoder = MakeDecoder();
+    decoder->InsertDictionary(&builder);
+    EXPECT_THROW(decoder->DecodeIndicesSpaced(17, 1, valid_bits.data(), 0, &builder),
+                 ParquetException);
+  }
+}
+
 // ----------------------------------------------------------------------
 // BYTE_STREAM_SPLIT encode/decode tests.
 
