@@ -415,37 +415,8 @@ Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(
       std::is_same<typename SrcListViewType::offset_type,
                    typename DestListType::offset_type>::value,
       "Offset types between list type and list-view type are expected to match");
-  using offset_type = typename DestListType::offset_type;
-  using ListBuilderType = typename TypeTraits<DestListType>::BuilderType;
-
-  const auto& list_view_type =
-      checked_cast<const SrcListViewType&>(*list_view_data->type);
-  const auto& value_type = list_view_type.value_type();
-  const auto list_type = std::make_shared<DestListType>(value_type);
-
-  ARROW_ASSIGN_OR_RAISE(auto sum_of_list_view_sizes,
-                        list_util::internal::SumOfLogicalListSizes(*list_view_data));
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayBuilder> value_builder,
-                        MakeBuilder(value_type, pool));
-  RETURN_NOT_OK(value_builder->Reserve(sum_of_list_view_sizes));
-  auto list_builder = std::make_shared<ListBuilderType>(pool, value_builder, list_type);
-  RETURN_NOT_OK(list_builder->Reserve(list_view_data->length));
-
-  ArraySpan values{*list_view_data->child_data[0]};
-  const auto* in_validity_bitmap = list_view_data->GetValues<uint8_t>(0);
-  const auto* in_offsets = list_view_data->GetValues<offset_type>(1);
-  const auto* in_sizes = list_view_data->GetValues<offset_type>(2);
-  for (int64_t i = 0; i < list_view_data->length; ++i) {
-    const bool is_valid =
-        !in_validity_bitmap ||
-        bit_util::GetBit(in_validity_bitmap, list_view_data->offset + i);
-    const int64_t size = is_valid ? in_sizes[i] : 0;
-    RETURN_NOT_OK(list_builder->Append(is_valid, size));
-    RETURN_NOT_OK(value_builder->AppendArraySlice(values, in_offsets[i], size));
-  }
-  std::shared_ptr<ArrayData> list_array_data;
-  RETURN_NOT_OK(list_builder->FinishInternal(&list_array_data));
-  return list_array_data;
+  return list_util::internal::ListFromListView(ArraySpan{*list_view_data},
+                                               DestListType::type_id, pool);
 }
 
 }  // namespace
