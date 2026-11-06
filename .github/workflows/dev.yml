@@ -25,10 +25,13 @@ on:
       - '!dependabot/**'
     tags:
       - '**'
+  workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  # Cancel superseded fork pushes; unrelated labels must not cancel running builds.
+  group: "${{ github.workflow }}-${{ github.repository }}-${{ github.event.pull_request.number || (github.repository != 'apache/arrow' && github.ref) || github.sha }}-${{ github.event.action == 'labeled' && github.event.label.name != 'CI: Upstream' }}"
   cancel-in-progress: true
 
 permissions:
@@ -37,13 +40,21 @@ permissions:
 env:
   ARCHERY_DEBUG: 1
 
+# Fork PRs to main run in the contributor's fork; CI: Upstream requests merge-ref validation.
 jobs:
 
   lint:
     name: Lint C++, Python, R, Docker, RAT
     # Use Ubuntu 24.04 to ensure working pre-commit on Ubuntu 24.04.
     runs-on: ubuntu-24.04
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: &run-builds >-
+      !contains(github.event.pull_request.title, 'WIP') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'CI: Upstream') &&
+      (github.event_name != 'pull_request' ||
+       github.repository != 'apache/arrow' ||
+       github.base_ref != 'main' ||
+       github.event.pull_request.head.repo.full_name == github.repository ||
+       contains(github.event.pull_request.labels.*.name, 'CI: Upstream'))
     timeout-minutes: 15
     steps:
       - name: Checkout Arrow
@@ -71,7 +82,7 @@ jobs:
   release:
     name: Source Release and Merge Script on ${{ matrix.runs-on }}
     runs-on: ${{ matrix.runs-on }}
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: *run-builds
     timeout-minutes: 15
     strategy:
       fail-fast: false
@@ -107,6 +118,7 @@ jobs:
             "cython>=3.1" \
             "dev/archery[release]" \
             pytest \
+            pyyaml \
             requests \
             scikit-build-core \
             setuptools-scm
@@ -118,3 +130,6 @@ jobs:
       - name: Run Merge Script Test
         shell: bash
         run: pytest -v dev/test_merge_arrow_pr.py
+      - name: Test fork CI status and routing
+        shell: bash
+        run: node --test ci/scripts/test_fork_ci_status.cjs
