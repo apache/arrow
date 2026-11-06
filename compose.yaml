@@ -542,11 +542,12 @@ services:
     depends_on:
       dremio:
          condition: service_healthy
+    # Use `/arrow/build` so build artifacts are visible on the CI host
     command: >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /arrow/build &&
         sudo /arrow/cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /usr/local/lib/libarrow_flight_sql_odbc.so &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build"
+        /arrow/ci/scripts/cpp_test.sh /arrow /arrow/build"
 
   ubuntu-cpp-minimal:
     # Arrow build with minimal components/dependencies
