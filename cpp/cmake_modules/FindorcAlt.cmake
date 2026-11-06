@@ -26,7 +26,13 @@ endif()
 if(orcAlt_FIND_QUIETLY)
   list(APPEND find_package_args QUIET)
 endif()
+# orcConfig.cmake overwrites CMAKE_MODULE_PATH and doesn't restore it
+# when one of its dependencies isn't found because find_dependency()
+# calls return() in the config file.
+set(orcAlt_CMAKE_MODULE_PATH_KEEP "${CMAKE_MODULE_PATH}")
 find_package(orc ${find_package_args})
+set(CMAKE_MODULE_PATH "${orcAlt_CMAKE_MODULE_PATH_KEEP}")
+unset(orcAlt_CMAKE_MODULE_PATH_KEEP)
 if(orc_FOUND)
   set(orcAlt_FOUND TRUE)
   set(orcAlt_VERSION ${orc_VERSION})
