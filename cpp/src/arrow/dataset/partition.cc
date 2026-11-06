@@ -334,8 +334,8 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
           // from path names, and this also covers the "." and ".." special names.
           if (value.find_first_of("/\\") != std::string::npos ||
               (!value.empty() && (value.back() == '.' || value.back() == ' '))) {
-            return Status::Invalid("Partition value for ", schema_->field(i)->name(),
-                                   " is not a valid path segment: '", value,
+            return Status::Invalid("Partition value for '", schema_->field(i)->name(),
+                                   "' is not a valid path segment: '", value,
                                    "'. Use SegmentEncoding::Uri to write this value.");
           }
           // The value can't contain the separator between segments, or it would
