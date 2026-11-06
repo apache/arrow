@@ -18,6 +18,8 @@
 #include "arrow/dataset/file_orc.h"
 
 #include <memory>
+#include <utility>
+#include <vector>
 
 #include "arrow/adapters/orc/adapter.h"
 #include "arrow/dataset/dataset_internal.h"
@@ -58,6 +60,19 @@ Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenORCReader(
   return reader;
 }
 
+// Preserve each name component when mapping logical positions to file fields.
+FieldRef ToUniversalRef(const FieldPath& path, const Schema& schema) {
+  std::vector<FieldRef> refs;
+  refs.reserve(path.indices().size());
+  const FieldVector* fields = &schema.fields();
+  for (int index : path) {
+    const auto& field = (*fields)[index];
+    refs.emplace_back(field->name());
+    fields = &field->type()->fields();
+  }
+  return FieldRef(std::move(refs));
+}
+
 /// \brief A ScanTask backed by an ORC file.
 class OrcScanTask {
  public:
@@ -76,19 +91,25 @@ class OrcScanTask {
 
         auto materialized_fields = scan_options.MaterializedFields();
         // filter out virtual columns
-        std::vector<std::string> included_fields;
+        std::vector<int> included_indices;
         ARROW_ASSIGN_OR_RAISE(auto schema, reader->ReadSchema());
+        const auto& dataset_schema = *scan_options.dataset_schema;
+        const bool same_schema = dataset_schema.Equals(*schema);
         for (const auto& ref : materialized_fields) {
-          ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(*schema));
+          ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOneOrNone(dataset_schema));
+          if (path.empty()) continue;
+          auto file_ref =
+              same_schema ? FieldRef(path) : ToUniversalRef(path, dataset_schema);
+          ARROW_ASSIGN_OR_RAISE(auto match, file_ref.FindOneOrNone(*schema));
           if (match.indices().empty()) continue;
 
-          included_fields.push_back(schema->field(match.indices()[0])->name());
+          included_indices.push_back(match.indices()[0]);
         }
 
         std::shared_ptr<RecordBatchReader> record_batch_reader;
-        ARROW_ASSIGN_OR_RAISE(
-            record_batch_reader,
-            reader->GetRecordBatchReader(scan_options.batch_size, included_fields));
+        ARROW_ASSIGN_OR_RAISE(record_batch_reader,
+                              reader->GetRecordBatchReaderByIndices(
+                                  scan_options.batch_size, included_indices));
 
         return RecordBatchIterator(Impl{std::move(record_batch_reader)});
       }
