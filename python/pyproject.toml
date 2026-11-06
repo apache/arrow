@@ -180,7 +180,7 @@ exclude = [
 [[tool.ty.overrides]]
 include = ["pyarrow-stubs/pyarrow/**"]
 [tool.ty.overrides.rules]
-unresolved-import = "ignore"
+import-not-found = "ignore"
 
 # ty doesn't honor `# type: ignore[<mypy code>]` comments, so disable the
 # rules that those comments suppress for mypy.
