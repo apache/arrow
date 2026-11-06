@@ -1412,11 +1412,21 @@ Result<std::shared_ptr<Array>> SparseUnionArray::Make(
     return Status::Invalid("type_codes must have the same length as children");
   }
 
-  BufferVector buffers = {nullptr, checked_cast<const Int8Array&>(type_ids).values()};
+  // The union's offset applies to the children as well as to the type ids, but
+  // the children are required to have the same length as `type_ids`, i.e. they
+  // are aligned with the logical positions of `type_ids`. Hence, if `type_ids`
+  // is sliced, slice its buffer (zero-copy) to the logical window and build the
+  // union with offset 0 (GH-54907).
+  std::shared_ptr<Buffer> type_ids_buffer =
+      checked_cast<const Int8Array&>(type_ids).values();
+  if (type_ids.offset() != 0) {
+    type_ids_buffer =
+        SliceBuffer(std::move(type_ids_buffer), type_ids.offset(), type_ids.length());
+  }
+  BufferVector buffers = {nullptr, std::move(type_ids_buffer)};
   auto union_type = sparse_union(children, std::move(field_names), std::move(type_codes));
-  auto internal_data =
-      ArrayData::Make(std::move(union_type), type_ids.length(), std::move(buffers),
-                      /*null_count=*/0, type_ids.offset());
+  auto internal_data = ArrayData::Make(std::move(union_type), type_ids.length(),
+                                       std::move(buffers), /*null_count=*/0);
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
     if (child->length() != type_ids.length()) {
