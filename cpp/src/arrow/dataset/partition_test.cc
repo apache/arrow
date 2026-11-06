@@ -272,6 +272,8 @@ TEST_F(TestPartitioning, DirectoryPartitioningEscapesValues) {
   AssertFormat(equal(field_ref("part"), literal("a_b")), "a_b");
   AssertFormat(equal(field_ref("part"), literal("_unknown")), "%5Funknown");
   AssertFormat(equal(field_ref("part"), literal("__x_")), "%5F_x_");
+  // Empty values would be dropped from the path, so are rejected
+  AssertFormatError(equal(field_ref("part"), literal("")));
 }
 
 TEST_F(TestPartitioning, DirectoryPartitioningEscapedValuesRoundTrip) {
@@ -370,6 +372,8 @@ TEST_F(TestPartitioning, DirectoryPartitioningNoSegmentEncoding) {
   // Backslash is a path separator on Windows, so is rejected on all platforms
   AssertFormatError(equal(field_ref("part"), literal("..\\escaped")));
   AssertFormatError(equal(field_ref("part"), literal("a\\b")));
+  // Empty values would be dropped from the path, so are rejected
+  AssertFormatError(equal(field_ref("part"), literal("")));
 }
 
 TEST_F(TestPartitioning, FilenamePartitioning) {
@@ -680,6 +684,18 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
 
   partitioning_ = std::make_shared<HivePartitioning>(schema({field("x", large_utf8())}));
   AssertFormat(equal(field_ref("x"), literal("hello")), "x=hello");
+
+  // Empty string values round-trip
+  partitioning_ = std::make_shared<HivePartitioning>(
+      schema({field("alpha", utf8()), field("beta", utf8())}));
+  written_schema_ = partitioning_->schema();
+  AssertFormat(equal(field_ref("alpha"), literal("")), "alpha=");
+  AssertFormat(and_(equal(field_ref("alpha"), literal("")),
+                    equal(field_ref("beta"), literal("x"))),
+               "alpha=/beta=x");
+  AssertFormat(and_(equal(field_ref("alpha"), literal("x")),
+                    equal(field_ref("beta"), literal(""))),
+               "alpha=x/beta=");
 }
 
 TEST_F(TestPartitioning, FilenamePartitioningFormat) {
@@ -725,6 +741,12 @@ TEST_F(TestPartitioning, FilenamePartitioningEscapesValues) {
   AssertFormat(and_(equal(field_ref("alpha"), literal("a_b")),
                     equal(field_ref("beta"), literal("c_d"))),
                "", "a%5Fb_c%5Fd_");
+  // Empty values would be dropped from the filename, so are rejected
+  AssertFormatError(equal(field_ref("alpha"), literal("")));
+  AssertFormatError(and_(equal(field_ref("alpha"), literal("")),
+                         equal(field_ref("beta"), literal("x"))));
+  AssertFormatError(and_(equal(field_ref("alpha"), literal("x")),
+                         equal(field_ref("beta"), literal(""))));
 }
 
 TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
@@ -760,6 +782,11 @@ TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
   AssertFormatError(equal(field_ref("alpha"), literal("_unknown")));
   AssertFormatError(and_(equal(field_ref("alpha"), literal("ok")),
                          equal(field_ref("beta"), literal("c_d"))));
+
+  // Empty values would be dropped from the filename, so are rejected
+  AssertFormatError(equal(field_ref("alpha"), literal("")));
+  AssertFormatError(and_(equal(field_ref("alpha"), literal("x")),
+                         equal(field_ref("beta"), literal(""))));
 }
 
 TEST_F(TestPartitioning, DiscoverHiveSchema) {

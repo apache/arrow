@@ -124,7 +124,8 @@ struct ARROW_DS_EXPORT KeyValuePartitioningOptions {
   /// SegmentEncoding::None, values are written as-is, and values containing "/"
   /// or "\", or equal to "." or "..", raise errors. Other values may not be valid
   /// path segments on all platforms, eg. on Windows, values ending in "." or " "
-  /// are not written correctly.
+  /// are not written correctly. For directory and filename partitioning, empty
+  /// values raise errors with either encoding.
   SegmentEncoding segment_encoding = SegmentEncoding::Uri;
 };
 

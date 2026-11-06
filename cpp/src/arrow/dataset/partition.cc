@@ -326,6 +326,13 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
   for (int i = 0; i < schema_->num_fields(); ++i) {
     if (values[i] != nullptr && values[i]->is_valid) {
       std::string value = values[i]->ToString();
+      // Empty segments are dropped when joining path segments, so an empty value
+      // would not be parsed back correctly
+      if (value.empty()) {
+        return Status::Invalid("Partition value for '", schema_->field(i)->name(),
+                               "' is empty, which is not supported with ", type_name(),
+                               " partitioning");
+      }
       switch (options_.segment_encoding) {
         case SegmentEncoding::None: {
           // Without encoding, it's an error to write values that are not a valid path
