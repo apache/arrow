@@ -19,7 +19,6 @@
 
 #include <memory>
 
-
 #include "arrow/flight/transport/grpc/async_grpc_compat.h"
 #include "arrow/flight/transport/grpc/grpc_server_internal.h"
 
