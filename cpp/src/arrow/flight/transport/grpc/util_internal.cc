@@ -338,11 +338,13 @@ template <typename Context>
   return ToGrpcStatusWithContext(arrow_status, ctx);
 }
 
+#if GRPC_CPP_VERSION_CHECK(1, 65, 0)
 /// Same, for the callback API's server context.
 ::grpc::Status ToGrpcStatus(const Status& arrow_status,
                             ::grpc::CallbackServerContext* ctx) {
   return ToGrpcStatusWithContext(arrow_status, ctx);
 }
+#endif
 
 #if GRPC_CPP_VERSION_CHECK(1, 80, 0)
 Status FromAbslStatus(const ::absl::Status& absl_status) {

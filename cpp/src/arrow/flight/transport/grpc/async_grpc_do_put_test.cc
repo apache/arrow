@@ -537,9 +537,12 @@ TEST(AsyncGrpcTest, DoPutClientCancelWhileListenerParkedStaysSafe) {
 
   // The deadline is what ends this RPC (the listener stays parked, so only the
   // deadline can finish it), and DoPut writes the schema eagerly, so it must be
-  // long enough to survive the setup on a slow machine
+  // long enough to survive the setup on a slow machine. The wait below must
+  // outlast it, or the poll loop gives up at the moment the deadline fires:
+  // that race is what made this test fail on the macOS runner.
+  constexpr auto kDeadline = std::chrono::milliseconds(2000);
   FlightCallOptions impatient;
-  impatient.timeout = std::chrono::milliseconds(10000);
+  impatient.timeout = kDeadline;
   auto put = client->DoPut(impatient, FlightDescriptor::Path({"late"}), schema);
   ASSERT_TRUE(put.ok()) << put.status();
   ASSERT_OK(put->writer->WriteRecordBatch(*batch));
@@ -554,7 +557,8 @@ TEST(AsyncGrpcTest, DoPutClientCancelWhileListenerParkedStaysSafe) {
   // have happened rather than sleeping blindly, and fail clearly instead of
   // reporting a vacuous pass if it did not.
   ASSERT_OK(client->Close());
-  ASSERT_TRUE(WaitFor([&listener] { return listener->finish_count() >= 1; }))
+  ASSERT_TRUE(WaitFor([&listener] { return listener->finish_count() >= 1; },
+                      kDeadline + std::chrono::seconds(10)))
       << "the RPC never ended; the listener is not the parked one from this upload";
 
   // Now resolve the parked listener: the continuation runs on a finished RPC,
