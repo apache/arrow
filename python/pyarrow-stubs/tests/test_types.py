@@ -84,7 +84,8 @@ def test_list_types() -> None:
     check(assert_type(lst.value_type, lib.DataType), lib.DataType)
     check(assert_type(lst.value_field, lib.Field), lib.Field)
 
-    # With an explicit list_size we can't tell statically whether it is -1.
+    variable = lib.list_(lib.int32(), -1)
+    check(assert_type(variable, lib.ListType), lib.ListType)
     fixed = lib.list_(lib.int32(), 2)
     check(assert_type(fixed, lib.ListType | lib.FixedSizeListType),
           lib.FixedSizeListType)
