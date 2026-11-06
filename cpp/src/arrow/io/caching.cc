@@ -18,7 +18,10 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <deque>
+#include <iterator>
 #include <mutex>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -151,12 +154,12 @@ struct ReadRangeCache::Impl {
   IOContext ctx;
   CacheOptions options;
 
-  // Ordered by offset (so as to find a matching region by binary search)
-  std::vector<RangeCacheEntry> entries;
+  std::deque<RangeCacheEntry> entries;  // GUARDED_BY(entry_mutex)
+  std::mutex entry_mutex;
 
   virtual ~Impl() = default;
 
-  // Get the future corresponding to a range
+  // Get the future corresponding to a range. Called with entry_mutex held.
   virtual Future<std::shared_ptr<Buffer>> MaybeRead(RangeCacheEntry* entry) {
     return entry->future;
   }
@@ -173,23 +176,26 @@ struct ReadRangeCache::Impl {
     return new_entries;
   }
 
-  // Add the given ranges to the cache, coalescing them where possible
-  virtual Status Cache(std::vector<ReadRange> ranges) {
+  // Add the given ranges to the cache, coalescing them where possible.
+  Status Cache(std::vector<ReadRange> ranges) {
     ARROW_ASSIGN_OR_RAISE(
         ranges, internal::CoalesceReadRanges(std::move(ranges), options.hole_size_limit,
                                              options.range_size_limit));
     std::vector<RangeCacheEntry> new_entries = MakeCacheEntries(ranges);
-    // Add new entries, themselves ordered by offset
-    if (entries.size() > 0) {
-      std::vector<RangeCacheEntry> merged(entries.size() + new_entries.size());
-      std::merge(entries.begin(), entries.end(), new_entries.begin(), new_entries.end(),
-                 merged.begin());
-      entries = std::move(merged);
-    } else {
-      entries = std::move(new_entries);
+    Status st;
+    {
+      std::unique_lock<std::mutex> guard(entry_mutex);
+      std::deque<RangeCacheEntry> merged;
+      std::merge(std::make_move_iterator(entries.begin()),
+                 std::make_move_iterator(entries.end()),
+                 std::make_move_iterator(new_entries.begin()),
+                 std::make_move_iterator(new_entries.end()), std::back_inserter(merged));
+      entries.swap(merged);
     }
-    // Prefetch immediately, regardless of executor availability, if possible
-    auto st = file->WillNeed(ranges);
+    // Prefetch immediately, regardless of executor availability, if possible.
+    // Do this outside the lock: WillNeed() may block on an mmap advise / I/O
+    // hint and we don't want to serialize concurrent Reads on it.
+    st = file->WillNeed(ranges);
     // As this is optimisation only, I/O failures should not be treated as fatal
     if (st.IsIOError()) {
       return Status::OK();
@@ -197,22 +203,28 @@ struct ReadRangeCache::Impl {
     return st;
   }
 
-  // Read the given range from the cache, blocking if needed. Cannot read a range
-  // that spans cache entries.
-  virtual Result<std::shared_ptr<Buffer>> Read(ReadRange range) {
+  // Read the given range from the cache, blocking if needed. Cannot read a
+  // range that spans cache entries.
+  Result<std::optional<std::shared_ptr<Buffer>>> ReadIfCached(ReadRange range) {
     if (range.length == 0) {
       static const uint8_t byte = 0;
-      return std::make_shared<Buffer>(&byte, 0);
+      return std::make_optional(std::make_shared<Buffer>(&byte, 0));
     }
 
-    const auto it = std::lower_bound(
-        entries.begin(), entries.end(), range,
-        [](const RangeCacheEntry& entry, const ReadRange& range) {
-          return entry.range.offset + entry.range.length < range.offset + range.length;
-        });
-    if (it != entries.end() && it->range.Contains(range)) {
-      auto fut = MaybeRead(&*it);
-      ARROW_ASSIGN_OR_RAISE(auto buf, fut.result());
+    Future<std::shared_ptr<Buffer>> fut;
+    int64_t slice_offset = 0;
+    {
+      std::unique_lock<std::mutex> guard(entry_mutex);
+      const auto it = std::lower_bound(
+          entries.begin(), entries.end(), range,
+          [](const RangeCacheEntry& entry, const ReadRange& range) {
+            return entry.range.offset + entry.range.length < range.offset + range.length;
+          });
+      if (it == entries.end() || !it->range.Contains(range)) {
+        return std::nullopt;
+      }
+      fut = MaybeRead(&*it);
+      slice_offset = range.offset - it->range.offset;
       if (options.lazy && options.prefetch_limit > 0) {
         int64_t num_prefetched = 0;
         for (auto next_it = it + 1;
@@ -226,53 +238,78 @@ struct ReadRangeCache::Impl {
           ++num_prefetched;
         }
       }
-      return SliceBuffer(std::move(buf), range.offset - it->range.offset, range.length);
     }
-    return Status::Invalid("ReadRangeCache did not find matching cache entry");
+    // Drop the lock before blocking on the I/O future so other threads can
+    // still do lookups while a previously queued read is in flight.
+    ARROW_ASSIGN_OR_RAISE(auto buf, fut.result());
+    return std::make_optional(SliceBuffer(std::move(buf), slice_offset, range.length));
   }
 
-  virtual Future<> Wait() {
+  Result<std::shared_ptr<Buffer>> Read(ReadRange range) {
+    ARROW_ASSIGN_OR_RAISE(auto buffer, ReadIfCached(range));
+    if (!buffer) {
+      return Status::Invalid("ReadRangeCache did not find matching cache entry");
+    }
+    return std::move(*buffer);
+  }
+
+  Future<> Wait() {
     std::vector<Future<>> futures;
-    for (auto& entry : entries) {
-      futures.emplace_back(MaybeRead(&entry));
+    {
+      std::unique_lock<std::mutex> guard(entry_mutex);
+      futures.reserve(entries.size());
+      for (auto& entry : entries) {
+        futures.emplace_back(MaybeRead(&entry));
+      }
     }
     return AllComplete(futures);
   }
 
+  // Cached ranges are sorted and non-overlapping, so entries ending at or
+  // before `end_offset` form a prefix. Keep a straddling entry.
+  void EvictEntriesBefore(int64_t end_offset) {
+    std::unique_lock<std::mutex> guard(entry_mutex);
+    const auto first_kept = std::find_if(
+        entries.cbegin(), entries.cend(), [end_offset](const RangeCacheEntry& entry) {
+          return entry.range.offset + entry.range.length > end_offset;
+        });
+    entries.erase(entries.cbegin(), first_kept);
+  }
+
   // Return a Future that completes when the given ranges have been read.
-  virtual Future<> WaitFor(std::vector<ReadRange> ranges) {
+  Future<> WaitFor(std::vector<ReadRange> ranges) {
     auto end = std::remove_if(ranges.begin(), ranges.end(),
                               [](const ReadRange& range) { return range.length == 0; });
     ranges.resize(end - ranges.begin());
     std::vector<Future<>> futures;
     futures.reserve(ranges.size());
-    for (auto& range : ranges) {
-      const auto it = std::lower_bound(
-          entries.begin(), entries.end(), range,
-          [](const RangeCacheEntry& entry, const ReadRange& range) {
-            return entry.range.offset + entry.range.length < range.offset + range.length;
-          });
-      if (it != entries.end() && it->range.Contains(range)) {
-        futures.push_back(Future<>(MaybeRead(&*it)));
-      } else {
-        return Status::Invalid("Range was not requested for caching: offset=",
-                               range.offset, " length=", range.length);
+    {
+      std::unique_lock<std::mutex> guard(entry_mutex);
+      for (auto& range : ranges) {
+        const auto it =
+            std::lower_bound(entries.begin(), entries.end(), range,
+                             [](const RangeCacheEntry& entry, const ReadRange& range) {
+                               return entry.range.offset + entry.range.length <
+                                      range.offset + range.length;
+                             });
+        if (it != entries.end() && it->range.Contains(range)) {
+          futures.push_back(Future<>(MaybeRead(&*it)));
+        } else {
+          return Status::Invalid("Range was not requested for caching: offset=",
+                                 range.offset, " length=", range.length);
+        }
       }
     }
     return AllComplete(futures);
   }
 };
 
-// Don't read ranges when they're first added. Instead, wait until they're requested
-// (either through Read or WaitFor).
+// Don't read ranges when they're first added. Instead, wait until they're
+// requested (either through Read or WaitFor).
 struct ReadRangeCache::LazyImpl : public ReadRangeCache::Impl {
-  // Protect against concurrent modification of entries[i]->future
-  std::mutex entry_mutex;
-
   virtual ~LazyImpl() = default;
 
   Future<std::shared_ptr<Buffer>> MaybeRead(RangeCacheEntry* entry) override {
-    // Called by superclass Read()/WaitFor() so we have the lock
     if (!entry->future.is_valid()) {
       entry->future = file->ReadAsync(ctx, entry->range.offset, entry->range.length,
                                       /*allow_short_read=*/false);
@@ -290,26 +327,6 @@ struct ReadRangeCache::LazyImpl : public ReadRangeCache::Impl {
       new_entries.emplace_back(range, Future<std::shared_ptr<Buffer>>());
     }
     return new_entries;
-  }
-
-  Status Cache(std::vector<ReadRange> ranges) override {
-    std::unique_lock<std::mutex> guard(entry_mutex);
-    return ReadRangeCache::Impl::Cache(std::move(ranges));
-  }
-
-  Result<std::shared_ptr<Buffer>> Read(ReadRange range) override {
-    std::unique_lock<std::mutex> guard(entry_mutex);
-    return ReadRangeCache::Impl::Read(range);
-  }
-
-  Future<> Wait() override {
-    std::unique_lock<std::mutex> guard(entry_mutex);
-    return ReadRangeCache::Impl::Wait();
-  }
-
-  Future<> WaitFor(std::vector<ReadRange> ranges) override {
-    std::unique_lock<std::mutex> guard(entry_mutex);
-    return ReadRangeCache::Impl::WaitFor(std::move(ranges));
   }
 };
 
@@ -333,10 +350,19 @@ Result<std::shared_ptr<Buffer>> ReadRangeCache::Read(ReadRange range) {
   return impl_->Read(range);
 }
 
+Result<std::optional<std::shared_ptr<Buffer>>> ReadRangeCache::ReadIfCached(
+    ReadRange range) {
+  return impl_->ReadIfCached(range);
+}
+
 Future<> ReadRangeCache::Wait() { return impl_->Wait(); }
 
 Future<> ReadRangeCache::WaitFor(std::vector<ReadRange> ranges) {
   return impl_->WaitFor(std::move(ranges));
+}
+
+void ReadRangeCache::EvictEntriesBefore(int64_t end_offset) {
+  impl_->EvictEntriesBefore(end_offset);
 }
 
 }  // namespace internal
