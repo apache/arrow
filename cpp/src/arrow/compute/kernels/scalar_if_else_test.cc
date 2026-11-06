@@ -3743,6 +3743,34 @@ TEST(TestCoalesce, DispatchExact) {
   CheckDispatchExactFails("coalesce", {decimal128(3, 2), decimal256(4, 1)});
 }
 
+TEST(TestCoalesce, DictionaryDispatchExact) {
+  auto type = dictionary(int8(), int32());
+  CheckDispatchExact("coalesce", {type});
+  CheckDispatchExact("coalesce", {type, dictionary(int8(), int32())});
+  CheckDispatchExact("coalesce", {type, type, type});
+  for (const auto& other : {dictionary(int16(), int32()), dictionary(int8(), int64()),
+                            dictionary(int8(), int32(), /*ordered=*/true)}) {
+    CheckDispatchExactFails("coalesce", {type, other});
+    CheckDispatchExactFails("coalesce", {other, type});
+    CheckDispatchExactFails("coalesce", {type, type, other});
+  }
+}
+
+TEST(TestCoalesce, DictionaryDispatchBest) {
+  auto type = dictionary(int8(), int32());
+  CheckDispatchBest("coalesce", {type}, {type});
+  CheckDispatchBest("coalesce", {type, dictionary(int8(), int32())}, {type, type});
+  CheckDispatchBest("coalesce", {type, type, type}, {type, type, type});
+  for (const auto& other : {dictionary(int16(), int32()), dictionary(int8(), int64()),
+                            dictionary(int8(), int32(), /*ordered=*/true)}) {
+    auto value_type = checked_cast<const DictionaryType&>(*other).value_type();
+    CheckDispatchBest("coalesce", {type, other}, {value_type, value_type});
+    CheckDispatchBest("coalesce", {other, type}, {value_type, value_type});
+    CheckDispatchBest("coalesce", {type, type, other},
+                      {value_type, value_type, value_type});
+  }
+}
+
 template <typename Type>
 class TestChooseNumeric : public ::testing::Test {};
 template <typename Type>
