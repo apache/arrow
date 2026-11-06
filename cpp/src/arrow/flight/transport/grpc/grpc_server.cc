@@ -437,8 +437,13 @@ class GrpcServerTransport : public internal::ServerTransport {
   GrpcServerTransport(FlightServerBase* base,
                       std::shared_ptr<MemoryManager> memory_manager,
                       AsyncGenericFlightServerBase* async_base = nullptr)
-      : internal::ServerTransport(base, std::move(memory_manager)),
-        async_base_(async_base) {}
+      : internal::ServerTransport(base, std::move(memory_manager)) {
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+    async_base_ = async_base;
+#else
+    ARROW_UNUSED(async_base);
+#endif
+  }
 
   static arrow::Result<std::unique_ptr<internal::ServerTransport>> Make(
       FlightServerBase* base, std::shared_ptr<MemoryManager> memory_manager) {
@@ -544,8 +549,8 @@ class GrpcServerTransport : public internal::ServerTransport {
 
  private:
   std::unique_ptr<GrpcServiceHandler> grpc_service_;
-  AsyncGenericFlightServerBase* async_base_ = nullptr;
 #if ARROW_FLIGHT_HAS_ASYNC_SERVER
+  AsyncGenericFlightServerBase* async_base_ = nullptr;
   std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>
       async_helper_;
   std::unique_ptr<AsyncGenericFlightService> async_service_;
