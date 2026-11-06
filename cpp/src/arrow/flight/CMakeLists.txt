@@ -371,7 +371,9 @@ if(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.65")
                  ${ARROW_FLIGHT_TEST_LINK_LIBS}
                  LABELS
                  "arrow_flight")
-  set_tests_properties(arrow-flight-async-grpc-test PROPERTIES TIMEOUT 300)
+  if(TEST arrow-flight-async-grpc-test)
+    set_tests_properties(arrow-flight-async-grpc-test PROPERTIES TIMEOUT 300)
+  endif()
 endif()
 
 # Build test server for unit tests or benchmarks
