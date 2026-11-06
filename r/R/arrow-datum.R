@@ -201,14 +201,32 @@ eval_array_expression <- function(FUN, ..., args = list(...), options = empty_na
       return(eval_array_expression("floor", out))
     }
   } else if (FUN == "%%") {
-    # We can't simply do {e1 - e2 * ( e1 %/% e2 )} since Ops.Array evaluates
-    # eagerly, but we can build that up
-    quotient <- eval_array_expression("%/%", args = args)
-    base <- eval_array_expression("*", quotient, args[[2]])
-    # this cast is to ensure that the result of this and e1 are the same
-    # (autocasting only applies to scalars)
-    base <- base$cast(args[[1]]$type)
-    return(eval_array_expression("-", args[[1]], base))
+    # Use Arrow's floored `modulo` kernel (R `%%` / Python `%` semantics) so
+    # int64 and decimal keep their native precision. The previous rewrite via
+    # `%/%` cast both sides through float64.
+    int_type_ids <- Type[toupper(INTEGER_TYPES)]
+    numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
+    denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
+
+    if (numerator_is_int && denominator_is_int) {
+      # `modulo` errors on divide-by-zero; R returns NA for integer `%% 0`.
+      # Replace zero divisors before calling the kernel, then restore NA.
+      zero <- eval_array_expression("equal", args[[2]], 0L)
+      safe_divisor <- eval_array_expression(
+        "if_else",
+        zero,
+        Scalar$create(1L)$cast(args[[2]]$type),
+        args[[2]]
+      )
+      rem <- call_function("modulo", args = list(args[[1]], safe_divisor))
+      return(eval_array_expression(
+        "if_else",
+        zero,
+        Scalar$create(NA_integer_)$cast(args[[1]]$type),
+        rem
+      ))
+    }
+    return(call_function("modulo", args = args))
   }
 
   call_function(

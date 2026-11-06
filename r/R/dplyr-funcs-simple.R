@@ -101,9 +101,9 @@
   "*" = "multiply_checked",
   "/" = "divide",
   "%/%" = "divide_checked",
-  # we don't actually use divide_checked with `%%`, rather it is rewritten to
-  # use `%/%` in Expression$op().
-  "%%" = "divide_checked",
+  # `%%` is handled in Expression$op() / eval_array_expression() so integer
+  # `%% 0` can return NA; the map entry documents the underlying kernel.
+  "%%" = "modulo",
   "^" = "power_checked"
 )
 
