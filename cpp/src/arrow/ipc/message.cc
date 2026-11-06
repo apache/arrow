@@ -306,6 +306,19 @@ Status ReadFieldsSubset(int64_t offset, io::RandomAccessFile* file,
   }
   internal::IoRecordedRandomAccessFile io_recorded_random_access_file(required_size);
   RETURN_NOT_OK(fields_loader(batch, &io_recorded_random_access_file));
+  if (message->version() < flatbuf::MetadataVersion::MetadataVersion_V5) {
+    // The read ranges recorded by the fields loader follow the V5 buffer layout,
+    // which differs from earlier metadata versions for union arrays (they have
+    // a validity buffer slot before V5). Read the whole body instead.
+    ARROW_ASSIGN_OR_RAISE(
+        auto bytes_read,
+        file->ReadAt(offset + metadata->size(), required_size, body->mutable_data()));
+    if (bytes_read != required_size) {
+      return Status::IOError("Expected to read ", required_size,
+                             " bytes for message body, got ", bytes_read);
+    }
+    return Status::OK();
+  }
   const auto& read_ranges = io_recorded_random_access_file.GetReadRanges();
   for (const auto& range : read_ranges) {
     auto read_result = file->ReadAt(offset + metadata->size() + range.offset,
