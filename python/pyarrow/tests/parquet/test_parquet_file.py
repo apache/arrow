@@ -46,6 +46,15 @@ except ImportError:
 pytestmark = pytest.mark.parquet
 
 
+def test_parquet_file_rejects_invalid_binary_type():
+    sink = io.BytesIO()
+    pq.write_table(pa.table({"value": [b"data"]}), sink)
+    sink.seek(0)
+
+    with pytest.raises(TypeError, match="DataType expected"):
+        pq.ParquetFile(sink, binary_type=0)
+
+
 @pytest.mark.pandas
 def test_pass_separate_metadata():
     # ARROW-471

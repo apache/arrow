@@ -988,6 +988,9 @@ def test_parquet_read_options():
     assert opts5.list_type is pa.LargeListType
     assert opts5 != opts1
 
+    with pytest.raises(TypeError, match="DataType expected"):
+        ds.ParquetReadOptions(binary_type=0)
+
 
 @pytest.mark.parquet
 def test_parquet_file_format_read_options():
