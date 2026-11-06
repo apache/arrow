@@ -202,7 +202,7 @@ jobs:
       matrix:
         include:
           - architecture: AMD64
-            macos-version: "26-intel"
+            macos-version: "15-intel"
           - architecture: ARM64
             macos-version: "26"
     env:
