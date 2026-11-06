@@ -202,9 +202,9 @@ jobs:
       matrix:
         include:
           - architecture: AMD64
-            macos-version: "15-intel"
+            macos-version: "26-intel"
           - architecture: ARM64
-            macos-version: "14"
+            macos-version: "26"
     env:
       ARROW_AZURE: ON
       ARROW_BUILD_TESTS: ON
