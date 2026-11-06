@@ -115,7 +115,9 @@ arrow_acero_tests = {
     'tpch-node-test': {'sources': ['tpch_node_test.cc']},
     'union-node-test': {'sources': ['union_node_test.cc']},
     'aggregate-node-test': {'sources': ['aggregate_node_test.cc']},
-    'util-test': {'sources': ['util_test.cc', 'task_util_test.cc']},
+    'util-test': {
+        'sources': ['util_test.cc', 'task_util_test.cc', 'time_series_util_test.cc'],
+    },
     'hash-aggregate-test': {'sources': ['hash_aggregate_test.cc']},
     'test-util-internal-test': {'sources': ['test_util_internal_test.cc']},
 }
