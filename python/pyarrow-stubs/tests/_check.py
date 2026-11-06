@@ -34,13 +34,8 @@ report unused ignores in these tests, so the test fails if the usage stops
 being an error.
 """
 
-import sys
 from typing import Any, Final, TYPE_CHECKING, TypeVar
-
-if sys.version_info >= (3, 11):
-    from typing import assert_type
-else:
-    from typing_extensions import assert_type
+from typing_extensions import assert_type
 
 __all__ = ["TYPE_CHECKING_INVALID_USAGE", "assert_type", "check"]
 
