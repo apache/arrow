@@ -452,8 +452,9 @@ Status StringDataTransform(KernelContext* ctx, const ExecSpan& batch,
 
   const auto offsets = input.GetValues<offset_type>(1);
   int64_t offset_nbytes = (input.length + 1) * sizeof(offset_type);
-  if (input.offset == 0) {
-    // We can reuse offsets from input if the input owns it
+  if (input.offset == 0 && (input.length == 0 || offsets[0] == 0)) {
+    // We can reuse offsets from input if the input owns it. This is only valid
+    // when the first offset is 0, since the output data buffer starts at 0.
     if (input.buffers[1].owner != nullptr) {
       out_arr->buffers[1] = input.GetBuffer(1);
     } else {
