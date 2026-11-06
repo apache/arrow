@@ -19,6 +19,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/kernels/scalar_set_lookup_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/type.h"
@@ -35,11 +36,6 @@ using internal::HashTraits;
 
 namespace compute::internal {
 namespace {
-
-// This base class enables non-templated access to the value set type
-struct SetLookupStateBase : public KernelState {
-  std::shared_ptr<DataType> value_set_type;
-};
 
 template <typename Type>
 struct SetLookupState : public SetLookupStateBase {
@@ -69,6 +65,7 @@ struct SetLookupState : public SetLookupStateBase {
     } else {
       return Status::Invalid("value_set should be an array or chunked array");
     }
+    value_set_has_null = lookup_table->GetNull() >= 0;
     if (this->null_matching_behavior != SetLookupOptions::SKIP &&
         lookup_table->GetNull() >= 0) {
       null_index = memo_index_to_value_index[lookup_table->GetNull()];
@@ -130,13 +127,12 @@ struct SetLookupState<NullType> : public SetLookupStateBase {
 
   Status Init(SetLookupOptions& options) {
     null_matching_behavior = options.GetNullMatchingBehavior();
-    value_set_has_null = (options.value_set.length() > 0) &&
-                         this->null_matching_behavior != SetLookupOptions::SKIP;
+    // The kernels consult null_matching_behavior before using this.
+    value_set_has_null = options.value_set.length() > 0;
     value_set_type = null();
     return Status::OK();
   }
 
-  bool value_set_has_null;
   SetLookupOptions::NullMatchingBehavior null_matching_behavior;
 };
 
@@ -171,10 +167,16 @@ struct InitStateVisitor {
   TypeHolder arg_type;
   std::unique_ptr<KernelState> result;
 
-  InitStateVisitor(KernelContext* ctx, const KernelInitArgs& args)
+  // Whether to make the value set available to
+  // SetLookupStateBase::GetSortedValueSet (is_in only).
+  bool compute_sorted_value_set;
+
+  InitStateVisitor(KernelContext* ctx, const KernelInitArgs& args,
+                   bool compute_sorted_value_set)
       : ctx(ctx),
         options(*checked_cast<const SetLookupOptions*>(args.options)),
-        arg_type(args.inputs[0]) {}
+        arg_type(args.inputs[0]),
+        compute_sorted_value_set(compute_sorted_value_set) {}
 
   template <typename Type>
   Status Init() {
@@ -254,18 +256,36 @@ struct InitStateVisitor {
     }
 
     RETURN_NOT_OK(VisitTypeInline(*options.value_set.type(), this));
+
+    if (compute_sorted_value_set &&
+        options.value_set.length() > kIsInSimplificationMaxValueSet &&
+        IsSearchableValueSetType(*options.value_set.type())) {
+      checked_cast<SetLookupStateBase*>(result.get())
+          ->SetSearchableValueSet(options.value_set, ctx->exec_context()->memory_pool());
+    }
     return std::move(result);
   }
 };
 
 Result<std::unique_ptr<KernelState>> InitSetLookup(KernelContext* ctx,
-                                                   const KernelInitArgs& args) {
+                                                   const KernelInitArgs& args,
+                                                   bool compute_sorted_value_set) {
   if (args.options == nullptr) {
     return Status::Invalid(
         "Attempted to call a set lookup function without SetLookupOptions");
   }
 
-  return InitStateVisitor{ctx, args}.GetResult();
+  return InitStateVisitor{ctx, args, compute_sorted_value_set}.GetResult();
+}
+
+Result<std::unique_ptr<KernelState>> InitIsIn(KernelContext* ctx,
+                                              const KernelInitArgs& args) {
+  return InitSetLookup(ctx, args, /*compute_sorted_value_set=*/true);
+}
+
+Result<std::unique_ptr<KernelState>> InitIndexIn(KernelContext* ctx,
+                                                 const KernelInitArgs& args) {
+  return InitSetLookup(ctx, args, /*compute_sorted_value_set=*/false);
 }
 
 struct IndexInVisitor {
@@ -648,7 +668,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   // IsIn writes its boolean output into preallocated memory
   {
     ScalarKernel isin_base;
-    isin_base.init = InitSetLookup;
+    isin_base.init = InitIsIn;
     isin_base.exec = ExecIsIn;
     isin_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     auto is_in = std::make_shared<SetLookupFunction>("is_in", Arity::Unary(), is_in_doc);
@@ -665,7 +685,7 @@ void RegisterScalarSetLookup(FunctionRegistry* registry) {
   // IndexIn writes its int32 output into preallocated memory
   {
     ScalarKernel index_in_base;
-    index_in_base.init = InitSetLookup;
+    index_in_base.init = InitIndexIn;
     index_in_base.exec = ExecIndexIn;
     index_in_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     auto index_in =
