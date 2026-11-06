@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gandiva/function_ir_builder.h"
@@ -136,6 +137,9 @@ class DecimalIR : public FunctionIRBuilder {
   // Similar to AddFastPath, but check if there's an overflow.
   ValueWithOverflow AddWithOverflowCheck(const ValueFull& x, const ValueFull& y,
                                          const ValueFull& out);
+
+  // Allocate decimal return slots in the current function's entry block.
+  std::pair<llvm::AllocaInst*, llvm::AllocaInst*> CreateEntryBlockReturnSlots();
 
   // Do addition of large integers (both positive and negative).
   llvm::Value* AddLarge(const ValueFull& x, const ValueFull& y, const ValueFull& out);
