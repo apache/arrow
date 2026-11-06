@@ -358,6 +358,9 @@ TEST_F(TestPartitioning, DirectoryPartitioningNoSegmentEncoding) {
   AssertFormat(equal(field_ref("part"), literal("<test>")), "<test>");
   AssertFormat(equal(field_ref("part"), literal("a_b")), "a_b");
   AssertFormat(equal(field_ref("part"), literal("_unknown")), "_unknown");
+  // Values that aren't portable to all platforms are allowed
+  AssertFormat(equal(field_ref("part"), literal("a.")), "a.");
+  AssertFormat(equal(field_ref("part"), literal("a ")), "a ");
 
   // Values that aren't a single valid path segment are rejected
   AssertFormatError(equal(field_ref("part"), literal("../escaped")));
@@ -367,9 +370,6 @@ TEST_F(TestPartitioning, DirectoryPartitioningNoSegmentEncoding) {
   // Backslash is a path separator on Windows, so is rejected on all platforms
   AssertFormatError(equal(field_ref("part"), literal("..\\escaped")));
   AssertFormatError(equal(field_ref("part"), literal("a\\b")));
-  // Windows strips trailing "." and " " from path names
-  AssertFormatError(equal(field_ref("part"), literal("a.")));
-  AssertFormatError(equal(field_ref("part"), literal("a ")));
 }
 
 TEST_F(TestPartitioning, FilenamePartitioning) {
@@ -742,6 +742,8 @@ TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
   AssertFormat(and_(equal(field_ref("alpha"), literal("a b")),
                     equal(field_ref("beta"), literal("c.d"))),
                "", "a b_c.d_");
+  // Values that aren't portable to all platforms are allowed
+  AssertFormat(equal(field_ref("alpha"), literal("a.")), "", "a._");
 
   // Values that aren't a single valid path segment are rejected
   AssertFormatError(equal(field_ref("alpha"), literal("../escaped")));
@@ -750,8 +752,6 @@ TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
   AssertFormatError(equal(field_ref("alpha"), literal("..")));
   AssertFormatError(equal(field_ref("alpha"), literal("..\\escaped")));
   AssertFormatError(equal(field_ref("alpha"), literal("a\\b")));
-  AssertFormatError(equal(field_ref("alpha"), literal("a.")));
-  AssertFormatError(equal(field_ref("alpha"), literal("a ")));
   AssertFormatError(and_(equal(field_ref("alpha"), literal("ok")),
                          equal(field_ref("beta"), literal("a/b"))));
 
