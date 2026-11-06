@@ -530,6 +530,17 @@ jobs:
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ubuntu-cpp-odbc
+      - name: Check ODBC Dependency
+        run: |
+          # The ODBC driver should link Arrow libraries dynamically on Linux
+          lib="$(pwd)/build/cpp/release/libarrow_flight_sql_odbc.so"
+          ldd "${lib}"
+          for arrow_lib in libarrow libarrow_compute libarrow_flight libarrow_flight_sql; do
+            ldd "${lib}" | grep -Fq "${arrow_lib}.so" || {
+              echo "Error: ${arrow_lib} is not dynamically linked to ${lib}"
+              exit 1
+            }
+          done
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
