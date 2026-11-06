@@ -2247,7 +2247,11 @@ void FileObjectToInfo(std::string_view key, const S3Model::HeadObjectResult& obj
 void FileObjectToInfo(const S3Model::Object& obj, FileInfo* info) {
   info->set_type(FileType::File);
   info->set_size(static_cast<int64_t>(obj.GetSize()));
-  info->set_mtime(FromAwsDatetime(obj.GetLastModified()));
+  // AWS SDK version >=1.11.900 keeps milliseconds in ListObjectsV2.
+  // HeadObject's Last-Modified header has only seconds. Truncate so mtime
+  // doesn't depend on what returns it
+  info->set_mtime(
+      std::chrono::floor<std::chrono::seconds>(FromAwsDatetime(obj.GetLastModified())));
 }
 
 }  // namespace
