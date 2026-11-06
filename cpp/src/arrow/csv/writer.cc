@@ -36,6 +36,7 @@
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 namespace csv {
@@ -438,6 +439,19 @@ class QuotedColumnPopulator : public ColumnPopulator {
   std::vector<bool> row_needs_escaping_;
 };
 
+// Whether a valid value of this type can be written as an empty quoted string, in
+// which case a null written as "" could not be told apart from it.
+bool CanWriteEmptyQuotedValue(const DataType& type) {
+  if (type.id() == Type::DICTIONARY) {
+    return CanWriteEmptyQuotedValue(
+        *checked_cast<const DictionaryType&>(type).value_type());
+  }
+  if (type.id() == Type::FIXED_SIZE_BINARY) {
+    return checked_cast<const FixedSizeBinaryType&>(type).byte_width() == 0;
+  }
+  return is_base_binary_like(type.id()) || is_binary_view_like(type.id());
+}
+
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
     const DataType& type, const std::string& end_chars, const char delimiter,
     const std::shared_ptr<Buffer>& null_string, QuotingStyle quoting_style,
@@ -512,10 +526,15 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       return Status::Invalid("Null string cannot contain quotes.");
     }
 
+    const bool quote_nulls = schema->num_fields() == 1 && options.null_string.empty() &&
+                             options.quoting_style != QuotingStyle::None &&
+                             !CanWriteEmptyQuotedValue(*schema->field(0)->type());
+    const std::string null_string_value =
+        quote_nulls ? std::string(R"("")") : options.null_string;
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> null_string,
-                          arrow::AllocateBuffer(options.null_string.length()));
-    memcpy(null_string->mutable_data(), options.null_string.data(),
-           options.null_string.length());
+                          arrow::AllocateBuffer(null_string_value.length()));
+    memcpy(null_string->mutable_data(), null_string_value.data(),
+           null_string_value.length());
 
     std::vector<std::unique_ptr<ColumnPopulator>> populators(schema->num_fields());
     std::string delimiter(1, options.delimiter);
