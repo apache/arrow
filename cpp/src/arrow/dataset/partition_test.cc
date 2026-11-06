@@ -359,10 +359,14 @@ TEST_F(TestPartitioning, DirectoryPartitioningNoSegmentEncoding) {
   AssertFormat(equal(field_ref("part"), literal("a%20b")), "a%20b");
   AssertFormat(equal(field_ref("part"), literal("<test>")), "<test>");
   AssertFormat(equal(field_ref("part"), literal("a_b")), "a_b");
-  AssertFormat(equal(field_ref("part"), literal("_unknown")), "_unknown");
+  AssertFormat(equal(field_ref("part"), literal("a.b")), "a.b");
   // Values that aren't portable to all platforms are allowed
   AssertFormat(equal(field_ref("part"), literal("a.")), "a.");
   AssertFormat(equal(field_ref("part"), literal("a ")), "a ");
+  // Values starting with "." or "_" are allowed, although they are skipped by
+  // dataset discovery with the default selector_ignore_prefixes
+  AssertFormat(equal(field_ref("part"), literal(".hidden")), ".hidden");
+  AssertFormat(equal(field_ref("part"), literal("_unknown")), "_unknown");
 
   // Values that aren't a single valid path segment are rejected
   AssertFormatError(equal(field_ref("part"), literal("../escaped")));
@@ -760,12 +764,14 @@ TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
   AssertFormat(equal(field_ref("alpha"), literal("a b")), "", "a b_");
   AssertFormat(equal(field_ref("alpha"), literal("a%20b")), "", "a%20b_");
   AssertFormat(equal(field_ref("alpha"), literal("<test>")), "", "<test>_");
-  AssertFormat(equal(field_ref("alpha"), literal(".hidden")), "", ".hidden_");
   AssertFormat(and_(equal(field_ref("alpha"), literal("a b")),
                     equal(field_ref("beta"), literal("c.d"))),
                "", "a b_c.d_");
   // Values that aren't portable to all platforms are allowed
   AssertFormat(equal(field_ref("alpha"), literal("a.")), "", "a._");
+  // Values starting with "." are allowed, although they are skipped by dataset
+  // discovery with the default selector_ignore_prefixes
+  AssertFormat(equal(field_ref("alpha"), literal(".hidden")), "", ".hidden_");
 
   // Values that aren't a single valid path segment are rejected
   AssertFormatError(equal(field_ref("alpha"), literal("../escaped")));
