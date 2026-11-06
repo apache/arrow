@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 // Dispatch-level tests of the async generic gRPC Flight service: the
 // UNIMPLEMENTED fallback reactor, middleware on every call (including the calls
 // that never reach a handler), the options an async server accepts, and the two

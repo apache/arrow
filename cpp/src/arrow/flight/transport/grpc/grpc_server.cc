@@ -497,7 +497,9 @@ class GrpcServerTransport : public internal::ServerTransport {
           /*auth_handler=*/nullptr, options.middleware, std::move(validate_token));
       async_service_ = std::make_unique<AsyncGenericFlightService>(
           async_base_, async_helper_, std::move(handshake));
-    } else
+      // The else and its body are split by #endif, so cpplint cannot pair the
+      // braces; the #if branch above opens the block it closes.
+    } else  // NOLINT(readability/braces)
 #endif
     {
       grpc_service_.reset(
@@ -517,7 +519,7 @@ class GrpcServerTransport : public internal::ServerTransport {
 #if ARROW_FLIGHT_HAS_ASYNC_SERVER
     if (async_service_) {
       builder.RegisterCallbackGenericService(async_service_.get());
-    } else
+    } else  // NOLINT(readability/braces)
 #endif
     {
       builder.RegisterService(grpc_service_.get());

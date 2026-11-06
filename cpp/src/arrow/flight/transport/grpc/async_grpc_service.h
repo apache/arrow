@@ -38,7 +38,8 @@ using HandshakeFn =
 /// DoGet, DoPut and the synchronous Flight methods (GetFlightInfo, GetSchema,
 /// PollFlightInfo, ListActions, DoAction, ListFlights, DoExchange) have a
 /// reactor. Every other method is answered UNIMPLEMENTED.
-class ARROW_FLIGHT_EXPORT AsyncGenericFlightService : public ::grpc::CallbackGenericService {
+class ARROW_FLIGHT_EXPORT AsyncGenericFlightService
+    : public ::grpc::CallbackGenericService {
  public:
   /// \param async_base is the async server whose handlers are served, it must
   /// outlive the service.

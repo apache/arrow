@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 // DoExchange over the async generic service: the bidirectional RPC, whose handler
 // awaits the reader's demand and each write in turn, so reads and writes are
 // interleaved without blocking a callback thread. Covers the echo path, a

@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 // The unary RPCs served by UnaryReactor (one request in, one response out):
 // GetFlightInfo, GetSchema and PollFlightInfo, plus the rules they share -- a
 // null answer maps to the sync transport's "Flight not found", a server error

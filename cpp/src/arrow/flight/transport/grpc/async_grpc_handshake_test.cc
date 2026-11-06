@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 // Handshake and per-RPC token auth on the async generic service: the server
 // class's Handshake()/ValidateToken() hooks, the token being required on data
 // calls, payload fidelity (binary, empty), an abandoned or late handshake, and

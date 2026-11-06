@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 // The streaming RPCs served by StreamingReactor (one request in, N responses
 // out, driven by OnWriteDone): ListActions (a vector), DoAction (an
 // AsyncResultStream) and ListFlights (an AsyncFlightListing). Covers the

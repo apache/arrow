@@ -143,8 +143,7 @@ class DoPutReactor : public AsyncReactorBase,
         return;
       }
       if (!ok) {
-        finish_status =
-            MakeFlightError(FlightStatusCode::Internal, "Write failed");
+        finish_status = MakeFlightError(FlightStatusCode::Internal, "Write failed");
         ended = true;
       } else if (ending_ack_in_flight_) {
         // The ending ack reached the client: that is the clean end of the upload.

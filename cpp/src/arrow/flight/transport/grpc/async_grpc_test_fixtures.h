@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 // Shared fixtures for the async generic gRPC Flight transport tests.
 //
 // One translation unit per part of the transport would otherwise duplicate the
@@ -757,8 +756,8 @@ inline std::shared_ptr<Schema> OneColumnSchema() {
 // One 2-row batch of OneColumnSchema(), rows [1, 2].
 inline std::shared_ptr<RecordBatch> OneColumnBatch(
     const std::shared_ptr<Schema>& schema = OneColumnSchema()) {
-  return arrow::RecordBatch::Make(
-      schema, 2, {arrow::ArrayFromJSON(arrow::int64(), "[1, 2]")});
+  return arrow::RecordBatch::Make(schema, 2,
+                                  {arrow::ArrayFromJSON(arrow::int64(), "[1, 2]")});
 }
 
 // The listen address the tests start their servers on: an ephemeral port.
@@ -769,8 +768,7 @@ inline const Location& LocalhostLocation() {
 
 // Connect a FlightClient to the server listening on `port`.
 inline arrow::Result<std::unique_ptr<FlightClient>> ConnectTo(int port) {
-  ARROW_ASSIGN_OR_RAISE(auto location,
-                        Location::ForScheme("grpc", "127.0.0.1", port));
+  ARROW_ASSIGN_OR_RAISE(auto location, Location::ForScheme("grpc", "127.0.0.1", port));
   return FlightClient::Connect(location);
 }
 
@@ -783,9 +781,9 @@ inline std::shared_ptr<Schema> TwoColumnSchema() {
 // One 3-row batch of TwoColumnSchema(), the payload the DoPut tests upload.
 inline std::shared_ptr<RecordBatch> TwoColumnBatch(
     const std::shared_ptr<Schema>& schema = TwoColumnSchema()) {
-  return arrow::RecordBatch::Make(
-      schema, 3, {arrow::ArrayFromJSON(arrow::int64(), "[1, 2, 3]"),
-                  arrow::ArrayFromJSON(arrow::int64(), "[10, 20, 30]")});
+  return arrow::RecordBatch::Make(schema, 3,
+                                  {arrow::ArrayFromJSON(arrow::int64(), "[1, 2, 3]"),
+                                   arrow::ArrayFromJSON(arrow::int64(), "[10, 20, 30]")});
 }
 
 inline void AssertTwoColumnSchema(const std::shared_ptr<Schema>& schema) {
@@ -796,8 +794,7 @@ inline void AssertTwoColumnSchema(const std::shared_ptr<Schema>& schema) {
 }
 
 // Drain a DoAction result stream, projecting each Result to a string.
-inline arrow::Result<std::vector<std::string>> DrainResultBodies(
-    ResultStream* results) {
+inline arrow::Result<std::vector<std::string>> DrainResultBodies(ResultStream* results) {
   std::vector<std::string> out;
   while (true) {
     ARROW_ASSIGN_OR_RAISE(auto result, results->Next());
@@ -825,7 +822,7 @@ inline arrow::Result<std::vector<std::vector<std::string>>> DrainListingPaths(
 // use it to bound server-side cleanup instead of sleeping a fixed time.
 template <typename Predicate>
 inline bool WaitFor(Predicate predicate,
-             std::chrono::milliseconds timeout = std::chrono::seconds(10)) {
+                    std::chrono::milliseconds timeout = std::chrono::seconds(10)) {
   const auto deadline = std::chrono::steady_clock::now() + timeout;
   while (std::chrono::steady_clock::now() < deadline) {
     if (predicate()) {

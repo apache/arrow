@@ -111,8 +111,8 @@ void ExchangeWriter::OnCancelled() {
 
 arrow::Future<> ExchangeWriter::WriteBatch(const RecordBatch& batch) {
   if (batch_writer_ == nullptr) {
-    return arrow::Future<>::MakeFinished(
-        arrow::Status::Invalid("This writer is not started. Call BeginAsync() with a schema"));
+    return arrow::Future<>::MakeFinished(arrow::Status::Invalid(
+        "This writer is not started. Call BeginAsync() with a schema"));
   }
   auto status = batch_writer_->WriteRecordBatch(batch);
   if (!status.ok()) {

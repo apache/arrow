@@ -79,8 +79,8 @@ class ARROW_FLIGHT_EXPORT FlightDataListenerTransport {
 /// \brief Sends application-specific metadata back to the client during an upload.
 ///
 /// The async counterpart of FlightMetadataWriter: the transport hands one to the
-/// AsyncFlightDataListener at the start of an upload (AsyncFlightDataListener::writer) and
-/// it stays valid for as long as the upload's RPC runs.  Every call sends one
+/// AsyncFlightDataListener at the start of an upload (AsyncFlightDataListener::writer)
+/// and it stays valid for as long as the upload's RPC runs.  Every call sends one
 /// PutResult message immediately, the client reads them with ReadMetadata() on
 /// its DoPutResult.
 class ARROW_FLIGHT_EXPORT AsyncFlightDataWriter {
@@ -100,7 +100,8 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataWriter {
   friend class internal::FlightDataListenerTransport;
 
   /// The transport's RPC state, set and cleared through
-  /// FlightDataListenerTransport::Install/Clear, like AsyncFlightDataListener::transport_.
+  /// FlightDataListenerTransport::Install/Clear, like
+  /// AsyncFlightDataListener::transport_.
   internal::FlightDataListenerTransport* transport_ = nullptr;
   /// Guards transport_, since WriteMetadata may be called from any thread while
   /// the transport installs or clears the pointer.
@@ -169,7 +170,8 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataListener : public ipc::Listener {
   std::atomic<bool> finished_{false};
 
   /// Never null: the listener may use it without waiting for OnDescriptor.
-  std::shared_ptr<AsyncFlightDataWriter> writer_ = std::make_shared<AsyncFlightDataWriter>();
+  std::shared_ptr<AsyncFlightDataWriter> writer_ =
+      std::make_shared<AsyncFlightDataWriter>();
 
   mutable std::mutex transport_mutex_;
   /// Not owned: the transport's own RPC state, valid until Clear().

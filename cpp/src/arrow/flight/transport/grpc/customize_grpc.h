@@ -106,8 +106,7 @@ namespace grpc {
 
 // Write FlightData to a grpc::ByteBuffer without extra copying
 ARROW_FLIGHT_EXPORT ::grpc::Status FlightDataSerialize(
-    const arrow::flight::FlightPayload& msg, ::grpc::ByteBuffer* out,
-    bool* own_buffer);
+    const arrow::flight::FlightPayload& msg, ::grpc::ByteBuffer* out, bool* own_buffer);
 
 // Read internal::FlightData from grpc::ByteBuffer containing FlightData
 // protobuf without copying

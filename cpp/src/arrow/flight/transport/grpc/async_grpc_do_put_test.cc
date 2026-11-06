@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-
 // DoPut over the async generic service: the push decoder feeding the per-RPC
 // listener, the acknowledgement that makes the client's Close() return, the
 // PutResult metadata channel, and every way an upload ends -- clean, rejected by

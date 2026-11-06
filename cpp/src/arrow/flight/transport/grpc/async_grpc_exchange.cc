@@ -45,7 +45,8 @@ void ExchangeReactor::OnReadDone(bool ok) {
   const ::grpc::Status deserialized = FlightDataDeserialize(&read_buf_, &read_data_);
   if (!deserialized.ok()) {
     if (!started_) {
-      FinishOnce(MakeFlightError(FlightStatusCode::Internal, deserialized.error_message()));
+      FinishOnce(
+          MakeFlightError(FlightStatusCode::Internal, deserialized.error_message()));
       return;
     }
     reader_->OnReadFailed(
@@ -55,16 +56,15 @@ void ExchangeReactor::OnReadDone(bool ok) {
   if (!started_) {
     started_ = true;
     if (read_data_.descriptor == nullptr) {
-      FinishOnce(
-          MakeFlightError(FlightStatusCode::Internal, "Descriptor missing on first message"));
+      FinishOnce(MakeFlightError(FlightStatusCode::Internal,
+                                 "Descriptor missing on first message"));
       return;
     }
     reader_->SetDescriptor(*read_data_.descriptor);
     // The first message may carry data,the reader consumes it on its first
     // NextAsync, so hand it over before the handler can ask.
     reader_->OfferFirstRead(std::move(read_data_));
-    arrow::Future<> exchange =
-        base_->DoExchangeAsync(flight_context(), reader_, writer_);
+    arrow::Future<> exchange = base_->DoExchangeAsync(flight_context(), reader_, writer_);
     exchange.AddCallback([this, token = hold()](const arrow::Status& status) {
       if (!finished()) {
         FinishOnce(status);
@@ -111,8 +111,7 @@ arrow::Status ExchangeReactor::WritePayload(FlightPayload payload) {
     return arrow::Status::Cancelled("the exchange is over");
   }
   bool own_buffer = false;
-  const ::grpc::Status serialize =
-      FlightDataSerialize(payload, &write_buf_, &own_buffer);
+  const ::grpc::Status serialize = FlightDataSerialize(payload, &write_buf_, &own_buffer);
   (void)own_buffer;
   if (!serialize.ok()) {
     return MakeFlightError(FlightStatusCode::Internal, serialize.error_message());
