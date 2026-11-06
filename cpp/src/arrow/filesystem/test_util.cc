@@ -811,7 +811,11 @@ void GenericFileSystemTest::TestGetFileInfoSelector(FileSystem* fs) {
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));
   AssertFileInfo(info, "AB", FileType::Directory, first_dir_time);
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB/CD/ghi"));
-  AssertFileInfo(info, "AB/CD/ghi", FileType::File, first_file_time, 15);
+  AssertFileInfo(info, "AB/CD/ghi", FileType::File, 15);
+  // A single-file call may return a less precise mtime than a selector call,
+  // so compare seconds (e.g. S3 Last-Modified header only has seconds)
+  ASSERT_EQ(std::chrono::floor<std::chrono::seconds>(info.mtime()),
+            std::chrono::floor<std::chrono::seconds>(first_file_time));
 
   // Doesn't exist
   s.base_dir = "XX";
