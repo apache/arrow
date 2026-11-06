@@ -19,7 +19,6 @@
 
 #include <algorithm>
 #include <array>
-#include <numeric>
 #include <ostream>
 #include <span>
 #include <string_view>
@@ -27,6 +26,7 @@
 
 #include "arrow/util/logging_internal.h"
 #include "parquet/exception.h"
+#include "parquet/level_comparison.h"
 #include "parquet/schema.h"
 
 namespace parquet {
@@ -160,17 +160,11 @@ void UpdateLevelHistogram(std::span<const int16_t> levels, std::span<int64_t> hi
 
   if (max_level == 1) {
     // Specialize the common case for non-repeated non-nested columns.
-    // Summing the levels gives us the number of 1s, and the number of 0s follows.
-    // We do repeated sums in the int16_t space, which the compiler is likely
-    // to vectorize efficiently.
-    constexpr int64_t kChunkSize = 1 << 14;  // to avoid int16_t overflows
-    int64_t hist1 = 0;
-    auto it = levels.begin();
-    while (it != levels.end()) {
-      const auto chunk_size = std::min<int64_t>(levels.end() - it, kChunkSize);
-      hist1 += std::accumulate(it, it + chunk_size, int16_t{0});
-      it += chunk_size;
-    }
+    // Counting the 1s directly gives us the number of 1s, and the number of 0s
+    // follows. CountIf16 accumulates in the int16_t space in chunks, which the
+    // compiler vectorizes efficiently and which cannot overflow.
+    const int64_t hist1 = internal::CountIf16(levels.data(), num_levels,
+                                              [](int16_t level) { return level == 1; });
     histogram[0] += num_levels - hist1;
     histogram[1] += hist1;
     return;
