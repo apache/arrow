@@ -19,9 +19,11 @@
 
 #include <memory>
 
-#include "arrow/flight/server_async.h"
+
 #include "arrow/flight/transport/grpc/async_grpc_compat.h"
 #include "arrow/flight/transport/grpc/grpc_server_internal.h"
+
+#include "arrow/flight/server_async.h"
 
 namespace arrow::flight::transport::grpc {
 
