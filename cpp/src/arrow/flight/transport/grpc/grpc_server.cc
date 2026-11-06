@@ -117,7 +117,11 @@ class GrpcServerAuthSender : public ServerAuthSender {
   ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream_;
 };
 
-using GrpcServerCallContext = transport::grpc::GrpcServerCallContext<ServerContext>;
+// Named SyncServerCallContext, not GrpcServerCallContext: this alias lives in an
+// anonymous namespace, so under a unity build it would shadow the
+// GrpcServerCallContext template of grpc_server_internal.h for the async
+// transport sources compiled into the same translation unit.
+using SyncServerCallContext = transport::grpc::GrpcServerCallContext<ServerContext>;
 using GrpcContextHelper = transport::grpc::GrpcServerCallContextHelper<ServerContext>;
 
 // A ServerDataStream for streaming data to the client.
@@ -228,7 +232,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status Handshake(
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.MakeCallContext(FlightMethod::Handshake, context, &flight_context));
     if (!helper_.auth_handler()) {
@@ -246,7 +250,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status ListFlights(ServerContext* context, const pb::Criteria* request,
                              ServerWriter<pb::FlightInfo>* writer) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::ListFlights, context, &flight_context));
     // Retrieve the listing from the implementation
@@ -269,7 +273,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status GetFlightInfo(ServerContext* context,
                                const pb::FlightDescriptor* request,
                                pb::FlightInfo* response) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::GetFlightInfo, context, &flight_context));
 
@@ -296,7 +300,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status PollFlightInfo(ServerContext* context,
                                 const pb::FlightDescriptor* request,
                                 pb::PollInfo* response) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::PollFlightInfo, context, &flight_context));
 
@@ -321,7 +325,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status GetSchema(ServerContext* context, const pb::FlightDescriptor* request,
                            pb::SchemaResult* response) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::GetSchema, context, &flight_context));
 
@@ -346,7 +350,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status DoGet(ServerContext* context, const pb::Ticket* request,
                        ServerWriter<pb::FlightData>* writer) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoGet, context, &flight_context));
     CHECK_ARG_NOT_NULL(flight_context, request, "ticket cannot be null");
@@ -362,7 +366,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status DoPut(
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoPut, context, &flight_context));
     PutDataStream stream(reader);
@@ -372,7 +376,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status DoExchange(
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoExchange, context, &flight_context));
     ExchangeDataStream data_stream(stream);
@@ -382,7 +386,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status ListActions(ServerContext* context, const pb::Empty* request,
                              ServerWriter<pb::ActionType>* writer) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::ListActions, context, &flight_context));
     // Retrieve the listing from the implementation
@@ -394,7 +398,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status DoAction(ServerContext* context, const pb::Action* request,
                           ServerWriter<pb::Result>* writer) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoAction, context, &flight_context));
     CHECK_ARG_NOT_NULL(flight_context, request, "Action cannot be null");
