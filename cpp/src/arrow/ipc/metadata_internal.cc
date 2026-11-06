@@ -1163,26 +1163,32 @@ Status MakeSparseTensorIndexCSF(FBB& fbb, const SparseCSFIndex& sparse_index,
   auto indices_type_offset = flatbuf::CreateInt(fbb, indices_value_type.bit_width(),
                                                 indices_value_type.is_signed());
 
-  const int64_t indptr_elem_size = indptr_value_type.byte_width();
-  const int64_t indices_elem_size = indices_value_type.byte_width();
-
-  int64_t offset = 0;
-  std::vector<flatbuf::Buffer> indptr, indices;
-
-  for (const std::shared_ptr<arrow::Tensor>& tensor : sparse_index.indptr()) {
-    const int64_t size = tensor->data()->size() / indptr_elem_size;
-    const int64_t padded_size = PaddedLength(tensor->data()->size(), kArrowIpcAlignment);
-
-    indptr.push_back({offset, size});
-    offset += padded_size;
-  }
-  for (const std::shared_ptr<arrow::Tensor>& tensor : sparse_index.indices()) {
-    const int64_t size = tensor->data()->size() / indices_elem_size;
-    const int64_t padded_size = PaddedLength(tensor->data()->size(), kArrowIpcAlignment);
-
-    indices.push_back({offset, size});
-    offset += padded_size;
-  }
+  size_t buffer_index = 0;
+  auto make_buffers =
+      [&](const std::vector<std::shared_ptr<Tensor>>& tensors,
+          const DataType& value_type) -> Result<std::vector<flatbuf::Buffer>> {
+    std::vector<flatbuf::Buffer> result;
+    result.reserve(tensors.size());
+    for (const auto& tensor : tensors) {
+      RETURN_NOT_OK(tensor->Validate());
+      if (tensor->ndim() != 1 || !tensor->is_contiguous() ||
+          !tensor->type()->Equals(value_type)) {
+        return Status::Invalid("CSF index buffers must be contiguous vectors of ",
+                               value_type.ToString());
+      }
+      // Backing buffers can contain trailing bytes. Describe only the logical
+      // elements, but use the serializer's offsets to account for those bytes.
+      ARROW_ASSIGN_OR_RAISE(const int64_t size, ::arrow::internal::ComputeTensorSize(
+                                                    tensor->shape(), tensor->strides(),
+                                                    value_type.byte_width()));
+      result.emplace_back(buffers[buffer_index++].offset, size);
+    }
+    return result;
+  };
+  ARROW_ASSIGN_OR_RAISE(auto indptr,
+                        make_buffers(sparse_index.indptr(), indptr_value_type));
+  ARROW_ASSIGN_OR_RAISE(auto indices,
+                        make_buffers(sparse_index.indices(), indices_value_type));
 
   auto fb_indices = fbb.CreateVectorOfStructs(indices);
   auto fb_indptr = fbb.CreateVectorOfStructs(indptr);
@@ -1521,19 +1527,39 @@ Status GetSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_ind
   RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indicesType(), indices_type));
 
   auto* fb_axis_order = sparse_index->axisOrder();
+  auto* fb_indptr_buffers = sparse_index->indptrBuffers();
   auto* fb_indices_buffers = sparse_index->indicesBuffers();
   // ValidateSparseCSFIndexMetadata already checks this, keep this check defensively.
-  if (fb_axis_order == nullptr || fb_indices_buffers == nullptr ||
-      fb_axis_order->size() != fb_indices_buffers->size()) {
+  if (fb_axis_order == nullptr || fb_indptr_buffers == nullptr ||
+      fb_indices_buffers == nullptr ||
+      fb_axis_order->size() != fb_indices_buffers->size() ||
+      fb_indptr_buffers->size() + 1 != fb_indices_buffers->size()) {
     return Status::Invalid(
-        "Inconsistent CSF sparse index: axisOrder and indicesBuffers have different "
-        "lengths");
+        "Inconsistent CSF sparse index: indptrBuffers, indicesBuffers and axisOrder "
+        "have different lengths");
   }
 
+  const int64_t indptr_byte_width = (*indptr_type)->byte_width();
+  for (flatbuffers::uoffset_t i = 0; i < fb_indptr_buffers->size(); ++i) {
+    const int64_t byte_length = fb_indptr_buffers->Get(i)->length();
+    if (byte_length < 0 || byte_length % indptr_byte_width != 0) {
+      return Status::Invalid(
+          "SparseCSFIndex indptr buffer size must be a non-negative multiple of "
+          "the index element size");
+    }
+  }
+
+  const int64_t indices_byte_width = (*indices_type)->byte_width();
   const int ndim = static_cast<int>(fb_axis_order->size());
   for (int i = 0; i < ndim; ++i) {
+    const int64_t byte_length = fb_indices_buffers->Get(i)->length();
+    if (byte_length < 0 || byte_length % indices_byte_width != 0) {
+      return Status::Invalid(
+          "SparseCSFIndex indices buffer size must be a non-negative multiple of "
+          "the index element size");
+    }
     axis_order->push_back(fb_axis_order->Get(i));
-    indices_size->push_back(fb_indices_buffers->Get(i)->length());
+    indices_size->push_back(byte_length / indices_byte_width);
   }
 
   return Status::OK();
