@@ -115,6 +115,12 @@ def test_table_from_arrays_protocols() -> None:
     check(assert_type(lib.Table.from_arrays([_PyArrowArrayProvider()], names=["a"]),
                       lib.Table),
           lib.Table)
+    check(assert_type(lib.Table.from_arrays([_ArrowArrayProvider()], names=["a"]),
+                      lib.Table),
+          lib.Table)
+    check(assert_type(lib.Table.from_arrays([_ArrowDeviceArrayProvider()], names=["a"]),
+                      lib.Table),
+          lib.Table)
 
 
 def test_table_from_arrays_numpy() -> None:
@@ -211,6 +217,7 @@ def test_record_batch_invalid_usage() -> None:
     arr = lib.array([1])
     chunked = lib.chunked_array([[{"a": 1}]])
     if TYPE_CHECKING_INVALID_USAGE:
+        # Tuples are failing at runtime. Recheck after the fix of GH-55418
         lib.RecordBatch.from_arrays((arr,), names=["a"])  # type: ignore[arg-type]
         lib.RecordBatch.from_struct_array(chunked)  # type: ignore[arg-type]
         lib.record_batch((arr,), names=["a"])  # type: ignore[arg-type]

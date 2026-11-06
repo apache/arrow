@@ -53,6 +53,7 @@ from pyarrow._stubs_typing import (
     SupportsArrowArray,
     SupportsArrowDeviceArray,
     SupportsArrowStream,
+    SupportsPyArrowArray,
 )
 from pyarrow.compute import Expression
 from pyarrow.interchange.dataframe import _PyArrowDataFrame
@@ -130,7 +131,12 @@ AggregateOptions: TypeAlias = (
 )
 
 ChunkedArrayConstructorInput: TypeAlias = (
-    Iterable[Array | Iterable[Any] | SupportsArrowStream | SupportsArrowArray]
+    Iterable[
+        Iterable[Any]
+        | SupportsArrowArray
+        | SupportsArrowDeviceArray
+        | SupportsPyArrowArray
+    ]
     | Array
     | SupportsArrowArray
     | SupportsArrowStream
@@ -339,6 +345,9 @@ class RecordBatch(_Tabular):
     def add_column(
         self, i: int, field_: str | Field, column: ArrayOrChunkedArray | list[Any]
     ) -> RecordBatch: ...
+    def append_column(
+        self, field_: str | Field, column: ArrayOrChunkedArray | list[Any]
+    ) -> RecordBatch: ...
     def remove_column(self, i: int) -> RecordBatch: ...
     def set_column(
         self, i: int, field_: str | Field, column: Array | list
@@ -457,9 +466,16 @@ class Table(_Tabular):
         columns: Iterable[str | int] | None = None,
         safe: bool = True,
     ) -> Table: ...
+    # When no schema, arrays should also support indexing
     @staticmethod
     def from_arrays(
-        arrays: Sequence[ArrayOrChunkedArray | Iterable[Any]],
+        arrays: Sequence[
+            Iterable[Any]
+            | SupportsArrowArray
+            | SupportsArrowDeviceArray
+            | SupportsPyArrowArray
+        ]
+        | NDArray[Any],
         names: Sequence[str] | None = None,
         schema: Schema | None = None,
         metadata: Mapping[bytes, bytes]
@@ -496,6 +512,11 @@ class Table(_Tabular):
     def add_column(
         self,
         i: int,
+        field_: str | Field,
+        column: ChunkedArray | ChunkedArrayConstructorInput,
+    ) -> Table: ...
+    def append_column(
+        self,
         field_: str | Field,
         column: ChunkedArray | ChunkedArrayConstructorInput,
     ) -> Table: ...
