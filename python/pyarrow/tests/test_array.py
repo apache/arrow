@@ -1808,12 +1808,6 @@ def test_cast_chunked_array_empty():
         assert result.equals(expected)
 
 
-def test_chunked_array_data_warns():
-    with pytest.warns(FutureWarning):
-        res = pa.chunked_array([[]]).data
-    assert isinstance(res, pa.ChunkedArray)
-
-
 @pytest.mark.numpy
 def test_cast_integers_unsafe():
     # We let NumPy do the unsafe casting.

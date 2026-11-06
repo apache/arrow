@@ -17,9 +17,7 @@
 
 
 from numbers import Integral
-import warnings
 
-from pyarrow.lib import Table
 import pyarrow._orc as _orc
 from pyarrow.fs import _resolve_filesystem_and_path
 
@@ -345,13 +343,6 @@ def write_table(table, where, *,
                 dictionary_key_size_threshold=0.0,
                 bloom_filter_columns=None,
                 bloom_filter_fpp=0.05):
-    if isinstance(where, Table):
-        warnings.warn(
-            "The order of the arguments has changed. Pass as "
-            "'write_table(table, where)' instead. The old order will raise "
-            "an error in the future.", FutureWarning, stacklevel=2
-        )
-        table, where = where, table
     with ORCWriter(
         where,
         file_version=file_version,

@@ -16,6 +16,8 @@
 # under the License.
 
 class TestStringViewArray < Test::Unit::TestCase
+  include Helper::Buildable
+
   def test_new
     short_string_data = "test"
     short_view_buffer_space = 12
@@ -36,5 +38,16 @@ class TestStringViewArray < Test::Unit::TestCase
       string_view_array.validate_full
     end
     assert_equal(short_string_data, string_view_array.get_value(0).to_s)
+  end
+
+  def test_value
+    # TODO: Implement Arrow::StringViewArrayBuilder and use it
+    data = "Hello" * 10
+    value =
+      build_string_array([data]).
+        cast(Arrow::StringViewDataType.new).
+        get_value(0)
+    GC.start
+    assert_equal(data, value.to_s)
   end
 end

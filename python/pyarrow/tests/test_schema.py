@@ -400,12 +400,8 @@ foo: list<item: int8>
 
     assert sch[0].name == 'foo'
     assert sch[0].type == fields[0].type
-    with pytest.warns(FutureWarning):
-        assert sch.field_by_name('bar') == fields[1]
-    with pytest.warns(FutureWarning):
-        assert sch.field_by_name('xxx') is None
-    with pytest.warns((UserWarning, FutureWarning)):
-        assert sch.field_by_name('foo') is None
+    assert not hasattr(sch, 'field_by_name')
+    assert not hasattr(sch, 'add_metadata')
 
     # Schema::GetFieldIndex
     assert sch.get_field_index('foo') == -1

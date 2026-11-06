@@ -4303,6 +4303,13 @@ def test_dictionary_from_pandas_specified_type():
     with pytest.raises(pa.ArrowInvalid):
         result = pa.array(cat, type=typ)
 
+    # mismatching values type that used to be ignored with a
+    # FutureWarning -> raise error
+    int_cat = pd.Categorical([1, 2, 1])
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.string())
+    with pytest.raises(TypeError):
+        pa.array(int_cat, type=typ)
+
     # mismatching order -> raise error
     typ = pa.dictionary(
         index_type=pa.int8(), value_type=pa.string(), ordered=True)

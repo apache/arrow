@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/gcs_visibility.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -37,7 +38,7 @@ struct GcsCredentialsHolder;
 class GcsFileSystem;
 
 /// \brief Container for GCS Credentials and information necessary to recreate them.
-class ARROW_EXPORT GcsCredentials {
+class ARROW_GCS_EXPORT GcsCredentials {
  public:
   bool Equals(const GcsCredentials& other) const;
   bool anonymous() const { return anonymous_; }
@@ -62,7 +63,7 @@ class ARROW_EXPORT GcsCredentials {
 };
 
 /// Options for the GcsFileSystem implementation.
-struct ARROW_EXPORT GcsOptions {
+struct ARROW_GCS_EXPORT GcsOptions {
   /// \brief Equivalent to GcsOptions::Defaults().
   GcsOptions();
   GcsCredentials credentials;
@@ -182,7 +183,7 @@ struct ARROW_EXPORT GcsOptions {
 ///   proportional to the number of objects in the prefix. Listing recursively takes
 ///   almost the same time as non-recursive lists.
 ///
-class ARROW_EXPORT GcsFileSystem : public FileSystem {
+class ARROW_GCS_EXPORT GcsFileSystem : public FileSystem {
  public:
   ~GcsFileSystem() override = default;
 

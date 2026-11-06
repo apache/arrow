@@ -136,7 +136,7 @@ Status ValidateEncodingPreset(const AlpEncodingPreset& preset) {
 Status ValidateVectorSize(int32_t vector_size) {
   constexpr int32_t kMin = 1 << AlpFormatConstants::kMinLogVectorSize;
   constexpr int32_t kMax = 1 << AlpFormatConstants::kMaxLogVectorSize;
-  if (vector_size <= 0 || !std::has_single_bit(static_cast<uint32_t>(vector_size))) {
+  if (vector_size <= 0 || !bit_util::HasSingleBit(static_cast<uint32_t>(vector_size))) {
     return Status::Invalid("ALP vector_size must be a positive power of 2, got ",
                            vector_size);
   }

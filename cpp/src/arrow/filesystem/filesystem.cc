@@ -28,9 +28,6 @@
 #ifdef ARROW_AZURE
 #  include "arrow/filesystem/azurefs.h"
 #endif
-#ifdef ARROW_GCS
-#  include "arrow/filesystem/gcsfs.h"
-#endif
 #ifdef ARROW_HDFS
 #  include "arrow/filesystem/hdfs.h"
 #endif
@@ -920,16 +917,6 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(
     return Status::NotImplemented(
         "Got Azure Blob File System URI but Arrow compiled without Azure Blob File "
         "System support");
-#endif
-  }
-  if (scheme == "gs" || scheme == "gcs") {
-#ifdef ARROW_GCS
-    ARROW_ASSIGN_OR_RAISE(auto options, GcsOptions::FromUri(uri, out_path));
-    return GcsFileSystem::Make(options, io_context);
-#else
-    return Status::NotImplemented(
-        "Got GCS URI but Arrow compiled "
-        "without GCS support");
 #endif
   }
   if (scheme == "hdfs" || scheme == "viewfs") {

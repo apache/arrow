@@ -17,6 +17,7 @@
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 #  define FIND_MIN_MAX_PLATFORM FindMinMaxAvx2
+#  define GREATER_THAN_BITMAP_PLATFORM GreaterThanBitmapAvx2
 #  define ARCH_PLATFORM xsimd::avx2
 #endif
 
@@ -33,7 +34,13 @@ MinMax FIND_MIN_MAX_PLATFORM(const int16_t* levels, int64_t num_levels) {
   return FindMinMaxSimd<ARCH_PLATFORM>(levels, num_levels);
 }
 
+uint64_t GREATER_THAN_BITMAP_PLATFORM(const int16_t* levels, int64_t num_levels,
+                                      int16_t rhs) {
+  return GreaterThanBitmapSimd<ARCH_PLATFORM>(levels, num_levels, rhs);
+}
+
 }  // namespace parquet::internal
 
 #undef ARCH_PLATFORM
+#undef GREATER_THAN_BITMAP_PLATFORM
 #undef FIND_MIN_MAX_PLATFORM

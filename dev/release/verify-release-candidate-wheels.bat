@@ -97,7 +97,7 @@ pip install -r %_CURRENT_DIR%\python\requirements-test.txt || EXIT /B 1
 
 set PYARROW_TEST_CYTHON=OFF
 set TZDIR=%CONDA_ENV_PATH%\share\zoneinfo
-pytest %CONDA_ENV_PATH%\Lib\site-packages\pyarrow --pdb -v || EXIT /B 1
+pytest --pyargs pyarrow --pdb -v || EXIT /B 1
 
 :done
 

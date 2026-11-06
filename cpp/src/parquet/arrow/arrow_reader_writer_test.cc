@@ -3262,6 +3262,47 @@ TEST(ArrowReadWrite, NestedRequiredField) {
                        /*row_group_size=*/8);
 }
 
+TEST(ArrowReadWrite, NestedRequiredFieldWithMaskedNulls) {
+  // A required child null is valid when its parent is null.
+  // Reuse the child's bitmap to construct this case explicitly.
+  auto type =
+      ::arrow::struct_({::arrow::field("inner", ::arrow::int32(), /*nullable=*/false)});
+  auto inner = ::arrow::ArrayFromJSON(::arrow::int32(), "[42, 42, null, 42]");
+  ASSERT_OK_AND_ASSIGN(auto array, ::arrow::StructArray::Make({inner}, type->fields(),
+                                                              inner->null_bitmap()));
+  ASSERT_EQ(array->null_count(), 1);
+  ASSERT_EQ(array->field(0)->null_count(), 1);
+
+  auto table = ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("outer", type, /*nullable=*/true)}), {array});
+  ASSERT_OK(table->ValidateFull());
+  CheckSimpleRoundtrip(table, /*row_group_size=*/4);
+
+  // Also test masked child nulls after null/empty lists in the same row group.
+  // Null/empty lists add definition levels without corresponding child values.
+  auto offsets = ::arrow::ArrayFromJSON(::arrow::int32(), "[null, 0, 0, 4]");
+  ASSERT_OK_AND_ASSIGN(auto list_array, ::arrow::ListArray::FromArrays(*offsets, *array));
+  auto list_type = list_array->type();
+  auto list_table = ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("outer", std::move(list_type))}),
+      {std::move(list_array)});
+  ASSERT_OK(list_table->ValidateFull());
+  CheckSimpleRoundtrip(list_table, /*row_group_size=*/3);
+
+  // Exposing the same child null under a valid parent must fail.
+  ASSERT_OK_AND_ASSIGN(auto unmasked,
+                       ::arrow::StructArray::Make({std::move(inner)}, type->fields()));
+  auto invalid_table = ::arrow::Table::Make(table->schema(), {std::move(unmasked)});
+  // Test partially null and all-null child arrays.
+  for (const auto& invalid_slice : {invalid_table, invalid_table->Slice(2, 1)}) {
+    ARROW_SCOPED_TRACE("num_rows = ", invalid_slice->num_rows());
+    auto sink = CreateOutputStream();
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("is declared non-nullable but contains nulls"),
+        WriteTable(*invalid_slice, ::arrow::default_memory_pool(), sink));
+  }
+}
+
 TEST(ArrowReadWrite, Decimal) {
   using ::arrow::field;
 
@@ -3410,6 +3451,49 @@ TEST(ArrowReadWrite, ListWithNoValues) {
   auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
   auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
   CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
+TEST(ArrowReadWrite, NestedDictionaryMultipleRowGroups) {
+  // GH-45087: reading several row groups at once yields one chunk per row group
+  // for a nested dictionary leaf, and the chunks have different dictionaries.
+  using ::arrow::field;
+
+  auto dict_type = ::arrow::dictionary(::arrow::int32(), ::arrow::utf8());
+  for (const auto& type : {list(dict_type), ::arrow::large_list(dict_type)}) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    auto array =
+        ::arrow::ArrayFromJSON(type, R"([["a"], ["b", "a"], ["c", "a"], ["b"]])");
+    auto table = ::arrow::Table::Make(::arrow::schema({field("root", type)}), {array});
+    auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+    CheckSimpleRoundtrip(table, /*row_group_size=*/2, props_store_schema);
+  }
+}
+
+TEST(ArrowReadWrite, NestedDictionaryDifferentDictionariesPerRowGroup) {
+  using ::arrow::field;
+
+  auto type = list(::arrow::dictionary(::arrow::int32(), ::arrow::utf8()));
+  // One input chunk per row group, each with its own dictionary.
+  auto chunk1 = ::arrow::ArrayFromJSON(type, R"([["a"], ["b", "a"]])");
+  auto chunk2 = ::arrow::ArrayFromJSON(type, R"([["c", "a"], ["b"]])");
+  auto schema = ::arrow::schema({field("root", type)});
+  auto input = Table::Make(
+      schema, {std::make_shared<::arrow::ChunkedArray>(ArrayVector{chunk1, chunk2})});
+
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  std::shared_ptr<Table> result;
+  ASSERT_NO_FATAL_FAILURE(DoSimpleRoundtrip(input, /*use_threads=*/false,
+                                            /*row_group_size=*/2, {}, &result,
+                                            props_store_schema));
+  ASSERT_OK(result->ValidateFull());
+  ::arrow::AssertSchemaEqual(*schema, *result->schema(), /*check_metadata=*/false);
+
+  // Compare the decoded strings, so the order of the merged dictionary does not matter.
+  auto expected = ::arrow::ChunkedArrayFromJSON(
+      list(::arrow::utf8()), {R"([["a"], ["b", "a"], ["c", "a"], ["b"]])"});
+  ASSERT_OK_AND_ASSIGN(auto decoded,
+                       ::arrow::compute::Cast(result->column(0), list(::arrow::utf8())));
+  ::arrow::AssertChunkedEqual(*expected, *decoded.chunked_array());
 }
 
 TEST(ArrowReadWrite, Map) {
@@ -3843,6 +3927,10 @@ TEST(TestArrowWrite, InvalidSchema) {
   CheckWritingNonNullableColumnWithNulls(
       ::arrow::field("a", ::arrow::utf8(), /*nullable=*/false),
       R"([{"a": "foo"}, {"a": null}])");
+  CheckWritingNonNullableColumnWithNulls(
+      ::arrow::field("a", ::arrow::list(::arrow::field("item", ::arrow::int32(),
+                                                       /*nullable=*/false))),
+      R"([{"a": null}, {"a": []}, {"a": [42, null]}])");
 }
 
 void DoNestedValidate(const std::shared_ptr<::arrow::DataType>& inner_type,

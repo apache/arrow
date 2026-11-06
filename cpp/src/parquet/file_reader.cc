@@ -115,7 +115,7 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {
 }
 
 std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(
-    int i, bool read_dictionary) {
+    int i, bool read_dictionary, bool allow_levels_optimization) {
   if (i >= metadata()->num_columns()) {
     std::stringstream ss;
     ss << "Trying to read column index " << i << " but row group metadata has only "
@@ -128,9 +128,14 @@ std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(
 
   internal::LevelInfo level_info = internal::LevelInfo::ComputeLevelInfo(descr);
 
-  auto reader = internal::RecordReader::Make(
-      descr, level_info, contents_->properties()->memory_pool(), read_dictionary,
-      contents_->properties()->read_dense_for_nullable());
+  auto reader = internal::RecordReader::Make({
+      .descr = descr,
+      .leaf_info = level_info,
+      .pool = contents_->properties()->memory_pool(),
+      .read_dictionary = read_dictionary,
+      .read_dense_for_nullable = contents_->properties()->read_dense_for_nullable(),
+      .allow_levels_optimization = allow_levels_optimization,
+  });
   reader->SetPageReader(std::move(page_reader));
   return reader;
 }

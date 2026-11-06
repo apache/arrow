@@ -2559,9 +2559,11 @@ void TestDeltaByteArrayEncodingDirectPut<FLBAType>::CheckRoundtrip() {
       rag.FixedSizeBinary(/*size=*/0, /*byte_width=*/kByteWidth);
   CheckDirectPut(values);
 
-  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-    values = rag.FixedSizeBinary(kSize + seed, kByteWidth);
-    CheckDirectPut(values);
+  for (double null_probability : {0.0, 0.25}) {
+    for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+      values = rag.FixedSizeBinary(kSize + seed, kByteWidth, null_probability);
+      CheckDirectPut(values);
+    }
   }
 }
 
@@ -2662,6 +2664,34 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([16, 13, 0, 11])");
     const std::string suffix_data = "καλημέρα\xbcηλιέρη\xbbημέρα";
     CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+  }
+}
+
+// A value with an empty suffix at the start of a Decode call must not point into the
+// decoder's last value, which that call overwrites.
+TEST(DeltaByteArrayEncodingAdHoc, FLBAEmptySuffixAtBatchStart) {
+  auto descr = ExampleDescr<FLBAType>();
+  const int type_length = descr->type_length();
+  const std::string a(static_cast<size_t>(type_length), 'a');
+  const std::string b(static_cast<size_t>(type_length), 'b');
+  // Values: a, a, a, b
+  auto buffer =
+      ::arrow::ConcatenateBuffers({DeltaEncode({0, type_length, type_length, 0}),
+                                   DeltaEncode({type_length, 0, 0, type_length}),
+                                   std::make_shared<Buffer>(a + b)})
+          .ValueOrDie();
+
+  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY, descr.get());
+  decoder->SetData(/*num_values=*/4, buffer->data(), static_cast<int>(buffer->size()));
+
+  std::vector<FLBA> out(2);
+  for (const auto& expected : {std::vector{a, a}, std::vector{a, b}}) {
+    ASSERT_EQ(2, decoder->Decode(out.data(), /*max_values=*/2));
+    for (int i = 0; i < 2; ++i) {
+      ASSERT_EQ(expected[i],
+                std::string(reinterpret_cast<const char*>(out[i].ptr), type_length))
+          << "value " << i;
+    }
   }
 }
 

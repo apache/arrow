@@ -179,6 +179,10 @@ TEST_F(TestArray, TestNullCount) {
                              true, true);
     CheckDictionaryNullCount(dict_type, "[null, true, null, false]", "[null, 1, 0, 2, 3]",
                              1, 3, true, true);
+
+    // null-typed dictionary, without a validity bitmap
+    CheckDictionaryNullCount(dictionary(index_type, null()), "[null]", "[0, null, 0]", 1,
+                             3, true, true);
   }
 }
 
@@ -1137,6 +1141,26 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
   ASSERT_OK(dst->ValidateFull());
 
   AssertArraysEqual(*src, *dst);
+}
+
+// GH-54924: ArraySpan::HasVariadicBuffers must look through extension types.
+TEST_F(TestArray, TestBinaryViewExtensionArraySpanRoundtrip) {
+  auto storage = ArrayFromJSON(
+      binary_view(),
+      R"([null, "short", "long string that is not inlined", "another somewhat long string"])");
+  auto extension_type = binary_view_extension_type();
+  auto extension_array = ExtensionType::WrapArray(extension_type, storage);
+  ASSERT_OK(extension_array->ValidateFull());
+
+  ArraySpan span(*extension_array->data());
+  ASSERT_TRUE(span.HasVariadicBuffers());
+  ASSERT_EQ(span.GetVariadicBuffers().size(), storage->data()->buffers.size() - 2);
+
+  auto roundtripped = span.ToArray();
+  ASSERT_OK(roundtripped->ValidateFull());
+  AssertArraysEqual(*extension_array, *roundtripped);
+  ASSERT_EQ(roundtripped->data()->buffers.size(),
+            extension_array->data()->buffers.size());
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {

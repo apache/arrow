@@ -1056,6 +1056,19 @@ class InputStreamMessageReader : public MessageReader, public MessageDecoderList
 
   Status OnMessageDecoded(std::unique_ptr<Message> message) override {
     message_ = std::move(message);
+    first_message_ = false;
+    return Status::OK();
+  }
+
+  Status OnMetadata() override {
+    // An IPC file starts with "ARROW1". Read as a stream, its first four bytes
+    // ("ARRO") decode as a metadata length of 0x4F525241.
+    constexpr int64_t kArrowMagicAsMetadataLength = 0x4F525241;
+    if (first_message_ && decoder_.next_required_size() == kArrowMagicAsMetadataLength) {
+      return Status::Invalid(
+          "This appears to be an Arrow IPC file. "
+          "Try the IPC file reader instead of the IPC stream reader.");
+    }
     return Status::OK();
   }
 
@@ -1068,6 +1081,7 @@ class InputStreamMessageReader : public MessageReader, public MessageDecoderList
   io::InputStream* stream_;
   std::shared_ptr<io::InputStream> owned_stream_;
   std::unique_ptr<Message> message_;
+  bool first_message_ = true;
   MessageDecoder decoder_;
 };
 

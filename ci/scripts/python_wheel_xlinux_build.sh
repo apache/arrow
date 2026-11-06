@@ -20,7 +20,16 @@
 set -ex
 
 function check_arrow_visibility {
-    nm --demangle --dynamic /tmp/arrow-dist/lib/libarrow.so > nm_arrow.log
+    local libs=(libarrow.so)
+    if [[ "${ARROW_S3}" == "ON" ]]; then
+        libs+=(libarrow_s3.so)
+    fi
+    if [[ "${ARROW_GCS}" == "ON" ]]; then
+        libs+=(libarrow_gcs.so)
+    fi
+    for lib in "${libs[@]}"; do
+        nm --demangle --dynamic "/tmp/arrow-dist/lib/${lib}"
+    done > nm_arrow.log
 
     # Filter out Arrow symbols and see if anything remains.
     # '_init' and '_fini' symbols may or not be present, we don't care.
@@ -37,7 +46,7 @@ function check_arrow_visibility {
     if [[ -f visible_symbols.log && ! -s visible_symbols.log ]]; then
         return 0
     else
-        echo "== Unexpected symbols exported by libarrow.so =="
+        echo "== Unexpected symbols exported by ${libs[*]} =="
         cat visible_symbols.log
         echo "================================================"
 
