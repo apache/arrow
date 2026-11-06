@@ -101,9 +101,9 @@ jobs:
       matrix:
         include:
           - architecture: AMD64
-            macos-version: "15-intel"
+            macos-version: "26-intel"
           - architecture: ARM64
-            macos-version: "14"
+            macos-version: "26"
     steps:
       - name: Check out repository
         uses: actions/checkout@v7

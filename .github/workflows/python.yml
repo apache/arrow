@@ -158,7 +158,7 @@ jobs:
             macos-version: "15-intel"
             large-memory-tests: "OFF"
           - architecture: ARM64
-            macos-version: "14"
+            macos-version: "26"
             large-memory-tests: "ON"
     env:
       ARROW_HOME: /tmp/local
