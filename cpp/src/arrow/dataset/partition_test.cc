@@ -553,6 +553,14 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
 
   partitioning_ = std::make_shared<HivePartitioning>(schema({field("x", large_utf8())}));
   AssertFormat(equal(field_ref("x"), literal("hello")), "x=hello");
+
+  // GH-34905: don't URI-encode values when segment_encoding is none
+  HivePartitioningOptions options;
+  options.segment_encoding = SegmentEncoding::None;
+  partitioning_ = std::make_shared<HivePartitioning>(schema({field("x", utf8())}),
+                                                     ArrayVector(), options);
+  written_schema_ = partitioning_->schema();
+  AssertFormat(equal(field_ref("x"), literal("a b&c=d")), "x=a b&c=d");
 }
 
 TEST_F(TestPartitioning, FilenamePartitioningFormat) {
@@ -942,6 +950,50 @@ TEST_F(TestPartitioning, WriteHiveWithSlashesInValues) {
 
   for (size_t i = 0; i < all_dirs.size(); i++) {
     ASSERT_EQ(all_dirs[i].full_path, encoded_paths[i]);
+  }
+}
+
+TEST_F(TestPartitioning, WriteHiveWithoutUriEncoding) {
+  // GH-34905: segment_encoding=none should write partition values verbatim
+  fs::TimePoint mock_now = std::chrono::system_clock::now();
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> filesystem,
+                       fs::internal::MockFileSystem::Make(mock_now, {}));
+  auto base_path = "";
+  ASSERT_OK(filesystem->CreateDir(base_path));
+  auto schema = arrow::schema(
+      {arrow::field("a", arrow::int64()), arrow::field("part", arrow::utf8())});
+  auto table = TableFromJSON(schema, {R"([
+    [0, "My Fancy Product"],
+    [1, "100% done"],
+    [2, "My Fancy Product"]
+  ])"});
+
+  auto dataset = std::make_shared<dataset::InMemoryDataset>(table);
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+
+  auto partition_schema = arrow::schema({arrow::field("part", arrow::utf8())});
+  HivePartitioningOptions options;
+  options.segment_encoding = SegmentEncoding::None;
+  auto partitioning = std::make_shared<dataset::HivePartitioning>(partition_schema,
+                                                                  ArrayVector(), options);
+  auto ipc_format = std::make_shared<dataset::IpcFileFormat>();
+  dataset::FileSystemDatasetWriteOptions write_options;
+  write_options.file_write_options = ipc_format->DefaultWriteOptions();
+  write_options.filesystem = filesystem;
+  write_options.base_dir = base_path;
+  write_options.partitioning = partitioning;
+  write_options.basename_template = "part{i}.arrow";
+  ASSERT_OK(dataset::FileSystemDataset::Write(write_options, scanner));
+
+  auto mockfs =
+      arrow::internal::checked_pointer_cast<fs::internal::MockFileSystem>(filesystem);
+  auto all_dirs = mockfs->AllDirs();
+
+  std::vector<std::string> expected_paths = {"part=100% done", "part=My Fancy Product"};
+  ASSERT_EQ(all_dirs.size(), expected_paths.size());
+  for (size_t i = 0; i < all_dirs.size(); i++) {
+    ASSERT_EQ(all_dirs[i].full_path, expected_paths[i]);
   }
 }
 

@@ -4324,6 +4324,28 @@ def test_write_dataset_with_field_names_hive(tempdir):
     assert load_back_table.equals(table)
 
 
+@pytest.mark.parametrize("segment_encoding,expected", [
+    ("uri", ["part=100%25%20done", "part=My%20Fancy%20Product"]),
+    ("none", ["part=100% done", "part=My Fancy Product"]),
+])
+def test_write_dataset_hive_segment_encoding(tempdir, segment_encoding, expected):
+    # GH-34905: segment_encoding controls how hive partition values are written
+    table = pa.table({'a': [1, 2], 'part': ["My Fancy Product", "100% done"]})
+    partitioning = ds.HivePartitioning(
+        pa.schema([("part", pa.string())]), segment_encoding=segment_encoding)
+
+    ds.write_dataset(table, tempdir, format='ipc', partitioning=partitioning)
+
+    load_back = ds.dataset(tempdir, format='ipc', partitioning=partitioning)
+    partitioning_dirs = {
+        str(pathlib.Path(f).relative_to(tempdir).parent) for f in load_back.files
+    }
+    assert partitioning_dirs == set(expected)
+
+    load_back_table = load_back.to_table()
+    assert load_back_table.sort_by('a').equals(table.sort_by('a'))
+
+
 def test_write_dataset_with_scanner(tempdir):
     table = pa.table({'a': ['x', 'y', None], 'b': ['x', 'y', 'z'],
                       'c': [1, 2, 3]})
