@@ -330,10 +330,10 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
         case SegmentEncoding::None: {
           // Without encoding, it's an error to write values that are not a valid path
           // segment. Backslashes are rejected on all platforms as they are a path
-          // separator on Windows. Windows also strips trailing "." and " " characters
-          // from path names, and this also covers the "." and ".." special names.
-          if (value.find_first_of("/\\") != std::string::npos ||
-              (!value.empty() && (value.back() == '.' || value.back() == ' '))) {
+          // separator on Windows. Other values that are only invalid on some
+          // platforms (eg. ending in "." on Windows) are not rejected.
+          if (value.find_first_of("/\\") != std::string::npos || value == "." ||
+              value == "..") {
             return Status::Invalid("Partition value for '", schema_->field(i)->name(),
                                    "' is not a valid path segment: '", value,
                                    "'. Use SegmentEncoding::Uri to write this value.");
