@@ -1822,6 +1822,239 @@ def test_fragments_parquet_row_groups_reconstruct(tempdir, dataset_reader,
         dataset_reader.to_table(new_fragment)
 
 
+class _ReadRecordingFile:
+    """A local binary file recording the (offset, length) of every read."""
+
+    def __init__(self, path, reads):
+        self._f = open(path, 'rb')
+        self._reads = reads
+
+    def read(self, nbytes=-1):
+        offset = self._f.tell()
+        data = self._f.read(nbytes)
+        self._reads.append((offset, len(data)))
+        return data
+
+    def seek(self, offset, whence=0):
+        return self._f.seek(offset, whence)
+
+    def tell(self):
+        return self._f.tell()
+
+    def close(self):
+        self._f.close()
+
+    @property
+    def closed(self):
+        return self._f.closed
+
+    def readable(self):
+        return True
+
+    def seekable(self):
+        return True
+
+
+class _ReadRecordingHandler(ProxyHandler):
+    """Local filesystem handler recording file opens and read ranges."""
+
+    def __init__(self):
+        super().__init__(fs.LocalFileSystem())
+        self.opens = []
+        self.reads = {}
+
+    def open_input_file(self, path):
+        self.opens.append(path)
+        return pa.PythonFile(
+            _ReadRecordingFile(path, self.reads.setdefault(path, [])), mode='r')
+
+    def reads_footer(self, path):
+        # The trailing 8 bytes (footer length and magic) are always read
+        # when the footer is parsed.
+        size = os.path.getsize(path)
+        return any(offset + length > size - 8
+                   for offset, length in self.reads.get(path, []))
+
+
+def _write_row_groups_file(path, num_row_groups=4):
+    # Row group i holds the values [2 * i, 2 * i + 1] in column 'f1'.
+    table = pa.table({'f1': list(range(2 * num_row_groups)),
+                      'f2': [str(i) for i in range(2 * num_row_groups)]})
+    pq.write_table(table, path, row_group_size=2)
+    return table
+
+
+@pytest.mark.parquet
+def test_make_fragment_with_metadata(tempdir):
+    path = str(tempdir / 'data.parquet')
+    table = _write_row_groups_file(path)
+    metadata = pq.read_metadata(path)
+    assert metadata.num_row_groups == 4
+
+    handler = _ReadRecordingHandler()
+    filesystem = fs.PyFileSystem(handler)
+    parquet_format = ds.ParquetFileFormat()
+
+    fragment = parquet_format.make_fragment(path, filesystem, metadata=metadata)
+    assert isinstance(fragment, ds.ParquetFileFragment)
+    # Construction and metadata access perform no I/O
+    assert fragment.row_groups == [0, 1, 2, 3]
+    assert fragment.num_row_groups == 4
+    assert fragment.metadata.equals(metadata)
+    assert fragment.physical_schema.equals(table.schema)
+    assert [rg.statistics['f1'] for rg in fragment.row_groups] == [
+        {'min': 2 * i, 'max': 2 * i + 1} for i in range(4)]
+    fragment.ensure_complete_metadata()
+    assert handler.opens == []
+
+    # Scanning reads the data, but not the footer again
+    assert fragment.to_table().equals(table)
+    assert handler.opens == [path]
+    assert handler.reads[path]
+    assert not handler.reads_footer(path)
+
+    # file_size can be combined with metadata
+    fragment = parquet_format.make_fragment(
+        path, filesystem, file_size=os.path.getsize(path), metadata=metadata)
+    assert fragment.to_table().equals(table)
+    assert not handler.reads_footer(path)
+
+    # Without metadata, the fragment reads the footer (unchanged behavior)
+    handler = _ReadRecordingHandler()
+    filesystem = fs.PyFileSystem(handler)
+    fragment = parquet_format.make_fragment(path, filesystem)
+    assert handler.opens == []
+    assert fragment.to_table().equals(table)
+    assert handler.reads_footer(path)
+    assert fragment.metadata.equals(metadata)
+
+
+@pytest.mark.parquet
+def test_make_fragment_with_metadata_row_groups(tempdir, dataset_reader):
+    path = str(tempdir / 'data.parquet')
+    table = _write_row_groups_file(path)
+    metadata = pq.read_metadata(path)
+
+    handler = _ReadRecordingHandler()
+    filesystem = fs.PyFileSystem(handler)
+    parquet_format = ds.ParquetFileFormat()
+
+    fragment = parquet_format.make_fragment(
+        path, filesystem, row_groups=[1, 3], metadata=metadata)
+    assert fragment.row_groups == [1, 3]
+    assert fragment.num_row_groups == 2
+    expected = pa.concat_tables([table.slice(2, 2), table.slice(6, 2)])
+    assert dataset_reader.to_table(fragment).equals(expected)
+
+    # Statistics are used to prune the selected row groups
+    result = dataset_reader.to_table(fragment, filter=ds.field('f1') >= 6)
+    assert result.equals(table.slice(6, 2))
+    sub_fragments = list(fragment.split_by_row_group(ds.field('f1') < 4))
+    assert [f.row_groups for f in sub_fragments] == [[1]]
+
+    # A filter matching no row group is answered from the metadata alone
+    handler.opens.clear()
+    result = dataset_reader.to_table(fragment, filter=ds.field('f1') < 2)
+    assert result.num_rows == 0
+    assert result.schema.equals(table.schema)
+    assert handler.opens == []
+    assert fragment.count_rows(filter=ds.field('f1') > 100) == 0
+    assert handler.opens == []
+
+    # All row groups, filters matching some of them
+    fragment = parquet_format.make_fragment(path, filesystem, metadata=metadata)
+    result = dataset_reader.to_table(fragment, filter=ds.field('f1') == 5)
+    assert result.equals(table.slice(5, 1))
+    result = dataset_reader.to_table(
+        fragment, filter=(ds.field('f1') > 1) & (ds.field('f1') < 6))
+    assert result.equals(table.slice(2, 4))
+    assert not handler.reads_footer(path)
+
+    # Fragments are usable in a dataset
+    dataset = ds.FileSystemDataset([fragment], table.schema, parquet_format,
+                                   filesystem)
+    assert dataset.to_table(filter=ds.field('f1') >= 4).equals(table.slice(4))
+
+
+@pytest.mark.parquet
+def test_make_fragment_with_metadata_invalid(tempdir):
+    path = str(tempdir / 'data.parquet')
+    _write_row_groups_file(path)
+    metadata = pq.read_metadata(path)
+    parquet_format = ds.ParquetFileFormat()
+    localfs = fs.LocalFileSystem()
+
+    with pytest.raises(TypeError):
+        parquet_format.make_fragment(path, localfs, metadata="not metadata")
+    with pytest.raises(TypeError):
+        parquet_format.make_fragment(path, localfs, metadata=metadata.schema)
+    with pytest.raises(TypeError):
+        # metadata is keyword-only
+        parquet_format.make_fragment(path, localfs, None, None, metadata)
+    with pytest.raises(IndexError, match="references row group 4"):
+        parquet_format.make_fragment(path, localfs, row_groups=[0, 4],
+                                     metadata=metadata)
+    with pytest.raises(IndexError, match="references row group -1"):
+        parquet_format.make_fragment(path, localfs, row_groups=[-1],
+                                     metadata=metadata)
+
+    # metadata=None keeps the existing behavior
+    fragment = parquet_format.make_fragment(path, localfs, metadata=None)
+    assert fragment.row_groups == [0, 1, 2, 3]
+
+
+@pytest.mark.parquet
+def test_make_fragment_with_metadata_from_metadata_file(tempdir):
+    # Write a _metadata file combining the row groups of several files, then
+    # build one fragment per file from a subset of it.
+    root = tempdir / 'dataset'
+    root.mkdir()
+    metadata_collector = []
+    tables = []
+    for i in range(3):
+        table = pa.table({'f1': list(range(10 * i, 10 * i + 6)),
+                          'f2': [float(i)] * 6})
+        relative_path = f'part-{i}.parquet'
+        pq.write_table(table, str(root / relative_path), row_group_size=2,
+                       metadata_collector=metadata_collector)
+        metadata_collector[-1].set_file_path(relative_path)
+        tables.append(table)
+    metadata_path = str(root / '_metadata')
+    pq.write_metadata(tables[0].schema, metadata_path,
+                      metadata_collector=metadata_collector)
+    expected = pa.concat_tables(tables)
+
+    combined = pq.read_metadata(metadata_path)
+    assert combined.num_row_groups == 9
+    row_groups_per_file = {}
+    for i in range(combined.num_row_groups):
+        file_path = combined.row_group(i).column(0).file_path
+        row_groups_per_file.setdefault(file_path, []).append(i)
+
+    handler = _ReadRecordingHandler()
+    filesystem = fs.PyFileSystem(handler)
+    parquet_format = ds.ParquetFileFormat()
+    fragments = []
+    for file_path, row_groups in row_groups_per_file.items():
+        file_metadata = combined.subset(row_groups)
+        assert file_metadata.num_row_groups == len(row_groups)
+        fragments.append(parquet_format.make_fragment(
+            str(root / file_path), filesystem, metadata=file_metadata))
+    del combined, file_metadata
+    assert handler.opens == []
+
+    dataset = ds.FileSystemDataset(fragments, expected.schema, parquet_format,
+                                   filesystem)
+    assert dataset.to_table().equals(expected)
+    reference = ds.parquet_dataset(metadata_path)
+    assert dataset.to_table().equals(reference.to_table())
+    for expr in [ds.field('f1') == 13, ds.field('f1') >= 22,
+                 ds.field('f2') == 1.0, ds.field('f1') > 100]:
+        assert dataset.to_table(filter=expr).equals(
+            reference.to_table(filter=expr))
+    assert not any(handler.reads_footer(path) for path in handler.reads)
+
+
 @pytest.mark.parquet
 def test_fragments_parquet_subset_ids(tempdir, open_logging_fs,
                                       dataset_reader):

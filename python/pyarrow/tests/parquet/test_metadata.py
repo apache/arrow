@@ -754,6 +754,54 @@ def test_metadata_append_row_groups_diff(t1, t2, expected_error):
         meta1.append_row_groups(meta2)
 
 
+def test_metadata_subset(tempdir, pickle_module):
+    # Row group i holds the values [3 * i, 3 * i + 2] in column 'a'.
+    table = pa.table({'a': list(range(15)),
+                      'b': [str(i) for i in range(15)]})
+    buf = io.BytesIO()
+    pq.write_table(table, buf, row_group_size=3)
+    metadata = pq.ParquetFile(io.BytesIO(buf.getvalue())).metadata
+    assert metadata.num_row_groups == 5
+
+    subset = metadata.subset([3, 1])
+    assert subset.num_row_groups == 2
+    assert subset.num_rows == 6
+    assert subset.num_columns == metadata.num_columns
+    assert subset.schema.equals(metadata.schema)
+    assert subset.created_by == metadata.created_by
+    assert subset.metadata == metadata.metadata
+    # Row groups are renumbered in the order given, with their statistics
+    assert subset.row_group(0).equals(metadata.row_group(3))
+    assert subset.row_group(1).equals(metadata.row_group(1))
+    stats = subset.row_group(0).column(0).statistics
+    assert (stats.min, stats.max) == (9, 11)
+
+    assert metadata.subset(range(5)).equals(metadata)
+    assert metadata.subset([]).num_row_groups == 0
+    assert metadata.num_row_groups == 5
+
+    # Serialization
+    assert pickle_module.loads(pickle_module.dumps(subset)).equals(subset)
+    path = str(tempdir / '_metadata')
+    subset.write_metadata_file(path)
+    assert pq.read_metadata(path).equals(subset)
+
+    # The subset owns its schema and row groups
+    del metadata
+    assert subset.schema.to_arrow_schema().equals(table.schema)
+    assert subset.row_group(1).column(0).statistics.min == 3
+
+    # Invalid indices
+    metadata = subset
+    for indices in ([2], [0, -1], [2 ** 31 - 1]):
+        with pytest.raises(IndexError, match="out of bounds"):
+            metadata.subset(indices)
+    with pytest.raises(TypeError):
+        metadata.subset(['a'])
+    with pytest.raises(TypeError):
+        metadata.subset(0)
+
+
 @pytest.mark.s3
 def test_write_metadata_fs_file_combinations(tempdir, s3_example_s3fs):
     s3_fs, s3_path = s3_example_s3fs
