@@ -78,6 +78,84 @@ A :class:`DataType` can be created by consuming the schema-compatible object
 using :func:`pyarrow.field` and then accessing the ``.type`` of the resulting
 Field.
 
+The PyCapsule Interface has been adopted by a number of libraries in the Python
+ecosystem. The following table provides an overview of the current implementation
+status (see `the tracking issue <https://github.com/apache/arrow/issues/39195>`__
+for the latest updates). In the status column, ✓ means implemented and ✗ means
+not yet implemented.
+
+.. list-table:: PyCapsule Interface Implementation Status
+   :header-rows: 1
+
+   * - Library
+     - Status
+   * - `altair <https://github.com/vega/altair/issues/3568>`__
+     - ✗
+   * - `arro3 <https://kylebarron.dev/arro3/>`__
+     - ✓
+   * - `cuDF <https://github.com/rapidsai/cudf/pull/18402>`__
+     - ✓
+   * - `daft <https://github.com/Eventual-Inc/Daft/pull/6745>`__
+     - ✓
+   * - `DataFusion <https://github.com/apache/datafusion-python/pull/825>`__
+     - ✓
+   * - `DuckDB <https://github.com/duckdb/duckdb/pull/13386>`__
+     - ✓
+   * - `fastexcel <https://github.com/ToucanToco/fastexcel/pull/361>`__
+     - ✓
+   * - `GDAL/OGR <https://github.com/OSGeo/gdal/pull/9133>`__
+     - ✓
+   * - `GeoPandas <https://github.com/geopandas/geopandas/pull/3219>`__
+     - ✓
+   * - `h3ronpy <https://github.com/nmandery/h3ronpy/pull/64>`__
+     - ✓
+   * - `ibis <https://github.com/ibis-project/ibis/pull/9143>`__
+     - ✓
+   * - `iceberg-python <https://github.com/apache/iceberg-python/issues/1655>`__
+     - ✗
+   * - `jupyter-scatter <https://github.com/flekschas/jupyter-scatter/pull/236>`__
+     - ✓
+   * - `lance <https://github.com/lancedb/lance/issues/2630>`__
+     - ✗
+   * - `LightGBM <https://github.com/microsoft/LightGBM/issues/6204#issuecomment-2256015538>`__
+     - ✗
+   * - `lonboard <https://github.com/developmentseed/lonboard>`__
+     - ✓
+   * - `minarrow <https://github.com/SpaceCell/minarrow>`__
+     - ✓
+   * - `nanoarrow <https://arrow.apache.org/nanoarrow/>`__
+     - ✓
+   * - `narwhals <https://github.com/narwhals-dev/narwhals/pull/786>`__
+     - ✓
+   * - `pandas <https://github.com/pandas-dev/pandas/pull/56587>`__
+     - ✓
+   * - `pantab <https://github.com/innobi/pantab>`__
+     - ✓
+   * - `Pillow <https://github.com/python-pillow/Pillow/pull/8330>`__
+     - ✓
+   * - `Polars <https://github.com/pola-rs/polars/pull/17676>`__
+     - ✓
+   * - `PyArrow <https://github.com/apache/arrow/pull/37797>`__
+     - ✓
+   * - `pyfru <https://github.com/kpiwonski/fru-arrow>`__
+     - ✓
+   * - `pyogrio <https://pyogrio.readthedocs.io/>`__
+     - ✓
+   * - `PySpark <https://github.com/apache/spark/pull/53391>`__
+     - ✓
+   * - `quak <https://github.com/manzt/quak/pull/23>`__
+     - ✓
+   * - `seaborn <https://github.com/mwaskom/seaborn/issues/3756>`__
+     - ✗
+   * - `streamlit <https://github.com/streamlit/streamlit/issues/13242>`__
+     - ✓
+   * - `VegaFusion <https://github.com/vega/vegafusion/pull/517>`__
+     - ✓
+   * - `vortex <https://github.com/vortex-data/vortex/pull/4161>`__
+     - ✓
+   * - `xarray <https://github.com/pydata/xarray/pull/11338>`__
+     - ✓
+
 .. _arrow_array_protocol:
 
 Controlling conversion to ``pyarrow.Array`` with the ``__arrow_array__`` protocol
