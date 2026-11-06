@@ -1302,6 +1302,10 @@ TEST(TestBinaryViewCompareKernel, Sliced) {
                     ArrayFromJSON(boolean(), "[false, null]"));
   CheckScalarBinary("equal", view_arr->Slice(1, 2), str_arr->Slice(1, 2),
                     ArrayFromJSON(boolean(), "[false, null]"));
+  CheckScalarBinary("equal", str_arr->Slice(0, 2), view_arr->Slice(1, 2),
+                    ArrayFromJSON(boolean(), "[false, false]"));
+  CheckScalarBinary("equal", view_arr->Slice(1, 2), str_arr->Slice(0, 2),
+                    ArrayFromJSON(boolean(), "[false, false]"));
 }
 
 TEST(TestBinaryViewCompareKernel, Dictionary) {

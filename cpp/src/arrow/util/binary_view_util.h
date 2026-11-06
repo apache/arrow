@@ -98,6 +98,10 @@ bool EqualBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type r,
                 l.size() - BinaryViewType::kPrefixSize) == 0;
 }
 
+/// \brief Compare a BinaryView value with contiguous string data.
+///
+/// Performs prefix-accelerated early rejection by checking string length and the
+/// 4-byte inline prefix before dereferencing variadic buffers.
 template <typename BufferPtr>
 bool EqualBinaryViewString(BinaryViewType::c_type v, const uint8_t* str_data,
                            int64_t str_len, const BufferPtr* v_buffers) {
@@ -121,7 +125,9 @@ bool EqualBinaryViewString(BinaryViewType::c_type v, const uint8_t* str_data,
   }
 
   const uint8_t* v_payload = v_buffers[v.ref.buffer_index]->data() + v.ref.offset;
-  return memcmp(v_payload, str_data, v.size()) == 0;
+  return memcmp(v_payload + BinaryViewType::kPrefixSize,
+                str_data + BinaryViewType::kPrefixSize,
+                v.size() - BinaryViewType::kPrefixSize) == 0;
 }
 
 template <typename BufferPtr>

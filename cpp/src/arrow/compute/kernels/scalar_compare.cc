@@ -381,6 +381,58 @@ struct VarArgsCompareFunction : ScalarFunction {
   }
 };
 
+// Shared equality comparison between a BinaryView array and any BaseBinaryScalar.
+// Pins scalar length and 4-byte prefix in registers for early rejection before
+// dereferencing view variadic buffers.
+template <typename Op>
+Status ViewArrayCompareBinaryScalarEqual(KernelContext* ctx, const ArraySpan& arg0,
+                                         const Scalar& arg1, ExecResult* out) {
+  constexpr bool kIsEqual = std::is_same_v<Op, Equal>;
+  if (!arg1.is_valid) {
+    return applicator::OutputAdapter<BooleanType>::Write(ctx, out->array_span_mutable(),
+                                                         []() -> bool { return false; });
+  }
+  const auto* views0 = arg0.GetValues<BinaryViewType::c_type>(1);
+  const auto* buffers0 = arg0.GetVariadicBuffers().data();
+  const auto& scalar = checked_cast<const BaseBinaryScalar&>(arg1);
+  std::string_view s = scalar.view();
+  BinaryViewType::c_type s_val = util::ToBinaryView(s, 0, 0);
+  const uint8_t* s_data = reinterpret_cast<const uint8_t*>(s.data());
+  int32_t s_len = s_val.size();
+
+  int64_t s_sp;
+  memcpy(&s_sp, &s_val, sizeof(int64_t));
+  bool s_inline = s_val.is_inline();
+  int64_t s_inlined = 0;
+  if (s_inline) {
+    memcpy(&s_inlined, s_val.inline_data() + BinaryViewType::kPrefixSize,
+           sizeof(int64_t));
+  }
+
+  int64_t i = 0;
+  return applicator::OutputAdapter<BooleanType>::Write(
+      ctx, out->array_span_mutable(), [&]() -> bool {
+        const auto& v = views0[i++];
+        int64_t v_sp;
+        memcpy(&v_sp, &v, sizeof(int64_t));
+        if (v_sp != s_sp) {
+          return !kIsEqual;
+        }
+        if (s_inline) {
+          int64_t v_inlined;
+          memcpy(&v_inlined, v.inline_data() + BinaryViewType::kPrefixSize,
+                 sizeof(int64_t));
+          bool eq = (v_inlined == s_inlined);
+          return kIsEqual ? eq : !eq;
+        }
+        const uint8_t* v_data = buffers0[v.ref.buffer_index]->data() + v.ref.offset;
+        bool eq = (memcmp(v_data + BinaryViewType::kPrefixSize,
+                          s_data + BinaryViewType::kPrefixSize,
+                          s_len - BinaryViewType::kPrefixSize) == 0);
+        return kIsEqual ? eq : !eq;
+      });
+}
+
 template <typename Op>
 struct ViewCompareViewEqual {
   static constexpr bool kIsEqual = std::is_same_v<Op, Equal>;
@@ -403,47 +455,7 @@ struct ViewCompareViewEqual {
 
   static Status ArrayScalar(KernelContext* ctx, const ArraySpan& arg0, const Scalar& arg1,
                             ExecResult* out) {
-    if (!arg1.is_valid) {
-      return applicator::OutputAdapter<BooleanType>::Write(
-          ctx, out->array_span_mutable(), []() -> bool { return false; });
-    }
-    const auto* views0 = arg0.GetValues<BinaryViewType::c_type>(1);
-    const auto* buffers0 = arg0.GetVariadicBuffers().data();
-    const auto& scalar = checked_cast<const BaseBinaryScalar&>(arg1);
-    std::string_view s = scalar.view();
-    BinaryViewType::c_type s_val = util::ToBinaryView(s, 0, 0);
-    const uint8_t* s_data = reinterpret_cast<const uint8_t*>(s.data());
-    int32_t s_len = s_val.size();
-
-    int64_t s_sp;
-    memcpy(&s_sp, &s_val, sizeof(int64_t));
-    bool s_inline = s_val.is_inline();
-    int64_t s_inlined = 0;
-    if (s_inline) {
-      memcpy(&s_inlined, s_val.inline_data() + BinaryViewType::kPrefixSize,
-             sizeof(int64_t));
-    }
-
-    int64_t i = 0;
-    return applicator::OutputAdapter<BooleanType>::Write(
-        ctx, out->array_span_mutable(), [&]() -> bool {
-          const auto& v = views0[i++];
-          int64_t v_sp;
-          memcpy(&v_sp, &v, sizeof(int64_t));
-          if (v_sp != s_sp) {
-            return kIsEqual ? false : true;
-          }
-          if (s_inline) {
-            int64_t v_inlined;
-            memcpy(&v_inlined, v.inline_data() + BinaryViewType::kPrefixSize,
-                   sizeof(int64_t));
-            bool eq = (v_inlined == s_inlined);
-            return kIsEqual ? eq : !eq;
-          }
-          const uint8_t* v_data = buffers0[v.ref.buffer_index]->data() + v.ref.offset;
-          bool eq = (memcmp(v_data, s_data, s_len) == 0);
-          return kIsEqual ? eq : !eq;
-        });
+    return ViewArrayCompareBinaryScalarEqual<Op>(ctx, arg0, arg1, out);
   }
 
   static Status ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArraySpan& arg1,
@@ -481,15 +493,13 @@ struct ViewCompareStringEqual {
     const auto* offsets =
         reinterpret_cast<const offset_type*>(arg1.buffers[1].data) + arg1.offset;
     const uint8_t* str_base = arg1.buffers[2].data;
-    offset_type cur_offset = offsets[0];
     int64_t i = 0;
 
     return applicator::OutputAdapter<BooleanType>::Write(
         ctx, out->array_span_mutable(), [&]() -> bool {
-          offset_type next_offset = offsets[i + 1];
-          offset_type str_len = next_offset - cur_offset;
-          const uint8_t* str_data = str_base + cur_offset;
-          cur_offset = next_offset;
+          offset_type offset = offsets[i];
+          offset_type str_len = offsets[i + 1] - offset;
+          const uint8_t* str_data = str_base + offset;
 
           bool eq = util::EqualBinaryViewString(views[i], str_data, str_len, v_buffers);
           ++i;
@@ -499,47 +509,7 @@ struct ViewCompareStringEqual {
 
   static Status ArrayScalar(KernelContext* ctx, const ArraySpan& arg0, const Scalar& arg1,
                             ExecResult* out) {
-    if (!arg1.is_valid) {
-      return applicator::OutputAdapter<BooleanType>::Write(
-          ctx, out->array_span_mutable(), []() -> bool { return false; });
-    }
-    const auto* views = arg0.GetValues<BinaryViewType::c_type>(1);
-    const auto* v_buffers = arg0.GetVariadicBuffers().data();
-    const auto& scalar = checked_cast<const BaseBinaryScalar&>(arg1);
-    std::string_view s = scalar.view();
-    BinaryViewType::c_type s_val = util::ToBinaryView(s, 0, 0);
-    const uint8_t* s_data = reinterpret_cast<const uint8_t*>(s.data());
-    int32_t s_len = s_val.size();
-
-    int64_t s_sp;
-    memcpy(&s_sp, &s_val, sizeof(int64_t));
-    bool s_inline = s_val.is_inline();
-    int64_t s_inlined = 0;
-    if (s_inline) {
-      memcpy(&s_inlined, s_val.inline_data() + BinaryViewType::kPrefixSize,
-             sizeof(int64_t));
-    }
-
-    int64_t i = 0;
-    return applicator::OutputAdapter<BooleanType>::Write(
-        ctx, out->array_span_mutable(), [&]() -> bool {
-          const auto& v = views[i++];
-          int64_t v_sp;
-          memcpy(&v_sp, &v, sizeof(int64_t));
-          if (v_sp != s_sp) {
-            return kIsEqual ? false : true;
-          }
-          if (s_inline) {
-            int64_t v_inlined;
-            memcpy(&v_inlined, v.inline_data() + BinaryViewType::kPrefixSize,
-                   sizeof(int64_t));
-            bool eq = (v_inlined == s_inlined);
-            return kIsEqual ? eq : !eq;
-          }
-          const uint8_t* v_payload = v_buffers[v.ref.buffer_index]->data() + v.ref.offset;
-          bool eq = (memcmp(v_payload, s_data, s_len) == 0);
-          return kIsEqual ? eq : !eq;
-        });
+    return ViewArrayCompareBinaryScalarEqual<Op>(ctx, arg0, arg1, out);
   }
 
   static Status ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArraySpan& arg1,
@@ -561,19 +531,17 @@ struct ViewCompareStringEqual {
     const auto* offsets =
         reinterpret_cast<const offset_type*>(arg1.buffers[1].data) + arg1.offset;
     const uint8_t* str_base = arg1.buffers[2].data;
-    offset_type cur_offset = offsets[0];
     int64_t i = 0;
 
     return applicator::OutputAdapter<BooleanType>::Write(
         ctx, out->array_span_mutable(), [&]() -> bool {
-          offset_type next_offset = offsets[i + 1];
-          offset_type str_len = next_offset - cur_offset;
-          const uint8_t* str_data = str_base + cur_offset;
-          cur_offset = next_offset;
+          offset_type offset = offsets[i];
+          offset_type str_len = offsets[i + 1] - offset;
+          const uint8_t* str_data = str_base + offset;
           ++i;
 
-          if (str_len != s_len) return kIsEqual ? false : true;
-          if (s_len == 0) return kIsEqual ? true : false;
+          if (str_len != s_len) return !kIsEqual;
+          if (s_len == 0) return kIsEqual;
 
           if (s_len < BinaryViewType::kPrefixSize) {
             bool eq = (memcmp(s_data, str_data, s_len) == 0);
@@ -582,9 +550,11 @@ struct ViewCompareStringEqual {
 
           uint32_t str_prefix;
           memcpy(&str_prefix, str_data, sizeof(uint32_t));
-          if (str_prefix != s_prefix) return kIsEqual ? false : true;
+          if (str_prefix != s_prefix) return !kIsEqual;
 
-          bool eq = (memcmp(s_data, str_data, s_len) == 0);
+          bool eq = (memcmp(s_data + BinaryViewType::kPrefixSize,
+                            str_data + BinaryViewType::kPrefixSize,
+                            s_len - BinaryViewType::kPrefixSize) == 0);
           return kIsEqual ? eq : !eq;
         });
   }
