@@ -324,6 +324,9 @@ cdef class Action(_Weakrefable):
             CAction.Deserialize(tobytes(serialized)))
         return action
 
+    def __reduce__(self):
+        return Action.deserialize, (self.serialize(),)
+
     def __eq__(self, Action other):
         return self.action == other.action
 
@@ -391,6 +394,9 @@ cdef class Result(_Weakrefable):
             CFlightResult.Deserialize(tobytes(serialized)))))
         return result
 
+    def __reduce__(self):
+        return Result.deserialize, (self.serialize(),)
+
     def __eq__(self, Result other):
         return deref(self.result.get()) == deref(other.result.get())
 
@@ -436,6 +442,9 @@ cdef class BasicAuth(_Weakrefable):
 
     def serialize(self):
         return GetResultValue(self.basic_auth.get().SerializeToString())
+
+    def __reduce__(self):
+        return BasicAuth.deserialize, (self.serialize(),)
 
     def __eq__(self, BasicAuth other):
         return deref(self.basic_auth.get()) == deref(other.basic_auth.get())
@@ -596,6 +605,9 @@ cdef class FlightDescriptor(_Weakrefable):
             CFlightDescriptor.Deserialize(tobytes(serialized)))
         return descriptor
 
+    def __reduce__(self):
+        return FlightDescriptor.deserialize, (self.serialize(),)
+
     def __eq__(self, FlightDescriptor other):
         return self.descriptor == other.descriptor
 
@@ -635,6 +647,9 @@ cdef class Ticket(_Weakrefable):
             CTicket.Deserialize(tobytes(serialized)))
         return ticket
 
+    def __reduce__(self):
+        return Ticket.deserialize, (self.serialize(),)
+
     def __eq__(self, Ticket other):
         return self.c_ticket == other.c_ticket
 
@@ -664,6 +679,10 @@ cdef class Location(_Weakrefable):
         if not isinstance(other, Location):
             return NotImplemented
         return self.location.Equals((<Location> other).location)
+
+    def __reduce__(self):
+        # Location has no protobuf serialize helper; URI is sufficient.
+        return Location, (self.uri,)
 
     @staticmethod
     def for_grpc_tcp(host, port):
@@ -829,6 +848,9 @@ cdef class FlightEndpoint(_Weakrefable):
             CFlightEndpoint.Deserialize(tobytes(serialized)))
         return endpoint
 
+    def __reduce__(self):
+        return FlightEndpoint.deserialize, (self.serialize(),)
+
     def __repr__(self):
         return (f"<pyarrow.flight.FlightEndpoint ticket={self.ticket!r} "
                 f"locations={self.locations!r} "
@@ -887,6 +909,9 @@ cdef class SchemaResult(_Weakrefable):
         result.result.reset(new CSchemaResult(GetResultValue(
             CSchemaResult.Deserialize(tobytes(serialized)))))
         return result
+
+    def __reduce__(self):
+        return SchemaResult.deserialize, (self.serialize(),)
 
     def __eq__(self, SchemaResult other):
         return deref(self.result.get()) == deref(other.result.get())
@@ -1031,6 +1056,9 @@ cdef class FlightInfo(_Weakrefable):
         info.info = move(GetResultValue(
             CFlightInfo.Deserialize(tobytes(serialized))))
         return info
+
+    def __reduce__(self):
+        return FlightInfo.deserialize, (self.serialize(),)
 
     def __eq__(self, FlightInfo other):
         return deref(self.info.get()) == deref(other.info.get())
