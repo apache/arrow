@@ -37,6 +37,7 @@ namespace arrow::flight::internal {
 
 class ServerDataStream;
 class PeekableFlightDataReader;
+class ServerTransport;
 
 /// \brief Adapt TransportDataStream to the FlightMessageReader
 ///   interface for DoPut.
@@ -300,6 +301,41 @@ class ARROW_FLIGHT_EXPORT ServerSignalState {
   std::atomic<int> got_signal_{0};
   std::function<Status()> shutdown_;
   const char* shutdown_warning_ = nullptr;
+};
+
+/// \brief The server lifecycle shared by FlightServerBase and
+/// AsyncGenericFlightServerBase.
+///
+/// Owns the server's transport and signal state and implements Init(), the
+/// signal-aware Serve()/Shutdown()/Wait() trio and the location accessors, so
+/// both server classes have one implementation of them.
+class ServerLifecycle {
+ public:
+  /// \param[in] server_name names the server class. Used in error logs.
+  explicit ServerLifecycle(const char* server_name);
+  ~ServerLifecycle();
+
+  /// \brief Take ownership of \p transport and initialize it.
+  ///
+  /// \param[in] options the server options the transport is initialized with.
+  /// \param[in] transport the transport serving the server, created by the
+  /// server class (the sync and async servers come from different registry
+  /// factories).
+  Status Init(const FlightServerOptions& options,
+              std::unique_ptr<ServerTransport> transport);
+
+  int port() const;
+  Location location() const;
+  Status SetShutdownOnSignals(const std::vector<int>& signals);
+  Status Serve();
+  int GotSignal() const;
+  Status Shutdown(const std::chrono::system_clock::time_point* deadline);
+  Status Wait();
+
+ private:
+  const char* server_name_;
+  std::unique_ptr<ServerTransport> transport_;
+  ServerSignalState signal_state_;
 };
 
 }  // namespace arrow::flight::internal

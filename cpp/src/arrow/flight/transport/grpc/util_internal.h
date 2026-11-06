@@ -42,6 +42,7 @@
 namespace grpc {
 
 class Status;
+class CallbackServerContext;
 
 }  // namespace grpc
 
@@ -106,6 +107,12 @@ Status FromGrpcStatus(const ::grpc::Status& grpc_status,
 ARROW_FLIGHT_EXPORT
 ::grpc::Status ToGrpcStatus(const Status& arrow_status,
                             ::grpc::ServerContext* ctx = nullptr);
+
+#if GRPC_CPP_VERSION_CHECK(1, 65, 0)
+ARROW_FLIGHT_EXPORT
+::grpc::Status ToGrpcStatus(const Status& arrow_status,
+                            ::grpc::CallbackServerContext* ctx);
+#endif
 
 // gRPC 1.80.0 or later use absl::Status.
 #if GRPC_CPP_VERSION_CHECK(1, 80, 0)

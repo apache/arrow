@@ -25,6 +25,10 @@
 #include <unordered_map>
 #include <utility>
 
+#include "arrow/flight/transport/grpc/async_grpc_compat.h"
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+#  include "arrow/flight/transport/grpc/async_grpc_service.h"
+#endif
 #include "arrow/flight/transport/grpc/customize_grpc.h"
 
 #include <grpcpp/grpcpp.h>
@@ -113,7 +117,11 @@ class GrpcServerAuthSender : public ServerAuthSender {
   ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream_;
 };
 
-using GrpcServerCallContext = transport::grpc::GrpcServerCallContext<ServerContext>;
+// Named SyncServerCallContext, not GrpcServerCallContext: this alias lives in an
+// anonymous namespace, so under a unity build it would shadow the
+// GrpcServerCallContext template of grpc_server_internal.h for the async
+// transport sources compiled into the same translation unit.
+using SyncServerCallContext = transport::grpc::GrpcServerCallContext<ServerContext>;
 using GrpcContextHelper = transport::grpc::GrpcServerCallContextHelper<ServerContext>;
 
 // A ServerDataStream for streaming data to the client.
@@ -224,7 +232,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status Handshake(
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::HandshakeResponse, pb::HandshakeRequest>* stream) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.MakeCallContext(FlightMethod::Handshake, context, &flight_context));
     if (!helper_.auth_handler()) {
@@ -242,7 +250,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status ListFlights(ServerContext* context, const pb::Criteria* request,
                              ServerWriter<pb::FlightInfo>* writer) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::ListFlights, context, &flight_context));
     // Retrieve the listing from the implementation
@@ -265,7 +273,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status GetFlightInfo(ServerContext* context,
                                const pb::FlightDescriptor* request,
                                pb::FlightInfo* response) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::GetFlightInfo, context, &flight_context));
 
@@ -292,7 +300,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status PollFlightInfo(ServerContext* context,
                                 const pb::FlightDescriptor* request,
                                 pb::PollInfo* response) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::PollFlightInfo, context, &flight_context));
 
@@ -317,7 +325,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status GetSchema(ServerContext* context, const pb::FlightDescriptor* request,
                            pb::SchemaResult* response) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::GetSchema, context, &flight_context));
 
@@ -342,7 +350,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status DoGet(ServerContext* context, const pb::Ticket* request,
                        ServerWriter<pb::FlightData>* writer) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoGet, context, &flight_context));
     CHECK_ARG_NOT_NULL(flight_context, request, "ticket cannot be null");
@@ -358,7 +366,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status DoPut(
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoPut, context, &flight_context));
     PutDataStream stream(reader);
@@ -368,7 +376,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status DoExchange(
       ServerContext* context,
       ::grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* stream) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoExchange, context, &flight_context));
     ExchangeDataStream data_stream(stream);
@@ -378,7 +386,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status ListActions(ServerContext* context, const pb::Empty* request,
                              ServerWriter<pb::ActionType>* writer) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::ListActions, context, &flight_context));
     // Retrieve the listing from the implementation
@@ -390,7 +398,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status DoAction(ServerContext* context, const pb::Action* request,
                           ServerWriter<pb::Result>* writer) {
-    GrpcServerCallContext flight_context(context);
+    SyncServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         helper_.CheckAuth(FlightMethod::DoAction, context, &flight_context));
     CHECK_ARG_NOT_NULL(flight_context, request, "Action cannot be null");
@@ -430,7 +438,16 @@ class GrpcServiceHandler final : public FlightService::Service {
 // The ServerTransport implementation for gRPC. Manages the gRPC server itself.
 class GrpcServerTransport : public internal::ServerTransport {
  public:
-  using internal::ServerTransport::ServerTransport;
+  GrpcServerTransport(FlightServerBase* base,
+                      std::shared_ptr<MemoryManager> memory_manager,
+                      AsyncGenericFlightServerBase* async_base = nullptr)
+      : internal::ServerTransport(base, std::move(memory_manager)) {
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+    async_base_ = async_base;
+#else
+    ARROW_UNUSED(async_base);
+#endif
+  }
 
   static arrow::Result<std::unique_ptr<internal::ServerTransport>> Make(
       FlightServerBase* base, std::shared_ptr<MemoryManager> memory_manager) {
@@ -438,9 +455,56 @@ class GrpcServerTransport : public internal::ServerTransport {
         new GrpcServerTransport(base, std::move(memory_manager)));
   }
 
+  /// \brief Like Make(), for a server that is an AsyncGenericFlightServerBase.
+  ///
+  /// This is the async mode: the transport serves the async server's handlers
+  /// through the generic callback service, with no FlightServerBase involved.
+  static arrow::Result<std::unique_ptr<internal::ServerTransport>> MakeAsync(
+      AsyncGenericFlightServerBase* async_base,
+      std::shared_ptr<MemoryManager> memory_manager) {
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+    return std::unique_ptr<internal::ServerTransport>(
+        new GrpcServerTransport(/*base=*/nullptr, std::move(memory_manager), async_base));
+#else
+    ARROW_UNUSED(async_base);
+    ARROW_UNUSED(memory_manager);
+    return Status::NotImplemented(
+        "The async Flight server requires gRPC's generic callback API "
+        "(arrow was built against gRPC < 1.65)");
+#endif
+  }
+
   Status Init(const FlightServerOptions& options, const arrow::util::Uri& uri) override {
-    grpc_service_.reset(
-        new GrpcServiceHandler(options.auth_handler, options.middleware, this));
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+    if (async_base_ != nullptr) {
+      if (options.auth_handler) {
+        return Status::NotImplemented(
+            "AsyncGenericFlightServerBase does not support a blocking auth handler; "
+            "override Handshake/ValidateToken instead");
+      }
+      using AsyncHelper = GrpcServerCallContextHelper<::grpc::CallbackServerContext>;
+      AsyncHelper::HandshakeFn handshake =
+          [base = async_base_](const ServerCallContext& context,
+                               const std::string& request, std::string* response) {
+            return base->Handshake(context, request, response);
+          };
+      AsyncHelper::ValidateTokenFn validate_token =
+          [base = async_base_](const ServerCallContext& context, const std::string& token,
+                               std::string* peer_identity) {
+            return base->ValidateToken(context, token, peer_identity);
+          };
+      async_helper_ = std::make_shared<AsyncHelper>(
+          /*auth_handler=*/nullptr, options.middleware, std::move(validate_token));
+      async_service_ = std::make_unique<AsyncGenericFlightService>(
+          async_base_, async_helper_, std::move(handshake));
+      // The else and its body are split by #endif, so cpplint cannot pair the
+      // braces; the #if branch above opens the block it closes.
+    } else  // NOLINT(readability/braces)
+#endif
+    {
+      grpc_service_.reset(
+          new GrpcServiceHandler(options.auth_handler, options.middleware, this));
+    }
 
     ::grpc::ServerBuilder builder;
     int port = 0;
@@ -452,7 +516,14 @@ class GrpcServerTransport : public internal::ServerTransport {
       builder.AddListeningPort(endpoint.address, endpoint.credentials, &port);
     }
 
-    builder.RegisterService(grpc_service_.get());
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+    if (async_service_) {
+      builder.RegisterCallbackGenericService(async_service_.get());
+    } else  // NOLINT(readability/braces)
+#endif
+    {
+      builder.RegisterService(grpc_service_.get());
+    }
     ConfigureServerBuilderOptions(options, &builder);
 
     grpc_server_ = builder.BuildAndStart();
@@ -484,6 +555,12 @@ class GrpcServerTransport : public internal::ServerTransport {
 
  private:
   std::unique_ptr<GrpcServiceHandler> grpc_service_;
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+  AsyncGenericFlightServerBase* async_base_ = nullptr;
+  std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>
+      async_helper_;
+  std::unique_ptr<AsyncGenericFlightService> async_service_;
+#endif
   std::unique_ptr<::grpc::Server> grpc_server_;
   Location location_;
 };
@@ -496,6 +573,11 @@ void InitializeFlightGrpcServer() {
     auto* registry = flight::internal::GetDefaultTransportRegistry();
     for (const auto& transport : {"grpc", "grpc+tls", "grpc+tcp", "grpc+unix"}) {
       ARROW_CHECK_OK(registry->RegisterServer(transport, GrpcServerTransport::Make));
+      // Registered even when gRPC is too old for the async server: MakeAsync then
+      // answers NotImplemented with the reason, instead of Init() failing with the
+      // generic "no async server transport implementation" error.
+      ARROW_CHECK_OK(
+          registry->RegisterAsyncServer(transport, GrpcServerTransport::MakeAsync));
     }
   });
 }
