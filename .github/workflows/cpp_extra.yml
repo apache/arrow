@@ -529,6 +529,22 @@ jobs:
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ubuntu-cpp-odbc
+      - name: Check ODBC Dependency
+        run: |
+          # ODBC dependency should not include other Arrow libraries
+          ldd "$(pwd)/build/cpp/release/libarrow_flight_sql_odbc.so"
+          archery linking check-dependencies \
+            --disallow libarrow \
+            --disallow libarrow_acero \
+            --disallow libarrow_compute \
+            --disallow libarrow_dataset \
+            --disallow libarrow_flight \
+            --disallow libarrow_flight_sql \
+            --disallow libarrow_substrait \
+            --disallow libarrow_testing \
+            --disallow libgandiva \
+            --disallow libparquet \
+            "$(pwd)/build/cpp/release/libarrow_flight_sql_odbc.so"
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
