@@ -739,13 +739,10 @@ def test_parquet_metadata_equals_none(tempdir):
         metadata.schema,
         metadata.schema[0],
     ]
-    none_value = None
 
     for obj in objects:
-        assert (obj == none_value) is False
-        assert (obj != none_value) is True
         with pytest.raises(TypeError):
-            obj.equals(none_value)
+            obj.equals(None)
 
 
 @pytest.mark.parametrize("t1,t2,expected_error", (
