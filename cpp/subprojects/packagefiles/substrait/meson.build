@@ -36,14 +36,20 @@ else
 endif
 
 substrait_protos_dir = meson.current_source_dir() / 'proto'
+protoc_arguments = [
+    '--proto_path=@0@'.format(substrait_protos_dir),
+    '--cpp_out=@0@@1@'.format(proto_visibility, '@BUILD_DIR@'),
+    '@INPUT@',
+]
+# 3.12.0-3.14.0 require this flag to accept the proto3 optional fields used by
+# the Substrait protos; 3.15.0+ accept them by default.
+if protobuf_dep.version().version_compare('<3.15')
+    protoc_arguments = ['--experimental_allow_proto3_optional'] + protoc_arguments
+endif
 gen = generator(
     protoc,
     output: ['@BASENAME@.pb.cc', '@BASENAME@.pb.h'],
-    arguments: [
-        '--proto_path=@0@'.format(substrait_protos_dir),
-        '--cpp_out=@0@@1@'.format(proto_visibility, '@BUILD_DIR@'),
-        '@INPUT@',
-    ],
+    arguments: protoc_arguments,
 )
 protos = [
     'substrait/algebra.proto',
