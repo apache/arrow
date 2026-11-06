@@ -2895,6 +2895,226 @@ TEST_F(TestProjector, TestAesEncryptDecrypt) {
   EXPECT_ARROW_ARRAY_EQUALS(array_data, outputs_de.at(0));
 }
 
+// Builds encrypt/decrypt over (data, key, iv, aad) binary columns with a literal mode.
+static ExpressionPtr MakeEncryptDecryptExpr(const std::string& function,
+                                            const std::string& mode, int num_args,
+                                            const FieldVector& columns) {
+  NodeVector args = {TreeExprBuilder::MakeField(columns[0]),
+                     TreeExprBuilder::MakeField(columns[1]),
+                     TreeExprBuilder::MakeStringLiteral(mode)};
+  if (num_args > 3) args.push_back(TreeExprBuilder::MakeField(columns[2]));
+  if (num_args > 4) args.push_back(TreeExprBuilder::MakeField(columns[3]));
+  auto node = TreeExprBuilder::MakeFunction(function, args, arrow::binary());
+  return TreeExprBuilder::MakeExpression(node, field("res", arrow::binary()));
+}
+
+TEST_F(TestProjector, TestEncryptDecryptModes) {
+  auto data_field = field("data", arrow::binary());
+  auto key_field = field("key", arrow::binary());
+  auto iv_field = field("iv", arrow::binary());
+  auto aad_field = field("aad", arrow::binary());
+  FieldVector columns = {data_field, key_field, iv_field, aad_field};
+  auto schema = arrow::schema(columns);
+
+  // Includes an empty value, a block-aligned value and a NULL
+  const std::vector<std::string> plain = {"abc", "", "0123456789abcdef", "unused"};
+  const std::vector<bool> plain_valid = {true, true, true, false};
+  const std::string key = "12345678abcdefgh12345678abcdefgh";
+  const std::string iv = "iv-0123456789abc";  // 16 bytes: valid for CBC and for GCM
+  const std::string aad = "associated data";
+  const int num_records = static_cast<int>(plain.size());
+
+  auto plain_array = MakeArrowArrayBinary(plain, plain_valid);
+  auto key_array = MakeArrowArrayBinary({key, key, key, key}, {true, true, true, true});
+  auto iv_array = MakeArrowArrayBinary({iv, iv, iv, iv}, {true, true, true, true});
+  auto aad_array = MakeArrowArrayBinary({aad, aad, aad, aad}, {true, true, true, true});
+
+  struct ModeCase {
+    std::string mode;
+    int num_args;
+  };
+  for (const auto& mode_case : std::vector<ModeCase>{{"AES-ECB", 3},
+                                                     {"aes-ecb-none", 3},
+                                                     {"AES-CBC", 4},
+                                                     {"AES-GCM", 4},
+                                                     {"AES-GCM", 5}}) {
+    SCOPED_TRACE(mode_case.mode + " args=" + std::to_string(mode_case.num_args));
+    // No-padding ECB needs block-aligned input, so use only the aligned row
+    const bool aligned_only = mode_case.mode == "aes-ecb-none";
+    auto in_plain = plain_array;
+    auto in_key = key_array;
+    auto in_iv = iv_array;
+    auto in_aad = aad_array;
+    int rows = num_records;
+    if (aligned_only) {
+      in_plain = MakeArrowArrayBinary({plain[2]}, {true});
+      in_key = MakeArrowArrayBinary({key}, {true});
+      in_iv = MakeArrowArrayBinary({iv}, {true});
+      in_aad = MakeArrowArrayBinary({aad}, {true});
+      rows = 1;
+    }
+
+    std::shared_ptr<Projector> encryptor;
+    ASSERT_OK(Projector::Make(
+        schema,
+        {MakeEncryptDecryptExpr("encrypt", mode_case.mode, mode_case.num_args, columns)},
+        TestConfiguration(), &encryptor));
+    auto in_batch =
+        arrow::RecordBatch::Make(schema, rows, {in_plain, in_key, in_iv, in_aad});
+    arrow::ArrayVector encrypted;
+    ASSERT_OK(encryptor->Evaluate(*in_batch, pool_, &encrypted));
+
+    // The NULL input yields a NULL output
+    if (!aligned_only) {
+      EXPECT_TRUE(encrypted.at(0)->IsNull(3));
+      EXPECT_FALSE(encrypted.at(0)->IsNull(0));
+    }
+
+    std::shared_ptr<Projector> decryptor;
+    ASSERT_OK(Projector::Make(
+        schema,
+        {MakeEncryptDecryptExpr("decrypt", mode_case.mode, mode_case.num_args, columns)},
+        TestConfiguration(), &decryptor));
+    auto cipher_batch =
+        arrow::RecordBatch::Make(schema, rows, {encrypted.at(0), in_key, in_iv, in_aad});
+    arrow::ArrayVector decrypted;
+    ASSERT_OK(decryptor->Evaluate(*cipher_batch, pool_, &decrypted));
+    EXPECT_ARROW_ARRAY_EQUALS(in_plain, decrypted.at(0));
+  }
+}
+
+TEST_F(TestProjector, TestEncryptDecryptErrors) {
+  auto data_field = field("data", arrow::binary());
+  auto key_field = field("key", arrow::binary());
+  auto iv_field = field("iv", arrow::binary());
+  auto aad_field = field("aad", arrow::binary());
+  FieldVector columns = {data_field, key_field, iv_field, aad_field};
+  auto schema = arrow::schema(columns);
+
+  const std::string key = "12345678abcdefgh";
+  const std::string iv = "123456789012";
+  auto one = [](const std::string& value) {
+    return MakeArrowArrayBinary({value}, {true});
+  };
+
+  auto evaluate = [&](const std::string& function, const std::string& mode, int num_args,
+                      const std::string& data, const std::string& key_value,
+                      const std::string& iv_value, const std::string& aad_value) {
+    std::shared_ptr<Projector> projector;
+    EXPECT_OK(Projector::Make(schema,
+                              {MakeEncryptDecryptExpr(function, mode, num_args, columns)},
+                              TestConfiguration(), &projector));
+    auto batch = arrow::RecordBatch::Make(
+        schema, 1, {one(data), one(key_value), one(iv_value), one(aad_value)});
+    arrow::ArrayVector out;
+    return projector->Evaluate(*batch, pool_, &out);
+  };
+
+  // Invalid key length
+  auto status = evaluate("encrypt", "AES-ECB", 3, "data", "short", iv, "");
+  EXPECT_FALSE(status.ok());
+  EXPECT_NE(status.message().find("key length"), std::string::npos) << status.message();
+
+  // Unsupported mode lists the supported ones
+  status = evaluate("encrypt", "AES-XYZ", 3, "data", key, iv, "");
+  EXPECT_FALSE(status.ok());
+  EXPECT_NE(status.message().find("Unsupported"), std::string::npos) << status.message();
+
+  // CBC requires a 16-byte IV
+  status = evaluate("encrypt", "AES-CBC", 4, "data", key, iv, "");
+  EXPECT_FALSE(status.ok());
+  EXPECT_NE(status.message().find("IV"), std::string::npos) << status.message();
+
+  // GCM decryption fails when the AAD differs from the one used for encryption
+  std::shared_ptr<Projector> encryptor;
+  ASSERT_OK(Projector::Make(schema,
+                            {MakeEncryptDecryptExpr("encrypt", "AES-GCM", 5, columns)},
+                            TestConfiguration(), &encryptor));
+  auto batch = arrow::RecordBatch::Make(schema, 1,
+                                        {one("secret"), one(key), one(iv), one("aad-1")});
+  arrow::ArrayVector encrypted;
+  ASSERT_OK(encryptor->Evaluate(*batch, pool_, &encrypted));
+
+  std::shared_ptr<Projector> decryptor;
+  ASSERT_OK(Projector::Make(schema,
+                            {MakeEncryptDecryptExpr("decrypt", "AES-GCM", 5, columns)},
+                            TestConfiguration(), &decryptor));
+  auto bad_batch = arrow::RecordBatch::Make(
+      schema, 1, {encrypted.at(0), one(key), one(iv), one("aad-2")});
+  arrow::ArrayVector decrypted;
+  status = decryptor->Evaluate(*bad_batch, pool_, &decrypted);
+  EXPECT_FALSE(status.ok());
+  EXPECT_NE(status.message().find("tag verification failed"), std::string::npos)
+      << status.message();
+}
+
+// A NULL in any argument yields a NULL result without evaluating the function
+TEST_F(TestProjector, TestEncryptDecryptNullArguments) {
+  auto data_field = field("data", arrow::binary());
+  auto key_field = field("key", arrow::binary());
+  auto mode_field = field("mode", arrow::utf8());
+  auto iv_field = field("iv", arrow::binary());
+  auto aad_field = field("aad", arrow::binary());
+  auto schema = arrow::schema({data_field, key_field, mode_field, iv_field, aad_field});
+
+  NodeVector args;
+  for (const auto& f : schema->fields()) args.push_back(TreeExprBuilder::MakeField(f));
+  auto make_projector = [&](const std::string& function) {
+    std::shared_ptr<Projector> projector;
+    auto node = TreeExprBuilder::MakeFunction(function, args, arrow::binary());
+    EXPECT_OK(Projector::Make(
+        schema, {TreeExprBuilder::MakeExpression(node, field("res", arrow::binary()))},
+        TestConfiguration(), &projector));
+    return projector;
+  };
+
+  const std::string key = "12345678abcdefgh";
+  const std::string iv = "123456789012";
+  const std::string aad = "aad";
+  // Row 0 is fully valid; in rows 1-5 exactly one of data, key, mode, iv, aad is NULL
+  const int num_records = 6;
+  auto binary_column = [&](const std::string& value, int null_row) {
+    std::vector<bool> valid(num_records, true);
+    valid[null_row] = false;
+    return MakeArrowArrayBinary(std::vector<std::string>(num_records, value), valid);
+  };
+  auto utf8_column = [&](const std::string& value, int null_row) {
+    std::vector<bool> valid(num_records, true);
+    valid[null_row] = false;
+    return MakeArrowArrayUtf8(std::vector<std::string>(num_records, value), valid);
+  };
+
+  auto in_batch = arrow::RecordBatch::Make(
+      schema, num_records,
+      {binary_column("some data", 1), binary_column(key, 2), utf8_column("AES-GCM", 3),
+       binary_column(iv, 4), binary_column(aad, 5)});
+
+  arrow::ArrayVector encrypted;
+  ASSERT_OK(make_projector("encrypt")->Evaluate(*in_batch, pool_, &encrypted));
+  EXPECT_TRUE(encrypted.at(0)->IsValid(0));
+  for (int row = 1; row < num_records; ++row) {
+    EXPECT_TRUE(encrypted.at(0)->IsNull(row)) << "row " << row;
+  }
+
+  // Same for decrypt, using the ciphertext of the valid row as the data in every row
+  const auto& cipher_array = static_cast<const arrow::BinaryArray&>(*encrypted.at(0));
+  const std::string cipher = cipher_array.GetString(0);
+  std::vector<bool> data_valid(num_records, true);
+  data_valid[1] = false;
+  auto cipher_column =
+      MakeArrowArrayBinary(std::vector<std::string>(num_records, cipher), data_valid);
+  auto decrypt_batch =
+      arrow::RecordBatch::Make(schema, num_records,
+                               {cipher_column, in_batch->column(1), in_batch->column(2),
+                                in_batch->column(3), in_batch->column(4)});
+  arrow::ArrayVector decrypted;
+  ASSERT_OK(make_projector("decrypt")->Evaluate(*decrypt_batch, pool_, &decrypted));
+  EXPECT_TRUE(decrypted.at(0)->IsValid(0));
+  for (int row = 1; row < num_records; ++row) {
+    EXPECT_TRUE(decrypted.at(0)->IsNull(row)) << "row " << row;
+  }
+}
+
 TEST_F(TestProjector, TestMaskFirstMaskLastN) {
   // schema for input fields
   auto field0 = field("f0", arrow::utf8());

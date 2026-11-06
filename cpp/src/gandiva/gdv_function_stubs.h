@@ -198,6 +198,49 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
                                const char* key_data, int32_t key_data_len,
                                int32_t* out_len);
 
+// Dispatchers behind encrypt/decrypt: data, key and mode, then an optional iv and aad
+GANDIVA_EXPORT
+const char* gdv_fn_encrypt_dispatcher_3args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_decrypt_dispatcher_3args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_encrypt_dispatcher_4args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, const char* iv_data,
+                                            int32_t iv_data_len, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_decrypt_dispatcher_4args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, const char* iv_data,
+                                            int32_t iv_data_len, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_encrypt_dispatcher_5args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, const char* iv_data,
+                                            int32_t iv_data_len, const char* aad,
+                                            int32_t aad_len, int32_t* out_len);
+
+GANDIVA_EXPORT
+const char* gdv_fn_decrypt_dispatcher_5args(int64_t context, const char* data,
+                                            int32_t data_len, const char* key_data,
+                                            int32_t key_data_len, const char* mode,
+                                            int32_t mode_len, const char* iv_data,
+                                            int32_t iv_data_len, const char* aad,
+                                            int32_t aad_len, int32_t* out_len);
+
 GANDIVA_EXPORT
 const char* gdv_mask_first_n_utf8_int32(int64_t context, const char* data,
                                         int32_t data_len, int32_t n_to_mask,

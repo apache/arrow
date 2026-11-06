@@ -509,6 +509,34 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
                      kResultNullIfNull, "gdv_fn_aes_decrypt",
                      NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
 
+      // encrypt/decrypt(data, key, mode[, iv[, aad]]): the optional arguments needed
+      // depend on the mode, see encrypt_mode_dispatcher.h
+      NativeFunction("encrypt", {}, DataTypeVector{binary(), binary(), utf8()}, binary(),
+                     kResultNullIfNull, "gdv_fn_encrypt_dispatcher_3args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("decrypt", {}, DataTypeVector{binary(), binary(), utf8()}, binary(),
+                     kResultNullIfNull, "gdv_fn_decrypt_dispatcher_3args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("encrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary()},
+                     binary(), kResultNullIfNull, "gdv_fn_encrypt_dispatcher_4args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("decrypt", {}, DataTypeVector{binary(), binary(), utf8(), binary()},
+                     binary(), kResultNullIfNull, "gdv_fn_decrypt_dispatcher_4args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("encrypt", {},
+                     DataTypeVector{binary(), binary(), utf8(), binary(), binary()},
+                     binary(), kResultNullIfNull, "gdv_fn_encrypt_dispatcher_5args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("decrypt", {},
+                     DataTypeVector{binary(), binary(), utf8(), binary(), binary()},
+                     binary(), kResultNullIfNull, "gdv_fn_decrypt_dispatcher_5args",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
       NativeFunction("mask_first_n", {}, DataTypeVector{utf8(), int32()}, utf8(),
                      kResultNullIfNull, "gdv_mask_first_n_utf8_int32",
                      NativeFunction::kNeedsContext),
