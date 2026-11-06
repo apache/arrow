@@ -87,18 +87,17 @@ if(ARROW_AZURE)
                  filesystem
                  EXTRA_LINK_LIBS
                  ${ARROW_AZURE_TEST_EXTRA_LINK_LIBS})
-  # TODO:
-  #if(ARROW_BUILD_TESTS AND ARROW_BUILD_SHARED)
-  #  add_arrow_test(azurefs_module_test
-  #                 SOURCES
-  #                 azurefs_module_test.cc
-  #                 EXTRA_LABELS
-  #                 filesystem
-  #                 DEFINITIONS
-  #                 ARROW_AZURE_LIBPATH="$<TARGET_FILE:arrow_azure_shared>"
-  #                 EXTRA_DEPENDENCIES
-  #                 arrow_azure_shared)
-  #endif()
+  if(ARROW_BUILD_TESTS AND ARROW_BUILD_SHARED)
+    add_arrow_test(azurefs_module_test
+                   SOURCES
+                   azurefs_module_test.cc
+                   EXTRA_LABELS
+                   filesystem
+                   DEFINITIONS
+                   ARROW_AZURE_LIBPATH="$<TARGET_FILE:arrow_azure_shared>"
+                   EXTRA_DEPENDENCIES
+                   arrow_azure_shared)
+  endif()
 endif()
 
 if(ARROW_S3)
