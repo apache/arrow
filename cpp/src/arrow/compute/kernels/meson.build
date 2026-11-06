@@ -55,6 +55,7 @@ scalar_kernel_tests = {
     },
     'arrow-compute-scalar-utility-test': {
         'sources': [
+            'scalar_hash_test.cc',
             'scalar_random_test.cc',
             'scalar_set_lookup_test.cc',
             'scalar_validity_test.cc',
@@ -76,6 +77,7 @@ scalar_kernel_benchmarks = [
     'scalar_boolean_benchmark',
     'scalar_cast_benchmark',
     'scalar_compare_benchmark',
+    'scalar_hash_benchmark',
     'scalar_if_else_benchmark',
     'scalar_list_benchmark',
     'scalar_random_benchmark',
