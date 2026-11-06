@@ -924,6 +924,7 @@ struct GroupedTDigestImpl : public GroupedAggregator {
 
   Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     options_ = *checked_cast<const TDigestOptions*>(args.options);
+    RETURN_NOT_OK(ValidateQuantileLevels(options_.q));
     if (is_decimal_type<Type>::value) {
       decimal_scale_ = checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
     } else {
