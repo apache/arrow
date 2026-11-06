@@ -576,6 +576,30 @@ TEST_F(TestThreadPool, ConstructDestruct) {
 
 // Correctness and stress tests using Spawn() and Shutdown()
 
+TEST_F(TestThreadPool, WaitForBothPoolsIdle) {
+  auto first = MakeThreadPool(1);
+  auto second = MakeThreadPool(1);
+  auto finished = Future<>::Make();
+  std::function<void(ThreadPool*, ThreadPool*, int)> submit;
+  submit = [&](ThreadPool* from, ThreadPool* to, int remaining) {
+    ASSERT_OK(from->Spawn([&, from, to, remaining] {
+      if (remaining == 0) {
+        finished.MarkFinished();
+      } else {
+        submit(to, from, remaining - 1);
+      }
+    }));
+  };
+  submit(first.get(), second.get(), 1000);
+  first->WaitForIdle(*second);
+  EXPECT_TRUE(finished.is_finished());
+  EXPECT_EQ(first->GetNumTasks(), 0);
+  EXPECT_EQ(second->GetNumTasks(), 0);
+  ASSERT_FINISHES_OK(finished);
+  first->WaitForIdle(*first);
+  second->WaitForIdle();
+}
+
 TEST_F(TestThreadPool, Spawn) {
   auto pool = this->MakeThreadPool(3);
   SpawnAdds(pool.get(), 7, task_add<int>);

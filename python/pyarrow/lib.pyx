@@ -89,6 +89,13 @@ def set_cpu_count(int count):
     check_status(SetCpuThreadPoolCapacity(count))
 
 
+def _wait_for_thread_pools_at_exit():
+    """Wait for CPU and I/O tasks before interpreter finalization."""
+    cdef CThreadPool* io_pool = <CThreadPool*>c_default_io_context().executor()
+    with nogil:
+        GetCpuThreadPool().WaitForIdle(deref(io_pool))
+
+
 def is_opentelemetry_enabled() -> bool:
     """
     Returns True if OpenTelemetry is enabled in libarrow.
