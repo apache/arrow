@@ -1074,6 +1074,7 @@ def test_file_format_pickling(pickle_module):
     formats = [
         ds.IpcFileFormat(),
         ds.CsvFileFormat(),
+        ds.CsvFileFormat(pa.csv.ParseOptions(pad_short_rows=True)),
         ds.CsvFileFormat(pa.csv.ParseOptions(delimiter='\t',
                                              ignore_empty_lines=True)),
         ds.CsvFileFormat(read_options=pa.csv.ReadOptions(
@@ -3565,6 +3566,29 @@ def test_csv_format_options_generate_columns(tempdir, dataset_reader):
                                    'f1': pa.array(["a"]),
                                    'f2': pa.array([True]),
                                    'f3': pa.array([1])}))
+
+
+def test_csv_format_pad_short_rows(tempdir, dataset_reader):
+    path = str(tempdir / 'short.csv')
+    with open(path, 'w') as sink:
+        sink.write('a,b,c\n1,2,3\n4,5\n6\n')
+
+    # Default format fails on short rows
+    dataset_default = ds.dataset(path, format='csv')
+    with pytest.raises(pa.ArrowInvalid, match="Expected 3 columns, got 2: 4,5"):
+        dataset_reader.to_table(dataset_default)
+
+    # With pad_short_rows=True, short rows are padded with nulls
+    format_padded = ds.CsvFileFormat(
+        parse_options=pa.csv.ParseOptions(pad_short_rows=True)
+    )
+    dataset_padded = ds.dataset(path, format=format_padded)
+    result = dataset_reader.to_table(dataset_padded)
+    assert result.to_pydict() == {
+        'a': [1, 4, 6],
+        'b': [2, 5, None],
+        'c': [3, None, None],
+    }
 
 
 def test_csv_fragment_options(tempdir, dataset_reader):
