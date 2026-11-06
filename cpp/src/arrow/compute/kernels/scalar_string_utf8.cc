@@ -310,7 +310,7 @@ const auto utf8_is_lower_doc =
 const auto utf8_is_numeric_doc =
     StringClassifyDoc("numeric", "numeric Unicode characters", true);
 const auto utf8_is_printable_doc =
-    StringClassifyDoc("printable", "printable Unicode characters", true);
+    StringClassifyDoc("printable", "printable Unicode characters", false);
 const auto utf8_is_space_doc =
     StringClassifyDoc("whitespace", "whitespace Unicode characters", true);
 const auto utf8_is_upper_doc =
