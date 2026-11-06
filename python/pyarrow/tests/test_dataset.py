@@ -853,8 +853,8 @@ def test_partitioning_pickling(pickle_module):
     "flavor, expected_defined_partition, expected_undefined_partition",
     [
         ("HivePartitioning", (r"foo=A/bar=ant%20bee", ""), ("", "")),
-        ("DirectoryPartitioning", (r"A/ant bee", ""), ("", "")),
-        ("FilenamePartitioning", ("", r"A_ant bee_"), ("", "_")),
+        ("DirectoryPartitioning", (r"A/ant%20bee", ""), ("", "")),
+        ("FilenamePartitioning", ("", r"A_ant%20bee_"), ("", "_")),
     ],
 )
 def test_dataset_partitioning_format(
