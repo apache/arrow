@@ -85,8 +85,9 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
 
 /// True if a T can hold a U.
 template <typename T, typename U>
-inline constexpr bool can_hold_v = std::in_range<T>(std::numeric_limits<U>::min()) &&
-                                   std::in_range<T>(std::numeric_limits<U>::max());
+inline constexpr bool can_hold_v =
+    std::numeric_limits<T>::digits >= std::numeric_limits<U>::digits &&
+    (std::numeric_limits<T>::is_signed || !std::numeric_limits<U>::is_signed);
 
 /// Clamp to a given type.
 template <typename T, typename U>
