@@ -16,9 +16,11 @@
 # under the License.
 
 from datetime import datetime, timezone, timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import gzip
 import os
 import pathlib
+import threading
 from urllib.request import urlopen
 import subprocess
 import sys
@@ -1232,6 +1234,137 @@ def test_gcs_options(pickle_with_and_without_subtree_filesystem):
         GcsFileSystem(anonymous=True, target_service_account='acct')
     with pytest.raises(ValueError):
         GcsFileSystem(credential_token_expiration=datetime.now())
+
+
+@pytest.fixture
+def s3_range_server(monkeypatch):
+    from pyarrow.fs import AwsStandardS3RetryStrategy, S3FileSystem
+
+    monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")
+    servers = []
+
+    def start(size, responses):
+        ranges = []
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def do_HEAD(self):
+                self.send_response(200)
+                self.send_header("Content-Length", str(size))
+                self.end_headers()
+
+            def do_GET(self):
+                ranges.append(self.headers.get("Range"))
+                response_index = min(len(ranges) - 1, len(responses) - 1)
+                status, body, chunked = responses[response_index]
+                self.send_response(status)
+                if status in (200, 206):
+                    self.send_header("Content-Type", "application/octet-stream")
+                    if status == 206:
+                        self.send_header("Content-Range",
+                                         f"bytes 0-{size - 1}/{size}")
+                else:
+                    self.send_header("Content-Type", "application/xml")
+                if chunked:
+                    self.send_header("Transfer-Encoding", "chunked")
+                else:
+                    self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                if chunked:
+                    self.wfile.write(f"{len(body):X}\r\n".encode("ascii"))
+                    self.wfile.write(body + b"\r\n0\r\n\r\n")
+                else:
+                    self.wfile.write(body)
+
+            def log_message(self, *_args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        servers.append((server, thread))
+        endpoint = f"127.0.0.1:{server.server_port}"
+        fs = S3FileSystem(access_key="test", secret_key="test",
+                          region="us-west-2", scheme="http",
+                          endpoint_override=endpoint,
+                          retry_strategy=AwsStandardS3RetryStrategy(
+                              max_attempts=3), connect_timeout=2)
+        return fs, ranges
+
+    yield start
+
+    for server, thread in servers:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+_S3_SLOW_DOWN_XML = (
+    b"<?xml version='1.0'?><Error><Code>SlowDown</Code>"
+    b"<Message>Please reduce your request rate.</Message>"
+    b"<RequestId>rid</RequestId></Error>"
+)
+
+
+@pytest.mark.s3
+@pytest.mark.parametrize("status, size", [(429, 121), (503, 121), (429, 8192)])
+def test_s3_ranged_read_retries_large_error_body(s3_range_server, status, size):
+    xml = _S3_SLOW_DOWN_XML
+    assert 121 < len(xml) < 8192
+    fs, ranges = s3_range_server(size, [(status, xml, False)])
+    with pytest.raises(OSError) as excinfo:
+        with fs.open_input_file("repro-bucket/tiny.bin") as source:
+            source.read()
+
+    assert "SLOW_DOWN" in str(excinfo.value)
+    assert "Failed to flush response stream" not in str(excinfo.value)
+    assert ranges == [f"bytes=0-{size - 1}"] * 3
+
+
+@pytest.mark.s3
+@pytest.mark.parametrize("status", [429, 503])
+def test_s3_ranged_read_recovers_after_slowdown(s3_range_server, status):
+    data = bytes(range(121))
+    responses = [(status, _S3_SLOW_DOWN_XML, False)] * 2
+    responses.append((206, data, False))
+    fs, ranges = s3_range_server(len(data), responses)
+
+    with fs.open_input_file("repro-bucket/tiny.bin") as source:
+        assert source.read() == data
+
+    assert ranges == [f"bytes=0-{len(data) - 1}"] * 3
+
+
+@pytest.mark.s3
+@pytest.mark.parametrize(
+    "status, chunked",
+    [(200, False), (206, False), (200, True), (206, True)])
+def test_s3_rejects_oversized_range(s3_range_server, status, chunked):
+    data = b"a" * 17
+    fs, ranges = s3_range_server(16, [(status, data, chunked)])
+
+    with pytest.raises(
+            OSError, match="GetObject response exceeded the requested range"):
+        with fs.open_input_file("repro-bucket/tiny.bin") as source:
+            source.read()
+
+    assert ranges == ["bytes=0-15"]
+
+
+@pytest.mark.s3
+@pytest.mark.parametrize("status", [429, 503])
+def test_s3_retries_error_beyond_spill(s3_range_server, status):
+    xml = (b"<Error><Code>SlowDown</Code><Message>" + b"x" * (64 * 1024)
+           + b"</Message></Error>")
+    fs, ranges = s3_range_server(121, [(status, xml, False)])
+
+    with pytest.raises(OSError) as excinfo:
+        with fs.open_input_file("repro-bucket/tiny.bin") as source:
+            source.read()
+
+    assert "Failed to flush response stream" not in str(excinfo.value)
+    assert ranges == ["bytes=0-120"] * 3
 
 
 @pytest.mark.s3

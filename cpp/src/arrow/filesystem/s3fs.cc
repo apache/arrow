@@ -103,6 +103,7 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/s3_internal.h"
+#include "arrow/filesystem/s3_stream_internal.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
@@ -1327,7 +1328,10 @@ class StringViewStream : Aws::Utils::Stream::PreallocatedStreamBuf, public std::
 // See https://github.com/aws/aws-sdk-cpp/issues/64 for an alternative but
 // functionally similar recipe.
 Aws::IOStreamFactory AwsWriteableStreamFactory(void* data, int64_t nbytes) {
-  return [=]() { return Aws::New<StringViewStream>("", data, nbytes); };
+  return [=]() {
+    return Aws::New<internal::GetObjectRangeStream>("", data,
+                                                    static_cast<size_t>(nbytes));
+  };
 }
 
 Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
@@ -1341,7 +1345,11 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
   RETURN_NOT_OK(SetSSECustomerKey(&req, sse_customer_key));
   req.SetRange(ToAwsString(FormatRange(start, length)));
   req.SetResponseStreamFactory(AwsWriteableStreamFactory(out, length));
-  return OutcomeToResult("GetObject", client->GetObject(req));
+  ARROW_ASSIGN_OR_RAISE(auto result,
+                        OutcomeToResult("GetObject", client->GetObject(req)));
+  RETURN_NOT_OK(
+      static_cast<internal::GetObjectRangeStream&>(result.GetBody()).CheckForOverflow());
+  return std::move(result);
 }
 
 template <typename ObjectResult>

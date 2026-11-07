@@ -16,7 +16,9 @@
 // under the License.
 
 #include <algorithm>
+#include <cstring>
 #include <exception>
+#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -53,6 +55,7 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/s3_internal.h"
+#include "arrow/filesystem/s3_stream_internal.h"
 #include "arrow/filesystem/s3_test_util.h"
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/filesystem/test_util.h"
@@ -103,6 +106,140 @@ static constexpr int32_t kMaxRetryDuration = 6000; /* milliseconds */
 
 ::testing::Environment* minio_env_https =
     ::testing::AddGlobalTestEnvironment(new MinioTestEnvironment(/*enable_tls=*/true));
+
+namespace {
+
+std::string ReadRangeResponse(std::iostream& stream) {
+  return std::string(std::istreambuf_iterator<char>(stream),
+                     std::istreambuf_iterator<char>());
+}
+
+class DirectWriteRangeBuffer : public internal::GetObjectRangeStreamBuf {
+ public:
+  using internal::GetObjectRangeStreamBuf::GetObjectRangeStreamBuf;
+
+  void WriteDirectly(const char* data, size_t size) {
+    ASSERT_LE(size, static_cast<size_t>(epptr() - pptr()));
+    std::memcpy(pptr(), data, size);
+    pbump(static_cast<int>(size));
+  }
+};
+
+TEST(GetObjectRangeStreamTest, SuccessfulReadsUseCallerBuffer) {
+  std::string caller(9, '!');
+  internal::GetObjectRangeStream stream(caller.data(), 8);
+  stream.write("abcdefgh", 8);
+  stream.flush();
+
+  ASSERT_TRUE(stream.good());
+  ASSERT_OK(stream.CheckForOverflow());
+  EXPECT_EQ("abcdefgh!", caller);
+  EXPECT_EQ(std::streampos(8), stream.tellp());
+  EXPECT_EQ("abcdefgh", ReadRangeResponse(stream));
+
+  std::string short_caller(8, '!');
+  internal::GetObjectRangeStream short_stream(short_caller.data(), short_caller.size());
+  short_stream.write("abc", 3);
+  EXPECT_EQ("abc", ReadRangeResponse(short_stream));
+}
+
+TEST(GetObjectRangeStreamTest, ErrorBodyOverflowsInBulkAndSplitWrites) {
+  const std::string xml = "<Error><Code>SlowDown</Code><Message>retry</Message></Error>";
+  for (const bool split : {false, true}) {
+    std::string caller(12, '!');
+    internal::GetObjectRangeStream stream(caller.data(), caller.size());
+    if (split) {
+      for (size_t pos = 0; pos < xml.size(); pos += 7) {
+        stream.write(xml.data() + pos, std::min(size_t{7}, xml.size() - pos));
+      }
+    } else {
+      stream.write(xml.data(), xml.size());
+    }
+    stream.flush();
+
+    ASSERT_TRUE(stream.good());
+    EXPECT_EQ(std::streampos(xml.size()), stream.tellp());
+    EXPECT_TRUE(stream.CheckForOverflow().IsIOError());
+    EXPECT_EQ(xml.substr(0, caller.size()), caller);
+    EXPECT_EQ(xml, ReadRangeResponse(stream));
+    stream.clear();
+    stream.seekg(0);
+    EXPECT_EQ(xml, ReadRangeResponse(stream));
+  }
+}
+
+TEST(GetObjectRangeStreamTest, OversizedSuccessfulResponseIsRejected) {
+  std::string caller(4, '!');
+  internal::GetObjectRangeStream stream(caller.data(), caller.size());
+  stream.write("abcdef", 6);
+
+  ASSERT_TRUE(stream.good());
+  EXPECT_EQ("abcd", caller);
+  EXPECT_TRUE(stream.CheckForOverflow().IsIOError());
+}
+
+TEST(GetObjectRangeStreamTest, CharacterWritesAndDirectPutArea) {
+  const std::string body = "abcdefghijklmnop";
+  std::string caller(4, '!');
+  internal::GetObjectRangeStream stream(caller.data(), caller.size());
+  for (char c : body) {
+    stream.put(c);
+  }
+  ASSERT_TRUE(stream.good());
+  EXPECT_EQ(body, ReadRangeResponse(stream));
+
+  std::string direct_caller(4, '!');
+  DirectWriteRangeBuffer buffer(direct_caller.data(), direct_caller.size());
+  buffer.WriteDirectly(body.data(), direct_caller.size());
+  EXPECT_EQ(std::streampos(direct_caller.size()),
+            buffer.pubseekoff(0, std::ios_base::cur, std::ios_base::out));
+  EXPECT_EQ(static_cast<std::streamsize>(body.size() - direct_caller.size()),
+            buffer.sputn(body.data() + direct_caller.size(),
+                         body.size() - direct_caller.size()));
+  std::istream input(&buffer);
+  EXPECT_TRUE(buffer.overflowed());
+  EXPECT_EQ(body, std::string(std::istreambuf_iterator<char>(input),
+                              std::istreambuf_iterator<char>()));
+}
+
+TEST(GetObjectRangeStreamTest, CapsAnOversizedErrorBody) {
+  const auto cap = internal::GetObjectRangeStreamBuf::kSpillSize;
+  for (const size_t body_size : {cap, cap + 1}) {
+    const std::string body(body_size, 'x');
+    std::string caller(8, '!');
+    internal::GetObjectRangeStream stream(caller.data(), caller.size());
+    stream.write(body.data(), body.size());
+    stream.flush();
+
+    ASSERT_TRUE(stream.good());
+    EXPECT_TRUE(stream.CheckForOverflow().IsIOError());
+    EXPECT_EQ(std::streampos(cap), stream.tellp());
+    EXPECT_EQ(body.substr(0, cap), ReadRangeResponse(stream));
+    stream.clear();
+    stream.seekg(0);
+    EXPECT_EQ(body.substr(0, cap), ReadRangeResponse(stream));
+    stream.clear();
+    stream.seekg(cap + 1);
+    EXPECT_TRUE(stream.fail());
+  }
+}
+
+TEST(GetObjectRangeStreamTest, CapsPrefixWhenCallerBufferExceedsCap) {
+  const auto cap = internal::GetObjectRangeStreamBuf::kSpillSize;
+  std::string caller(cap + 8, '!');
+  internal::GetObjectRangeStream stream(caller.data(), caller.size());
+  const std::string prefix(caller.size(), 'a');
+  stream.write(prefix.data(), prefix.size());
+  ASSERT_OK(stream.CheckForOverflow());
+  stream.write("suffix", 6);
+
+  ASSERT_TRUE(stream.good());
+  EXPECT_TRUE(stream.CheckForOverflow().IsIOError());
+  EXPECT_EQ(std::streampos(cap), stream.tellp());
+  EXPECT_EQ(std::string(cap, 'a'), ReadRangeResponse(stream));
+}
+
+}  // namespace
 
 MinioTestEnvironment* GetMinioEnv(bool enable_tls) {
   if (enable_tls) {
