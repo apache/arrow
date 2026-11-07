@@ -44,14 +44,16 @@
 //  - Abseil built *without* NDEBUG (a Debug vcpkg/system build): it has the
 //    strong out-of-line Dtor. Emitting our own copy is then a duplicate
 //    definition, which a *static* Abseil turns into LNK2005 (GH-49585). With a
-//    shared Abseil it is harmless, since the definitions live in separate
-//    images.
+//    shared Abseil it links, but our inline Dtor is empty: it skips
+//    Mutex::ForgetDeadlockInfo(), so a debug Abseil keeps stale nodes for
+//    destroyed mutexes in its deadlock graph. A new mutex created at the same
+//    address then inherits the old lock ordering and Abseil reports a bogus
+//    "Potential Mutex deadlock".
 //
-// So restrict the hack to the cases where it cannot produce a duplicate:
-// anything that is not MSVC-linking-static-Abseil. On MSVC, Abseil's CMake puts
-// ABSL_CONSUME_DLL in the INTERFACE compile definitions of its targets, so its
-// presence tells us we are consuming the DLL rather than the static library.
-#  if !defined(_MSC_VER) || defined(ABSL_CONSUME_DLL)
+// On MSVC the hack is not needed anyway: an Abseil DLL (ABSL_BUILD_DLL) always
+// exports Mutex::Dtor, and a static Abseil must not get a duplicate. So only
+// apply the hack on other platforms.
+#  if !defined(_MSC_VER)
 #    ifndef NDEBUG
 #      define ARROW_NO_NDEBUG
 #      define NDEBUG
