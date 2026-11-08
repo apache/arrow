@@ -273,7 +273,7 @@ jobs:
     if: needs.check-enabled.outputs.is_enabled == 'true'
     name: JNI macOS
     runs-on: macos-26
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
