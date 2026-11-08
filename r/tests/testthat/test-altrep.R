@@ -685,7 +685,7 @@ test_that("strings returned by ALTREP Elt() survive garbage collection", {
   on.exit(gctorture(FALSE), add = TRUE)
   observed <- charmatch(input, target, nomatch = NA_integer_)
   # Turn torture off before the expectation: with a GC on every allocation a
-  # single expect_identical() takes tens of seconds instead of a fraction of a
+  # single expect_identical() takes almost a minute instead of a fraction of a
   # second. The on.exit() above only covers the case where charmatch() errors.
   gctorture(FALSE)
 
