@@ -684,12 +684,16 @@ test_that("strings returned by ALTREP Elt() survive garbage collection", {
   gctorture(TRUE)
   on.exit(gctorture(FALSE), add = TRUE)
   observed <- charmatch(input, target, nomatch = NA_integer_)
+  # Turn torture off before the expectation: with a GC on every allocation a
+  # single expect_identical() takes tens of seconds instead of a fraction of a
+  # second. The on.exit() above only covers the case where charmatch() errors.
   gctorture(FALSE)
 
   expect_identical(observed, NA_integer_)
 })
 
 test_that("ALTREP string vectors reuse cached strings when materializing", {
+  skip_on_cran()
   withr::local_options(list(arrow.use_altrep = TRUE))
   values <- c("a", NA, "", "d", NA, "f")
 
