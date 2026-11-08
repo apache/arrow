@@ -2102,6 +2102,13 @@ TYPED_TEST(TestBaseBinaryKernels, ReplaceSubstring) {
 
   Datum input = ArrayFromJSON(this->type(), "[]");
   ASSERT_RAISES(Invalid, CallFunction("replace_substring", {input}));
+
+  // GH-39149: an empty pattern used to loop forever
+  input = ArrayFromJSON(this->type(), R"(["abc", "", null])");
+  for (int64_t max_replacements : {-1, -3, 1}) {
+    options = ReplaceSubstringOptions{"", "x", max_replacements};
+    ASSERT_RAISES(Invalid, CallFunction("replace_substring", {input}, &options));
+  }
 }
 
 #ifdef ARROW_WITH_RE2
@@ -2119,6 +2126,11 @@ TYPED_TEST(TestBaseBinaryKernels, ReplaceSubstringRegex) {
   options = ReplaceSubstringOptions{"^$", "x"};
   this->CheckUnary("replace_substring_regex", R"([""])", this->type(), R"(["x"])",
                    &options);
+
+  // GH-39149: negative max_replacements other than -1 means unlimited
+  options = ReplaceSubstringOptions{"", "x", -3};
+  this->CheckUnary("replace_substring_regex", R"(["abc"])", this->type(),
+                   R"(["xaxbxcx"])", &options);
 
   // ARROW-12774
   options = ReplaceSubstringOptions{"X", "Y"};
