@@ -1749,6 +1749,48 @@ TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
                     {duration(TimeUnit::NANO), duration(TimeUnit::NANO)});
 }
 
+TEST_F(ScalarTemporalTest, TestTemporalMultiplyDivideDurationByFloat) {
+  // Ties are rounded to even, slots with a null are not computed, -2^63 is in range
+  for (auto u : TimeUnit::values()) {
+    auto durations =
+        ArrayFromJSON(duration(u), "[10, 5, 7, -5, 2, null, 1, -4611686018427387904]");
+    for (auto op : {"multiply", "multiply_checked"}) {
+      CheckScalarBinaryCommutative(
+          op, durations,
+          ArrayFromJSON(float64(), "[2.5, 1.5, 1.5, 1.5, 0.4, NaN, null, 2]"),
+          ArrayFromJSON(duration(u),
+                        "[25, 8, 10, -8, 1, null, null, -9223372036854775808]"));
+    }
+    for (auto op : {"divide", "divide_checked"}) {
+      CheckScalarBinary(
+          op, durations, ArrayFromJSON(float64(), "[0.5, 2, 2, 2, 3, 0, null, 0.5]"),
+          ArrayFromJSON(duration(u),
+                        "[20, 2, 4, -2, 1, null, null, -9223372036854775808]"));
+    }
+  }
+  // NaN and out of range results, and division by zero, are errors in all variants
+  auto one = ArrayFromJSON(duration(TimeUnit::SECOND), "[1]");
+  auto big = ArrayFromJSON(duration(TimeUnit::SECOND), "[4611686018427387904]");
+  auto nan = ArrayFromJSON(float64(), "[NaN]");
+  for (auto op : {"multiply", "multiply_checked"}) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("NaN"),
+                                    CallFunction(op, {nan, one}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("overflow"),
+        CallFunction(op, {big, ArrayFromJSON(float64(), "[2]")}));
+  }
+  for (auto op : {"divide", "divide_checked"}) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("NaN"),
+                                    CallFunction(op, {one, nan}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("overflow"),
+        CallFunction(op, {big, ArrayFromJSON(float64(), "[0.5]")}));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("divide by zero"),
+        CallFunction(op, {one, ArrayFromJSON(float64(), "[0]")}));
+  }
+}
+
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
   auto raw_days = ArrayFromJSON(timestamp(TimeUnit::SECOND), R"([
     "2021-08-09", "2021-08-10", "2021-08-11", "2021-08-12", "2021-08-13", "2021-08-14", "2021-08-15",

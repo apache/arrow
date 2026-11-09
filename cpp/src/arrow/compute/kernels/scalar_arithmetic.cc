@@ -1126,6 +1126,41 @@ void AddArithmeticFunctionDurationTime(std::shared_ptr<ScalarFunction> func) {
                             std::move(exec_4)));
 }
 
+// Apply Op in double precision and round to the nearest integer, with ties to even
+// like the round kernel. NaN and out of range results are errors.
+template <typename Op>
+struct DurationByFloat {
+  template <typename T, typename Arg0, typename Arg1>
+  static T Call(KernelContext* ctx, Arg0 left, Arg1 right, Status* st) {
+    double value = Op::template Call<double, double, double>(
+        ctx, static_cast<double>(left), static_cast<double>(right), st);
+    double rounded = std::round(value);
+    if (std::abs(rounded - value) == 0.5) rounded = std::round(value * 0.5) * 2;
+    // The int64 range is [-2^63, 2^63); the comparison is false for NaN
+    if (ARROW_PREDICT_FALSE(!(rounded >= -0x1p63 && rounded < 0x1p63))) {
+      *st = Status::Invalid(std::isnan(rounded) ? "result is NaN" : "overflow");
+      return 0;
+    }
+    return static_cast<T>(rounded);
+  }
+};
+
+// Add Op(duration, float64) -> duration, and Op(float64, duration) -> duration for
+// Multiply. The same kernels are used for the checked and unchecked functions.
+template <typename Op>
+void AddDurationByFloatKernels(ScalarFunction* func) {
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<DurationType, DurationType, DoubleType,
+                                    DurationByFloat<Op>>::Exec;
+    DCHECK_OK(func->AddKernel({duration(unit), float64()}, duration(unit), exec));
+    if constexpr (std::is_same_v<Op, Multiply>) {
+      exec = ScalarBinaryNotNull<DurationType, DoubleType, DurationType,
+                                 DurationByFloat<Op>>::Exec;
+      DCHECK_OK(func->AddKernel({float64(), duration(unit)}, duration(unit), exec));
+    }
+  }
+}
+
 const FunctionDoc absolute_value_doc{
     "Calculate the absolute value of the argument element-wise",
     ("Results will wrap around on integer overflow.\n"
@@ -1711,6 +1746,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(multiply->AddKernel({duration(unit), int64()}, duration(unit), exec));
     DCHECK_OK(multiply->AddKernel({int64(), duration(unit)}, duration(unit), exec));
   }
+  AddDurationByFloatKernels<Multiply>(multiply.get());
 
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
 
@@ -1727,6 +1763,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(
         multiply_checked->AddKernel({int64(), duration(unit)}, duration(unit), exec));
   }
+  AddDurationByFloatKernels<Multiply>(multiply_checked.get());
 
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
 
@@ -1740,6 +1777,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(
         divide->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
   }
+  AddDurationByFloatKernels<DivideChecked>(divide.get());
 
   // Add divide(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
@@ -1761,6 +1799,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(divide_checked->AddKernel({duration(unit), int64()}, duration(unit),
                                         std::move(exec)));
   }
+  AddDurationByFloatKernels<DivideChecked>(divide_checked.get());
 
   // Add divide_checked(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
