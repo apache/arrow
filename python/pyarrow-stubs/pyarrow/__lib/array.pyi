@@ -15,16 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
-
 from collections.abc import Iterable, Iterator, Sequence
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
-from typing import Any, Literal
+from typing import Any, Literal, Self
 
 import numpy as np  # type: ignore[import-not-found]
 import pandas as pd  # type: ignore[import-not-found,import-untyped]

@@ -15,16 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
+from typing import Self, TypeAlias
 
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 from collections.abc import Iterable, Iterator, Sequence, Mapping
 from typing import Any, ClassVar, Literal
 from typing_extensions import CapsuleType, deprecated
