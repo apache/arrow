@@ -22,6 +22,7 @@
 
 #include "arrow/io/buffered.h"
 #include "arrow/io/memory.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 
@@ -60,6 +61,25 @@ std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties() {
       ArrowWriterProperties::Builder().build();
   return default_writer_properties;
 }
+
+void AlpConfig::Validate() const {
+  if (vector_size < 8 || vector_size > 32768 ||
+      !::arrow::bit_util::HasSingleBit(static_cast<uint32_t>(vector_size))) {
+    throw ParquetException("ALP vector size must be a power of two in [8, 32768]");
+  }
+  if (sampling_window_size <= 0) {
+    throw ParquetException("ALP sampling window size must be positive");
+  }
+}
+
+WriterProperties::Builder* WriterProperties::Builder::alp_config(
+    const AlpConfig& config) {
+  config.Validate();
+  alp_config_ = config;
+  return this;
+}
+
+const AlpConfig& WriterProperties::alp_config() const { return alp_config_; }
 
 void WriterProperties::Builder::CopyColumnSpecificProperties(
     const WriterProperties& properties) {

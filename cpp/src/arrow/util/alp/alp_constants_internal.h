@@ -38,9 +38,6 @@ enum class AlpMode : uint8_t { kAlp = 0 };
 enum class AlpIntegerEncoding : uint8_t { kForBitPack = 0 };
 
 struct AlpFormatConstants {
-  /// Recommended default vector size.
-  static constexpr int32_t kDefaultVectorSize = 1024;
-
   /// Minimum log2(vector size), corresponding to 8 elements.
   static constexpr uint8_t kMinLogVectorSize = 3;
 
@@ -63,14 +60,14 @@ struct AlpSamplingOptions {
   /// Input elements per sampling chunk.
   static constexpr int64_t kChunkSize = 4096;
 
-  /// Elements per sampling interval.
-  static constexpr int64_t kIntervalSize = 122880;
+  /// Maximum prefix length examined in each sampled chunk.
+  static constexpr int64_t kSampleWindowSize = 1024;
 
   /// Samples collected per chunk.
   static constexpr int64_t kSamplesPerChunk = 256;
 
-  /// Chunks sampled per interval.
-  static constexpr int64_t kSampleChunksPerInterval = 8;
+  /// Target number of sampled chunks per window.
+  static constexpr int64_t kSampleChunksPerWindow = 8;
 
   /// Consecutive non-improving combinations before an early exit.
   static constexpr uint8_t kEarlyExitThreshold = 4;

@@ -37,26 +37,19 @@ struct AlpSamplingParameters {
   int64_t sample_stride;
 };
 
-// The interval holds 30 4096-element chunks. Round up the jump so about eight
-// chunks per interval are sampled instead of ten under integer truncation.
-constexpr int64_t kSampledChunkStride = bit_util::CeilDiv(
-    bit_util::CeilDiv(AlpSamplingOptions::kIntervalSize, AlpSamplingOptions::kChunkSize),
-    AlpSamplingOptions::kSampleChunksPerInterval);
-static_assert(kSampledChunkStride > 0, "sample jump must be positive");
-
 // Caps the lookup window and chooses a stride that yields at most one sample per
 // kSamplesPerChunk values.
 AlpSamplingParameters GetSamplingParameters(int64_t chunk_size) {
   const int64_t values_to_examine =
-      std::min(chunk_size, static_cast<int64_t>(AlpFormatConstants::kDefaultVectorSize));
+      std::min(chunk_size, AlpSamplingOptions::kSampleWindowSize);
   const int64_t sample_stride = std::max<int64_t>(
       1, bit_util::CeilDiv(values_to_examine, AlpSamplingOptions::kSamplesPerChunk));
   return AlpSamplingParameters{values_to_examine, sample_stride};
 }
 
 bool ShouldSkipChunk(const int64_t chunk_index, const int64_t sampled_chunk_count,
-                     const int64_t chunk_size) {
-  if ((chunk_index % kSampledChunkStride) != 0) {
+                     const int64_t chunk_size, const int64_t sampled_chunk_stride) {
+  if ((chunk_index % sampled_chunk_stride) != 0) {
     return true;
   }
 
@@ -66,6 +59,14 @@ bool ShouldSkipChunk(const int64_t chunk_index, const int64_t sampled_chunk_coun
 }
 
 }  // namespace
+
+template <AlpFloatingType T>
+AlpSampler<T>::AlpSampler(int64_t sampling_window_size)
+    : sampled_chunk_stride_(bit_util::CeilDiv(
+          bit_util::CeilDiv(sampling_window_size, AlpSamplingOptions::kChunkSize),
+          AlpSamplingOptions::kSampleChunksPerWindow)) {
+  ARROW_DCHECK_GT(sampling_window_size, 0);
+}
 
 template <AlpFloatingType T>
 void AlpSampler<T>::AddSample(std::span<const T> input) {
@@ -83,8 +84,8 @@ void AlpSampler<T>::AddSampleChunk(std::span<const T> input) {
   }
 
   const int64_t input_size = static_cast<int64_t>(input.size());
-  const bool should_skip =
-      ShouldSkipChunk(chunks_processed_, chunks_sampled_, input_size);
+  const bool should_skip = ShouldSkipChunk(chunks_processed_, chunks_sampled_, input_size,
+                                           sampled_chunk_stride_);
 
   chunks_processed_ += 1;
   values_processed_ += input_size;

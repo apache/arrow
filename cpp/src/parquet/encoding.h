@@ -26,6 +26,7 @@
 
 #include "parquet/exception.h"
 #include "parquet/platform.h"
+#include "parquet/properties.h"
 #include "parquet/types.h"
 
 namespace arrow {
@@ -433,16 +434,18 @@ PARQUET_EXPORT
 std::unique_ptr<Encoder> MakeEncoder(
     Type::type type_num, Encoding::type encoding, bool use_dictionary = false,
     const ColumnDescriptor* descr = NULLPTR,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+    const AlpConfig& alp_config = {});
 
 template <typename DType>
 std::unique_ptr<typename EncodingTraits<DType>::Encoder> MakeTypedEncoder(
     Encoding::type encoding, bool use_dictionary = false,
     const ColumnDescriptor* descr = NULLPTR,
-    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+    const AlpConfig& alp_config = {}) {
   using OutType = typename EncodingTraits<DType>::Encoder;
   std::unique_ptr<Encoder> base =
-      MakeEncoder(DType::type_num, encoding, use_dictionary, descr, pool);
+      MakeEncoder(DType::type_num, encoding, use_dictionary, descr, pool, alp_config);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
 
