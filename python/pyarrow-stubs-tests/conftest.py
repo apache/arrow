@@ -18,14 +18,14 @@
 import sys
 import types
 
-import pyarrow.lib as lib
+import pyarrow as pa
 
 
-def _stub_only_type(name: str) -> type[lib.DataType]:
+def _stub_only_type(name: str) -> type[pa.DataType]:
     # The factories of the stub-only DataType subclasses (Int32Type, ...)
     # return plain DataType instances at runtime.
     if name.endswith("Type") and not name.startswith("_"):
-        return lib.DataType
+        return pa.DataType
     raise AttributeError(name)
 
 

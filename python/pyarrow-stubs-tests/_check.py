@@ -19,8 +19,7 @@
 
 Each test pairs a static and a runtime check of the same expression::
 
-    check(assert_type(pa.lib.list_(pa.lib.int32()), pa.lib.ListType),
-          pa.lib.ListType)
+    check(assert_type(pa.list_(pa.int32()), pa.ListType), pa.ListType)
 
 ``assert_type`` is verified by every type checker we run in CI (mypy,
 pyright and ty) and is a no-op at runtime. ``check`` runs under pytest and

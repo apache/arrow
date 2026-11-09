@@ -223,17 +223,17 @@ verifies statically, with a runtime ``isinstance`` check:
 
 .. code-block:: python
 
-   import pyarrow.lib as lib
+   import pyarrow as pa
 
    from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
 
    def test_list_type() -> None:
-       lst = lib.list_(lib.int32())
-       check(assert_type(lst, lib.ListType), lib.ListType)
-       check(assert_type(lst.value_type, lib.DataType), lib.DataType)
+       lst = pa.list_(pa.int32())
+       check(assert_type(lst, pa.ListType), pa.ListType)
+       check(assert_type(lst.value_type, pa.DataType), pa.DataType)
 
        if TYPE_CHECKING_INVALID_USAGE:
-           lib.list_(1)  # type: ignore[call-overload]
+           pa.list_(1)  # type: ignore[call-overload]
 
 The type checkers check these files as part of the regular runs above, and
 pytest runs them against the installed PyArrow to make sure the stubs agree
