@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <utility>
 
@@ -50,6 +51,9 @@ class Lexer {
       : options_(options), bulk_filter_(options_) {
     DCHECK_EQ(SpecializedOptions::quoting, options_.quoting);
     DCHECK_EQ(SpecializedOptions::escaping, options_.escaping);
+    if constexpr (SpecializedOptions::multi_delimiter) {
+      delimiter_matcher_.emplace(options_.delimiter_string);
+    }
   }
 
   void Reset() { state_ = FIELD_START; }
@@ -107,6 +111,9 @@ class Lexer {
     }
 
   FieldStart:
+    if constexpr (SpecializedOptions::multi_delimiter) {
+      delimiter_matcher_->Reset();
+    }
     if constexpr (!SpecializedOptions::quoting) {
       goto InField;
     } else {
@@ -126,13 +133,27 @@ class Lexer {
 
   InField:
     // Inside a non-quoted part of a field
-    if (UseBulkFilter) {
-      const char* bulk_end = RunBulkFilter(data, data_end);
-      if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
-        state_ = IN_FIELD;
-        goto AbortLine;
+    if constexpr (UseBulkFilter) {
+      if constexpr (SpecializedOptions::multi_delimiter) {
+        if (!delimiter_matcher_->has_partial_match()) {
+          const char* bulk_end = RunBulkFilter(data, data_end);
+          if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+            state_ = IN_FIELD;
+            goto AbortLine;
+          }
+          data = bulk_end;
+        } else if (ARROW_PREDICT_FALSE(data == data_end)) {
+          state_ = IN_FIELD;
+          goto AbortLine;
+        }
+      } else {
+        const char* bulk_end = RunBulkFilter(data, data_end);
+        if (ARROW_PREDICT_FALSE(bulk_end == nullptr)) {
+          state_ = IN_FIELD;
+          goto AbortLine;
+        }
+        data = bulk_end;
       }
-      data = bulk_end;
     } else {
       if (ARROW_PREDICT_FALSE(data == data_end)) {
         state_ = IN_FIELD;
@@ -141,6 +162,9 @@ class Lexer {
     }
     c = *data++;
     if (SpecializedOptions::escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
+      if constexpr (SpecializedOptions::multi_delimiter) {
+        delimiter_matcher_->Reset();
+      }
       if (ARROW_PREDICT_FALSE(data == data_end)) {
         state_ = AT_ESCAPE;
         goto AbortLine;
@@ -157,9 +181,14 @@ class Lexer {
     if (ARROW_PREDICT_FALSE(c == '\n')) {
       goto LineEnd;
     }
-    // treat delimiter as a normal token if quoting is disabled
-    if (ARROW_PREDICT_FALSE(SpecializedOptions::quoting && c == options_.delimiter)) {
-      goto FieldEnd;
+    if constexpr (SpecializedOptions::quoting) {
+      if constexpr (SpecializedOptions::multi_delimiter) {
+        if (ARROW_PREDICT_FALSE(delimiter_matcher_->Consume(c))) {
+          goto FieldStart;
+        }
+      } else if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
+        goto FieldStart;
+      }
     }
     goto InField;
 
@@ -223,10 +252,6 @@ class Lexer {
       goto InField;
     }
 
-  FieldEnd:
-    // At the end of a field
-    goto FieldStart;
-
   LineEnd:
     state_ = FIELD_START;
     return data;
@@ -262,6 +287,8 @@ class Lexer {
   const ParseOptions& options_;
   const BulkFilterType bulk_filter_;
   State state_ = FIELD_START;
+
+  std::optional<internal::StreamingDelimiterMatcher> delimiter_matcher_;
 };
 
 // A BoundaryFinder implementation that assumes CSV cells can contain raw newlines,
@@ -380,23 +407,22 @@ std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
   if (!options.newlines_in_values) {
     delimiter = MakeNewlineBoundaryFinder();
   } else {
-    if (options.quoting) {
-      if (options.escaping) {
-        delimiter = std::make_shared<
-            LexingBoundaryFinder<internal::SpecializedOptions<true, true>>>(options);
-      } else {
-        delimiter = std::make_shared<
-            LexingBoundaryFinder<internal::SpecializedOptions<true, false>>>(options);
-      }
-    } else {
-      if (options.escaping) {
-        delimiter = std::make_shared<
-            LexingBoundaryFinder<internal::SpecializedOptions<false, true>>>(options);
-      } else {
-        delimiter = std::make_shared<
-            LexingBoundaryFinder<internal::SpecializedOptions<false, false>>>(options);
-      }
+    // Unlike the parser, the chunker only needs delimiters to identify field starts
+    // for quote recognition.  Without quoting, delimiters cannot affect line boundaries.
+    auto lexing_options = options;
+    if (lexing_options.delimiter_string.size() == 1) {
+      lexing_options.delimiter = lexing_options.delimiter_string.front();
     }
+    const bool multi_delimiter = options.quoting && options.delimiter_string.size() > 1;
+    delimiter = internal::DispatchBool(
+        [&]<bool Quoting, bool Escaping, bool MultiDelimiter>()
+            -> std::shared_ptr<BoundaryFinder> {
+          using SpecializedOptions =
+              internal::SpecializedOptions<Quoting, Escaping, MultiDelimiter>;
+          return std::make_shared<LexingBoundaryFinder<SpecializedOptions>>(
+              std::move(lexing_options));
+        },
+        options.quoting, options.escaping, multi_delimiter);
   }
   return std::make_unique<Chunker>(std::move(delimiter));
 }
