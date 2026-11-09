@@ -109,6 +109,7 @@ add_arrow_test(bit-utility-test
                bpacking_test.cc
                rle_bitmap_test.cc
                rle_encoding_test.cc
+               spaced_test.cc
                test_common.cc)
 
 add_arrow_test(encoding-utility-test SOURCES alp/alp_test.cc)
@@ -141,6 +142,7 @@ add_arrow_benchmark(machine_benchmark)
 add_arrow_benchmark(queue_benchmark)
 add_arrow_benchmark(range_benchmark)
 add_arrow_benchmark(small_vector_benchmark)
+add_arrow_benchmark(spaced_benchmark)
 add_arrow_benchmark(tdigest_benchmark)
 add_arrow_benchmark(thread_pool_benchmark)
 add_arrow_benchmark(trie_benchmark)
