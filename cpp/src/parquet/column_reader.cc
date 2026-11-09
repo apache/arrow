@@ -104,6 +104,7 @@ static_assert(can_hold_v<int64_t, uint32_t>);
 static_assert(can_hold_v<int32_t, int32_t>);
 static_assert(!can_hold_v<int32_t, int64_t>);
 static_assert(!can_hold_v<int32_t, uint32_t>);
+static_assert(!can_hold_v<uint32_t, int32_t>);
 static_assert(!can_hold_v<uint64_t, int32_t>);
 
 /// Clamp to a given type.
