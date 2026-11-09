@@ -130,7 +130,10 @@ if(WIN32)
                          win_system_dsn.cc)
 endif()
 
-if(WIN32)
+# Windows and Linux. Deliberately nothing special on Linux: like Windows, it follows
+# ARROW_BUILD_STATIC, so the workflows or arrow.spec.in decide whether Arrow is linked
+# statically or dynamically.
+if(NOT APPLE)
   find_package(ODBC REQUIRED)
   target_include_directories(arrow_odbc_spi_impl PUBLIC ${ODBC_INCLUDE_DIR})
   if(ARROW_BUILD_STATIC)
@@ -149,7 +152,7 @@ if(WIN32)
                                  ${ODBCINST})
   endif()
 else()
-  # Unix
+  # macOS - always link Arrow statically
   target_include_directories(arrow_odbc_spi_impl SYSTEM BEFORE PUBLIC ${ODBC_INCLUDE_DIR})
   target_link_libraries(arrow_odbc_spi_impl
                         PUBLIC arrow_flight_sql_static
@@ -157,11 +160,6 @@ else()
                                Boost::locale
                                Boost::headers
                                arrow::simdjson)
-
-  if(NOT APPLE)
-    # Explicitly link to unix-odbc on Linux
-    target_link_libraries(arrow_odbc_spi_impl PUBLIC ${ODBCINST})
-  endif()
 endif()
 
 # CLI
@@ -173,18 +171,19 @@ target_link_libraries(arrow_odbc_spi_impl_cli arrow_odbc_spi_impl)
 
 # Unit tests
 
-# On Windows, dynamic linking ODBC is supported.
-# On unix systems, static linking ODBC is supported, thus the library linking is static.
+# On Windows and Linux, dynamic linking ODBC is supported. Deliberately nothing
+# special on Linux: it uses the same settings as Windows.
+# On macOS, static linking ODBC is supported, thus the library linking is static.
 # Use STATIC_LINK_LIBS when Flight tests require static linkage to avoid mixing static/shared Arrow
-if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+if(NOT APPLE AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ODBC_SPI_IMPL_TEST_STATIC_LIBS arrow_odbc_spi_impl arrow_flight_testing_static
                                      ${ARROW_TEST_STATIC_LINK_LIBS})
   set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS "")
-elseif(WIN32)
+elseif(NOT APPLE)
   set(ODBC_SPI_IMPL_TEST_STATIC_LIBS "")
   set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS arrow_odbc_spi_impl arrow_flight_testing_shared)
 else()
-  # Unix - always static
+  # macOS - always static
   set(ODBC_SPI_IMPL_TEST_STATIC_LIBS arrow_odbc_spi_impl arrow_flight_testing_static
                                      ${ARROW_TEST_STATIC_LINK_LIBS})
   set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS "")
