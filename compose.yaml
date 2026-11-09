@@ -518,7 +518,7 @@ services:
     command: *cpp-command
 
   ubuntu-cpp-odbc:
-    # Arrow Flight SQL ODBC build with BUNDLED dependencies with downloaded dependencies.
+    # Arrow Flight SQL ODBC build with shared dependencies, like arrow.spec.in
     <<: *ubuntu-cpp-base
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
@@ -527,8 +527,8 @@ services:
       ARROW_BUILD_TYPE: RELEASE
       ARROW_CSV: "OFF"
       ARROW_DATASET: "OFF"
-      ARROW_DEPENDENCY_SOURCE: BUNDLED
-      ARROW_DEPENDENCY_USE_SHARED: "OFF"
+      ARROW_DEPENDENCY_SOURCE: AUTO
+      ARROW_DEPENDENCY_USE_SHARED: "ON"
       ARROW_FLIGHT_SQL_ODBC: "ON"
       ARROW_FLIGHT_SQL_ODBC_CONN: "driver={Apache Arrow Flight SQL ODBC Driver};HOST=dremio;port=32010;pwd=admin2025;uid=admin;useEncryption=false;UseWideChar=true;"
       ARROW_GANDIVA: "OFF"
