@@ -18,6 +18,7 @@
 #include "arrow/util/alp/alp_compression_internal.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -58,6 +59,20 @@ class AlpInlines {
   using EncodedUnsigned = typename Constants::EncodedUnsigned;
   using EncodedSigned = typename Constants::EncodedSigned;
 
+  struct Multipliers {
+    T encode_exponent;
+    T encode_factor;
+    T decode_factor;
+    T decode_exponent;
+  };
+
+  static Multipliers GetMultipliers(const AlpExponentAndFactor exponent_and_factor) {
+    return {Constants::GetExponent(exponent_and_factor.exponent),
+            Constants::GetFactor(exponent_and_factor.factor),
+            Constants::GetExponent(exponent_and_factor.factor),
+            Constants::GetFactor(exponent_and_factor.exponent)};
+  }
+
   // Returns true when the scaled value cannot be encoded.
   static bool IsImpossibleToEncode(const T n) {
     // The two limit comparisons already cover both infinities: the encoding
@@ -89,22 +104,15 @@ class AlpInlines {
     return FastRound(n);
   }
 
-  // Encodes one value using the exponent/factor pair.
-  static EncodedSigned EncodeValue(const T value,
-                                   const AlpExponentAndFactor exponent_and_factor) {
-    const T tmp_encoded_value = value *
-                                Constants::GetExponent(exponent_and_factor.exponent) *
-                                Constants::GetFactor(exponent_and_factor.factor);
-    return NumberToInt(tmp_encoded_value);
+  static EncodedSigned EncodeValue(const T value, const Multipliers& multipliers) {
+    return NumberToInt(value * multipliers.encode_exponent * multipliers.encode_factor);
   }
 
-  // Decodes one encoded integer using the exponent/factor pair.
   static T DecodeValue(const EncodedSigned encoded_value,
-                       const AlpExponentAndFactor exponent_and_factor) {
+                       const Multipliers& multipliers) {
     // The cast to T is needed to prevent a signed integer overflow.
-    return static_cast<T>(encoded_value) *
-           Constants::GetExponent(exponent_and_factor.factor) *
-           Constants::GetFactor(exponent_and_factor.exponent);
+    return static_cast<T>(encoded_value) * multipliers.decode_factor *
+           multipliers.decode_exponent;
   }
 };
 
@@ -149,6 +157,7 @@ std::optional<int64_t> EstimateCompressedSizeBits(
   static constexpr int kBatchSize = 8;
   const size_t n = inputs.size();
   int64_t num_exceptions = 0;
+  const auto multipliers = AlpInlines<T>::GetMultipliers(exponent_and_factor);
 
   size_t i = 0;
   for (; i + kBatchSize <= n; i += kBatchSize) {
@@ -157,12 +166,11 @@ std::optional<int64_t> EstimateCompressedSizeBits(
 
     // Pass 1: Encode (vectorizable: multiply + magic-number round)
     for (int j = 0; j < kBatchSize; j++) {
-      encoded_values[j] = AlpInlines<T>::EncodeValue(inputs[i + j], exponent_and_factor);
+      encoded_values[j] = AlpInlines<T>::EncodeValue(inputs[i + j], multipliers);
     }
     // Pass 2: Decode (vectorizable: int->float cast + multiply)
     for (int j = 0; j < kBatchSize; j++) {
-      decoded_values[j] =
-          AlpInlines<T>::DecodeValue(encoded_values[j], exponent_and_factor);
+      decoded_values[j] = AlpInlines<T>::DecodeValue(encoded_values[j], multipliers);
     }
     // Pass 3: Compare and accumulate min/max/exceptions
     for (int j = 0; j < kBatchSize; j++) {
@@ -177,9 +185,8 @@ std::optional<int64_t> EstimateCompressedSizeBits(
   // Scalar tail for remaining elements
   for (; i < n; i++) {
     const EncodedSigned encoded_value =
-        AlpInlines<T>::EncodeValue(inputs[i], exponent_and_factor);
-    const T decoded_value =
-        AlpInlines<T>::DecodeValue(encoded_value, exponent_and_factor);
+        AlpInlines<T>::EncodeValue(inputs[i], multipliers);
+    const T decoded_value = AlpInlines<T>::DecodeValue(encoded_value, multipliers);
     if (decoded_value == inputs[i]) {
       max_encoded_value = std::max(encoded_value, max_encoded_value);
       min_encoded_value = std::min(encoded_value, min_encoded_value);
@@ -305,21 +312,6 @@ AlpEncodingPreset AlpCompression<T>::MakePreset(
 }
 
 template <AlpFloatingType T>
-std::vector<T> AlpCompression<T>::CreateSample(std::span<const T> inputs) {
-  // Pick an equidistant stride so the sample count is capped at kSamplesPerChunk.
-  const int32_t idx_increments = std::max<int32_t>(
-      1, static_cast<int32_t>(std::ceil(static_cast<double>(inputs.size()) /
-                                        AlpSamplingOptions::kSamplesPerChunk)));
-  const size_t increment = static_cast<size_t>(idx_increments);
-  std::vector<T> sample;
-  sample.reserve((inputs.size() + increment - 1) / increment);
-  for (size_t i = 0; i < inputs.size(); i += idx_increments) {
-    sample.push_back(inputs[i]);
-  }
-  return sample;
-}
-
-template <AlpFloatingType T>
 AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
     std::span<const T> inputs, const std::vector<AlpExponentAndFactor>& combinations) {
   ARROW_CHECK(!combinations.empty())
@@ -331,7 +323,17 @@ AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
     return combinations.front();
   }
 
-  const std::vector<T> sample = CreateSample(inputs);
+  // The sample is capped at 256 values. Keep it on the stack to avoid a heap
+  // allocation for every vector parameter search.
+  std::array<T, AlpSamplingOptions::kSamplesPerChunk> sample_storage;
+  const int32_t idx_increments = std::max<int32_t>(
+      1, static_cast<int32_t>(std::ceil(static_cast<double>(inputs.size()) /
+                                        AlpSamplingOptions::kSamplesPerChunk)));
+  size_t sample_count = 0;
+  for (size_t i = 0; i < inputs.size(); i += idx_increments) {
+    sample_storage[sample_count++] = inputs[i];
+  }
+  const std::span<const T> sample(sample_storage.data(), sample_count);
 
   AlpExponentAndFactor best_exponent_and_factor;
   int64_t best_total_bits = std::numeric_limits<int64_t>::max();
@@ -375,6 +377,7 @@ typename AlpCompression<T>::EncodingResult AlpCompression<T>::EncodeVector(
   for_deltas.reserve(inputs.size());
   std::vector<T> exceptions;
   std::vector<AlpFormatConstants::PositionType> exception_positions;
+  const auto multipliers = AlpInlines<T>::GetMultipliers(exponent_and_factor);
 
   EncodedSigned min_encoded_value = std::numeric_limits<EncodedSigned>::max();
   EncodedSigned max_encoded_value = std::numeric_limits<EncodedSigned>::min();
@@ -383,10 +386,8 @@ typename AlpCompression<T>::EncodingResult AlpCompression<T>::EncodeVector(
   // while the remaining values define the FOR range.
   int64_t input_offset = 0;
   for (const T input : inputs) {
-    const EncodedSigned encoded_value =
-        AlpInlines<T>::EncodeValue(input, exponent_and_factor);
-    const T decoded_value =
-        AlpInlines<T>::DecodeValue(encoded_value, exponent_and_factor);
+    const EncodedSigned encoded_value = AlpInlines<T>::EncodeValue(input, multipliers);
+    const T decoded_value = AlpInlines<T>::DecodeValue(encoded_value, multipliers);
     for_deltas.push_back(static_cast<EncodedUnsigned>(encoded_value));
 
     if (decoded_value != input) {
@@ -524,16 +525,25 @@ template <typename TargetType>
 void AlpCompression<T>::PatchExceptions(
     std::span<const T> exceptions,
     std::span<const AlpFormatConstants::PositionType> exception_positions,
-    std::span<TargetType> outputs) {
+    const bool positions_strictly_increasing, std::span<TargetType> outputs) {
   ARROW_DCHECK_EQ(exceptions.size(), exception_positions.size());
-  // `ivdep` assumes the positions are distinct. The encoder writes them in
-  // order, and loading a page rejects positions that do not increase.
-  int64_t exception_idx = 0;
-  ARROW_ALP_UNROLL_AND_ASSUME_INDEPENDENT
-  for (const AlpFormatConstants::PositionType exception_position : exception_positions) {
-    ARROW_DCHECK_LT(exception_position, outputs.size());
-    outputs[exception_position] = static_cast<T>(exceptions[exception_idx]);
-    exception_idx++;
+  const size_t num_exceptions = exception_positions.size();
+  const auto patch_exception = [&](size_t i) {
+    const auto position = exception_positions[i];
+    ARROW_DCHECK_LT(position, outputs.size());
+    outputs[position] = static_cast<T>(exceptions[i]);
+  };
+  if (positions_strictly_increasing) {
+    // The encoder emits strictly increasing positions. Use the vectorized
+    // fast path for that common case.
+    ARROW_ALP_UNROLL_AND_ASSUME_INDEPENDENT
+    for (size_t i = 0; i < num_exceptions; ++i) {
+      patch_exception(i);
+    }
+  } else {
+    for (size_t i = 0; i < num_exceptions; ++i) {
+      patch_exception(i);
+    }
   }
 }
 
@@ -563,17 +573,18 @@ void AlpCompression<T>::Decompress(const AlpEncodedVectorView<T>& encoded_view,
   // Read the exponent/factor once. AlpInfo stores them as uint8_t, which may
   // alias the output stores, so reading them inside the loop blocks vectorization.
   const AlpExponentAndFactor exponent_and_factor = alp_info.GetExponentAndFactor();
+  const auto multipliers = AlpInlines<T>::GetMultipliers(exponent_and_factor);
   for (size_t i = 0; i < output.size(); ++i) {
     const EncodedUnsigned unfored_value = scratch[i] + frame_of_ref;
     const EncodedSigned signed_value = util::SafeCopy<EncodedSigned>(unfored_value);
-    output[i] = AlpInlines<T>::DecodeValue(signed_value, exponent_and_factor);
+    output[i] = AlpInlines<T>::DecodeValue(signed_value, multipliers);
   }
 
   PatchExceptions<TargetType>(
       {encoded_view.exceptions().data(), encoded_view.exceptions().size()},
       {encoded_view.exception_positions().data(),
        encoded_view.exception_positions().size()},
-      output);
+      encoded_view.exception_positions_strictly_increasing(), output);
 }
 
 // Template instantiations

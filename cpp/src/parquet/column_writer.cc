@@ -1292,8 +1292,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                         internal::ContentDefinedChunker* content_defined_chunker)
       : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding, properties,
                          content_defined_chunker) {
-    current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
-                                   descr_, properties->memory_pool());
+    current_encoder_ =
+        MakeEncoder(ParquetType::type_num, encoding, use_dictionary, descr_,
+                    properties->memory_pool(), properties->alp_config());
     // We have to dynamic_cast as some compilers don't want to static_cast
     // through virtual inheritance.
     current_value_encoder_ =

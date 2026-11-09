@@ -153,61 +153,45 @@ Result<int64_t> EncodePage(std::span<const T> inputs, const AlpEncodingPreset& p
   std::span<uint8_t> body = output.subspan(AlpHeader::kSize);
   const int64_t element_count = static_cast<int64_t>(inputs.size());
 
-  // Phase 1: compress all vectors and collect them.
-  std::vector<AlpEncodedVector<T>> encoded_vectors;
   const int64_t num_vectors = ::arrow::bit_util::CeilDiv(element_count, vector_size);
-  encoded_vectors.reserve(num_vectors);
-
-  int64_t input_offset = 0;
-  for (int64_t remaining_elements = element_count; remaining_elements > 0;) {
-    const int64_t elements_to_encode =
-        std::min(static_cast<int64_t>(vector_size), remaining_elements);
-    encoded_vectors.push_back(AlpCompression<T>::Compress(
-        inputs.subspan(static_cast<size_t>(input_offset),
-                       static_cast<size_t>(elements_to_encode)),
-        preset));
-    input_offset += elements_to_encode;
-    remaining_elements -= elements_to_encode;
-  }
-
-  // Phase 2: calculate sizes and offsets.
   const int64_t per_vector_metadata_size =
       AlpInfo::kStoredSize + GetIntegerEncodingMetadataSize<T>(preset.integer_encoding);
   const int64_t offsets_section_size =
       num_vectors * static_cast<int64_t>(sizeof(AlpFormatConstants::OffsetType));
-
-  std::vector<AlpFormatConstants::OffsetType> vector_offsets;
-  vector_offsets.reserve(num_vectors);
+  if (offsets_section_size > static_cast<int64_t>(body.size())) {
+    return Status::Invalid("ALP output buffer too small for offsets: ", body.size(),
+                           " < ", offsets_section_size);
+  }
 
   int64_t current_offset = offsets_section_size;
-  for (const auto& vec : encoded_vectors) {
+  int64_t input_offset = 0;
+  for (int64_t vector_index = 0; vector_index < num_vectors; ++vector_index) {
+    const int64_t remaining_elements = element_count - input_offset;
+    const int64_t elements_to_encode =
+        std::min(static_cast<int64_t>(vector_size), remaining_elements);
+    const auto vec = AlpCompression<T>::Compress(
+        inputs.subspan(static_cast<size_t>(input_offset),
+                       static_cast<size_t>(elements_to_encode)),
+        preset);
+    const int64_t stored_size = per_vector_metadata_size + vec.GetDataStoredSize();
     if (current_offset >
         static_cast<int64_t>(
             std::numeric_limits<AlpFormatConstants::OffsetType>::max())) {
       return Status::Invalid("ALP encoded data exceeds the uint32 offset range");
     }
-    vector_offsets.push_back(static_cast<AlpFormatConstants::OffsetType>(current_offset));
-    current_offset += per_vector_metadata_size + vec.GetDataStoredSize();
+    if (stored_size > static_cast<int64_t>(body.size()) - current_offset) {
+      return Status::Invalid("ALP output buffer too small: ", body.size(), " < ",
+                             current_offset + stored_size);
+    }
+    const auto offset = static_cast<AlpFormatConstants::OffsetType>(current_offset);
+    util::SafeStore(body.data() + vector_index * sizeof(AlpFormatConstants::OffsetType),
+                    bit_util::ToLittleEndian(offset));
+    vec.Store(body.subspan(static_cast<size_t>(current_offset),
+                           static_cast<size_t>(stored_size)));
+    current_offset += stored_size;
+    input_offset += elements_to_encode;
   }
   const int64_t body_size = current_offset;
-  if (body_size > static_cast<int64_t>(body.size())) {
-    return Status::Invalid("ALP output buffer too small: ", body.size(), " < ",
-                           body_size);
-  }
-
-  // Phase 3: write the offset table.
-  uint8_t* offset_ptr = body.data();
-  for (const auto& offset : vector_offsets) {
-    util::SafeStore(offset_ptr, bit_util::ToLittleEndian(offset));
-    offset_ptr += sizeof(AlpFormatConstants::OffsetType);
-  }
-
-  // Phase 4: write interleaved vectors [AlpInfo | ForInfo | Data].
-  for (size_t i = 0; i < encoded_vectors.size(); ++i) {
-    const auto& vec = encoded_vectors[i];
-    const int64_t stored_size = per_vector_metadata_size + vec.GetDataStoredSize();
-    vec.Store(body.subspan(vector_offsets[i], static_cast<size_t>(stored_size)));
-  }
   AlpHeader header{};
   header.compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
   header.integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kForBitPack);
@@ -228,8 +212,11 @@ Result<int64_t> EncodePage(std::span<const T> inputs, const AlpEncodingPreset& p
 template <AlpFloatingType T>
 Result<AlpEncodingPreset> AlpCodec<T>::MakePreset(std::span<const T> inputs) {
   RETURN_NOT_OK(ValidateElementCount(inputs.size()));
+  if (inputs.empty()) {
+    return AlpEncodingPreset::MakeDefault();
+  }
 
-  AlpSampler<T> sampler;
+  AlpSampler<T> sampler(static_cast<int64_t>(inputs.size()));
   sampler.AddSample(inputs);
   return sampler.MakePreset();
 }

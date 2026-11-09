@@ -71,6 +71,31 @@ TEST(TestWriterProperties, Basics) {
   ASSERT_FALSE(props->page_checksum_enabled());
 }
 
+TEST(TestWriterProperties, AlpConfig) {
+  WriterProperties::Builder builder;
+  EXPECT_EQ(1024, builder.build()->alp_config().vector_size);
+  EXPECT_EQ(122880, builder.build()->alp_config().sampling_window_size);
+
+  const AlpConfig config{/*vector_size=*/4096, /*sampling_window_size=*/8192};
+  auto properties = builder.alp_config(config)->build();
+  EXPECT_EQ(config.vector_size, properties->alp_config().vector_size);
+  EXPECT_EQ(config.sampling_window_size, properties->alp_config().sampling_window_size);
+  auto copy = WriterProperties::Builder(*properties).build();
+  EXPECT_EQ(config.vector_size, copy->alp_config().vector_size);
+  EXPECT_EQ(config.sampling_window_size, copy->alp_config().sampling_window_size);
+
+  for (int32_t invalid_size : {0, 7, 1000, 65536}) {
+    auto invalid_config = config;
+    invalid_config.vector_size = invalid_size;
+    EXPECT_THROW(builder.alp_config(invalid_config), ParquetException);
+  }
+  for (int64_t invalid_size : {0, -1}) {
+    auto invalid_config = config;
+    invalid_config.sampling_window_size = invalid_size;
+    EXPECT_THROW(builder.alp_config(invalid_config), ParquetException);
+  }
+}
+
 TEST(TestWriterProperties, DefaultCompression) {
   std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
 

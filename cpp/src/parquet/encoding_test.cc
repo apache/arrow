@@ -3002,28 +3002,41 @@ TYPED_TEST(TestAlpEncoding, BatchedDecode) {
   }
 }
 
-// Flush twice on one encoder. The two pages must not mix.
 TYPED_TEST(TestAlpEncoding, ReusesEncoderAcrossFlushes) {
   using c_type = typename TypeParam::c_type;
-  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, this->descr_.get());
-  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, this->descr_.get());
 
-  const std::vector<std::vector<c_type>> pages = {
-      {static_cast<c_type>(1.25), static_cast<c_type>(2.5), static_cast<c_type>(3.75)},
-      // Two vectors, so a bad offset table would be caught.
-      std::vector<c_type>(1500, static_cast<c_type>(7.5)),
-  };
+  for (const AlpConfig& config :
+       {AlpConfig{}, AlpConfig{/*vector_size=*/8, /*sampling_window_size=*/16},
+        AlpConfig{/*vector_size=*/4096, /*sampling_window_size=*/8192}}) {
+    SCOPED_TRACE(::testing::Message()
+                 << "vector_size=" << config.vector_size
+                 << " sampling_window_size=" << config.sampling_window_size);
+    auto encoder = MakeTypedEncoder<TypeParam>(
+        /*encoding=*/Encoding::ALP, /*use_dictionary=*/false, this->descr_.get(),
+        ::arrow::default_memory_pool(), config);
+    auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, this->descr_.get());
 
-  for (const auto& page : pages) {
-    encoder->Put(page.data(), static_cast<int>(page.size()));
-    auto buffer = encoder->FlushValues();
+    for (c_type value : {static_cast<c_type>(1.25), static_cast<c_type>(7.5),
+                         static_cast<c_type>(0.001)}) {
+      SCOPED_TRACE(value);
+      // Each page contains one full vector and one trailing value.
+      const std::vector<c_type> page(config.vector_size + 1, value);
+      encoder->Put(page.data(), static_cast<int>(page.size()));
+      auto buffer = encoder->FlushValues();
 
-    std::vector<c_type> output(page.size());
-    decoder->SetData(static_cast<int>(page.size()), buffer->data(),
-                     static_cast<int>(buffer->size()));
-    ASSERT_EQ(page.size(), static_cast<size_t>(decoder->Decode(
-                               output.data(), static_cast<int>(page.size()))));
-    ASSERT_THAT(output, ::testing::ElementsAreArray(page));
+      ASSERT_OK_AND_ASSIGN(auto reader,
+                           ::arrow::util::alp::AlpVectorReader<c_type>::Open(
+                               {buffer->data(), static_cast<size_t>(buffer->size())},
+                               ::arrow::default_memory_pool()));
+      EXPECT_EQ(config.vector_size, reader.vector_size());
+
+      std::vector<c_type> output(page.size());
+      decoder->SetData(static_cast<int>(page.size()), buffer->data(),
+                       static_cast<int>(buffer->size()));
+      ASSERT_EQ(page.size(), static_cast<size_t>(decoder->Decode(
+                                 output.data(), static_cast<int>(page.size()))));
+      EXPECT_EQ(0, std::memcmp(output.data(), page.data(), page.size() * sizeof(c_type)));
+    }
   }
 }
 
