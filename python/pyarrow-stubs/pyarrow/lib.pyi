@@ -33,4 +33,14 @@ from pyarrow.__lib.scalar import *  # noqa: F401,F403
 from pyarrow.__lib.table import *  # noqa: F401,F403
 from pyarrow.__lib.tensor import *  # noqa: F401,F403
 
+class MonthDayNano(tuple):
+    months: int
+    days: int
+    nanoseconds: int
+
+    def __new__(
+        cls,
+        sequence: tuple[int, int, int] | list[int] = ...,
+    ) -> MonthDayNano: ...
+
 def __getattr__(name: str) -> Any: ...
