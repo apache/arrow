@@ -132,10 +132,14 @@ def test_field() -> None:
     field = lib.field("a", lib.int32())
     check(assert_type(field, lib.Field), lib.Field)
     check(assert_type(field.name, str), str)
+    check(assert_type(field.metadata, dict[bytes, bytes] | None), type(None))
     check(assert_type(field.type, lib.DataType), lib.DataType)
     check(assert_type(field.nullable, bool), bool)
     check(assert_type(field.with_nullable(False), lib.Field), lib.Field)
     check(assert_type(lib.field("b", "string"), lib.Field), lib.Field)
+
+    field = lib.field("a", lib.int32(), metadata={"k": "v"})
+    check(assert_type(field.metadata, dict[bytes, bytes] | None), dict)
 
 
 def test_schema() -> None:
