@@ -1784,7 +1784,7 @@ TEST_F(ScalarTemporalTest, TestTemporalMultiplyDivideDurationByFloat) {
                                     CallFunction(op, {one, nan}));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("overflow"),
-        CallFunction(op, {big, ArrayFromJSON(float64(), "[0.5]")}));
+        CallFunction(op, {big, ArrayFromJSON(float64(), "[-0.25]")}));
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("divide by zero"),
         CallFunction(op, {one, ArrayFromJSON(float64(), "[0]")}));

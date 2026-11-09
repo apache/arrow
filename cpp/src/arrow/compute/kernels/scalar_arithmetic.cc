@@ -1150,11 +1150,11 @@ struct DurationByFloat {
 template <typename Op>
 void AddDurationByFloatKernels(ScalarFunction* func) {
   for (auto unit : TimeUnit::values()) {
-    auto exec = ScalarBinaryNotNull<DurationType, DurationType, DoubleType,
-                                    DurationByFloat<Op>>::Exec;
+    auto exec =
+        ScalarBinaryNotNull<Int64Type, Int64Type, DoubleType, DurationByFloat<Op>>::Exec;
     DCHECK_OK(func->AddKernel({duration(unit), float64()}, duration(unit), exec));
     if constexpr (std::is_same_v<Op, Multiply>) {
-      exec = ScalarBinaryNotNull<DurationType, DoubleType, DurationType,
+      exec = ScalarBinaryNotNull<Int64Type, DoubleType, Int64Type,
                                  DurationByFloat<Op>>::Exec;
       DCHECK_OK(func->AddKernel({float64(), duration(unit)}, duration(unit), exec));
     }
