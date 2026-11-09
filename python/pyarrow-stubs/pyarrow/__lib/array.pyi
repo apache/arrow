@@ -17,7 +17,7 @@
 
 from collections.abc import Iterable, Iterator, Sequence
 
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, SupportsIndex
 
 import numpy as np  # type: ignore[import-not-found]
 import pandas as pd  # type: ignore[import-not-found,import-untyped]
@@ -76,7 +76,9 @@ def repeat(
     memory_pool: MemoryPool | None = None,
 ) -> ArrayLike: ...
 def infer_type(
-    values: Iterable[Any], mask: Mask | None = None, from_pandas: bool = False
+    values: Sequence[Any] | np.ndarray,
+    mask: Mask | None = None,
+    from_pandas: bool = False,
 ) -> DataType: ...
 
 class ArrayStatistics(_Weakrefable):
@@ -119,15 +121,15 @@ class _PandasConvertible(_Weakrefable):
     ) -> pd.Series | pd.DataFrame: ...
 
 class Array(_PandasConvertible):
-    def diff(self, other: Self) -> str: ...
+    def diff(self, other: Array) -> str: ...
     def cast(
         self,
-        target_type: DataType | str,
-        safe: bool = True,
+        target_type: DataType | str | None = None,
+        safe: bool | None = None,
         options: CastOptions | None = None,
         memory_pool: MemoryPool | None = None,
     ) -> Array: ...
-    def view(self, target_type: DataType) -> Array: ...
+    def view(self, target_type: DataType | str) -> Array: ...
     def sum(self, **kwargs) -> Scalar: ...
     @property
     def type(self) -> DataType: ...
@@ -166,16 +168,15 @@ class Array(_PandasConvertible):
         window: int = 10,
         container_window: int = 2,
         skip_new_lines: bool = False,
+        element_size_limit: int = 100,
     ) -> str: ...
-
-    format = to_string
     def equals(self, other: Array) -> bool: ...
     def __len__(self) -> int: ...
     def is_null(self, *, nan_is_null: bool = False) -> BooleanArray: ...
     def is_nan(self) -> BooleanArray: ...
     def is_valid(self) -> BooleanArray: ...
     def fill_null(self, fill_value: Any) -> Self: ...
-    def __getitem__(self, key: int | builtins.slice) -> Scalar | Self: ...
+    def __getitem__(self, key: SupportsIndex | builtins.slice) -> Scalar | Self: ...
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
     def take(self, indices: Indices) -> Self: ...
     def drop_null(self) -> Self: ...
@@ -207,6 +208,7 @@ class Array(_PandasConvertible):
     ) -> list[Any]: ...
 
     tolist = to_pylist
+    def to_tensor(self, *, allow_nulls: bool = False) -> Tensor: ...
     def validate(self, *, full: bool = False) -> None: ...
     @property
     def offset(self) -> int: ...
@@ -284,9 +286,8 @@ class ListArray(BaseListArray):
     @classmethod
     def from_arrays(
         cls,
-        offsets: Int32Array | list[int] | list[int | None],
+        offsets: Int32Array | list[int] | list[int | None] | np.ndarray,
         values: Array | list[Any],
-        *,
         type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
@@ -301,9 +302,8 @@ class LargeListArray(BaseListArray):
     @classmethod
     def from_arrays(
         cls,
-        offsets: Int64Array | list[int] | list[int | None],
-        values: Array,
-        *,
+        offsets: Int64Array | list[int] | list[int | None] | np.ndarray,
+        values: Array | list[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
@@ -318,10 +318,9 @@ class ListViewArray(BaseListArray):
     @classmethod
     def from_arrays(
         cls,
-        offsets: Int32Array | list[int] | list[int | None],
-        sizes: Int32Array | list[int] | list[int | None],
-        values: Array,
-        *,
+        offsets: Int32Array | list[int] | list[int | None] | np.ndarray,
+        sizes: Int32Array | list[int] | list[int | None] | np.ndarray,
+        values: Array | list[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
@@ -338,10 +337,9 @@ class LargeListViewArray(BaseListArray):
     @classmethod
     def from_arrays(
         cls,
-        offsets: Int64Array | list[int] | list[int | None],
-        sizes: Int64Array | list[int] | list[int | None],
-        values: Array,
-        *,
+        offsets: Int64Array | list[int] | list[int | None] | np.ndarray,
+        sizes: Int64Array | list[int] | list[int | None] | np.ndarray,
+        values: Array | list[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
@@ -358,9 +356,8 @@ class FixedSizeListArray(BaseListArray):
     @classmethod
     def from_arrays(
         cls,
-        values: Array,
+        values: Array | list[Any],
         list_size: int | None = None,
-        *,
         type: DataType | None = None,
         mask: Mask | None = None,
     ) -> FixedSizeListArray: ...
@@ -372,10 +369,9 @@ class MapArray(ListArray):
     @classmethod
     def from_arrays(  # type: ignore[override]
         cls,
-        offsets: Int32Array | list[int] | list[int | None],
+        offsets: Int32Array | list[int] | list[int | None] | np.ndarray,
         keys: Array | np.ndarray | list,
         items: Array | np.ndarray | list,
-        *,
         type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
@@ -397,16 +393,16 @@ class UnionArray(Array):
     def from_dense(
         types: Int8Array,
         value_offsets: Int32Array,
-        children: NullableCollection,
+        children: list[Array],
         field_names: list[str] | None = None,
-        type_codes: Int8Array | list[int] | None = None,
+        type_codes: list[int] | None = None,
     ) -> UnionArray: ...
     @staticmethod
     def from_sparse(
         types: Int8Array,
-        children: NullableCollection,
+        children: list[Array],
         field_names: list[str] | None = None,
-        type_codes: Int8Array | list[int] | None = None,
+        type_codes: list[int] | None = None,
     ) -> UnionArray: ...
 
 class StringArray(Array):
@@ -416,8 +412,8 @@ class StringArray(Array):
         value_offsets: Buffer,
         data: Buffer,
         null_bitmap: Buffer | None = None,
-        null_count: int | None = -1,
-        offset: int | None = 0,
+        null_count: int = -1,
+        offset: int = 0,
     ) -> StringArray: ...
 
 class LargeStringArray(Array):
@@ -427,8 +423,8 @@ class LargeStringArray(Array):
         value_offsets: Buffer,
         data: Buffer,
         null_bitmap: Buffer | None = None,
-        null_count: int | None = -1,
-        offset: int | None = 0,
+        null_count: int = -1,
+        offset: int = 0,
     ) -> LargeStringArray: ...
 
 class StringViewArray(Array): ...
@@ -454,8 +450,8 @@ class DictionaryArray(Array):
     def from_buffers(  # type: ignore[override]
         type: DataType,
         length: int,
-        buffers: list[Buffer],
-        dictionary: Array | np.ndarray | pd.Series,
+        buffers: Sequence[Buffer | None],
+        dictionary: Array,
         null_count: int = -1,
         offset: int = 0,
     ) -> DictionaryArray: ...
@@ -520,7 +516,6 @@ class UuidArray(ExtensionArray): ...
 
 class FixedShapeTensorArray(ExtensionArray):
     def to_numpy_ndarray(self) -> np.ndarray: ...
-    def to_tensor(self) -> Tensor: ...
     @classmethod
     def from_numpy_ndarray(
         cls, obj: np.ndarray, dim_names: list[str] | tuple[str, ...] | None = None
@@ -548,6 +543,7 @@ __all__ = [
     "nulls",
     "repeat",
     "infer_type",
+    "ArrayStatistics",
     "_PandasConvertible",
     "Array",
     "NullArray",
