@@ -88,9 +88,16 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
 /// Written in terms of std::numeric_limits rather than std::in_range because
 /// the libc++ in the macOS 11.3 SDK used by CRAN does not provide the latter.
 template <typename T, typename U>
-inline constexpr bool can_hold_v =
-    std::numeric_limits<T>::digits >= std::numeric_limits<U>::digits &&
-    (std::is_signed_v<T> || !std::is_signed_v<U>);
+struct CanHold {
+  static_assert(std::is_integral_v<T> && std::is_integral_v<U>,
+                "can_hold_v is only defined for integer types");
+  static constexpr bool value =
+      std::numeric_limits<T>::digits >= std::numeric_limits<U>::digits &&
+      (std::is_signed_v<T> || !std::is_signed_v<U>);
+};
+
+template <typename T, typename U>
+inline constexpr bool can_hold_v = CanHold<T, U>::value;
 
 static_assert(can_hold_v<int64_t, int32_t>);
 static_assert(can_hold_v<int64_t, uint32_t>);
