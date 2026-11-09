@@ -18,7 +18,10 @@
 
 from typing import Any, cast
 
+import pytest
+
 import pyarrow.lib as lib
+from pyarrow._compute import CastOptions
 from typing_extensions import CapsuleType
 
 from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
@@ -45,6 +48,13 @@ def test_array() -> None:
     check(assert_type(arr.is_null(), lib.BooleanArray), lib.BooleanArray)
     check(assert_type(arr.cast(lib.float64()), lib.Array), lib.DoubleArray)
     check(assert_type(arr.cast("float64"), lib.Array), lib.DoubleArray)
+    check(assert_type(arr.cast(lib.int32(), safe=None), lib.Array), lib.Int32Array)
+    # without target_type argument, as CastOptions already specifies it
+    check(assert_type(arr.cast(options=CastOptions.safe(lib.int32())), lib.Array),
+          lib.Int32Array)
+    check(assert_type(arr.view("uint64"), lib.Array), lib.UInt64Array)
+    check(assert_type(arr.to_string(element_size_limit=5), str), str)
+    check(assert_type(arr.to_tensor(allow_nulls=True), lib.Tensor), lib.Tensor)
     check(assert_type(lib.concat_arrays([arr, arr]), lib.Array),
           lib.Int64Array)
     check(assert_type(lib.Array.from_pandas([1, 2], None, lib.int64()),
@@ -54,6 +64,24 @@ def test_array() -> None:
     other = check(cast(lib.StringArray, lib.array(["a", "b", None])), lib.StringArray)
     check(assert_type(arr.equals(arr), bool), bool)
     check(assert_type(arr.equals(other), bool), bool)
+    # Arrays of any type can diff()
+    check(assert_type(arr.diff(other), str), str)
+
+
+def test_array_numpy() -> None:
+    pytest.importorskip("numpy")
+    import numpy as np
+
+    arr = cast(lib.Int64Array, lib.array([1, 2]))
+    check(assert_type(arr[np.int64(0)], Any | lib.Int64Array), lib.Int64Scalar)
+    check(assert_type(lib.infer_type(np.array([1])), lib.DataType), lib.DataType)
+    offsets = np.array([0, 1, 2], dtype="int32")
+    check(assert_type(lib.ListArray.from_arrays(offsets, [1, 2]), lib.ListArray),
+          lib.ListArray)
+    if TYPE_CHECKING_INVALID_USAGE:
+        dtype = lib.dictionary(lib.int8(), lib.string())
+        strs = np.array(["a"])
+        lib.DictionaryArray.from_buffers(dtype, 1, [], strs)  # type: ignore[arg-type]
 
 
 def test_array_dlpack() -> None:
@@ -79,6 +107,23 @@ def test_list_arrays() -> None:
     large = lib.LargeListArray.from_arrays([0, 1, 3], lib.array([1, 2, 3]))
     check(assert_type(large.value_lengths(), lib.Int64Array), lib.Int64Array)
 
+    list_type = lib.list_(lib.int64())
+    check(assert_type(lib.ListArray.from_arrays([0, 2], [1, 2], list_type),
+                      lib.ListArray),
+          lib.ListArray)
+    check(assert_type(lib.LargeListArray.from_arrays([0, 2], [1, 2]),
+                      lib.LargeListArray),
+          lib.LargeListArray)
+    check(assert_type(lib.ListViewArray.from_arrays([0], [2], [1, 2]),
+                      lib.ListViewArray),
+          lib.ListViewArray)
+    check(assert_type(lib.LargeListViewArray.from_arrays([0], [2], [1, 2]),
+                      lib.LargeListViewArray),
+          lib.LargeListViewArray)
+    check(assert_type(lib.FixedSizeListArray.from_arrays([1, 2], 2),
+                      lib.FixedSizeListArray),
+          lib.FixedSizeListArray)
+
     # MapArray is a ListArray (of key-item structs) at runtime.
     map_arr = lib.MapArray.from_arrays([0, 2], [1, 2], ["a", "b"])
     check(assert_type(map_arr, lib.MapArray), lib.ListArray)
@@ -96,6 +141,12 @@ def test_dictionary_array() -> None:
     check(assert_type(dict_arr.dictionary, lib.Array), lib.StringArray)
     check(assert_type(dict_arr.dictionary_decode(), lib.Array),
           lib.StringArray)
+
+    # The validity buffer can be None
+    rebuilt = lib.DictionaryArray.from_buffers(
+        dict_arr.type, len(dict_arr), dict_arr.indices.buffers(), dict_arr.dictionary
+    )
+    check(assert_type(rebuilt, lib.DictionaryArray), lib.DictionaryArray)
 
 
 def test_run_end_encoded_array() -> None:
@@ -134,3 +185,19 @@ def test_invalid_usage() -> None:
         arr.slice("1")  # type: ignore[arg-type]
         arr.equals(object())  # type: ignore[arg-type]
         arr.equals(None)  # type: ignore[arg-type]
+        arr.format()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]  # noqa: E501
+        # Generators aren't accepted, only Sequences
+        lib.infer_type(x for x in [1])  # type: ignore[arg-type]
+
+
+def test_buffer_constructors_invalid_usage() -> None:
+    types = cast(lib.Int8Array, lib.array([0], lib.int8()))
+    children: list[lib.Array] = [lib.array([1])]
+    strings = cast(lib.StringArray, lib.array(["a"]))
+    off, data = cast(list[lib.Buffer], strings.buffers()[1:])
+    if TYPE_CHECKING_INVALID_USAGE:
+        # Only lists are accepted for children and type codes
+        lib.UnionArray.from_sparse(types, tuple(children))  # type: ignore[arg-type]
+        lib.UnionArray.from_sparse(types, children, None,
+                                   types)  # type: ignore[arg-type]
+        lib.StringArray.from_buffers(1, off, data, None, None)  # type: ignore[arg-type]
