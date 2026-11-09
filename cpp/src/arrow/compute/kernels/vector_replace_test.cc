@@ -2211,47 +2211,56 @@ TEST(TestVectorReplace, FillNullViews) {
 }
 
 TEST(TestVectorReplace, ReplaceWithMaskStringViewStorageTiers) {
-  // Test inline (< 12 bytes), at-limit (12 bytes), and out-of-line (> 12 bytes and large > 4KiB)
+  // Test inline (< 12 bytes), at-limit (12 bytes), and out-of-line (> 12 bytes and large
+  // > 4KiB)
   std::string large_string(4500, 'Z');
 
-  auto input = ArrayFromJSON(
-      utf8_view(),
-      "[\"\", \"four\", \"eleven_byte\", \"twelve_bytes\", \"thirteen_bytes\", null, \"" +
-          large_string + "\"]");
-  auto mask = ArrayFromJSON(boolean(), "[true, false, true, false, true, true, false]");
-  auto replacements = ArrayFromJSON(
-      utf8_view(), "[\"rep0\", \"replacement_11\", \"short\", \"replaces_null\"]");
-  auto expected = ArrayFromJSON(
-      utf8_view(), "[\"rep0\", \"four\", \"replacement_11\", \"twelve_bytes\", "
-                   "\"short\", \"replaces_null\", \"" +
-                       large_string + "\"]");
+  for (const auto& ty : {utf8_view(), binary_view()}) {
+    auto input = ArrayFromJSON(ty,
+                               "[\"\", \"four\", \"eleven_byte\", \"twelve_bytes\", "
+                               "\"thirteen_bytes\", null, \"" +
+                                   large_string + "\"]");
+    auto mask = ArrayFromJSON(boolean(), "[true, false, true, false, true, true, false]");
+    auto replacements =
+        ArrayFromJSON(ty, "[\"rep0\", \"replacement_11\", \"short\", \"replaces_null\"]");
+    auto expected =
+        ArrayFromJSON(ty,
+                      "[\"rep0\", \"four\", \"replacement_11\", \"twelve_bytes\", "
+                      "\"short\", \"replaces_null\", \"" +
+                          large_string + "\"]");
 
-  ASSERT_OK_AND_ASSIGN(auto actual, ReplaceWithMask(input, mask, replacements));
-  ASSERT_OK(actual.make_array()->ValidateFull());
-  AssertArraysEqual(*expected, *actual.make_array());
+    ASSERT_OK_AND_ASSIGN(auto actual, ReplaceWithMask(input, mask, replacements));
+    ASSERT_OK(actual.make_array()->ValidateFull());
+    AssertArraysEqual(*expected, *actual.make_array());
 
-  // Scalar mask replacing all elements
-  auto all_true = std::make_shared<BooleanScalar>(true);
-  auto all_false = std::make_shared<BooleanScalar>(false);
-  auto null_mask = std::make_shared<BooleanScalar>();
+    // Scalar mask replacing all elements
+    auto all_true = std::make_shared<BooleanScalar>(true);
+    auto all_false = std::make_shared<BooleanScalar>(false);
+    auto null_mask = std::make_shared<BooleanScalar>();
 
-  ASSERT_OK_AND_ASSIGN(auto scalar_repl, MakeScalar(utf8_view(), "repl_all"));
-  ASSERT_OK_AND_ASSIGN(auto rep_all, ReplaceWithMask(input, all_true, scalar_repl));
-  ASSERT_OK(rep_all.make_array()->ValidateFull());
-  auto expected_all = ArrayFromJSON(
-      utf8_view(), "[\"repl_all\", \"repl_all\", \"repl_all\", \"repl_all\", "
-                   "\"repl_all\", \"repl_all\", \"repl_all\"]");
-  AssertArraysEqual(*expected_all, *rep_all.make_array());
+    std::shared_ptr<Scalar> scalar_repl;
+    if (ty->id() == Type::STRING_VIEW) {
+      scalar_repl = std::make_shared<StringViewScalar>("repl_all");
+    } else {
+      scalar_repl = std::make_shared<BinaryViewScalar>("repl_all");
+    }
+    ASSERT_OK_AND_ASSIGN(auto rep_all, ReplaceWithMask(input, all_true, scalar_repl));
+    ASSERT_OK(rep_all.make_array()->ValidateFull());
+    auto expected_all =
+        ArrayFromJSON(ty,
+                      "[\"repl_all\", \"repl_all\", \"repl_all\", \"repl_all\", "
+                      "\"repl_all\", \"repl_all\", \"repl_all\"]");
+    AssertArraysEqual(*expected_all, *rep_all.make_array());
 
-  ASSERT_OK_AND_ASSIGN(auto rep_none, ReplaceWithMask(input, all_false, scalar_repl));
-  ASSERT_OK(rep_none.make_array()->ValidateFull());
-  AssertArraysEqual(*input, *rep_none.make_array());
+    ASSERT_OK_AND_ASSIGN(auto rep_none, ReplaceWithMask(input, all_false, scalar_repl));
+    ASSERT_OK(rep_none.make_array()->ValidateFull());
+    AssertArraysEqual(*input, *rep_none.make_array());
 
-  ASSERT_OK_AND_ASSIGN(auto rep_null, ReplaceWithMask(input, null_mask, scalar_repl));
-  ASSERT_OK(rep_null.make_array()->ValidateFull());
-  auto expected_nulls =
-      ArrayFromJSON(utf8_view(), "[null, null, null, null, null, null, null]");
-  AssertArraysEqual(*expected_nulls, *rep_null.make_array());
+    ASSERT_OK_AND_ASSIGN(auto rep_null, ReplaceWithMask(input, null_mask, scalar_repl));
+    ASSERT_OK(rep_null.make_array()->ValidateFull());
+    auto expected_nulls = ArrayFromJSON(ty, "[null, null, null, null, null, null, null]");
+    AssertArraysEqual(*expected_nulls, *rep_null.make_array());
+  }
 }
 
 TEST(TestVectorReplace, ReplaceWithMaskAsymmetricSlicing) {
@@ -2315,7 +2324,8 @@ TEST(TestVectorReplace, FillNullViewsChunkedCarryOver) {
   auto chunked_input =
       std::make_shared<ChunkedArray>(ArrayVector{chunk1, chunk2, chunk3});
 
-  // FillNullForward: "first" should carry forward across chunk 2 into chunk 3 until "last"
+  // FillNullForward: "first" should carry forward across chunk 2 into chunk 3 until
+  // "last"
   auto exp_fwd_1 = ArrayFromJSON(utf8_view(), "[\"first\", \"first\"]");
   auto exp_fwd_2 = ArrayFromJSON(utf8_view(), "[\"first\", \"first\"]");
   auto exp_fwd_3 = ArrayFromJSON(utf8_view(), "[\"first\", \"last\", \"last\"]");
@@ -2325,7 +2335,8 @@ TEST(TestVectorReplace, FillNullViewsChunkedCarryOver) {
   ASSERT_OK_AND_ASSIGN(auto actual_fwd, FillNullForward(chunked_input));
   AssertChunkedEquivalent(*expected_fwd, *actual_fwd.chunked_array());
 
-  // FillNullBackward: "last" carries backward to start of chunk 3, through chunk 2, and into chunk 1
+  // FillNullBackward: "last" carries backward to start of chunk 3, through chunk 2, and
+  // into chunk 1
   auto exp_bwd_1 = ArrayFromJSON(utf8_view(), "[\"first\", \"last\"]");
   auto exp_bwd_2 = ArrayFromJSON(utf8_view(), "[\"last\", \"last\"]");
   auto exp_bwd_3 = ArrayFromJSON(utf8_view(), "[\"last\", \"last\", null]");
@@ -2371,7 +2382,6 @@ TEST(TestVectorReplace, Decimal32AndDecimal64) {
   auto repl_diff_scale = ArrayFromJSON(dt32_diff_scale, "[\"99.999\"]");
   ASSERT_RAISES(Invalid, ReplaceWithMask(arr32, mask32, repl_diff_scale));
 }
-
 
 }  // namespace compute
 }  // namespace arrow

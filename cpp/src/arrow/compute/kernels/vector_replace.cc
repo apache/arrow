@@ -120,10 +120,9 @@ template <typename Type, typename Enable = void>
 struct ReplaceMaskImpl {};
 
 template <typename Type>
-struct ReplaceMaskImpl<
-    Type, enable_if_t<!(is_base_binary_type<Type>::value ||
-                        is_binary_view_like_type<Type>::value ||
-                        is_null_type<Type>::value)>> {
+struct ReplaceMaskImpl<Type, enable_if_t<!(is_base_binary_type<Type>::value ||
+                                           is_binary_view_like_type<Type>::value ||
+                                           is_null_type<Type>::value)>> {
   static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
                                         const BooleanScalar& mask, ExecValue replacements,
                                         int64_t replacements_offset, ExecResult* out) {
@@ -740,52 +739,72 @@ struct FillNullImpl<Type, enable_if_binary_view_like<Type>> {
     bool has_fill_value_last_chunk = *last_valid_value_offset != -1;
     bool has_fill_value_current_chunk = false;
 
-    std::vector<std::pair<bool, int64_t>> entries_reversed;
-    entries_reversed.reserve(current_chunk.length);
-
-    RETURN_NOT_OK(VisitNullBitmapInline<>(
-        reversed_bitmap, out_arr->offset, current_chunk.length,
-        current_chunk.GetNullCount(),
-        [&]() {
-          entries_reversed.emplace_back(/*current_chunk=*/true, array_value_index);
-          *last_valid_value_offset = array_value_index;
-          has_fill_value_current_chunk = true;
-          has_fill_value_last_chunk = false;
-          array_value_index += direction;
-          return Status::OK();
-        },
-        [&]() {
-          if (has_fill_value_current_chunk) {
-            entries_reversed.emplace_back(/*current_chunk=*/true, *last_valid_value_offset);
-          } else if (has_fill_value_last_chunk) {
-            entries_reversed.emplace_back(/*current_chunk=*/false, *last_valid_value_offset);
-          } else {
-            entries_reversed.emplace_back(/*current_chunk=*/false, -1);
-          }
-          array_value_index += direction;
-          return Status::OK();
-        }));
-
     auto get_view = [](const ArraySpan& source, int64_t idx) -> std::string_view {
       const auto& view = source.GetValues<BinaryViewType::c_type>(1)[idx];
       return util::FromBinaryView(view, source.GetVariadicBuffers().data());
     };
 
-    auto append_entry = [&](const std::pair<bool, int64_t>& entry) -> Status {
-      if (entry.second == -1) {
-        return builder.AppendNull();
-      }
-      const ArraySpan& src = entry.first ? current_chunk : last_valid_value_chunk;
-      return builder.Append(get_view(src, entry.second));
-    };
-
     if (direction == 1) {
-      for (const auto& entry : entries_reversed) {
-        RETURN_NOT_OK(append_entry(entry));
-      }
+      RETURN_NOT_OK(VisitNullBitmapInline<>(
+          reversed_bitmap, out_arr->offset, current_chunk.length,
+          current_chunk.GetNullCount(),
+          [&]() {
+            RETURN_NOT_OK(builder.Append(get_view(current_chunk, array_value_index)));
+            *last_valid_value_offset = array_value_index;
+            has_fill_value_current_chunk = true;
+            has_fill_value_last_chunk = false;
+            ++array_value_index;
+            return Status::OK();
+          },
+          [&]() {
+            if (has_fill_value_current_chunk) {
+              RETURN_NOT_OK(
+                  builder.Append(get_view(current_chunk, *last_valid_value_offset)));
+            } else if (has_fill_value_last_chunk) {
+              RETURN_NOT_OK(builder.Append(
+                  get_view(last_valid_value_chunk, *last_valid_value_offset)));
+            } else {
+              RETURN_NOT_OK(builder.AppendNull());
+            }
+            ++array_value_index;
+            return Status::OK();
+          }));
     } else {
+      std::vector<std::pair<bool, int64_t>> entries_reversed;
+      entries_reversed.reserve(current_chunk.length);
+
+      RETURN_NOT_OK(VisitNullBitmapInline<>(
+          reversed_bitmap, out_arr->offset, current_chunk.length,
+          current_chunk.GetNullCount(),
+          [&]() {
+            entries_reversed.emplace_back(/*current_chunk=*/true, array_value_index);
+            *last_valid_value_offset = array_value_index;
+            has_fill_value_current_chunk = true;
+            has_fill_value_last_chunk = false;
+            --array_value_index;
+            return Status::OK();
+          },
+          [&]() {
+            if (has_fill_value_current_chunk) {
+              entries_reversed.emplace_back(/*current_chunk=*/true,
+                                            *last_valid_value_offset);
+            } else if (has_fill_value_last_chunk) {
+              entries_reversed.emplace_back(/*current_chunk=*/false,
+                                            *last_valid_value_offset);
+            } else {
+              entries_reversed.emplace_back(/*current_chunk=*/false, -1);
+            }
+            --array_value_index;
+            return Status::OK();
+          }));
+
       for (auto it = entries_reversed.rbegin(); it != entries_reversed.rend(); ++it) {
-        RETURN_NOT_OK(append_entry(*it));
+        if (it->second == -1) {
+          RETURN_NOT_OK(builder.AppendNull());
+        } else {
+          const ArraySpan& src = it->first ? current_chunk : last_valid_value_chunk;
+          RETURN_NOT_OK(builder.Append(get_view(src, it->second)));
+        }
       }
     }
 
@@ -1016,12 +1035,10 @@ void RegisterVectorFunction(FunctionRegistry* registry,
             Functor<FixedSizeBinaryType>::GetSignature(Type::FIXED_SIZE_BINARY),
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
             registry, func.get());
-  AddKernel(Type::DECIMAL32,
-            Functor<FixedSizeBinaryType>::GetSignature(Type::DECIMAL32),
+  AddKernel(Type::DECIMAL32, Functor<FixedSizeBinaryType>::GetSignature(Type::DECIMAL32),
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
             registry, func.get());
-  AddKernel(Type::DECIMAL64,
-            Functor<FixedSizeBinaryType>::GetSignature(Type::DECIMAL64),
+  AddKernel(Type::DECIMAL64, Functor<FixedSizeBinaryType>::GetSignature(Type::DECIMAL64),
             Functor<FixedSizeBinaryType>::Exec, ChunkedFunctor<FixedSizeBinaryType>::Exec,
             registry, func.get());
   AddKernel(Type::DECIMAL128,
@@ -1038,14 +1055,12 @@ void RegisterVectorFunction(FunctionRegistry* registry,
               GenerateTypeAgnosticVarBinaryBase<ChunkedFunctor>(*ty), registry,
               func.get());
   }
-  AddKernel(Type::BINARY_VIEW,
-            Functor<BinaryViewType>::GetSignature(Type::BINARY_VIEW),
-            Functor<BinaryViewType>::Exec, ChunkedFunctor<BinaryViewType>::Exec,
-            registry, func.get());
-  AddKernel(Type::STRING_VIEW,
-            Functor<StringViewType>::GetSignature(Type::STRING_VIEW),
-            Functor<StringViewType>::Exec, ChunkedFunctor<StringViewType>::Exec,
-            registry, func.get());
+  AddKernel(Type::BINARY_VIEW, Functor<BinaryViewType>::GetSignature(Type::BINARY_VIEW),
+            Functor<BinaryViewType>::Exec, ChunkedFunctor<BinaryViewType>::Exec, registry,
+            func.get());
+  AddKernel(Type::STRING_VIEW, Functor<StringViewType>::GetSignature(Type::STRING_VIEW),
+            Functor<StringViewType>::Exec, ChunkedFunctor<StringViewType>::Exec, registry,
+            func.get());
   // TODO: list types
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
