@@ -64,9 +64,8 @@ set(ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
 
-# Windows and Linux. Deliberately nothing special on Linux: like Windows, it follows
-# ARROW_BUILD_STATIC, so the workflows or arrow.spec.in decide whether Arrow is linked
-# statically or dynamically.
+# Linux and Windows follow ARROW_BUILD_STATIC.
+# macOS always link statically. 
 if(NOT APPLE)
   if(ARROW_BUILD_STATIC)
     # Static Arrow deps — self-contained ODBC library

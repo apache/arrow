@@ -48,8 +48,7 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_LIBS ${ODBCINST} ${ODBC_LIBRARIES} ${SQLite3_LIBR
 
 # STATIC_LINK_LIBS replaces add_arrow_test's default Arrow test libraries, while
 # EXTRA_LINK_LIBS supplements them.
-# Windows and Linux. Deliberately nothing special on Linux: it uses the same settings
-# as Windows.
+# Applies to Windows and Linux.
 if(NOT APPLE AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "shared")
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE EXTRA_LINK_LIBS)
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_odbc_spi_impl

@@ -130,9 +130,7 @@ if(WIN32)
                          win_system_dsn.cc)
 endif()
 
-# Windows and Linux. Deliberately nothing special on Linux: like Windows, it follows
-# ARROW_BUILD_STATIC, so the workflows or arrow.spec.in decide whether Arrow is linked
-# statically or dynamically.
+# On macOS, always link Arrow libraries statically.
 if(NOT APPLE)
   find_package(ODBC REQUIRED)
   target_include_directories(arrow_odbc_spi_impl PUBLIC ${ODBC_INCLUDE_DIR})
@@ -152,7 +150,7 @@ if(NOT APPLE)
                                  ${ODBCINST})
   endif()
 else()
-  # macOS - always link Arrow statically
+  # macOS - always link Arrow statically to support sandbox env
   target_include_directories(arrow_odbc_spi_impl SYSTEM BEFORE PUBLIC ${ODBC_INCLUDE_DIR})
   target_link_libraries(arrow_odbc_spi_impl
                         PUBLIC arrow_flight_sql_static
@@ -171,8 +169,7 @@ target_link_libraries(arrow_odbc_spi_impl_cli arrow_odbc_spi_impl)
 
 # Unit tests
 
-# On Windows and Linux, dynamic linking ODBC is supported. Deliberately nothing
-# special on Linux: it uses the same settings as Windows.
+# On Windows and Linux, dynamic linking ODBC is supported.
 # On macOS, static linking ODBC is supported, thus the library linking is static.
 # Use STATIC_LINK_LIBS when Flight tests require static linkage to avoid mixing static/shared Arrow
 if(NOT APPLE AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
