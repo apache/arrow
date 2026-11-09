@@ -68,10 +68,12 @@ int main(int argc, char** argv) {
   const char* kHeaderNames[] = {"a", "b", "c", "d", "e", "f"};
 
   const std::vector<std::pair<std::string, std::string>> samples = {
-      {"basic", "{\"a\": 1, \"b\": 2.5, \"c\": \"x\"}\n"
-                "{\"a\": null, \"b\": -1e3, \"c\": \"longer\"}\n"},
-      {"bools_nested", "{\"a\": true, \"o\": {\"k\": 1}, \"arr\": [1, 2, null]}\n"
-                       "{\"a\": false, \"o\": {}, \"arr\": []}\n"},
+      {"basic",
+       "{\"a\": 1, \"b\": 2.5, \"c\": \"x\"}\n"
+       "{\"a\": null, \"b\": -1e3, \"c\": \"longer\"}\n"},
+      {"bools_nested",
+       "{\"a\": true, \"o\": {\"k\": 1}, \"arr\": [1, 2, null]}\n"
+       "{\"a\": false, \"o\": {}, \"arr\": []}\n"},
       {"unexpected_field", "{\"a\": 1, \"zzz\": [1, 2]}\n{\"a\": 2, \"zzz\": null}\n"},
       {"pretty", "{\n\"a\" : 1,\n\"b\" : 2.5\n}\n{\n\"a\" : 3,\n\"b\" : 4.5\n}\n"},
       {"malformed", "{\"a\": 1,\n{\"a\": ,}\n[1, 2\n"},

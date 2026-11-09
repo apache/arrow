@@ -66,8 +66,8 @@ std::shared_ptr<::arrow::Schema> MakeExplicitSchema(uint8_t selector) {
     case 3:
       return ::arrow::schema({::arrow::field("x", ::arrow::int64())});
     default:
-      return ::arrow::schema({::arrow::field(
-          "a", (selector & 4) ? ::arrow::uint64() : ::arrow::int64())});
+      return ::arrow::schema(
+          {::arrow::field("a", (selector & 4) ? ::arrow::uint64() : ::arrow::int64())});
   }
 }
 
@@ -101,8 +101,7 @@ void MakeFuzzJsonOptions(const uint8_t* header, ReadOptions* read_options,
 // reader paths, so a failure in one path cannot mask coverage of the rest.
 void MergeStatus(Status st, Status* out) { *out &= std::move(st); }
 
-Status ReadAllWays(const ReadOptions& read_options_in,
-                   const ParseOptions& parse_options,
+Status ReadAllWays(const ReadOptions& read_options_in, const ParseOptions& parse_options,
                    const std::shared_ptr<Buffer>& json) {
   Status st;
 
