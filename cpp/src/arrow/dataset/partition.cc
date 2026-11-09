@@ -755,7 +755,18 @@ Result<PartitionPathFormat> HivePartitioning::FormatValues(
       // field_index <-> path nesting relation
       segments[i] = name + "=" + hive_options_.null_fallback;
     } else {
-      segments[i] = name + "=" + arrow::util::UriEscape(values[i]->ToString());
+      std::string value = values[i]->ToString();
+      switch (hive_options_.segment_encoding) {
+        case SegmentEncoding::None:
+          break;
+        case SegmentEncoding::Uri:
+          value = arrow::util::UriEscape(value);
+          break;
+        default:
+          return Status::NotImplemented("Unknown segment encoding: ",
+                                        hive_options_.segment_encoding);
+      }
+      segments[i] = name + "=" + std::move(value);
     }
   }
 

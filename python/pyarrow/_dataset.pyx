@@ -2893,8 +2893,9 @@ cdef class HivePartitioning(KeyValuePartitioning):
     null_fallback : str, default "__HIVE_DEFAULT_PARTITION__"
         If any field is None then this fallback will be used as a label
     segment_encoding : str, default "uri"
-        After splitting paths into segments, decode the segments. Valid
-        values are "uri" (URI-decode segments) and "none" (leave as-is).
+        If "uri", URI-encode partition values when writing and URI-decode
+        them when reading. If "none", leave them as-is; values must not
+        contain path separators.
 
     Returns
     -------
