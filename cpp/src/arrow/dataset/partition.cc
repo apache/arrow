@@ -363,7 +363,6 @@ Result<std::vector<std::string>> KeyValuePartitioning::FormatPartitionSegments(
               escaped.find(kFilenamePartitionSep) != std::string::npos) {
             const std::string encoded_separator = PercentEncode(kFilenamePartitionSep);
             std::string with_separator;
-            with_separator.reserve(escaped.size() + 2 * encoded_separator.size());
             for (char c : escaped) {
               if (c == kFilenamePartitionSep) {
                 with_separator += encoded_separator;
