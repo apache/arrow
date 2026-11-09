@@ -32,12 +32,7 @@ else:
 import pyarrow.lib as lib
 
 from pyarrow.__lib.types import (
-    BinaryType,
-    BinaryViewType,
-    BoolType,
     DataType,
-    Date32Type,
-    Date64Type,
     Decimal32Type,
     Decimal64Type,
     Decimal128Type,
@@ -47,6 +42,24 @@ from pyarrow.__lib.types import (
     DurationType,
     FixedSizeBinaryType,
     FixedSizeListType,
+    LargeListType,
+    LargeListViewType,
+    ListType,
+    ListViewType,
+    MapType,
+    RunEndEncodedType,
+    SparseUnionType,
+    StructType,
+    Time32Type,
+    Time64Type,
+    TimestampType,
+)
+from pyarrow._stubs_typing import (
+    BinaryType,
+    BinaryViewType,
+    BoolType,
+    Date32Type,
+    Date64Type,
     Float16Type,
     Float32Type,
     Float64Type,
@@ -54,23 +67,13 @@ from pyarrow.__lib.types import (
     Int16Type,
     Int32Type,
     Int64Type,
+    IntegerType,
     LargeBinaryType,
-    LargeListType,
-    LargeListViewType,
     LargeStringType,
-    ListType,
-    ListViewType,
-    MapType,
     MonthDayNanoIntervalType,
     NullType,
-    RunEndEncodedType,
-    SparseUnionType,
     StringType,
     StringViewType,
-    StructType,
-    Time32Type,
-    Time64Type,
-    TimestampType,
     UInt8Type,
     UInt16Type,
     UInt32Type,
@@ -79,7 +82,6 @@ from pyarrow.__lib.types import (
 
 _SignedInteger: TypeAlias = Int8Type | Int16Type | Int32Type | Int64Type
 _UnsignedInteger: TypeAlias = UInt8Type | UInt16Type | UInt32Type | UInt64Type
-_Integer: TypeAlias = _SignedInteger | _UnsignedInteger
 _Floating: TypeAlias = Float16Type | Float32Type | Float64Type
 _Decimal: TypeAlias = Decimal32Type | Decimal64Type | Decimal128Type | Decimal256Type
 _Date: TypeAlias = Date32Type | Date64Type
@@ -101,7 +103,7 @@ _Nested: TypeAlias = (
 
 def is_null(t: DataType) -> TypeIs[NullType]: ...
 def is_boolean(t: DataType) -> TypeIs[BoolType]: ...
-def is_integer(t: DataType) -> TypeIs[_Integer]: ...
+def is_integer(t: DataType) -> TypeIs[IntegerType]: ...
 def is_signed_integer(t: DataType) -> TypeIs[_SignedInteger]: ...
 def is_unsigned_integer(t: DataType) -> TypeIs[_UnsignedInteger]: ...
 def is_int8(t: DataType) -> TypeIs[Int8Type]: ...

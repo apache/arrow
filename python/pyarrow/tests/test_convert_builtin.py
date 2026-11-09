@@ -2457,7 +2457,6 @@ def test_nested_auto_chunking(ty, char):
     }
 
 
-@pytest.mark.numpy
 @pytest.mark.large_memory
 def test_array_from_pylist_data_overflow():
     # Regression test for ARROW-12983
@@ -2480,7 +2479,6 @@ def test_array_from_pylist_data_overflow():
     assert len(arr.chunks) > 1
 
 
-@pytest.mark.numpy
 @pytest.mark.slow
 @pytest.mark.large_memory
 def test_array_from_pylist_offset_overflow():
@@ -2505,7 +2503,6 @@ def test_array_from_pylist_offset_overflow():
     assert len(arr.chunks) > 1
 
 
-@pytest.mark.numpy
 @parametrize_with_collections_types
 @pytest.mark.parametrize(('data', 'scalar_data', 'value_type'), [
     ([True, False, None], [pa.scalar(True), pa.scalar(False), None], pa.bool_()),

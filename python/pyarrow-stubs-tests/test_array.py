@@ -14,16 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# mypy: warn-unused-ignores
 
 from collections.abc import Hashable
 from typing import Any, cast
 
 import pytest
+from typing_extensions import CapsuleType
 
 import pyarrow.lib as lib
 from pyarrow._compute import CastOptions
-from typing_extensions import CapsuleType
 
 from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
 
@@ -146,6 +145,10 @@ def test_list_arrays() -> None:
     check(assert_type(map_arr.offsets, lib.Int32Array), lib.Int32Array)
     check(assert_type(map_arr.values, lib.Array), lib.StructArray)
     check(assert_type(map_arr.keys, lib.Array), lib.Int64Array)
+    map_type = lib.map_(lib.int64(), lib.string())
+    check(assert_type(lib.MapArray.from_arrays([0, 2], [1, 2], ["a", "b"], map_type),
+                      lib.MapArray),
+          lib.ListArray)
 
 
 def test_dictionary_array() -> None:

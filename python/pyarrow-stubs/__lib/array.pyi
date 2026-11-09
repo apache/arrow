@@ -384,9 +384,8 @@ class FixedSizeListArray(BaseListArray):
     def value_lengths(self) -> Int32Array: ...
 
 class MapArray(ListArray):
-    @classmethod
+    @staticmethod
     def from_arrays(  # type: ignore[override]
-        cls,
         offsets: Int32Array | list[int] | list[int | None] | np.ndarray,
         keys: Array | np.ndarray | list,
         items: Array | np.ndarray | list,

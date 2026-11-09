@@ -34,8 +34,7 @@ report unused ignores in these tests, so the test fails if the usage stops
 being an error.
 """
 
-from typing import Any, Final, TYPE_CHECKING, TypeVar
-from typing_extensions import assert_type
+from typing import Any, Final, TYPE_CHECKING, TypeVar, assert_type
 
 __all__ = ["TYPE_CHECKING_INVALID_USAGE", "assert_type", "check"]
 

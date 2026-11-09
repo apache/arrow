@@ -26,8 +26,7 @@ except ImportError:
 import pyarrow as pa
 
 try:
-    from scipy.sparse import (  # type: ignore[reportMissingModuleSource]
-        csr_array, coo_array, csr_matrix, coo_matrix)
+    from scipy.sparse import csr_array, coo_array, csr_matrix, coo_matrix
 except ImportError:
     coo_matrix = None  # type: ignore[assignment, misc]
     csr_matrix = None  # type: ignore[assignment, misc]
@@ -35,7 +34,7 @@ except ImportError:
     coo_array = None  # type: ignore[assignment, misc]
 
 try:
-    import sparse  # type: ignore[import-untyped, import-not-found]
+    import sparse  # pyright: ignore[reportMissingImports]
 except ImportError:
     sparse = None
 

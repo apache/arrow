@@ -696,7 +696,6 @@ def test_empty_table():
         assert table.schema == schema
 
 
-@pytest.mark.numpy
 @pytest.mark.pandas
 def test_schema_from_pandas():
     import pandas as pd

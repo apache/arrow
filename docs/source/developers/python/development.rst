@@ -105,8 +105,10 @@ Type Checking
 =============
 
 PyArrow provides type stubs (``*.pyi`` files) for static type checking. These
-stubs are located in the ``pyarrow-stubs/`` directory and are automatically
-included in the distributed wheel packages.
+stubs are located in the ``pyarrow-stubs/`` directory, which is laid out as a
+:pep:`561` stub-only package for ``pyarrow``, so type checkers and IDEs pick
+it up from the ``arrow/python`` directory. The stubs are automatically included
+in the distributed wheel packages.
 
 Running Type Checkers
 ---------------------
@@ -122,9 +124,20 @@ also lints and formats the stubs with ruff:
 
    $ pre-commit run --hook-stage manual python-stubs --all-files
 
-These hooks only run on request, not on commit.
+These hooks only run on request, not on commit. The Lint CI job runs them as
+well. CI also runs the type checkers, the type stub tests and stubtest (see
+below) against the PyArrow it builds, with
+``ci/scripts/python_test_type_annotations.sh``.
 
-To run a type checker directly instead:
+To run a type checker directly instead, install the pinned type checkers and
+stub packages in your PyArrow development environment:
+
+.. code-block::
+
+   $ pip install -r requirements-stubs.txt
+
+Checking the PyArrow tests also needs their dependencies from
+``requirements-test.txt``.
 
 **mypy**
 
@@ -136,6 +149,12 @@ To run mypy on the PyArrow codebase:
    $ mypy
 
 The mypy configuration is in the ``[tool.mypy]`` section of ``pyproject.toml``.
+mypy only uses the stubs when it checks them too, so pass ``pyarrow-stubs``
+along with any other files you check:
+
+.. code-block::
+
+   $ mypy pyarrow-stubs pyarrow/tests/test_array.py
 
 **pyright**
 
@@ -156,6 +175,20 @@ To run ty (note: currently only partially configured):
 
    $ cd arrow/python
    $ ty check
+
+**stubtest**
+
+mypy's stubtest compares the stubs with the signatures of the installed
+PyArrow. Run it with:
+
+.. code-block::
+
+   $ cd arrow/python
+   $ python scripts/run_stubtest.py
+
+Stubs that aren't written yet are skipped. The known mismatches are listed in
+``pyarrow-stubs-tests/stubtest_allowlist.txt``; remove the entries of the
+mismatches you fix, as stubtest fails on unused entries.
 
 Maintaining Type Stubs
 -----------------------
@@ -184,7 +217,7 @@ checkers that PyArrow supports type checking according to :pep:`561`.
 Testing Type Stubs
 ------------------
 
-The tests in ``pyarrow-stubs/tests/`` pin down the annotated types of public
+The tests in ``pyarrow-stubs-tests/`` pin down the annotated types of public
 APIs. Each check pairs :func:`typing.assert_type`, which every type checker
 verifies statically, with a runtime ``isinstance`` check:
 
@@ -209,19 +242,13 @@ with what PyArrow actually returns:
 .. code-block::
 
    $ cd arrow/python
-   $ pytest pyarrow-stubs/tests
-
-Run ``pytest`` directly and pass it the directory: ``python -m pytest`` puts
-``arrow/python`` on ``sys.path``, so the source tree would be imported instead
-of the installed PyArrow.
+   $ pytest pyarrow-stubs-tests
 
 Code under ``if TYPE_CHECKING_INVALID_USAGE:`` is never executed. It should
 fail type checking, which is asserted with a ``# type: ignore[<mypy code>]``
 comment: unused ignores are reported as errors in these tests, so the test
-fails once the usage is no longer rejected. Start new test files with a
-``# mypy: warn-unused-ignores`` comment to enable this for mypy (pyright is
-configured in ``pyproject.toml``). ty doesn't honor mypy error codes, so it
-doesn't check invalid usage.
+fails once the usage is no longer rejected. ty doesn't honor mypy error codes,
+so it doesn't check invalid usage.
 
 Doctest
 =======

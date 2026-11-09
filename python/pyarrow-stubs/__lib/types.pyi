@@ -22,7 +22,33 @@ import numpy as np  # type: ignore[import-not-found]
 import pandas as pd  # type: ignore[import-not-found,import-untyped]
 from typing_extensions import CapsuleType, Self, deprecated
 
-from pyarrow._stubs_typing import SupportsArrowSchema, TimeUnit
+from pyarrow._stubs_typing import (
+    BinaryType,
+    BinaryViewType,
+    BoolType,
+    Date32Type,
+    Date64Type,
+    Float16Type,
+    Float32Type,
+    Float64Type,
+    Int16Type,
+    Int32Type,
+    Int64Type,
+    Int8Type,
+    IntegerType,
+    LargeBinaryType,
+    LargeStringType,
+    MonthDayNanoIntervalType,
+    NullType,
+    StringType,
+    StringViewType,
+    SupportsArrowSchema,
+    TimeUnit,
+    UInt16Type,
+    UInt32Type,
+    UInt64Type,
+    UInt8Type,
+)
 from pyarrow.lib import (
     Array,
     Buffer,
@@ -64,29 +90,6 @@ class DataType(_Weakrefable):
 _PandasDtype: TypeAlias = (
     type[np.generic] | np.dtype[Any] | pd.api.extensions.ExtensionDtype
 )
-
-class NullType(DataType): ...
-class BoolType(DataType): ...
-class UInt8Type(DataType): ...
-class Int8Type(DataType): ...
-class UInt16Type(DataType): ...
-class Int16Type(DataType): ...
-class UInt32Type(DataType): ...
-class Int32Type(DataType): ...
-class UInt64Type(DataType): ...
-class Int64Type(DataType): ...
-class Float16Type(DataType): ...
-class Float32Type(DataType): ...
-class Float64Type(DataType): ...
-class Date32Type(DataType): ...
-class Date64Type(DataType): ...
-class MonthDayNanoIntervalType(DataType): ...
-class StringType(DataType): ...
-class LargeStringType(DataType): ...
-class StringViewType(DataType): ...
-class BinaryType(DataType): ...
-class LargeBinaryType(DataType): ...
-class BinaryViewType(DataType): ...
 
 _Time32Unit: TypeAlias = Literal["s", "ms"]
 _Time64Unit: TypeAlias = Literal["us", "ns"]
@@ -169,22 +172,11 @@ class FixedSizeListType(DataType):
 
 class DictionaryMemo(_Weakrefable): ...
 
-_IndexType: TypeAlias = (
-    UInt8Type
-    | Int8Type
-    | UInt16Type
-    | Int16Type
-    | UInt32Type
-    | Int32Type
-    | UInt64Type
-    | Int64Type
-)
-
 class DictionaryType(DataType):
     @property
     def ordered(self) -> bool: ...
     @property
-    def index_type(self) -> _IndexType: ...
+    def index_type(self) -> IntegerType: ...
     @property
     def value_type(self) -> DataType: ...
 
@@ -543,7 +535,7 @@ def map_(
     keys_sorted: bool = False,
 ) -> MapType: ...
 def dictionary(
-    index_type: _IndexType | _DataTypeAliasInput,
+    index_type: IntegerType | _DataTypeAliasInput,
     value_type: _DataTypeLike,
     ordered: bool = False,
 ) -> DictionaryType: ...
@@ -586,28 +578,6 @@ __all__ = [
     "_Weakrefable",
     "_Metadata",
     "DataType",
-    "NullType",
-    "BoolType",
-    "UInt8Type",
-    "Int8Type",
-    "UInt16Type",
-    "Int16Type",
-    "UInt32Type",
-    "Int32Type",
-    "UInt64Type",
-    "Int64Type",
-    "Float16Type",
-    "Float32Type",
-    "Float64Type",
-    "Date32Type",
-    "Date64Type",
-    "MonthDayNanoIntervalType",
-    "StringType",
-    "LargeStringType",
-    "StringViewType",
-    "BinaryType",
-    "LargeBinaryType",
-    "BinaryViewType",
     "TimestampType",
     "Time32Type",
     "Time64Type",

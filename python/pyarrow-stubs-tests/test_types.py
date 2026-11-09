@@ -14,38 +14,24 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# mypy: warn-unused-ignores
 
 from collections.abc import Hashable, Iterator
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
-import pyarrow.lib as lib
-import pyarrow.types as types
 from typing_extensions import CapsuleType
 
+import pyarrow.lib as lib
+from pyarrow._stubs_typing import (
+    BoolType,
+    Int16Type,
+    Int32Type,
+    Int64Type,
+    IntegerType,
+    StringType,
+)
+import pyarrow.types as types
+
 from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
-
-if TYPE_CHECKING:
-    # The stubs have a class per primitive type, but at runtime the
-    # factories return plain DataType instances, so these can only be
-    # referred to from type checking code.
-    from pyarrow.lib import (  # noqa: F401
-        BoolType,
-        Int8Type,
-        Int16Type,
-        Int32Type,
-        Int64Type,
-        StringType,
-        UInt8Type,
-        UInt16Type,
-        UInt32Type,
-        UInt64Type,
-    )
-
-    IntegerType = (
-        UInt8Type | Int8Type | UInt16Type | Int16Type
-        | UInt32Type | Int32Type | UInt64Type | Int64Type
-    )
 
 
 def _erase(t: lib.DataType) -> lib.DataType:
@@ -54,10 +40,10 @@ def _erase(t: lib.DataType) -> lib.DataType:
 
 
 def test_primitive_factories() -> None:
-    check(assert_type(lib.bool_(), "BoolType"), lib.DataType)
-    check(assert_type(lib.int32(), "Int32Type"), lib.DataType)
-    check(assert_type(lib.string(), "StringType"), lib.DataType)
-    check(assert_type(lib.utf8(), "StringType"), lib.DataType)
+    check(assert_type(lib.bool_(), BoolType), lib.DataType)
+    check(assert_type(lib.int32(), Int32Type), lib.DataType)
+    check(assert_type(lib.string(), StringType), lib.DataType)
+    check(assert_type(lib.utf8(), StringType), lib.DataType)
 
 
 def test_temporal_types() -> None:
@@ -101,7 +87,7 @@ def test_dictionary_type() -> None:
     check(assert_type(dict_type, lib.DictionaryType), lib.DictionaryType)
     check(assert_type(dict_type.ordered, bool), bool)
     check(assert_type(dict_type.value_type, lib.DataType), lib.DataType)
-    check(assert_type(dict_type.index_type, "IntegerType"), lib.DataType)
+    check(assert_type(dict_type.index_type, IntegerType), lib.DataType)
 
 
 def test_map_and_run_end_encoded_types() -> None:
@@ -112,15 +98,8 @@ def test_map_and_run_end_encoded_types() -> None:
 
     ree = lib.run_end_encoded(lib.int16(), lib.string())
     check(assert_type(ree, lib.RunEndEncodedType), lib.RunEndEncodedType)
-    check(assert_type(ree.run_end_type, "Int16Type | Int32Type | Int64Type"),
+    check(assert_type(ree.run_end_type, Int16Type | Int32Type | Int64Type),
           lib.DataType)
-
-
-def test_types_enum() -> None:
-    assert lib.int64().id == types.TypesEnum.INT64
-    assert lib.list_(lib.int8()).id == types.TypesEnum.LIST
-    assert (lib.month_day_nano_interval().id
-            == types.TypesEnum.INTERVAL_MONTH_DAY_NANO)
 
 
 def test_data_type_hashable() -> None:

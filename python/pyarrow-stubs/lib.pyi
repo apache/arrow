@@ -19,7 +19,7 @@
 # have been annotated so far; everything else falls back to Any via
 # __getattr__ until it gets annotated in subsequent PRs.
 
-from typing import Any
+from typing import Any, final
 
 from pyarrow.__lib.types import *  # noqa: F401,F403
 from pyarrow.__lib.array import *  # noqa: F401,F403
@@ -33,6 +33,7 @@ from pyarrow.__lib.scalar import *  # noqa: F401,F403
 from pyarrow.__lib.table import *  # noqa: F401,F403
 from pyarrow.__lib.tensor import *  # noqa: F401,F403
 
+@final
 class MonthDayNano(tuple):
     months: int
     days: int

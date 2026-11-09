@@ -114,14 +114,19 @@ fallback_version = '27.0.0a0'
 
 # TODO: Enable type checking once stubs are merged
 [tool.mypy]
-files = ["pyarrow-stubs"]
-mypy_path = "$MYPY_CONFIG_FILE_DIR/pyarrow-stubs"
-exclude = [
-    "^pyarrow/",
-    "^benchmarks/",
-    "^examples/",
-    "^scripts/",
-]
+# mypy can't find a "-stubs" package on mypy_path, but it maps pyarrow-stubs/
+# to the pyarrow module when checking it. Pass pyarrow-stubs as well when
+# checking other files, e.g. `mypy pyarrow-stubs pyarrow/tests/test_array.py`.
+files = ["pyarrow-stubs", "pyarrow-stubs-tests"]
+# The type annotation tests use `# type: ignore[...]` to assert that some
+# usage is rejected, so an ignore that is no longer needed is an error there.
+warn_unused_ignores = true
+
+# The stubs ignore errors that depend on the installed packages, e.g. the
+# imports of optional dependencies.
+[[tool.mypy.overrides]]
+module = ["pyarrow.*"]
+warn_unused_ignores = false
 
 # Modules that will be annotated in later PRs (GH-32609). Treat them as Any
 # rather than type checking their sources.
@@ -129,33 +134,27 @@ exclude = [
 module = ["pyarrow._compute", "pyarrow.compute", "pyarrow.interchange.*"]
 follow_imports = "skip"
 
+# Optional dependencies without type hints.
+[[tool.mypy.overrides]]
+module = ["fsspec", "sparse"]
+ignore_missing_imports = true
+
 # TODO: Enable type checking once stubs are merged
 [tool.pyright]
 pythonPlatform = "All"
 pythonVersion = "3.11"
-include = ["pyarrow-stubs"]
-exclude = [
-    "pyarrow",
-    "benchmarks",
-    "examples",
-    "scripts",
-    "build",
-]
-stubPath = "pyarrow-stubs"
+include = ["pyarrow-stubs", "pyarrow-stubs-tests"]
 typeCheckingMode = "basic"
 # The type annotation tests use `# type: ignore[...]` to assert that some
 # usage is rejected, so an ignore that is no longer needed is an error there.
 executionEnvironments = [
-    { root = "pyarrow-stubs/tests", reportUnnecessaryTypeIgnoreComment = "error" },
+    { root = "pyarrow-stubs-tests", extraPaths = ["."], reportUnnecessaryTypeIgnoreComment = "error" },
     { root = "." },
 ]
 # In editable install, pyright finds the stubs but compiled modules (e.g. pyarrow.lib)
 reportMissingModuleSource = false
 
 # TODO: Enable type checking once stubs are merged
-[tool.ty.environment]
-extra-paths = ["pyarrow-stubs"]
-
 [tool.ty.analysis]
 # Modules that will be annotated in later PRs (GH-32609), and the optional
 # sparse dependency, which has no type hints. Treat them as Any.
@@ -167,31 +166,25 @@ replace-imports-with-any = [
 ]
 
 [tool.ty.src]
-include = ["pyarrow-stubs"]
-exclude = [
-    "pyarrow",
-    "benchmarks",
-    "examples",
-    "scripts",
-]
+include = ["pyarrow-stubs", "pyarrow-stubs-tests"]
 
 # numpy, pandas and scipy are optional dependencies. A `ty: ignore` comment on
 # their imports would be reported as unused whenever they are installed.
 [[tool.ty.overrides]]
-include = ["pyarrow-stubs/pyarrow/**"]
+include = ["pyarrow-stubs/**"]
 [tool.ty.overrides.rules]
 import-not-found = "ignore"
 
 # ty doesn't honor `# type: ignore[<mypy code>]` comments, so disable the
 # rules that those comments suppress for mypy.
 [[tool.ty.overrides]]
-include = ["pyarrow-stubs/pyarrow/__lib/array.pyi"]
+include = ["pyarrow-stubs/__lib/array.pyi"]
 [tool.ty.overrides.rules]
 # Some array classes override methods with a different signature at runtime.
 invalid-method-override = "ignore"
 
 [[tool.ty.overrides]]
-include = ["pyarrow-stubs/tests/**"]
+include = ["pyarrow-stubs-tests/**"]
 [tool.ty.overrides.rules]
 # mypy and pyright check that the invalid usage in the tests is rejected.
 invalid-argument-type = "ignore"

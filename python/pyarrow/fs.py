@@ -111,7 +111,7 @@ def _ensure_filesystem(filesystem, *, use_mmap=False):
     else:
         # handle fsspec-compatible filesystems
         try:
-            import fsspec  # type: ignore[import-not-found,import-untyped]
+            import fsspec
         except ImportError:
             pass
         else:

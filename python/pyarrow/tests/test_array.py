@@ -18,11 +18,11 @@
 from collections.abc import Iterable
 import datetime
 import decimal
-import hypothesis as h  # type: ignore[import-not-found]
-import hypothesis.strategies as st  # type: ignore[import-not-found]
+import hypothesis as h
+import hypothesis.strategies as st
 import itertools
 import operator
-import pytest  # type: ignore[import-not-found]
+import pytest
 import struct
 import subprocess
 import sys
@@ -1303,24 +1303,24 @@ def test_map_from_arrays():
     keys = pa.array(pykeys, type='binary')
     items = pa.array(pyitems, type='i4')
 
-    result = pa.MapArray.from_arrays(offsets, keys, items)  # type: ignore[arg-type]
+    result = pa.MapArray.from_arrays(offsets, keys, items)
     expected = pa.array(pyentries, type=pa.map_(pa.binary(), pa.int32()))
 
     assert result.equals(expected)
 
     # pass in the type explicitly
-    result = pa.MapArray.from_arrays(offsets, keys, items,  # type: ignore[arg-type]
+    result = pa.MapArray.from_arrays(offsets, keys, items,
                                      pa.map_(keys.type, items.type))
     assert result.equals(expected)
 
     # pass in invalid types
     with pytest.raises(pa.ArrowTypeError, match='Expected map type, got string'):
         pa.MapArray.from_arrays(
-            offsets, keys, items, pa.string()  # type: ignore[arg-type]
+            offsets, keys, items, pa.string()
         )
 
     with pytest.raises(pa.ArrowTypeError, match='Mismatching map items type'):
-        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(  # type: ignore[arg-type]
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
             keys.type,
             # Larger than the original i4
             pa.int64()
@@ -1358,7 +1358,7 @@ def test_map_from_arrays():
     # error if null bitmap and offsets with nulls passed
     msg1 = 'Ambiguous to specify both validity map and offsets with nulls'
     with pytest.raises(pa.ArrowInvalid, match=msg1):
-        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(  # type: ignore[arg-type]
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
             keys.type,
             items.type),
             mask=pa.array([False, True, False], type=pa.bool_())

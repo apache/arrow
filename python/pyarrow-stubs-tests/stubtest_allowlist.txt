@@ -1,0 +1,67 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Mismatches between the type stubs and the runtime that stubtest skips, one
+# regex per line; see scripts/run_stubtest.py. Unused entries fail stubtest,
+# so remove the entries of the mismatches you fix. Print the entries for the
+# current mismatches with
+#   python scripts/run_stubtest.py --generate-allowlist
+
+# Stub-only modules. The pyarrow.__lib modules are checked against
+# pyarrow.lib, which has no __all__.
+pyarrow\._stubs_typing
+pyarrow\.__lib\.[a-z]+\.__all__
+
+# The __init__ of Cython extension types takes (*args, **kwargs) at runtime.
+pyarrow\.__lib\.[a-z]+\.[A-Za-z_]+\.__init__
+
+# Type aliases that are only defined in the stubs.
+pyarrow\.__lib\.table\.AggregateOptions
+pyarrow\.__lib\.table\.Aggregation
+pyarrow\.__lib\.table\.ArrayOrChunkedArray
+pyarrow\.__lib\.table\.ChunkedArrayConstructorInput
+pyarrow\.__lib\.table\.ColumnSelector
+pyarrow\.__lib\.table\.JoinType
+pyarrow\.__lib\.table\.NarySelector
+pyarrow\.__lib\.table\.NullarySelector
+pyarrow\.__lib\.table\.UnarySelector
+
+# pyarrow.fs has no stub yet, so mypy reads its source.
+pyarrow\.fs\.FSSpecHandler
+
+# Stubs to fix (GH-32609).
+pyarrow\.__lib\.array\.Bool8Array\.from_numpy
+pyarrow\.__lib\.array\.Bool8Array\.from_storage
+pyarrow\.__lib\.array\.FixedShapeTensorArray\.from_numpy_ndarray
+pyarrow\.__lib\.array\.FixedSizeListArray\.from_arrays
+pyarrow\.__lib\.array\.LargeListArray\.from_arrays
+pyarrow\.__lib\.array\.LargeListViewArray\.from_arrays
+pyarrow\.__lib\.array\.ListArray\.from_arrays
+pyarrow\.__lib\.array\.ListViewArray\.from_arrays
+pyarrow\.__lib\.array\.UnionArray\.child
+pyarrow\.__lib\.array\.array
+pyarrow\.__lib\.device\.DeviceAllocationType\.[A-Z_]+
+pyarrow\.__lib\.device\.DeviceAllocationType\.__format__
+pyarrow\.__lib\.table\.ChunkedArray\.data
+pyarrow\.__lib\.table\.ChunkedArray\.format
+pyarrow\.__lib\.table\.concat_tables
+pyarrow\.__lib\.tensor\.Sparse[A-Z]+(Tensor|Matrix)\.from_(numpy|pydata_sparse|scipy|tensor)
+pyarrow\.__lib\.tensor\.Tensor\.from_numpy
+pyarrow\.__lib\.types\.Schema\.__getitem__
+pyarrow\.__lib\.types\.Schema\.add_metadata
+pyarrow\.__lib\.types\.Schema\.field_by_name
+pyarrow\.types\.__all__

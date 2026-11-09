@@ -25,18 +25,20 @@ if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
 
-# Install library stubs. Note some libraries contain their own type hints so they need to be installed.
-pip install fsspec pandas-stubs scipy-stubs types-cffi types-psutil types-requests types-python-dateutil
+cd "${pyarrow_dir}"
 
-# Install type checkers
-pip install mypy pyright ty
+# Install type checkers and library stubs. Note some libraries contain their
+# own type hints so they need to be installed.
+pip install -r requirements-stubs.txt
 
 # Run type checkers
-cd "${pyarrow_dir}"
 mypy
 pyright --stats
 ty check --verbose --output-format concise
 
 # The type annotation tests are type checked above; also run them to verify
 # the expected annotated types against the runtime types.
-pytest -r s pyarrow-stubs/tests
+pytest -r s pyarrow-stubs-tests
+
+# Check that the stubs match the signatures of the installed PyArrow.
+python scripts/run_stubtest.py
