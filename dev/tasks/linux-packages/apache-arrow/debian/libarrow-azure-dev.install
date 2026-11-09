@@ -1,0 +1,4 @@
+usr/lib/*/cmake/ArrowAzure/
+usr/lib/*/libarrow_azure.a
+usr/lib/*/libarrow_azure.so
+usr/lib/*/pkgconfig/arrow-azure.pc
