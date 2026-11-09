@@ -148,6 +148,11 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
       const int64_t total_compressed_size = rg_metadata->total_compressed_size();
       if (expected_codec_type == Compression::UNCOMPRESSED) {
         ASSERT_EQ(total_byte_size, total_compressed_size);
+      } else if (std::is_same_v<TestType, BooleanType> &&
+                 writer_properties->data_page_version() == ParquetDataPageVersion::V2) {
+        // In Parquet V2 data pages, small boolean pages (50 values = 7 bytes)
+        // do not compress with savings, so selective compression leaves them uncompressed.
+        ASSERT_EQ(total_byte_size, total_compressed_size);
       } else {
         ASSERT_NE(total_byte_size, total_compressed_size);
       }
