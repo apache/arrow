@@ -2024,7 +2024,8 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
                             ::arrow::compute::Unique(*chunk_indices, &exec_ctx));
 
     // On first run, we might be able to re-use the existing dictionary
-    if (referenced_indices.length() == dictionary->length()) {
+    if (chunk_indices->null_count() == 0 &&
+        referenced_indices.length() == dictionary->length()) {
       referenced_dictionary = dictionary;
     } else {
       PARQUET_ASSIGN_OR_THROW(
@@ -2064,12 +2065,12 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    if (page_statistics_ || bloom_filter_writer_) {
-      update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
-    }
     PARQUET_ASSIGN_OR_THROW(
         writeable_indices,
         MaybeReplaceValidity(writeable_indices, null_count, ctx->memory_pool));
+    if (page_statistics_ || bloom_filter_writer_) {
+      update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
+    }
     dict_encoder->PutIndices(*writeable_indices);
     // Update unencoded byte array data size to size statistics
     UpdateUnencodedDataBytes();
