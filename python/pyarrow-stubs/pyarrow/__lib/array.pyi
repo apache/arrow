@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Collection, Iterable, Iterator, Sequence
 
-from typing import Any, Literal, Self, SupportsIndex
+from typing import Any, ClassVar, Self, SupportsIndex
 
 import numpy as np  # type: ignore[import-not-found]
 import pandas as pd  # type: ignore[import-not-found,import-untyped]
@@ -28,6 +28,9 @@ from pyarrow._stubs_typing import (
     Indices,
     Mask,
     MapsAsPydicts,
+    NullEncoding,
+    NullPlacement,
+    NullSelectionBehavior,
     Order,
     SupportsArrowArray,
     SupportsArrowDeviceArray,
@@ -41,13 +44,12 @@ from pyarrow.lib import (
     Tensor,
     _Weakrefable,
 )
-from typing_extensions import deprecated
+from typing_extensions import CapsuleType, deprecated
 import builtins
 
 from .scalar import Int64Scalar, Scalar
 from .device import DeviceAllocationType
 from .types import BaseExtensionType, DataType, Field, StructType
-from pyarrow._stubs_typing import NullableCollection
 
 def array(
     values: Iterable[Any]
@@ -121,6 +123,7 @@ class _PandasConvertible(_Weakrefable):
     ) -> pd.Series | pd.DataFrame: ...
 
 class Array(_PandasConvertible):
+    __hash__: ClassVar[None]  # type: ignore[assignment]
     def diff(self, other: Array) -> str: ...
     def cast(
         self,
@@ -134,7 +137,9 @@ class Array(_PandasConvertible):
     @property
     def type(self) -> DataType: ...
     def unique(self) -> Self: ...
-    def dictionary_encode(self, null_encoding: str = "mask") -> DictionaryArray: ...
+    def dictionary_encode(
+        self, null_encoding: NullEncoding = "mask"
+    ) -> DictionaryArray: ...
     def value_counts(self) -> StructArray: ...
     @staticmethod
     def from_pandas(
@@ -151,7 +156,7 @@ class Array(_PandasConvertible):
         buffers: Sequence[Buffer | None],
         null_count: int = -1,
         offset=0,
-        children: NullableCollection | None = None,
+        children: Collection[Array] | None = None,
     ) -> Array: ...
     @property
     def null_count(self) -> int: ...
@@ -184,7 +189,7 @@ class Array(_PandasConvertible):
         self,
         mask: Mask,
         *,
-        null_selection_behavior: Literal["drop", "emit_null"] = "drop",
+        null_selection_behavior: NullSelectionBehavior = "drop",
     ) -> Self: ...
     def index(
         self,
@@ -194,7 +199,12 @@ class Array(_PandasConvertible):
         *,
         memory_pool: MemoryPool | None = None,
     ) -> Int64Scalar: ...
-    def sort(self, order: Order = "ascending", **kwargs) -> Self: ...
+    def sort(
+        self,
+        order: Order = "ascending",
+        null_placement: NullPlacement = "at_end",
+        **kwargs,
+    ) -> Self: ...
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
     ) -> np.ndarray: ...
@@ -204,7 +214,7 @@ class Array(_PandasConvertible):
     def to_pylist(
         self,
         *,
-        maps_as_pydicts: Literal["lossy", "strict"] | None = None,
+        maps_as_pydicts: MapsAsPydicts | None = None,
     ) -> list[Any]: ...
 
     tolist = to_pylist
@@ -217,15 +227,23 @@ class Array(_PandasConvertible):
     def _export_to_c(self, out_ptr: int, out_schema_ptr: int = 0) -> None: ...
     @staticmethod
     def _import_from_c(in_ptr: int, type: int | DataType) -> Array: ...
-    def __arrow_c_array__(self, requested_schema=None) -> Any: ...
+    def __arrow_c_array__(
+        self, requested_schema: CapsuleType | None = None
+    ) -> tuple[CapsuleType, CapsuleType]: ...
     @staticmethod
-    def _import_from_c_capsule(schema_capsule, array_capsule) -> Array: ...
+    def _import_from_c_capsule(
+        schema_capsule: CapsuleType, array_capsule: CapsuleType
+    ) -> Array: ...
     def _export_to_c_device(self, out_ptr: int, out_schema_ptr: int = 0) -> None: ...
     @staticmethod
     def _import_from_c_device(in_ptr: int, type: DataType | int) -> Array: ...
-    def __arrow_c_device_array__(self, requested_schema=None, **kwargs) -> Any: ...
+    def __arrow_c_device_array__(
+        self, requested_schema: CapsuleType | None = None, **kwargs: Any
+    ) -> tuple[CapsuleType, CapsuleType]: ...
     @staticmethod
-    def _import_from_c_device_capsule(schema_capsule, array_capsule) -> Array: ...
+    def _import_from_c_device_capsule(
+        schema_capsule: CapsuleType, array_capsule: CapsuleType
+    ) -> Array: ...
     def __dlpack__(
         self,
         *,
@@ -233,7 +251,7 @@ class Array(_PandasConvertible):
         max_version: tuple[int, int] | None = None,
         dl_device: tuple[int, int] | None = None,
         copy: bool | None = None,
-    ) -> Any: ...
+    ) -> CapsuleType: ...
     def __dlpack_device__(self) -> tuple[int, int]: ...
     @property
     def device_type(self) -> DeviceAllocationType: ...
@@ -479,7 +497,11 @@ class StructArray(Array):
         type: StructType | None = None,
     ) -> StructArray: ...
     def sort(
-        self, order: Order = "ascending", by: str | None = None, **kwargs
+        self,
+        order: Order = "ascending",
+        null_placement: NullPlacement = "at_end",
+        by: str | None = None,
+        **kwargs,
     ) -> StructArray: ...
 
 class RunEndEncodedArray(Array):

@@ -16,6 +16,7 @@
 # under the License.
 # mypy: warn-unused-ignores
 
+from collections.abc import Hashable
 from typing import Any, cast
 
 import pytest
@@ -91,13 +92,28 @@ def test_array_dlpack() -> None:
         dl_device=arr.__dlpack_device__(),
         copy=False,
     )
-    check(assert_type(capsule, Any), CapsuleType)
+    check(assert_type(capsule, CapsuleType), CapsuleType)
 
 
 def test_import_from_c_capsule() -> None:
-    capsules = lib.array([1, 2]).__arrow_c_array__()
+    arr = cast(lib.Int64Array, lib.array([1, 2]))
+    capsules = arr.__arrow_c_array__()
+    check(assert_type(capsules, tuple[CapsuleType, CapsuleType]), tuple)
     imported = lib.BooleanArray._import_from_c_capsule(*capsules)
     check(assert_type(imported, lib.Array), lib.Int64Array)
+
+    check(assert_type(arr.__arrow_c_device_array__(),
+                      tuple[CapsuleType, CapsuleType]),
+          tuple)
+
+
+def test_from_buffers() -> None:
+    values = cast(lib.Int64Array, lib.array([1, 2]))
+    offsets = lib.array([0, 2], lib.int32()).buffers()[1]
+    # Children can be any collection of arrays, like a tuple
+    list_arr = lib.Array.from_buffers(lib.list_(lib.int64()), 1, [None, offsets],
+                                      children=(values,))
+    check(assert_type(list_arr, lib.Array), lib.ListArray)
 
 
 def test_list_arrays() -> None:
@@ -142,7 +158,6 @@ def test_dictionary_array() -> None:
     check(assert_type(dict_arr.dictionary_decode(), lib.Array),
           lib.StringArray)
 
-    # The validity buffer can be None
     rebuilt = lib.DictionaryArray.from_buffers(
         dict_arr.type, len(dict_arr), dict_arr.indices.buffers(), dict_arr.dictionary
     )
@@ -186,6 +201,12 @@ def test_invalid_usage() -> None:
         arr.equals(object())  # type: ignore[arg-type]
         arr.equals(None)  # type: ignore[arg-type]
         arr.format()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]  # noqa: E501
+        # Arrays define __eq__ but not __hash__, hence unhashable at runtime
+        _: Hashable = arr  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        arr.sort(null_placement="first")  # type: ignore[arg-type]
+        arr.filter([True], null_selection_behavior="keep")  # type: ignore[arg-type]
+        arr.dictionary_encode("drop")  # type: ignore[arg-type]
+        arr.to_pylist(maps_as_pydicts="loose")  # type: ignore[arg-type]
         # Generators aren't accepted, only Sequences
         lib.infer_type(x for x in [1])  # type: ignore[arg-type]
 
