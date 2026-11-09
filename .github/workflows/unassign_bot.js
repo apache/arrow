@@ -117,32 +117,23 @@ module.exports = async ({ github, context }) => {
 
           // Find the assignee's linked PR. Each contributor is expected
           // to have at most one linked PR for a particular issue.
-          const linkedPrs = events
-            .filter(
-              event =>
-                event.event === "cross-referenced" &&
-                event.source?.issue?.pull_request &&
-                sameUser(event.source.issue.user?.login, login)
-            )
-            .map(event => event.source.issue);
+          const linkedPr = events.find(
+            event =>
+              event.event === "cross-referenced" &&
+              event.source?.issue?.pull_request &&
+              sameUser(event.source.issue.user?.login, login)
+          )?.source.issue;
 
           let lastActivity = assignedAt;
-
-          // Check the most recently updated open PR authored by the assignee.
-          const linkedPr = linkedPrs
-            .filter(pr => pr.state === "open")
-            .sort(
-              (a, b) =>
-                Date.parse(b.updated_at) - Date.parse(a.updated_at)
-            )[0];
+          let pr;
 
           if (linkedPr) {
-            // Fetch the latest PR state and activity timestamp.
-            const { data: pr } = await github.rest.pulls.get({
+            const response = await github.rest.pulls.get({
               owner,
               repo,
               pull_number: linkedPr.number,
             });
+            pr = response.data;
 
             // Only an open PR authored by the assignee counts as activity.
             if (
@@ -158,12 +149,33 @@ module.exports = async ({ github, context }) => {
 
           if (Date.now() - lastActivity < INACTIVITY_PERIOD) continue;
 
+          // Close the linked PR before unassigning the contributor.
+          let closedPrNumber;
+
+          if (
+            pr?.state === "open" &&
+            sameUser(pr.user?.login, login)
+          ) {
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number: pr.number,
+              state: "closed",
+            });
+
+            closedPrNumber = pr.number;
+          }
+
           await unassign(
             issue.number,
             login,
             `@${login}, you have been automatically unassigned from this issue ` +
-              `after 15 days without activity on your linked PR. If you are ` +
-              `still working on it, please comment here so a maintainer can reassign it.`
+              `after 15 days without activity. ` +
+              (closedPrNumber
+                ? `Your linked PR #${closedPrNumber} has also been closed. `
+                : "") +
+              `If you are still interested in working on this issue, ` +
+              `please ask a maintainer to reassign it and reopen your PR.`
           );
         } catch (error) {
           failures++;
