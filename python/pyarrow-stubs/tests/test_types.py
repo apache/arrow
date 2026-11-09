@@ -124,7 +124,7 @@ def test_types_enum() -> None:
 
 
 def test_data_type_hashable() -> None:
-    data_type: Hashable = lib.int32()
+    data_type = lib.int32()
     check(assert_type(hash(data_type), int), int)
 
 
