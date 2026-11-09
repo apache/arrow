@@ -223,10 +223,9 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   /// options_.segment_encoding.
   ///
   /// \param[in] values the partition values for each schema field
-  /// \param[in] escape_filename_separator whether values must not contain the
-  ///   filename partitioning separator ("_"). It is escaped when using
-  ///   SegmentEncoding::Uri, and values containing it result in an error when
-  ///   using SegmentEncoding::None.
+  /// \param[in] escape_filename_separator whether to escape the
+  ///   filename partitioning separator ("_"). If no encoding is used
+  ///   (SegmentEncoding::None), values containing the separator result in an error.
   Result<std::vector<std::string>> FormatPartitionSegments(
       const ScalarVector& values, bool escape_filename_separator = false) const;
 
