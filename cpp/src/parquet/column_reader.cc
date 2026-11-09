@@ -83,10 +83,21 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
   }
 }
 
-/// True if a T can hold a U.
+/// True if an integer type T can hold every value of integer type U.
+///
+/// Written in terms of std::numeric_limits rather than std::in_range because
+/// the libc++ in the macOS 11.3 SDK used by CRAN does not provide the latter.
 template <typename T, typename U>
-inline constexpr bool can_hold_v = std::in_range<T>(std::numeric_limits<U>::min()) &&
-                                   std::in_range<T>(std::numeric_limits<U>::max());
+inline constexpr bool can_hold_v =
+    std::numeric_limits<T>::digits >= std::numeric_limits<U>::digits &&
+    (std::is_signed_v<T> || !std::is_signed_v<U>);
+
+static_assert(can_hold_v<int64_t, int32_t>);
+static_assert(can_hold_v<int64_t, uint32_t>);
+static_assert(can_hold_v<int32_t, int32_t>);
+static_assert(!can_hold_v<int32_t, int64_t>);
+static_assert(!can_hold_v<int32_t, uint32_t>);
+static_assert(!can_hold_v<uint64_t, int32_t>);
 
 /// Clamp to a given type.
 template <typename T, typename U>
