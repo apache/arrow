@@ -116,9 +116,24 @@ def test_min_compression_savings_rejects_v1(minimum, use_writer):
 
     with pytest.raises(ValueError, match="min_compression_savings requires V2"):
         if use_writer:
-            pq.ParquetWriter(sink, table.schema, min_compression_savings=minimum)
+            pq.ParquetWriter(sink, table.schema, data_page_version="1.0",
+                             min_compression_savings=minimum)
         else:
-            pq.write_table(table, sink, min_compression_savings=minimum)
+            pq.write_table(table, sink, data_page_version="1.0",
+                           min_compression_savings=minimum)
+
+
+@pytest.mark.parametrize("use_writer", [False, True])
+def test_min_compression_savings_default_v2(use_writer):
+    table = pa.table({"value": [1.0]})
+    sink = pa.BufferOutputStream()
+
+    if use_writer:
+        with pq.ParquetWriter(
+                sink, table.schema, min_compression_savings=0.1) as writer:
+            writer.write_table(table)
+    else:
+        pq.write_table(table, sink, min_compression_savings=0.1)
 
 
 @pytest.mark.pandas

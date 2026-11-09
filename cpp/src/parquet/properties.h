@@ -387,7 +387,7 @@ class PARQUET_EXPORT WriterProperties {
           pagesize_(kDefaultDataPageSize),
           max_rows_per_page_(kDefaultMaxRowsPerPage),
           version_(ParquetVersion::PARQUET_2_6),
-          data_page_version_(ParquetDataPageVersion::V1),
+          data_page_version_(ParquetDataPageVersion::V2),
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false),
@@ -525,7 +525,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Specify the data page version.
-    /// Default V1.
+    /// Default V2.
     Builder* data_page_version(ParquetDataPageVersion data_page_version) {
       data_page_version_ = data_page_version;
       return this;
