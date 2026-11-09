@@ -147,7 +147,6 @@ install_headers(
         'file_writer.h',
         'hasher.h',
         'index_location.h',
-        'level_comparison.h',
         'level_comparison_inc.h',
         'level_conversion.h',
         'level_conversion_inc.h',

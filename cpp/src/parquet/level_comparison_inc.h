@@ -18,7 +18,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/endian.h"
-#include "parquet/level_comparison.h"
+#include "parquet/level_comparison_internal.h"
 
 // Used to make sure ODR rule isn't violated.
 #ifndef PARQUET_IMPL_NAMESPACE
