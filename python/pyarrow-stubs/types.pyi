@@ -18,16 +18,12 @@
 import sys
 from enum import IntEnum
 
-from typing import Any, TypeGuard
+from typing import Any, TypeAlias, TypeGuard
 
 if sys.version_info >= (3, 13):
     from typing import TypeIs
 else:
     from typing_extensions import TypeIs
-if sys.version_info >= (3, 10):
-    from typing import TypeAlias
-else:
-    from typing_extensions import TypeAlias
 
 import pyarrow.lib as lib
 

@@ -15,16 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import datetime as dt
-
-from _typeshed import (
-    SupportsDunderGE,
-    SupportsDunderGT,
-    SupportsDunderLE,
-    SupportsDunderLT,
-)
-from collections.abc import Collection, Container, Iterator, Sequence, Sized
-from decimal import Decimal
+from collections.abc import Sequence
 from typing import Any, Literal, Protocol, TypeAlias
 
 import numpy as np
@@ -35,61 +26,17 @@ from pyarrow import lib
 from pyarrow.lib import Array, ChunkedArray
 
 ArrayLike: TypeAlias = Any
-ScalarLike: TypeAlias = Any
 Order: TypeAlias = Literal["ascending", "descending"]
-JoinType: TypeAlias = Literal[
-    "left semi",
-    "right semi",
-    "left anti",
-    "right anti",
-    "inner",
-    "left outer",
-    "right outer",
-    "full outer",
-]
-Compression: TypeAlias = Literal[
-    "gzip", "bz2", "brotli", "lz4", "lz4_frame", "lz4_raw", "zstd", "snappy"
-]
 MapsAsPydicts: TypeAlias = Literal["lossy", "strict"]
 NullEncoding: TypeAlias = Literal["mask", "encode"]
 NullPlacement: TypeAlias = Literal["at_start", "at_end"]
 NullSelectionBehavior: TypeAlias = Literal["drop", "emit_null"]
 TimeUnit: TypeAlias = Literal["s", "ms", "us", "ns"]
 
-PyScalar: TypeAlias = (
-    bool
-    | int
-    | float
-    | Decimal
-    | str
-    | bytes
-    | dt.date
-    | dt.datetime
-    | dt.time
-    | dt.timedelta
-)
-NumpyScalar: TypeAlias = np.generic[Any]
-
 Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | Array | ChunkedArray
 Indices: TypeAlias = (
     Sequence[int | None] | NDArray[np.integer[Any]] | lib.IntegerArray | ChunkedArray
 )
-
-class SupportsDunderEQ(Protocol):
-    def __eq__(self, other: object, /) -> bool: ...
-
-FilterTuple: TypeAlias = (
-    tuple[str, Literal["=", "==", "!="], SupportsDunderEQ]
-    | tuple[str, Literal["<"], SupportsDunderLT[Any]]
-    | tuple[str, Literal[">"], SupportsDunderGT[Any]]
-    | tuple[str, Literal["<="], SupportsDunderLE[Any]]
-    | tuple[str, Literal[">="], SupportsDunderGE[Any]]
-    | tuple[str, Literal["in", "not in"], Collection[Any]]
-    | tuple[str, str, Any]  # Allow general str for operator to avoid type errors
-)
-
-class Buffer(Protocol): ...
-class SupportsPyBuffer(Protocol): ...
 
 class SupportsArrowStream(Protocol):
     def __arrow_c_stream__(self, requested_schema: Any = None, /) -> Any: ...
@@ -107,11 +54,6 @@ class SupportsArrowDeviceArray(Protocol):
 
 class SupportsArrowSchema(Protocol):
     def __arrow_c_schema__(self) -> Any: ...
-
-class NullableCollection(Sized, Container[Any], Protocol):
-    def __iter__(self) -> Iterator[Any]: ...
-    def __len__(self) -> int: ...
-    def __contains__(self, item: Any, /) -> bool: ...
 
 # Data types without a class of their own at runtime: their factories, e.g.
 # pyarrow.int32(), return plain DataType instances. These classes only exist

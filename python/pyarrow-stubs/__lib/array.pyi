@@ -134,7 +134,7 @@ class Array(_PandasConvertible):
         memory_pool: MemoryPool | None = None,
     ) -> Array: ...
     def view(self, target_type: DataType | str) -> Array: ...
-    def sum(self, **kwargs) -> Scalar: ...
+    def sum(self, **kwargs: Any) -> Scalar: ...
     @property
     def type(self) -> DataType: ...
     def unique(self) -> Self: ...
@@ -156,7 +156,7 @@ class Array(_PandasConvertible):
         length: int,
         buffers: Sequence[Buffer | None],
         null_count: int = -1,
-        offset=0,
+        offset: int = 0,
         children: Collection[Array] | None = None,
     ) -> Array: ...
     @property
@@ -204,7 +204,7 @@ class Array(_PandasConvertible):
         self,
         order: Order = "ascending",
         null_placement: NullPlacement = "at_end",
-        **kwargs,
+        **kwargs: Any,
     ) -> Self: ...
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
@@ -492,7 +492,7 @@ class StructArray(Array):
         arrays: Iterable[Array | np.ndarray | list],
         names: Sequence[str] | list[Field] | None = None,
         fields: list[Field] | None = None,
-        mask=None,
+        mask: BooleanArray | None = None,
         memory_pool: MemoryPool | None = None,
         type: StructType | None = None,
     ) -> StructArray: ...
@@ -501,7 +501,7 @@ class StructArray(Array):
         order: Order = "ascending",
         null_placement: NullPlacement = "at_end",
         by: str | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> StructArray: ...
 
 class RunEndEncodedArray(Array):
@@ -517,7 +517,7 @@ class RunEndEncodedArray(Array):
         length: int,
         buffers: list[Buffer] | list[None],
         null_count: int = -1,
-        offset=0,
+        offset: int = 0,
         children: tuple[Array, Array] | list[list[int]] | None = None,
     ) -> RunEndEncodedArray: ...
     @property

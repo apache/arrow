@@ -16,11 +16,11 @@
 # under the License.
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Literal, TypeAlias, overload
+from typing import Any, ClassVar, Literal, Self, TypeAlias, overload
 
 import numpy as np
 import pandas as pd
-from typing_extensions import CapsuleType, Self, deprecated
+from typing_extensions import CapsuleType, deprecated
 
 from pyarrow._stubs_typing import (
     BinaryType,
