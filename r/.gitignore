@@ -32,3 +32,6 @@ extra-tests/files
 /tools/LICENSE.txt
 /tools/NOTICE.txt
 /tools/versions.txt
+# Source tarballs of required dependencies that we ship for offline builds.
+# They're downloaded by `make sync-cpp` (see tools/vendor_dependencies.sh).
+/tools/vendored/

@@ -91,6 +91,22 @@ fi
 export TEXMFCONFIG=/tmp/texmf-config
 export TEXMFVAR=/tmp/texmf-var
 
+if [ "${ARROW_R_TEST_OFFLINE:-false}" = "true" ]; then
+  # Simulate a machine without network access (e.g. a CRAN builder whose
+  # downloads fail) by disabling DNS resolution, like ubuntu-cpp-bundled-offline.
+  # We can't use mv because we can't remove /etc/resolv.conf in Docker
+  # container.
+  cp /etc/resolv.conf{,.bak}
+  echo > /etc/resolv.conf
+  # sccache can't reach its remote cache without network access
+  unset SCCACHE_BUCKET SCCACHE_REGION SCCACHE_S3_KEY_PREFIX
+  # Make sure we actually are offline so this check can't silently pass
+  if ${R_BIN} -s -e 'readLines(url("https://github.com"), n = 1L)' > /dev/null 2>&1; then
+    echo "Network is still reachable, but ARROW_R_TEST_OFFLINE=true"
+    exit 1
+  fi
+fi
+
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
 
@@ -125,12 +141,22 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     args <- c(args, paste0('--install-args=\"', install_args, '\"'))
   }
 
+  # Without network access, some R CMD check steps (e.g. filtering undeclared
+  # '::' imports in tests against CRAN, resolving Rd xrefs) produce spurious
+  # warnings, so only fail on errors when offline.
+  offline <- identical(tolower(Sys.getenv('ARROW_R_TEST_OFFLINE')), 'true')
+  error_on <- if (offline) 'error' else 'warning'
+
   message('Running rcmdcheck with:\n')
   print(build_args)
   print(args)
 
-  rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = 'warning', check_dir = 'check', timeout = 3600)"
+  rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = error_on, check_dir = 'check', timeout = 3600)"
 echo "$SCRIPT" | "${R_BIN}" --no-save
+
+if [ "${ARROW_R_TEST_OFFLINE:-false}" = "true" ]; then
+  cp /etc/resolv.conf{.bak,}
+fi
 
 AFTER=$(ls -alh ~/)
 if [ "$NOT_CRAN" != "true" ] && [ "$BEFORE" != "$AFTER" ]; then
