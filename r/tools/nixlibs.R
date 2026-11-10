@@ -874,13 +874,13 @@ set_thirdparty_urls <- function(env_var_list) {
   env_var_list
 }
 
+# libarrow requires some thirdparty dependencies, even for a minimal build.
+# The libarrow build uses them from the system if they are available and
+# otherwise builds them from source, downloading from ARROW_*_URL. To make sure
+# that works without network access, `make sync-cpp` saves their source
+# tarballs into vendored_dependency_dir and we point ARROW_*_URL at them here.
+# This does not change whether the system versions are used.
 with_vendored_dependencies <- function(env_var_list) {
-  # libarrow requires some thirdparty dependencies, even for a minimal build.
-  # The libarrow build uses them from the system if they are available and
-  # otherwise builds them from source, downloading from ARROW_*_URL. To make sure
-  # that works without network access, `make sync-cpp` saves their source
-  # tarballs into vendored_dependency_dir and we point ARROW_*_URL at them here.
-  # This does not change whether the system versions are used.
   if (!dir.exists(vendored_dependency_dir)) {
     # e.g. building from a git checkout without `make sync-cpp`
     if (!quietly) {
