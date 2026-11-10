@@ -5384,7 +5384,8 @@ cdef object get_values(object obj, bint* is_pandas_object):
         is_pandas_object[0] = False
     else:
         result = pandas_api.get_values(pandas_api.series(obj, copy=False))
-        is_pandas_object[0] = False
+        # pandas ExtensionArrays (e.g. pd.array(...)) get pandas semantics
+        is_pandas_object[0] = pandas_api.is_extension_array_dtype(obj)
 
     return result
 

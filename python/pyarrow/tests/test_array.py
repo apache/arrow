@@ -2631,6 +2631,17 @@ def test_pandas_null_sentinels_index():
     assert result.equals(expected)
 
 
+@pytest.mark.pandas
+def test_pandas_null_sentinels_extension_array():
+    # GH-35721 - pandas ExtensionArrays should use "from_pandas" semantics
+    import pandas as pd
+    arr = pd.array([1.2, np.nan], dtype=float)
+    result = pa.array(arr)
+    expected = pa.array([1.2, np.nan], from_pandas=True)
+    assert result.equals(expected)
+    assert result.null_count == 1
+
+
 @pytest.mark.numpy
 def test_array_roundtrip_from_numpy_datetimeD():
     arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
