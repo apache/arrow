@@ -67,11 +67,13 @@ jobs:
   macos:
     name:  {{ '${{ matrix.platform.architecture}}' }}  macOS {{ '${{ matrix.platform.macos-version }}' }} MATLAB
     runs-on: macos-{{ '${{ matrix.platform.macos-version }}' }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
     strategy:
       matrix:
         platform:
-            - { architecture: "AMD64", macos-version: "15-intel", architecture-suffix: "x64"}
-            - { architecture: "ARM64", macos-version: "14", architecture-suffix: "arm64"}
+            - { architecture: "AMD64", macos-version: "26-intel", architecture-suffix: "x64"}
+            - { architecture: "ARM64", macos-version: "26", architecture-suffix: "arm64"}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Install ninja-build

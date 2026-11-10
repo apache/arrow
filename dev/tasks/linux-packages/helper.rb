@@ -77,7 +77,8 @@ module Helper
     end
 
     def docker_image(os, architecture)
-      "ghcr.io/#{github_repository}/package-#{super}"
+      # Docker image repository names must be lowercase
+      "ghcr.io/#{github_repository.downcase}/package-#{super}"
     end
   end
 end

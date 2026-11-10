@@ -829,11 +829,18 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   if (!allow_trailing_chars && static_cast<size_t>(ret - clean_copy.c_str()) != length) {
     return false;
   }
+  // tm_year + 1900 can overflow int (e.g. with %s), and date::year only
+  // holds 16 bits
+  const int64_t year = static_cast<int64_t>(result.tm_year) + 1900;
+  if (year < static_cast<int>(arrow_vendored::date::year::min()) ||
+      year > static_cast<int>(arrow_vendored::date::year::max())) {
+    return false;
+  }
   // Reject impossible dates such as February 30 or a zero day, which strptime
   // may accept (the day of month is checked against 31 at most), instead of
   // rolling them over into the next month; consistent with the ISO-8601 parser.
   const arrow_vendored::date::year_month_day ymd =
-      arrow_vendored::date::year(result.tm_year + 1900) / (result.tm_mon + 1) /
+      arrow_vendored::date::year(static_cast<int>(year)) / (result.tm_mon + 1) /
       result.tm_mday;
   if (!ymd.ok()) {
     return false;
@@ -841,6 +848,12 @@ static inline bool ParseTimestampStrptime(const char* buf, size_t length,
   // ignore the time part
   arrow_vendored::date::sys_seconds secs = arrow_vendored::date::sys_days(ymd);
   if (!ignore_time_in_day) {
+    // Reject leap seconds, which Arrow cannot represent, instead of adding them
+    // to the time of day (which wraps them into the next minute); consistent
+    // with the ISO-8601 parser.
+    if (result.tm_sec >= 60) {
+      return false;
+    }
     secs += (std::chrono::hours(result.tm_hour) + std::chrono::minutes(result.tm_min) +
              std::chrono::seconds(result.tm_sec));
 #if !defined(_WIN32) && !defined(_AIX)

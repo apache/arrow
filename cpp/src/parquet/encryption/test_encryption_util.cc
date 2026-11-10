@@ -175,6 +175,15 @@ void WriteBatch(int rows, const NextFunc get_next_column) {
 
 FileEncryptor::FileEncryptor() { schema_ = SetupEncryptionSchema(); }
 
+FileEncryptor FileEncryptor::ForParquetTestingFiles() {
+  FileEncryptor encryptor;
+  encryptor.num_rowgroups_ = 1;
+  encryptor.compression_ = Compression::SNAPPY;
+  encryptor.parquet_version_ = ParquetVersion::PARQUET_2_4;
+  encryptor.rle_encode_boolean_ = true;
+  return encryptor;
+}
+
 std::shared_ptr<GroupNode> FileEncryptor::SetupEncryptionSchema() {
   parquet::schema::NodeVector fields;
 
@@ -211,7 +220,11 @@ void FileEncryptor::EncryptFile(
     std::string file,
     std::shared_ptr<parquet::FileEncryptionProperties> encryption_configurations) {
   WriterProperties::Builder prop_builder;
-  prop_builder.compression(parquet::Compression::UNCOMPRESSED);
+  prop_builder.version(parquet_version_);
+  prop_builder.compression(compression_);
+  if (rle_encode_boolean_) {
+    prop_builder.encoding(kBooleanFieldName, Encoding::RLE);
+  }
   prop_builder.encryption(encryption_configurations);
   prop_builder.enable_write_page_index();
   std::shared_ptr<WriterProperties> writer_properties = prop_builder.build();

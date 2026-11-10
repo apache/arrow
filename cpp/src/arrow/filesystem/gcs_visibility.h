@@ -15,18 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/level_comparison_avx2_internal.h"
+#pragma once
 
-#define PARQUET_IMPL_NAMESPACE avx2
-#include "parquet/level_comparison_inc.h"
-#undef PARQUET_IMPL_NAMESPACE
+#if defined(_WIN32) || defined(__CYGWIN__)
+#  if defined(_MSC_VER)
+#    pragma warning(push)
+#    pragma warning(disable : 4251)
+#  else
+#    pragma GCC diagnostic ignored "-Wattributes"
+#  endif
 
-namespace parquet {
-namespace internal {
+#  ifdef ARROW_GCS_STATIC
+#    define ARROW_GCS_EXPORT
+#  elif defined(ARROW_GCS_EXPORTING)
+#    define ARROW_GCS_EXPORT __declspec(dllexport)
+#  else
+#    define ARROW_GCS_EXPORT __declspec(dllimport)
+#  endif
 
-uint64_t GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_t rhs) {
-  return avx2::GreaterThanBitmapImpl(levels, num_levels, rhs);
-}
+#  define ARROW_GCS_NO_EXPORT
 
-}  // namespace internal
-}  // namespace parquet
+#  if defined(_MSC_VER)
+#    pragma warning(pop)
+#  endif
+
+#else  // Not Windows
+#  ifndef ARROW_GCS_EXPORT
+#    define ARROW_GCS_EXPORT __attribute__((visibility("default")))
+#  endif
+#  ifndef ARROW_GCS_NO_EXPORT
+#    define ARROW_GCS_NO_EXPORT __attribute__((visibility("hidden")))
+#  endif
+#endif

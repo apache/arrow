@@ -33,29 +33,6 @@ set(ARROW_SHARED_PRIVATE_LINK_LIBS)
 set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
-if(ARROW_GCS)
-  if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
-  elseif(google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
-    if(absl_SOURCE STREQUAL "SYSTEM")
-      # Bundled google-cloud-cpp with system Abseil needs these for static consumers.
-      list(APPEND
-           ARROW_STATIC_INSTALL_INTERFACE_LIBS
-           absl::base
-           absl::cord
-           absl::crc32c
-           absl::memory
-           absl::optional
-           absl::span
-           absl::str_format
-           absl::strings
-           absl::time
-           absl::variant)
-    endif()
-  endif()
-endif()
-
 if(ARROW_AZURE)
   if(Azure_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${AZURE_SDK_LINK_LIBRARIES})
@@ -992,8 +969,31 @@ if(ARROW_FILESYSTEM)
                                 PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
   if(ARROW_GCS)
-    list(APPEND ARROW_FILESYSTEM_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
-    set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
+    set(ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+    if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
+      list(APPEND ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
+    elseif(google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
+      list(APPEND ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+      if(absl_SOURCE STREQUAL "SYSTEM")
+        # Bundled google-cloud-cpp with system Abseil needs these for static consumers.
+        list(APPEND
+             ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS
+             absl::base
+             absl::cord
+             absl::crc32c
+             absl::memory
+             absl::optional
+             absl::span
+             absl::str_format
+             absl::strings
+             absl::time
+             absl::variant)
+      endif()
+    endif()
+    set(ARROW_GCS_LIB_SRCS filesystem/gcsfs_module.cc filesystem/gcsfs.cc
+                           filesystem/gcsfs_internal.cc)
+    set_source_files_properties(filesystem/gcsfs_module.cc filesystem/gcsfs.cc
+                                filesystem/gcsfs_internal.cc
                                 PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
     # Suppress documentation warnings from google-cloud-cpp headers
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
@@ -1009,6 +1009,49 @@ if(ARROW_FILESYSTEM)
                    APPEND
                    PROPERTY COMPILE_OPTIONS "-Wno-error=deprecated-declarations")
     endif()
+    # If libarrow_gcs.a is only built, "pkg-config --cflags --libs
+    # arrow-gcs" outputs build flags for static linking not shared
+    # linking. ARROW_GCS_PC_* except ARROW_GCS_PC_*_PRIVATE are for the
+    # static linking case.
+    if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+      string(APPEND ARROW_GCS_PC_CFLAGS "${ARROW_GCS_PC_CFLAGS_PRIVATE}")
+      set(ARROW_GCS_PC_CFLAGS_PRIVATE "")
+      set(ARROW_GCS_PC_LIBS "${ARROW_GCS_PC_LIBS_PRIVATE}")
+      set(ARROW_GCS_PC_LIBS_PRIVATE "")
+      set(ARROW_GCS_PC_REQUIRES "${ARROW_GCS_PC_REQUIRES_PRIVATE}")
+      set(ARROW_GCS_PC_REQUIRES_PRIVATE "")
+    else()
+      set(ARROW_GCS_PC_LIBS "")
+      set(ARROW_GCS_PC_REQUIRES "")
+    endif()
+    add_arrow_lib(arrow_gcs
+                  CMAKE_PACKAGE_NAME
+                  ArrowGcs
+                  PKG_CONFIG_NAME
+                  arrow-gcs
+                  SOURCES
+                  ${ARROW_GCS_LIB_SRCS}
+                  SHARED_LINK_LIBS
+                  arrow_shared
+                  SHARED_PRIVATE_LINK_LIBS
+                  google-cloud-cpp::storage
+                  SHARED_INSTALL_INTERFACE_LIBS
+                  Arrow::arrow_shared
+                  STATIC_LINK_LIBS
+                  arrow_static
+                  google-cloud-cpp::storage
+                  STATIC_INSTALL_INTERFACE_LIBS
+                  ${ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS}
+                  SHARED_LINK_FLAGS
+                  ${ARROW_VERSION_SCRIPT_FLAGS}
+                  OUTPUTS
+                  ARROW_GCS_LIBRARIES)
+    foreach(LIB_TARGET ${ARROW_GCS_LIBRARIES})
+      target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_GCS_EXPORTING)
+    endforeach()
+    if(ARROW_BUILD_STATIC AND WIN32)
+      target_compile_definitions(arrow_gcs_static PUBLIC ARROW_GCS_STATIC)
+    endif()
   endif()
   if(ARROW_HDFS)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc filesystem/hdfs_internal.cc)
@@ -1019,11 +1062,6 @@ if(ARROW_FILESYSTEM)
     foreach(ARROW_FILESYSTEM_TARGET ${ARROW_FILESYSTEM_TARGETS})
       target_link_libraries(${ARROW_FILESYSTEM_TARGET}
                             PRIVATE ${AZURE_SDK_LINK_LIBRARIES})
-    endforeach()
-  endif()
-  if(ARROW_GCS)
-    foreach(ARROW_FILESYSTEM_TARGET ${ARROW_FILESYSTEM_TARGETS})
-      target_link_libraries(${ARROW_FILESYSTEM_TARGET} PRIVATE google-cloud-cpp::storage)
     endforeach()
   endif()
   if(ARROW_HDFS)
