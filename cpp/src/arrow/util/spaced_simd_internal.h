@@ -21,32 +21,46 @@
 
 #include "arrow/util/visibility.h"
 
+// SpacedExpandRightward (in place) and SpacedExpand (out of place) on
+// unsigned 4 or 8 byte lanes, one bitmap word at a time, for each dispatch
+// target. Every null slot is zeroed.
+
+#define SPACED_EXPAND_DECLARE(TARGET)                                                 \
+  template <typename Uint>                                                            \
+  ARROW_EXPORT void SpacedExpandRightward##TARGET(                                    \
+      Uint* buffer, int num_values, int null_count, const uint8_t* valid_bits,        \
+      int64_t valid_bits_offset);                                                     \
+  template <typename Uint>                                                            \
+  ARROW_EXPORT void SpacedExpand##TARGET(const Uint* src, int num_values,             \
+                                         int null_count, const uint8_t* valid_bits,   \
+                                         int64_t valid_bits_offset, Uint* output);    \
+  extern template ARROW_TEMPLATE_EXPORT void SpacedExpandRightward##TARGET<uint32_t>( \
+      uint32_t*, int, int, const uint8_t*, int64_t);                                  \
+  extern template ARROW_TEMPLATE_EXPORT void SpacedExpandRightward##TARGET<uint64_t>( \
+      uint64_t*, int, int, const uint8_t*, int64_t);                                  \
+  extern template ARROW_TEMPLATE_EXPORT void SpacedExpand##TARGET<uint32_t>(          \
+      const uint32_t*, int, int, const uint8_t*, int64_t, uint32_t*);                 \
+  extern template ARROW_TEMPLATE_EXPORT void SpacedExpand##TARGET<uint64_t>(          \
+      const uint64_t*, int, int, const uint8_t*, int64_t, uint64_t*)
+
 namespace arrow::util::internal {
 
+SPACED_EXPAND_DECLARE(None);
+
 #if defined(ARROW_HAVE_NEON)
-#  define SPACED_EXPAND_ARCH128 SpacedExpandRightwardNeon
+SPACED_EXPAND_DECLARE(Neon);
 #elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
-#  define SPACED_EXPAND_ARCH128 SpacedExpandRightwardSse4_2
+SPACED_EXPAND_DECLARE(Sse4_2);
 #endif
 
-#if defined(SPACED_EXPAND_ARCH128)
+#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX2)
+SPACED_EXPAND_DECLARE(Avx2);
+#endif
 
-/// SpacedExpandRightward on unsigned 4 or 8 byte lanes, with 128 bit SIMD.
-/// Every null slot is zeroed.
-template <typename Uint>
-ARROW_EXPORT void SPACED_EXPAND_ARCH128(Uint* buffer, int num_values, int null_count,
-                                        const uint8_t* valid_bits,
-                                        int64_t valid_bits_offset);
-
-extern template ARROW_TEMPLATE_EXPORT void SPACED_EXPAND_ARCH128<uint32_t>(
-    uint32_t* buffer, int num_values, int null_count, const uint8_t* valid_bits,
-    int64_t valid_bits_offset);
-
-extern template ARROW_TEMPLATE_EXPORT void SPACED_EXPAND_ARCH128<uint64_t>(
-    uint64_t* buffer, int num_values, int null_count, const uint8_t* valid_bits,
-    int64_t valid_bits_offset);
-
-#endif  // SPACED_EXPAND_ARCH128
-#undef SPACED_EXPAND_ARCH128
+#if defined(ARROW_HAVE_AVX512) || defined(ARROW_HAVE_RUNTIME_AVX512)
+SPACED_EXPAND_DECLARE(Avx512);
+#endif
 
 }  // namespace arrow::util::internal
+
+#undef SPACED_EXPAND_DECLARE

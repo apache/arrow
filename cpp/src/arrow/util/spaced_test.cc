@@ -27,12 +27,9 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/spaced_internal.h"
 #include "arrow/util/spaced_simd_internal.h"
-
-#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
-#  include "arrow/util/cpu_info.h"
-#endif
 
 namespace arrow::util::internal {
 
@@ -125,7 +122,7 @@ bool BitwiseEqual(T a, T b) {
 // Check `expand` against a straightforward implementation. Null slots must
 // be zero if `zeros_nulls`, and are not checked otherwise.
 template <typename T, typename Expand>
-void CheckExpand(Expand&& expand, bool zeros_nulls) {
+void CheckExpand(Expand&& expand, bool zeros_nulls = true) {
   constexpr int kGuard = 16;
   std::mt19937_64 rng(42);
   for (int n : {0, 1, 7, 63, 64, 65, 127, 128, 129, 900, 2048}) {
@@ -166,42 +163,90 @@ void CheckExpand(Expand&& expand, bool zeros_nulls) {
   }
 }
 
+// An out of place `expand` through the in place interface of CheckExpand: the
+// dense values are first copied to a misaligned buffer of their exact size.
+template <typename T, typename Expand>
+auto OutOfPlace(Expand&& expand) {
+  return
+      [expand](T* buffer, int n, int null_count, const uint8_t* bitmap, int64_t offset) {
+        const size_t size = sizeof(T) * static_cast<size_t>(n - null_count);
+        std::vector<uint8_t> src(size + 1);
+        std::memcpy(src.data() + 1, buffer, size);
+        expand(reinterpret_cast<const T*>(src.data() + 1), n, null_count, bitmap, offset,
+               buffer);
+      };
+}
+
+bool CpuSupports(int64_t flags) {
+  return ::arrow::internal::CpuInfo::GetInstance()->IsSupported(flags);
+}
+
 template <typename Uint>
-class TestSpacedExpandRightward : public ::testing::Test {};
+class TestSpacedExpandTarget : public ::testing::Test {};
 
 using UintTypes = ::testing::Types<uint32_t, uint64_t>;
-TYPED_TEST_SUITE(TestSpacedExpandRightward, UintTypes);
+TYPED_TEST_SUITE(TestSpacedExpandTarget, UintTypes);
 
-TYPED_TEST(TestSpacedExpandRightward, Scalar) {
+TYPED_TEST(TestSpacedExpandTarget, Scalar) {
   CheckExpand<TypeParam>(&SpacedExpandRightwardScalar<TypeParam>, /*zeros_nulls=*/false);
+  CheckExpand<TypeParam>(OutOfPlace<TypeParam>(&SpacedExpandScalar<TypeParam>));
+}
+
+TYPED_TEST(TestSpacedExpandTarget, None) {
+  CheckExpand<TypeParam>(&SpacedExpandRightwardNone<TypeParam>);
+  CheckExpand<TypeParam>(OutOfPlace<TypeParam>(&SpacedExpandNone<TypeParam>));
 }
 
 #if defined(ARROW_HAVE_NEON)
-TYPED_TEST(TestSpacedExpandRightward, Neon) {
-  CheckExpand<TypeParam>(&SpacedExpandRightwardNeon<TypeParam>, /*zeros_nulls=*/true);
+TYPED_TEST(TestSpacedExpandTarget, Neon) {
+  CheckExpand<TypeParam>(&SpacedExpandRightwardNeon<TypeParam>);
+  CheckExpand<TypeParam>(OutOfPlace<TypeParam>(&SpacedExpandNeon<TypeParam>));
 }
 #endif
 
 #if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
-TYPED_TEST(TestSpacedExpandRightward, Sse4_2) {
-  if (!::arrow::internal::CpuInfo::GetInstance()->IsSupported(
-          ::arrow::internal::CpuInfo::SSE4_2)) {
+TYPED_TEST(TestSpacedExpandTarget, Sse4_2) {
+  if (!CpuSupports(::arrow::internal::CpuInfo::SSE4_2)) {
     GTEST_SKIP() << "Test requires SSE4.2";
   }
-  CheckExpand<TypeParam>(&SpacedExpandRightwardSse4_2<TypeParam>, /*zeros_nulls=*/true);
+  CheckExpand<TypeParam>(&SpacedExpandRightwardSse4_2<TypeParam>);
+  CheckExpand<TypeParam>(OutOfPlace<TypeParam>(&SpacedExpandSse4_2<TypeParam>));
 }
 #endif
 
-// Through the public template: 4 and 8 byte types are dispatched (possibly
-// to the scalar implementation), other widths use the scalar implementation.
+#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX2)
+TYPED_TEST(TestSpacedExpandTarget, Avx2) {
+  if (!CpuSupports(::arrow::internal::CpuInfo::AVX2)) {
+    GTEST_SKIP() << "Test requires AVX2";
+  }
+  CheckExpand<TypeParam>(&SpacedExpandRightwardAvx2<TypeParam>);
+  CheckExpand<TypeParam>(OutOfPlace<TypeParam>(&SpacedExpandAvx2<TypeParam>));
+}
+#endif
+
+#if defined(ARROW_HAVE_AVX512) || defined(ARROW_HAVE_RUNTIME_AVX512)
+TYPED_TEST(TestSpacedExpandTarget, Avx512) {
+  if (!CpuSupports(::arrow::internal::CpuInfo::AVX512)) {
+    GTEST_SKIP() << "Test requires AVX512";
+  }
+  CheckExpand<TypeParam>(&SpacedExpandRightwardAvx512<TypeParam>);
+  CheckExpand<TypeParam>(OutOfPlace<TypeParam>(&SpacedExpandAvx512<TypeParam>));
+}
+#endif
+
+// Through the public templates: 4 and 8 byte types are dispatched, other
+// widths use the scalar implementations. SpacedExpandRightwardScalar is the
+// only one not to zero every null slot.
 template <typename T>
-class TestSpacedExpandRightwardTyped : public ::testing::Test {};
+class TestSpacedExpandTyped : public ::testing::Test {};
 
 using ValueTypes = ::testing::Types<int32_t, int64_t, float, double, int16_t>;
-TYPED_TEST_SUITE(TestSpacedExpandRightwardTyped, ValueTypes);
+TYPED_TEST_SUITE(TestSpacedExpandTyped, ValueTypes);
 
-TYPED_TEST(TestSpacedExpandRightwardTyped, Dispatch) {
-  CheckExpand<TypeParam>(&SpacedExpandRightward<TypeParam>, /*zeros_nulls=*/false);
+TYPED_TEST(TestSpacedExpandTyped, Dispatch) {
+  constexpr bool kDispatched = sizeof(TypeParam) == 4 || sizeof(TypeParam) == 8;
+  CheckExpand<TypeParam>(&SpacedExpandRightward<TypeParam>, /*zeros_nulls=*/kDispatched);
+  CheckExpand<TypeParam>(OutOfPlace<TypeParam>(&SpacedExpand<TypeParam>));
 }
 
 }  // namespace
