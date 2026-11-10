@@ -18,6 +18,7 @@
 #include "parquet/encoding.h"
 
 #include <algorithm>
+#include <array>
 #include <bit>
 #include <cstdint>
 #include <cstdlib>
@@ -1384,9 +1385,9 @@ void DeltaBitPackEncoder<DType>::PutSpaced(const T* src, int num_values,
 class DeltaLengthByteArrayEncoder : public EncoderImpl,
                                     virtual public TypedEncoder<ByteArrayType> {
  public:
-  explicit DeltaLengthByteArrayEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
-      : EncoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY,
-                    pool = ::arrow::default_memory_pool()),
+  explicit DeltaLengthByteArrayEncoder(const ColumnDescriptor* descr,
+                                       MemoryPool* pool = ::arrow::default_memory_pool())
+      : EncoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY, pool),
         sink_(pool),
         length_encoder_(nullptr, pool) {}
 
@@ -1408,6 +1409,67 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
  protected:
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
+    if (array.length() == 0 || array.null_count() == array.length()) {
+      return;
+    }
+
+    constexpr int kBatchSize = 256;
+    std::array<int32_t, kBatchSize> lengths;
+
+    if constexpr (!std::is_same_v<ArrayType, ::arrow::BinaryViewArray>) {
+      if (array.null_count() == 0) {
+        const int64_t num_values = array.length();
+        const auto* offsets = array.raw_value_offsets();
+        const int64_t start_offset = offsets[0];
+        const int64_t total_bytes =
+            static_cast<int64_t>(offsets[num_values]) - start_offset;
+        if constexpr (sizeof(typename ArrayType::offset_type) > sizeof(int32_t)) {
+          for (int64_t i = 0; i < num_values; ++i) {
+            const int64_t len = offsets[i + 1] - offsets[i];
+            if (ARROW_PREDICT_FALSE(len < 0 ||
+                                    static_cast<size_t>(len) > kMaxByteArraySize)) {
+              PARQUET_THROW_NOT_OK(Status::Invalid(
+                  "Parquet cannot store strings with size 2GB or more, got: ", len));
+            }
+          }
+        }
+        if (ARROW_PREDICT_FALSE(total_bytes < 0 ||
+                                total_bytes > std::numeric_limits<int32_t>::max() -
+                                                  sink_.length())) {
+          PARQUET_THROW_NOT_OK(
+              Status::Invalid("excess expansion in DELTA_LENGTH_BYTE_ARRAY"));
+        }
+        if (total_bytes > 0) {
+          PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes));
+        }
+        for (int64_t idx = 0; idx < num_values; idx += kBatchSize) {
+          const int batch_size =
+              static_cast<int>(std::min<int64_t>(kBatchSize, num_values - idx));
+          for (int j = 0; j < batch_size; ++j) {
+            const int64_t len =
+                static_cast<int64_t>(offsets[idx + j + 1]) - offsets[idx + j];
+            if (ARROW_PREDICT_FALSE(len < 0)) {
+              PARQUET_THROW_NOT_OK(
+                  Status::Invalid("Negative string length in BinaryArray: ", len));
+            }
+            lengths[j] = static_cast<int32_t>(len);
+          }
+          length_encoder_.Put(lengths.data(), batch_size);
+        }
+        if (total_bytes > 0) {
+          sink_.UnsafeAppend(array.raw_data() + start_offset, total_bytes);
+          unencoded_byte_array_data_bytes_ += total_bytes;
+        }
+        return;
+      }
+    }
+
+    const int64_t estimated_bytes = GetBinaryDataSize(array);
+    if (estimated_bytes > 0 &&
+        estimated_bytes <= std::numeric_limits<int32_t>::max() - sink_.length()) {
+      PARQUET_THROW_NOT_OK(sink_.Reserve(estimated_bytes));
+    }
+    int batch_len = 0;
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
         *array.data(),
         [&](::std::string_view view) {
@@ -1420,12 +1482,21 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
                   static_cast<size_t>(std::numeric_limits<int32_t>::max()))) {
             return Status::Invalid("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
           }
-          length_encoder_.Put({static_cast<int32_t>(view.length())}, 1);
-          PARQUET_THROW_NOT_OK(sink_.Append(view.data(), view.length()));
-          unencoded_byte_array_data_bytes_ += view.size();
+          lengths[batch_len++] = static_cast<int32_t>(view.length());
+          if (batch_len == kBatchSize) {
+            length_encoder_.Put(lengths.data(), kBatchSize);
+            batch_len = 0;
+          }
+          if (!view.empty()) {
+            RETURN_NOT_OK(sink_.Append(view.data(), static_cast<int64_t>(view.length())));
+            unencoded_byte_array_data_bytes_ += view.size();
+          }
           return Status::OK();
         },
         []() { return Status::OK(); }));
+    if (batch_len > 0) {
+      length_encoder_.Put(lengths.data(), batch_len);
+    }
   }
 
   ::arrow::BufferBuilder sink_;
@@ -1469,11 +1540,15 @@ void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
   if (sink_.length() + total_increment_size > std::numeric_limits<int32_t>::max()) {
     throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
   }
-  PARQUET_THROW_NOT_OK(sink_.Reserve(total_increment_size));
-  for (int idx = 0; idx < num_values; idx++) {
-    sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
+  if (total_increment_size > 0) {
+    PARQUET_THROW_NOT_OK(sink_.Reserve(total_increment_size));
+    for (int idx = 0; idx < num_values; idx++) {
+      if (src[idx].len > 0) {
+        sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
+      }
+    }
+    unencoded_byte_array_data_bytes_ += total_increment_size;
   }
-  unencoded_byte_array_data_bytes_ += total_increment_size;
 }
 
 void DeltaLengthByteArrayEncoder::PutSpaced(const T* src, int num_values,

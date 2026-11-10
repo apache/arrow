@@ -24,6 +24,7 @@
 #include <functional>
 #include <limits>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -32,6 +33,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/cast.h"
+#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -2388,6 +2390,214 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
     auto array = ::arrow::ArrayFromJSON(type, values);
     CheckEncode(array, lengths);
     CheckDecode(encoded, array);
+  }
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc, UsesProvidedMemoryPool) {
+  constexpr int kCount = 320;
+  ::arrow::StringBuilder dense_builder;
+  ::arrow::StringBuilder nullable_builder;
+  ::arrow::LargeStringBuilder large_builder;
+  ::arrow::StringViewBuilder view_builder;
+
+  int64_t expected_payload_bytes = 0;
+  std::vector<std::string> raw_strings;
+  raw_strings.reserve(kCount);
+  for (int i = 0; i < kCount; ++i) {
+    std::string val = (i % 2 == 0) ? ("short_" + std::to_string(i))
+                                   : ("long_out_of_line_payload_" + std::to_string(i));
+    raw_strings.push_back(val);
+    ASSERT_OK(dense_builder.Append(val));
+    expected_payload_bytes += static_cast<int64_t>(val.size());
+
+    if (i % 7 == 0) {
+      ASSERT_OK(nullable_builder.AppendNull());
+    } else {
+      ASSERT_OK(nullable_builder.Append(val));
+      expected_payload_bytes += static_cast<int64_t>(val.size());
+    }
+    ASSERT_OK(large_builder.Append(val));
+    ASSERT_OK(view_builder.Append(val));
+    expected_payload_bytes += static_cast<int64_t>(val.size());
+  }
+  ASSERT_OK_AND_ASSIGN(auto dense_arr, dense_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto nullable_arr, nullable_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto large_arr, large_builder.Finish());
+  auto sliced_large = large_arr->Slice(5, kCount - 10);
+  for (int i = 5; i < kCount - 5; ++i) {
+    expected_payload_bytes += static_cast<int64_t>(raw_strings[i].size());
+  }
+  ASSERT_OK_AND_ASSIGN(auto view_arr, view_builder.Finish());
+
+  std::vector<ByteArray> raw_ba;
+  raw_ba.reserve(raw_strings.size());
+  for (const auto& s : raw_strings) {
+    raw_ba.emplace_back(static_cast<uint32_t>(s.size()),
+                        reinterpret_cast<const uint8_t*>(s.data()));
+    expected_payload_bytes += static_cast<int64_t>(s.size());
+  }
+
+  ::arrow::ProxyMemoryPool tracking_pool(default_memory_pool());
+  {
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                                   /*use_dictionary=*/false,
+                                                   /*descr=*/nullptr, &tracking_pool);
+    EXPECT_EQ(&tracking_pool, encoder->memory_pool());
+
+    for (const auto& arr : {dense_arr, nullable_arr, sliced_large, view_arr}) {
+      encoder->Put(*arr);
+      auto flushed = encoder->FlushValues();
+      ASSERT_GT(flushed->size(), 0);
+    }
+    encoder->Put(raw_ba.data(), static_cast<int>(raw_ba.size()));
+    auto flushed = encoder->FlushValues();
+    ASSERT_GT(flushed->size(), 0);
+
+    auto dba_encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY,
+                                                       /*use_dictionary=*/false,
+                                                       /*descr=*/nullptr, &tracking_pool);
+    dba_encoder->Put(*dense_arr);
+    ASSERT_GT(dba_encoder->FlushValues()->size(), 0);
+  }
+
+  EXPECT_GT(tracking_pool.num_allocations(), 0);
+  EXPECT_GE(tracking_pool.total_bytes_allocated(), expected_payload_bytes);
+  EXPECT_EQ(0, tracking_pool.bytes_allocated());
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc, BatchedLengthsSlicesAndZeroLengthSafety) {
+  auto descr = ExampleDescr<ByteArrayType>();
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                                 /*use_dictionary=*/false, descr.get());
+  auto decoder =
+      MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr.get());
+
+  auto VerifyArrayRoundTrip = [&](const std::shared_ptr<::arrow::Array>& arr,
+                                  const std::vector<int32_t>& expected_valid_lengths,
+                                  const std::string& expected_payload) {
+    encoder->Put(*arr);
+    EXPECT_EQ(static_cast<int64_t>(expected_payload.size()),
+              encoder->ReportUnencodedDataBytes());
+    auto buf = encoder->FlushValues();
+
+    auto expected_len_buf = DeltaEncode(expected_valid_lengths);
+    ASSERT_EQ(expected_len_buf->size() + static_cast<int64_t>(expected_payload.size()),
+              buf->size());
+    EXPECT_TRUE(SliceBuffer(buf, 0, expected_len_buf->size())->Equals(*expected_len_buf));
+    EXPECT_TRUE(
+        SliceBuffer(buf, expected_len_buf->size())->Equals(Buffer(expected_payload)));
+
+    const int num_valid = static_cast<int>(expected_valid_lengths.size());
+    decoder->SetData(num_valid, buf->data(), static_cast<int>(buf->size()));
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(arr->type()));
+    ASSERT_EQ(num_valid,
+              decoder->DecodeArrow(static_cast<int>(arr->length()),
+                                   static_cast<int>(arr->null_count()),
+                                   arr->null_bitmap_data(), arr->offset(), &acc));
+    std::shared_ptr<::arrow::Array> decoded;
+    ASSERT_OK(acc.builder->Finish(&decoded));
+    ::arrow::AssertArraysEqual(*arr, *decoded, /*verbose=*/true);
+  };
+
+  for (int count : {0, 1, 255, 256, 257, 512, 600}) {
+    ARROW_SCOPED_TRACE("count = ", count);
+    ::arrow::StringBuilder dense_b;
+    ::arrow::StringBuilder nullable_b;
+    ::arrow::StringBuilder empty_b;
+    ::arrow::StringBuilder nulls_b;
+    std::vector<int32_t> dense_lens, nullable_lens, empty_lens(count, 0);
+    std::string dense_payload, nullable_payload;
+
+    for (int i = 0; i < count; ++i) {
+      std::string s = (i % 11 == 0) ? "" : ("v_" + std::to_string(i));
+      ASSERT_OK(dense_b.Append(s));
+      dense_lens.push_back(static_cast<int32_t>(s.size()));
+      dense_payload.append(s);
+
+      if (i % 5 == 0) {
+        ASSERT_OK(nullable_b.AppendNull());
+      } else {
+        ASSERT_OK(nullable_b.Append(s));
+        nullable_lens.push_back(static_cast<int32_t>(s.size()));
+        nullable_payload.append(s);
+      }
+      ASSERT_OK(empty_b.Append(""));
+      ASSERT_OK(nulls_b.AppendNull());
+    }
+    ASSERT_OK_AND_ASSIGN(auto dense_arr, dense_b.Finish());
+    ASSERT_OK_AND_ASSIGN(auto nullable_arr, nullable_b.Finish());
+    ASSERT_OK_AND_ASSIGN(auto empty_arr, empty_b.Finish());
+    ASSERT_OK_AND_ASSIGN(auto nulls_arr, nulls_b.Finish());
+
+    VerifyArrayRoundTrip(dense_arr, dense_lens, dense_payload);
+    VerifyArrayRoundTrip(nullable_arr, nullable_lens, nullable_payload);
+    VerifyArrayRoundTrip(empty_arr, empty_lens, "");
+    VerifyArrayRoundTrip(nulls_arr, {}, "");
+  }
+
+  {
+    ::arrow::LargeStringBuilder large_b;
+    std::vector<std::string> vals;
+    for (int i = 0; i < 300; ++i) {
+      vals.push_back((i % 13 == 0) ? "" : ("slice_item_" + std::to_string(i)));
+      ASSERT_OK(large_b.Append(vals.back()));
+    }
+    ASSERT_OK_AND_ASSIGN(auto large_arr, large_b.Finish());
+    auto sliced = large_arr->Slice(17, 260);
+    std::vector<int32_t> lens;
+    std::string payload;
+    for (int i = 17; i < 17 + 260; ++i) {
+      lens.push_back(static_cast<int32_t>(vals[i].size()));
+      payload.append(vals[i]);
+    }
+    VerifyArrayRoundTrip(sliced, lens, payload);
+  }
+
+  {
+    ::arrow::StringViewBuilder view_b;
+    std::vector<int32_t> lens;
+    std::string payload;
+    for (int i = 0; i < 270; ++i) {
+      if (i % 9 == 0) {
+        ASSERT_OK(view_b.AppendNull());
+        continue;
+      }
+      std::string s = (i % 3 == 0)   ? ""
+                      : (i % 3 == 1) ? ("in_" + std::to_string(i))
+                                     : ("out_of_line_string_view_" + std::to_string(i));
+      ASSERT_OK(view_b.Append(s));
+      lens.push_back(static_cast<int32_t>(s.size()));
+      payload.append(s);
+    }
+    ASSERT_OK_AND_ASSIGN(auto view_arr, view_b.Finish());
+    VerifyArrayRoundTrip(view_arr, lens, payload);
+  }
+
+  {
+    const std::string abc = "abc";
+    std::vector<ByteArray> mixed = {
+        ByteArray(0, nullptr),
+        ByteArray(3, reinterpret_cast<const uint8_t*>(abc.data())),
+        ByteArray(0, nullptr),
+    };
+    encoder->Put(mixed.data(), static_cast<int>(mixed.size()));
+    EXPECT_EQ(3, encoder->ReportUnencodedDataBytes());
+    auto buf = encoder->FlushValues();
+    EXPECT_EQ(DeltaEncode({0, 3, 0})->ToString() + "abc", buf->ToString());
+
+    std::vector<ByteArray> all_zero_null(4, ByteArray(0, nullptr));
+    encoder->Put(all_zero_null.data(), static_cast<int>(all_zero_null.size()));
+    EXPECT_EQ(0, encoder->ReportUnencodedDataBytes());
+    auto zero_buf = encoder->FlushValues();
+    EXPECT_EQ(DeltaEncode({0, 0, 0, 0})->ToString(), zero_buf->ToString());
+
+    const uint8_t valid_bits = 0b00001010;
+    encoder->PutSpaced(all_zero_null.data(), 4, &valid_bits, /*valid_bits_offset=*/0);
+    EXPECT_EQ(0, encoder->ReportUnencodedDataBytes());
+    auto spaced_buf = encoder->FlushValues();
+    EXPECT_EQ(DeltaEncode(std::vector<int32_t>{0, 0})->ToString(),
+              spaced_buf->ToString());
   }
 }
 
