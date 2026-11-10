@@ -78,7 +78,13 @@ FileFormat <- R6Class(
 
 FileFormat$create <- function(format, schema = NULL, partitioning = NULL, ...) {
   opt_names <- names(list(...))
-  if (format %in% c("csv", "text", "txt") || any(opt_names %in% c("delim", "delimiter"))) {
+  if (format == "txt") {
+    .Deprecated(
+      msg = '`format = "txt"` is deprecated; use `format = "csv"` instead.'
+    )
+    format <- "csv"
+  }
+  if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
     CsvFileFormat$create(schema = schema, partitioning = partitioning, ...)
   } else if (format == "tsv") {
     # This delimiter argument is ignored.
@@ -691,7 +697,7 @@ FileWriteOptions <- R6Class(
             "codec",
             "null_fallback"
           )
-        } else if (format %in% c("csv", "tsv", "txt", "text")) {
+        } else if (format %in% c("csv", "tsv", "text")) {
           supported_args <- c(
             names(formals(csv_write_options)),
             names(formals(readr_to_csv_write_options))
@@ -747,7 +753,7 @@ FileWriteOptions <- R6Class(
             get_ipc_metadata_version(args$metadata_version)
           )
         }
-      } else if (self$type %in% c("csv", "tsv", "txt", "text")) {
+      } else if (self$type %in% c("csv", "tsv", "text")) {
         arrow_opts <- names(formals(csv_write_options))
         readr_opts <- names(formals(readr_to_csv_write_options))
         readr_only_opts <- setdiff(readr_opts, arrow_opts)

@@ -894,6 +894,23 @@ def test_recordbatch_from_struct_array():
     ))
 
 
+def test_recordbatch_from_struct_array_with_list_offsets():
+    struct_type = pa.struct([("x", pa.int64()), ("y", pa.int64())])
+
+    list0 = [{"x": 1, "y": 2}, {"x": 3, "y": 4}]
+    list1 = [{"x": 5, "y": 6}]
+    list2 = [{"x": 7, "y": 8}, {"x": 9, "y": 10}]
+
+    arr = pa.array([list0, list1, list2], type=pa.list_(struct_type))
+
+    elem0 = arr[0]
+    batch = pa.RecordBatch.from_struct_array(elem0.values)
+
+    assert len(batch) == 2
+    assert batch.column("x").to_pylist() == [1, 3]
+    assert batch.column("y").to_pylist() == [2, 4]
+
+
 def test_recordbatch_to_struct_array():
     batch = pa.RecordBatch.from_arrays(
         [
@@ -2104,28 +2121,17 @@ def test_concat_tables_with_different_schema_metadata():
     assert table2.schema.equals(table3.schema)
 
 
-def test_concat_tables_with_promote_option():
-    t1 = pa.Table.from_arrays(
-        [pa.array([1, 2], type=pa.int64())], ["int64_field"])
-    t2 = pa.Table.from_arrays(
-        [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
+def test_concat_tables_removed_promote_option():
+    # The deprecated ``promote`` keyword was removed in favor of
+    # ``promote_options``. Use matching schemas so that the failure can only
+    # come from the rejected keyword, not from the concatenation itself.
+    t1 = pa.Table.from_arrays([pa.array([1, 2], type=pa.int64())], ["f"])
+    t2 = pa.Table.from_arrays([pa.array([3, 4], type=pa.int64())], ["f"])
 
-    with pytest.warns(FutureWarning):
-        result = pa.concat_tables([t1, t2], promote=True)
-
-    assert result.equals(pa.Table.from_arrays([
-        pa.array([1, 2, None, None], type=pa.int64()),
-        pa.array([None, None, 1.0, 2.0], type=pa.float32()),
-    ], ["int64_field", "float_field"]))
-
-    t1 = pa.Table.from_arrays(
-        [pa.array([1, 2], type=pa.int64())], ["f"])
-    t2 = pa.Table.from_arrays(
-        [pa.array([1, 2], type=pa.float32())], ["f"])
-
-    with pytest.raises(pa.ArrowInvalid, match="Schema at index 1 was different:"):
-        with pytest.warns(FutureWarning):
-            pa.concat_tables([t1, t2], promote=False)
+    with pytest.raises(TypeError, match="promote"):
+        pa.concat_tables([t1, t2], promote=True)
+    with pytest.raises(TypeError, match="promote"):
+        pa.concat_tables([t1, t2], promote=False)
 
 
 def test_concat_tables_with_promotion():

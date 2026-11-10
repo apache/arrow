@@ -239,6 +239,9 @@ cdef class _PandasAPIShim(object):
         if isinstance(obj.dtype, (self.pd.api.types.IntervalDtype,
                                   self.pd.api.types.PeriodDtype)):
             return obj.array
+        elif isinstance(obj.dtype, self.pd.api.types.DatetimeTZDtype):
+            # get the underlying to numpy datetime64 UTC values
+            return obj.to_numpy("datetime64[{}]".format(obj.dtype.unit))
         return obj.values
 
 cdef _PandasAPIShim pandas_api = _PandasAPIShim()

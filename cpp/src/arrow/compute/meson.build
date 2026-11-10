@@ -102,6 +102,7 @@ compute_tests = {
     'arrow-compute-row-test': {
         'sources': [
             'key_hash_test.cc',
+            'key_map_test.cc',
             'light_array_test.cc',
             'row/compare_test.cc',
             'row/grouper_test.cc',

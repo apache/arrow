@@ -757,6 +757,38 @@ TEST(ExecPlanExecution, DeclarationToSchema) {
   AssertSchemaEqual(expected_out_schema, actual_out_schema);
 }
 
+TEST(ExecPlanExecution, ProjectPreservesDirectFieldNullability) {
+  auto input_schema = schema({field("r", int64(), false), field("n", int64(), true)});
+  Declaration source(
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(input_schema, std::vector<compute::ExecBatch>{}));
+
+  auto direct = Declaration::Sequence(
+      {source,
+       {"project", ProjectNodeOptions({field_ref("r"), field_ref("n")}, {"r", "n"})}});
+  ASSERT_OK_AND_ASSIGN(auto direct_schema, DeclarationToSchema(direct));
+  AssertSchemaEqual(input_schema, direct_schema);
+
+  auto reordered = Declaration::Sequence(
+      {source,
+       {"project",
+        ProjectNodeOptions({field_ref("n"), field_ref("r"),
+                            call("add", {field_ref("r"), literal(int64_t{1})})},
+                           {"n", "renamed", "computed"})}});
+  ASSERT_OK_AND_ASSIGN(auto reordered_schema, DeclarationToSchema(reordered));
+  AssertSchemaEqual(schema({field("n", int64(), true), field("renamed", int64(), false),
+                            field("computed", int64(), true)}),
+                    reordered_schema);
+
+  ASSERT_OK_AND_ASSIGN(auto bound_r, field_ref(0).Bind(*input_schema));
+  ASSERT_OK_AND_ASSIGN(auto bound_n, field_ref(1).Bind(*input_schema));
+  auto bound = Declaration::Sequence(
+      {source, {"project", ProjectNodeOptions({bound_n, bound_r}, {"n", "renamed"})}});
+  ASSERT_OK_AND_ASSIGN(auto bound_schema, DeclarationToSchema(bound));
+  AssertSchemaEqual(schema({field("n", int64(), true), field("renamed", int64(), false)}),
+                    bound_schema);
+}
+
 TEST(ExecPlanExecution, DeclarationToReader) {
   auto basic_data = MakeBasicBatches();
   auto plan = Declaration::Sequence(

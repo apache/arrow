@@ -217,7 +217,7 @@ gparquet_column_chunk_metadata_get_statistics(GParquetColumnChunkMetadata *metad
   auto parquet_metadata = gparquet_column_chunk_metadata_get_raw(metadata);
   auto parquet_statistics = parquet_metadata->statistics();
   if (parquet_statistics) {
-    return gparquet_statistics_new_raw(&parquet_statistics);
+    return gparquet_statistics_new_raw(&parquet_statistics, metadata);
   } else {
     return NULL;
   }

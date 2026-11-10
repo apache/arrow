@@ -494,11 +494,11 @@ class GZipCodec : public Codec {
       return Status::Invalid("GZip window_bits should be between ", kGZipMinWindowBits,
                              " and ", kGZipMaxWindowBits);
     }
-    const Status init_compressor_status = InitCompressor();
-    if (!init_compressor_status.ok()) {
-      return init_compressor_status;
+    if (compression_level_ < Z_DEFAULT_COMPRESSION ||
+        compression_level_ > Z_BEST_COMPRESSION) {
+      return Status::Invalid("Invalid GZip compression level: ", compression_level_);
     }
-    return InitDecompressor();
+    return Status::OK();
   }
 
   Compression::type compression_type() const override { return Compression::GZIP; }

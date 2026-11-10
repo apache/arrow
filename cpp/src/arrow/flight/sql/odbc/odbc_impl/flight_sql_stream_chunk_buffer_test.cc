@@ -128,4 +128,27 @@ TEST_F(FlightStreamChunkBufferTest, TestMultipleEndpointsInt) {
   // In total 10 batches should be returned.
   ASSERT_EQ(10, num_chunks);
 }
+
+TEST_F(FlightStreamChunkBufferTest, TestReuseConnectionLocation) {
+  ASSERT_OK_AND_ASSIGN(auto client,
+                       arrow::flight::FlightClient::Connect(server_location1));
+  FlightSqlClient server1_client(std::move(client));
+
+  FlightEndpoint endpoint(
+      {Ticket{"ticket-ints-1"}, {Location::ReuseConnection()}, std::nullopt, {}});
+  FlightDescriptor descr{FlightDescriptor::PATH, "", {"examples", "ints"}};
+  auto info_ptr = std::make_shared<FlightInfo>(arrow::flight::MakeFlightInfo(
+      *arrow::flight::ExampleIntSchema(), descr, {endpoint}, 1000, 100000, false, ""));
+
+  FlightStreamChunkBuffer chunk_buffer(server1_client, FlightClientOptions::Defaults(),
+                                       FlightCallOptions(), info_ptr);
+
+  FlightStreamChunk current_chunk;
+  int num_chunks = 0;
+  while (chunk_buffer.GetNext(&current_chunk)) {
+    num_chunks++;
+  }
+
+  ASSERT_EQ(5, num_chunks);
+}
 }  // namespace arrow::flight::sql::odbc

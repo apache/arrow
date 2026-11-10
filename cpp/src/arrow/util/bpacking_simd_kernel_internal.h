@@ -809,6 +809,8 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
       // const int packed_end_bit = packed_start_bit + kShape.packed_bit_size();
       // const int packed_end_byte = (packed_end_bit - 1) / 8 + 1;
 
+      const bool byte_aligned = packed_start_bit % 8 == 0;
+
       // Looping over maximum number of bytes that can fit a value
       // We fill more than necessary in the high swizzle because in the absence of
       // variable right shifts, we will erase some bits from the low sizzled values.
@@ -825,7 +827,12 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
         // explicit here.
         // We need to stay pessimistic with ``kOverBytes`` to avoid having a mix of right
         // and left shifts in the high swizzle.
+        // When the value is byte aligned we point the high swizzle back at the low byte
+        // instead, and pair it with a zero lshift below.
         auto high_swizzle_val = low_swizzle_val + kOverBytes;
+        if (byte_aligned) {
+          high_swizzle_val = low_swizzle_val;
+        }
         if (high_swizzle_val >= kShape.simd_byte_size()) {
           high_swizzle_val = kUndefined;
         }
@@ -837,9 +844,19 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
       }
 
       // low and high swizzles need to be rshifted but the oversized bytes create a
-      // larger lshift for high values.
+      // larger lshift for high values. A byte aligned value has no high part, so both
+      // swizzles hold the same byte and the lshift is zero. Left-shifting the high byte
+      // out by the whole lane width would also remove it, but that shift gives zero on
+      // some instruction sets and leaves the lane untouched on others, where its bits
+      // then survive the mask.
       plan.low_rshifts.at(r).at(u) = packed_start_bit % 8;
-      plan.high_lshifts.at(r).at(u) = 8 * kOverBytes - (packed_start_bit % 8);
+      if (byte_aligned) {
+        plan.high_lshifts.at(r).at(u) = 0;
+      } else {
+        plan.high_lshifts.at(r).at(u) = 8 * kOverBytes - (packed_start_bit % 8);
+      }
+      assert(static_cast<int>(plan.high_lshifts.at(r).at(u)) <
+             kShape.unpacked_bit_size());
 
       packed_start_bit += kShape.packed_bit_size();
     }

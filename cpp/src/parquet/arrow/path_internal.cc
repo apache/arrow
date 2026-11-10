@@ -724,7 +724,9 @@ class PathBuilder {
     // and the array does in fact contain nulls, we will end up
     // traversing the null bitmap twice (once here and once when calculating
     // rep/def levels).
-    if (LazyNoNulls(array)) {
+    // Required leaf nulls must not lower definition levels: they may be masked by
+    // an ancestor, but otherwise WriteArrow() must reject them as invalid.
+    if (!nullable_in_parent_ || LazyNoNulls(array)) {
       info_.path.emplace_back(AllPresentTerminalNode{info_.max_def_level});
     } else if (LazyNullCount(array) == array.length()) {
       info_.path.emplace_back(AllNullsTerminalNode(info_.max_def_level - 1));

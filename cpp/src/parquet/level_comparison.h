@@ -33,6 +33,6 @@ struct MinMax {
   int16_t max;
 };
 
-MinMax FindMinMax(const int16_t* levels, int64_t num_levels);
+MinMax PARQUET_EXPORT FindMinMax(const int16_t* levels, int64_t num_levels);
 
 }  // namespace parquet::internal
