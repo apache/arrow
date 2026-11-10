@@ -15,12 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
+#include <mutex>
+
 #include "arrow/array/array_base.h"
+#include "arrow/array/builder_base.h"
+#include "arrow/array/concatenate.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
-#include "arrow/compute/kernels/scalar_set_lookup_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/compute/range_evaluation_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
@@ -36,6 +43,218 @@ using internal::HashTraits;
 
 namespace compute::internal {
 namespace {
+
+/// Value sets up to this length are sorted for RangeEvaluator::EvaluateOverRange.
+/// Sorting costs more than building the lookup table of the kernel, so longer value
+/// sets are only bounded by their smallest and largest value, which is cheap to find
+/// and prunes as well when the values are clustered.
+constexpr int64_t kIsInMaxSortedValueSet = 1 << 17;
+
+/// Whether a (valid) scalar of a floating point type is NaN.
+bool IsNaNScalar(const Scalar& value) {
+  switch (value.type->id()) {
+    case Type::FLOAT:
+      return std::isnan(checked_cast<const FloatScalar&>(value).value);
+    case Type::DOUBLE:
+      return std::isnan(checked_cast<const DoubleScalar&>(value).value);
+    default:
+      return false;
+  }
+}
+
+/// Whether value sets of this type are sorted by `sort_indices` and searched by
+/// `search_sorted` in the order of the comparison kernels.
+bool IsSearchableValueSetType(const DataType& type) {
+  const auto id = type.id();
+  return is_integer(id) || id == Type::FLOAT || id == Type::DOUBLE || is_temporal(id) ||
+         id == Type::DURATION || is_base_binary_like(id);
+}
+
+/// Common state for the is_in and index_in kernels.
+///
+/// For `is_in` it also tells what the call evaluates to when the argument is known
+/// to lie in a range (RangeEvaluator), which lets expression simplification prune
+/// filters against statistics: if no value of the value set lies in the range, the
+/// call evaluates to false, or to null for the rows which the null matching behavior
+/// makes null.
+struct SetLookupStateBase : public KernelState, public RangeEvaluator {
+  std::shared_ptr<DataType> value_set_type;
+
+  SetLookupOptions::NullMatchingBehavior null_matching_behavior;
+
+  /// Whether the value set contains a null (regardless of null matching behavior).
+  bool value_set_has_null = false;
+
+  /// Keep the value set (as matched against the argument) for EvaluateOverRange().
+  ///
+  /// Called once by the `is_in` kernel init, before the state is shared. Nothing
+  /// is computed until the first call of EvaluateOverRange(), so that only
+  /// expressions which are simplified against guarantees pay for it.
+  void SetSearchableValueSet(Datum value_set, MemoryPool* pool) {
+    searchable_value_set_ = std::move(value_set);
+    searchable_value_set_pool_ = pool;
+  }
+
+  Result<RangeEvaluation> EvaluateOverRange(const ArgumentRange& range) const override {
+    if (!range.lower && !range.upper) return RangeEvaluation::kUnknown;
+    for (const auto* bound : {&range.lower, &range.upper}) {
+      if (*bound == nullptr) continue;
+      // If the value set could not be cast to the argument type when the call was
+      // bound, the kernel casts the argument instead and the argument's order (which
+      // the range refers to) need not be the value set's order.
+      if (!(*bound)->type->Equals(*value_set_type)) return RangeEvaluation::kUnknown;
+      // A range cannot be bounded by null or NaN, but be defensive.
+      if (!(*bound)->is_valid || IsNaNScalar(**bound)) return RangeEvaluation::kUnknown;
+    }
+
+    // Only now materialize the (lazily sorted) value set.
+    const SortedValueSet& sorted_value_set = GetSortedValueSet();
+    const std::shared_ptr<Array>& sorted = sorted_value_set.values;
+    if (!sorted) return RangeEvaluation::kUnknown;
+
+    // Indices into `sorted` delimiting the values in the range: O(log N) per bound.
+    // A failed search only costs the simplification.
+    ExecContext exec_context(searchable_value_set_pool_);
+    auto search = [&](const std::shared_ptr<Scalar>& bound,
+                      SearchSortedOptions::Side side) -> std::optional<int64_t> {
+      auto index = SearchSorted(sorted, bound, SearchSortedOptions(side), &exec_context);
+      if (!index.ok() || !index->scalar()->is_valid) return std::nullopt;
+      return static_cast<int64_t>(index->scalar_as<UInt64Scalar>().value);
+    };
+    int64_t begin = 0;
+    int64_t end = sorted->length();
+    if (range.lower) {
+      // The first value not less than (or, for an exclusive bound, greater than) it
+      auto index = search(range.lower, range.lower_inclusive ? SearchSortedOptions::Left
+                                                             : SearchSortedOptions::Right);
+      if (!index) return RangeEvaluation::kUnknown;
+      begin = *index;
+    }
+    if (range.upper) {
+      auto index = search(range.upper, range.upper_inclusive ? SearchSortedOptions::Right
+                                                             : SearchSortedOptions::Left);
+      if (!index) return RangeEvaluation::kUnknown;
+      end = *index;
+    }
+
+    // Of a value set known only by its smallest and largest value, a member may lie
+    // in the range unless the whole range is below or above both.
+    const bool may_match =
+        sorted_value_set.exact ? begin < end : begin < sorted->length() && end > 0;
+    if (may_match) return RangeEvaluation::kUnknown;
+
+    // No (non-null) member of the value set can occur in the data.
+    switch (null_matching_behavior) {
+      case SetLookupOptions::MATCH:
+        // A null in the value set matches nulls in the data.
+        if (range.nullable && value_set_has_null) return RangeEvaluation::kUnknown;
+        return RangeEvaluation::kFalse;
+      case SetLookupOptions::SKIP:
+        // Nulls in the data produce false.
+        return RangeEvaluation::kFalse;
+      case SetLookupOptions::INCONCLUSIVE:
+        // Any non-match produces null if the value set contains a null, as do
+        // nulls in the data.
+        if (value_set_has_null) return RangeEvaluation::kNull;
+        [[fallthrough]];
+      case SetLookupOptions::EMIT_NULL:
+        // Nulls in the data produce null.
+        return range.nullable ? RangeEvaluation::kFalseUnlessNull
+                              : RangeEvaluation::kFalse;
+    }
+    return RangeEvaluation::kUnknown;
+  }
+
+ private:
+  struct SortedValueSet {
+    /// Ascending values without nulls, or nullptr if the value set cannot be searched
+    std::shared_ptr<Array> values;
+    /// Whether `values` holds every value of the value set, or only its smallest and
+    /// largest value (for value sets longer than kIsInMaxSortedValueSet)
+    bool exact = true;
+  };
+
+  /// The value set sorted for searching with `search_sorted`.
+  ///
+  /// This is only available for `is_in` when the value set has a type for which
+  /// IsSearchableValueSetType() holds and contains no NaN. It is computed at most
+  /// once; concurrent calls are safe.
+  const SortedValueSet& GetSortedValueSet() const {
+    std::call_once(sorted_value_set_once_, [this] {
+      if (searchable_value_set_.is_arraylike()) {
+        // Best effort: a failure only disables the simplification of `is_in`
+        // against guarantees.
+        ExecContext exec_context(searchable_value_set_pool_);
+        sorted_value_set_ =
+            SortValueSet(searchable_value_set_, &exec_context).ValueOr(SortedValueSet{});
+        searchable_value_set_ = Datum();
+      }
+    });
+    return sorted_value_set_;
+  }
+
+  static Result<SortedValueSet> SortValueSet(const Datum& value_set, ExecContext* ctx) {
+    std::shared_ptr<Array> values;
+    if (value_set.is_array()) {
+      values = value_set.make_array();
+    } else {
+      ARROW_ASSIGN_OR_RAISE(values, Concatenate(value_set.chunked_array()->chunks(),
+                                                ctx->memory_pool()));
+    }
+    if (values->length() > kIsInMaxSortedValueSet) {
+      ARROW_ASSIGN_OR_RAISE(auto bounds, ValueSetBounds(values, ctx));
+      return SortedValueSet{std::move(bounds), /*exact=*/false};
+    }
+    ARROW_ASSIGN_OR_RAISE(auto sorted, SortValues(values, ctx));
+    return SortedValueSet{std::move(sorted), /*exact=*/true};
+  }
+
+  /// \return `values` sorted with nulls removed, or nullptr if it contains NaN
+  static Result<std::shared_ptr<Array>> SortValues(const std::shared_ptr<Array>& values,
+                                                   ExecContext* ctx) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto indices,
+        SortIndices(*values, ArraySortOptions(SortOrder::Ascending, NullPlacement::AtEnd),
+                    ctx));
+    ARROW_ASSIGN_OR_RAISE(Datum taken,
+                          Take(values, indices, TakeOptions::NoBoundsCheck(), ctx));
+    auto sorted = taken.make_array();
+    sorted = sorted->Slice(0, sorted->length() - sorted->null_count());
+    // NaN sorts after every other value and before nulls. Statistics based
+    // guarantees cannot bound NaN, so such a value set is not searchable.
+    if (sorted->length() > 0) {
+      ARROW_ASSIGN_OR_RAISE(auto last, sorted->GetScalar(sorted->length() - 1));
+      if (IsNaNScalar(*last)) return nullptr;
+    }
+    return sorted;
+  }
+
+  /// \return the smallest and largest value of `values`, or nullptr if it contains NaN
+  ///   or only nulls
+  static Result<std::shared_ptr<Array>> ValueSetBounds(
+      const std::shared_ptr<Array>& values, ExecContext* ctx) {
+    if (is_floating(values->type_id())) {
+      ARROW_ASSIGN_OR_RAISE(Datum is_nan, IsNan(values, ctx));
+      ARROW_ASSIGN_OR_RAISE(Datum any_nan,
+                            Any(is_nan, ScalarAggregateOptions::Defaults(), ctx));
+      if (any_nan.scalar_as<BooleanScalar>().value) return nullptr;
+    }
+    ARROW_ASSIGN_OR_RAISE(Datum min_max,
+                          MinMax(values, ScalarAggregateOptions::Defaults(), ctx));
+    const auto& bounds = min_max.scalar_as<StructScalar>().value;
+    if (!bounds[0]->is_valid) return nullptr;
+    ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(values->type(), ctx->memory_pool()));
+    RETURN_NOT_OK(builder->AppendScalar(*bounds[0]));
+    RETURN_NOT_OK(builder->AppendScalar(*bounds[1]));
+    return builder->Finish();
+  }
+
+  mutable std::once_flag sorted_value_set_once_;
+  // Released once sorted_value_set_ is computed.
+  mutable Datum searchable_value_set_;
+  MemoryPool* searchable_value_set_pool_ = default_memory_pool();
+  mutable SortedValueSet sorted_value_set_;
+};
 
 template <typename Type>
 struct SetLookupState : public SetLookupStateBase {
@@ -118,7 +337,6 @@ struct SetLookupState : public SetLookupStateBase {
   // be mapped back to indices in the value_set.
   std::vector<int32_t> memo_index_to_value_index;
   int32_t null_index = -1;
-  SetLookupOptions::NullMatchingBehavior null_matching_behavior;
 };
 
 template <>
@@ -132,8 +350,6 @@ struct SetLookupState<NullType> : public SetLookupStateBase {
     value_set_type = null();
     return Status::OK();
   }
-
-  SetLookupOptions::NullMatchingBehavior null_matching_behavior;
 };
 
 // TODO: Put this concept somewhere reusable
@@ -167,16 +383,15 @@ struct InitStateVisitor {
   TypeHolder arg_type;
   std::unique_ptr<KernelState> result;
 
-  // Whether to make the value set available to
-  // SetLookupStateBase::GetSortedValueSet (is_in only).
-  bool compute_sorted_value_set;
+  // Whether to keep the value set in the state so that the kernel can be evaluated
+  // over a range, see SetLookupStateBase::EvaluateOverRange (is_in only).
+  bool keep_value_set;
 
-  InitStateVisitor(KernelContext* ctx, const KernelInitArgs& args,
-                   bool compute_sorted_value_set)
+  InitStateVisitor(KernelContext* ctx, const KernelInitArgs& args, bool keep_value_set)
       : ctx(ctx),
         options(*checked_cast<const SetLookupOptions*>(args.options)),
         arg_type(args.inputs[0]),
-        compute_sorted_value_set(compute_sorted_value_set) {}
+        keep_value_set(keep_value_set) {}
 
   template <typename Type>
   Status Init() {
@@ -257,9 +472,7 @@ struct InitStateVisitor {
 
     RETURN_NOT_OK(VisitTypeInline(*options.value_set.type(), this));
 
-    if (compute_sorted_value_set &&
-        options.value_set.length() > kIsInSimplificationMaxValueSet &&
-        IsSearchableValueSetType(*options.value_set.type())) {
+    if (keep_value_set && IsSearchableValueSetType(*options.value_set.type())) {
       checked_cast<SetLookupStateBase*>(result.get())
           ->SetSearchableValueSet(options.value_set, ctx->exec_context()->memory_pool());
     }
@@ -269,23 +482,23 @@ struct InitStateVisitor {
 
 Result<std::unique_ptr<KernelState>> InitSetLookup(KernelContext* ctx,
                                                    const KernelInitArgs& args,
-                                                   bool compute_sorted_value_set) {
+                                                   bool keep_value_set) {
   if (args.options == nullptr) {
     return Status::Invalid(
         "Attempted to call a set lookup function without SetLookupOptions");
   }
 
-  return InitStateVisitor{ctx, args, compute_sorted_value_set}.GetResult();
+  return InitStateVisitor{ctx, args, keep_value_set}.GetResult();
 }
 
 Result<std::unique_ptr<KernelState>> InitIsIn(KernelContext* ctx,
                                               const KernelInitArgs& args) {
-  return InitSetLookup(ctx, args, /*compute_sorted_value_set=*/true);
+  return InitSetLookup(ctx, args, /*keep_value_set=*/true);
 }
 
 Result<std::unique_ptr<KernelState>> InitIndexIn(KernelContext* ctx,
                                                  const KernelInitArgs& args) {
-  return InitSetLookup(ctx, args, /*compute_sorted_value_set=*/false);
+  return InitSetLookup(ctx, args, /*keep_value_set=*/false);
 }
 
 struct IndexInVisitor {

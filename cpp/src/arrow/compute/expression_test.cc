@@ -2092,6 +2092,41 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
   Simplify{is_null(i32)}.WithGuarantee(valid_range).Expect(false);
 }
 
+TEST(Expression, SimplifyWithBoundOfAnotherType) {
+  // A guarantee may bound a field with a value of another type, for example the
+  // statistics of a Parquet column which is read as another type.
+  auto i64 = field_ref("i64");
+  auto is_in = [&](std::string json_array) {
+    return call("is_in", {i64}, SetLookupOptions{ArrayFromJSON(int64(), json_array)});
+  };
+
+  // Bounds which convert exactly to the field's type are used
+  auto int32_range = and_(greater_equal(i64, literal(9)), less_equal(i64, literal(10)));
+  auto double_range =
+      and_(greater_equal(i64, literal(9.0)), less_equal(i64, literal(10.0)));
+  for (const auto& range : {int32_range, double_range}) {
+    Simplify{equal(i64, literal<int64_t>(5))}.WithGuarantee(range).Expect(false);
+    Simplify{greater(i64, literal<int64_t>(5))}.WithGuarantee(range).Expect(true);
+    Simplify{is_in("[5, 9]")}.WithGuarantee(range).Expect(is_in("[9]"));
+  }
+
+  // ... while those which do not are ignored rather than rounded
+  auto inexact_range =
+      and_(greater_equal(i64, literal(9.5)), less_equal(i64, literal(10.5)));
+  Simplify{equal(i64, literal<int64_t>(5))}.WithGuarantee(inexact_range).ExpectUnchanged();
+  Simplify{is_in("[5, 9]")}.WithGuarantee(inexact_range).ExpectUnchanged();
+
+  // ... as are bounds of a type which is ordered differently, even though they cast
+  // exactly: "10" <= x <= "9" admits "5"
+  auto string_range =
+      and_(greater_equal(i64, literal("10")), less_equal(i64, literal("9")));
+  Simplify{equal(i64, literal<int64_t>(5))}.WithGuarantee(string_range).ExpectUnchanged();
+  Simplify{greater(i64, literal<int64_t>(50))}
+      .WithGuarantee(string_range)
+      .ExpectUnchanged();
+  Simplify{is_in("[5, 9]")}.WithGuarantee(string_range).ExpectUnchanged();
+}
+
 TEST(Expression, SimplifyComparisonThroughNonInjectiveCast) {
   auto i32 = field_ref("i32");
   auto i64 = field_ref("i64");
