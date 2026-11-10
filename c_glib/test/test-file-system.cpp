@@ -47,9 +47,10 @@ namespace {
   {
     std::shared_ptr<arrow::fs::FileSystem> file_system =
       std::make_shared<arrow::fs::LocalFileSystem>();
-    g_autoptr(GArrowFileSystem) wrapper = garrow_file_system_new_raw(&file_system);
+    auto wrapper = garrow_file_system_new_raw(&file_system);
     g_assert_true(GARROW_IS_LOCAL_FILE_SYSTEM(wrapper));
     g_assert_true(garrow_file_system_get_raw(wrapper) == file_system);
+    g_object_unref(wrapper);
   }
 
   void
@@ -63,7 +64,7 @@ namespace {
                                                       nullptr,
                                                       static_cast<GTypeFlags>(0));
     std::string type_name = "test-registered";
-    g_autoptr(GError) error = nullptr;
+    GError *error = nullptr;
     g_assert_true(
       garrow_file_system_register_type(type_name.c_str(), wrapper_type, &error));
     g_assert_no_error(error);
@@ -71,9 +72,10 @@ namespace {
 
     std::shared_ptr<arrow::fs::FileSystem> file_system =
       std::make_shared<TestFileSystem>("test-registered");
-    g_autoptr(GArrowFileSystem) wrapper = garrow_file_system_new_raw(&file_system);
+    auto wrapper = garrow_file_system_new_raw(&file_system);
     g_assert_true(G_OBJECT_TYPE(wrapper) == wrapper_type);
     g_assert_true(garrow_file_system_get_raw(wrapper) == file_system);
+    g_object_unref(wrapper);
   }
 
   void
@@ -81,19 +83,21 @@ namespace {
   {
     std::shared_ptr<arrow::fs::FileSystem> file_system =
       std::make_shared<TestFileSystem>("test-unregistered");
-    g_autoptr(GArrowFileSystem) wrapper = garrow_file_system_new_raw(&file_system);
+    auto wrapper = garrow_file_system_new_raw(&file_system);
     g_assert_true(G_OBJECT_TYPE(wrapper) == GARROW_TYPE_FILE_SYSTEM);
     g_assert_true(garrow_file_system_get_raw(wrapper) == file_system);
 
-    g_autofree gchar *type_name = garrow_file_system_get_type_name(wrapper);
+    auto type_name = garrow_file_system_get_type_name(wrapper);
     g_assert_cmpstr(type_name, ==, "test-unregistered");
+    g_free(type_name);
 
-    g_autoptr(GError) error = nullptr;
-    g_autoptr(GArrowFileInfo) info =
-      garrow_file_system_get_file_info(wrapper, g_get_tmp_dir(), &error);
+    GError *error = nullptr;
+    auto info = garrow_file_system_get_file_info(wrapper, g_get_tmp_dir(), &error);
     g_assert_no_error(error);
     g_assert_nonnull(info);
     g_assert_true(garrow_file_info_is_dir(info));
+    g_object_unref(info);
+    g_object_unref(wrapper);
   }
 
   void
@@ -106,10 +110,11 @@ namespace {
                                                       sizeof(GArrowFileSystem),
                                                       nullptr,
                                                       G_TYPE_FLAG_ABSTRACT);
-    g_autoptr(GError) error = nullptr;
+    GError *error = nullptr;
     g_assert_false(
       garrow_file_system_register_type("test-abstract", wrapper_type, &error));
     g_assert_error(error, GARROW_ERROR, GARROW_ERROR_INVALID);
+    g_clear_error(&error);
   }
 } // namespace
 
