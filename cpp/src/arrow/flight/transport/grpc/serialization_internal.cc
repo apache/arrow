@@ -17,6 +17,7 @@
 
 #include "arrow/flight/transport/grpc/serialization_internal.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -203,72 +204,103 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
 #  pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
-// Pointer bitcast explanation: grpc::*Writer<T>::Write() and grpc::*Reader<T>::Read()
-// both take a T* argument (here pb::FlightData*).  But they don't do anything
-// with that argument except pass it to SerializationTraits<T>::Serialize() and
-// SerializationTraits<T>::Deserialize().
-//
-// Since we control SerializationTraits<pb::FlightData>, we can interpret the
-// pointer argument whichever way we want, including cast it back to the original type.
-// (see customize_grpc.h).
+// grpc::*Writer<T>::Write() and grpc::*Reader<T>::Read() take a T (here
+// pb::FlightData) and only pass it to SerializationTraits<T>::Serialize() and
+// SerializationTraits<T>::Deserialize(), which we control (see customize_grpc.h).
+// So instead of building the protobuf message, we give gRPC an empty, real
+// pb::FlightData that carries the Arrow struct, and the traits read the struct
+// from it. The message must be a real pb::FlightData: an Arrow struct cast to
+// pb::FlightData is not one, which is undefined behavior and which Clang CFI
+// (`-fsanitize=cfi-unrelated-cast`) rejects.
+
+namespace {
+
+struct FlightPayloadMessage {
+  pb::FlightData message;
+  const FlightPayload* payload;
+};
+
+struct FlightDataMessage {
+  pb::FlightData message;
+  flight::internal::FlightData* data;
+};
+
+}  // namespace
+
+// `message` points to the `message` member of one of the structs above.
+const FlightPayload& FlightPayloadOfMessage(const void* message) {
+  return *reinterpret_cast<const FlightPayloadMessage*>(
+              static_cast<const char*>(message) - offsetof(FlightPayloadMessage, message))
+              ->payload;
+}
+
+flight::internal::FlightData* FlightDataOfMessage(void* message) {
+  return reinterpret_cast<FlightDataMessage*>(static_cast<char*>(message) -
+                                              offsetof(FlightDataMessage, message))
+      ->data;
+}
 
 arrow::Result<bool> WritePayload(
     const FlightPayload& payload,
     ::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer) {
   RETURN_NOT_OK(payload.Validate());
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                       ::grpc::WriteOptions());
+  FlightPayloadMessage message;
+  message.payload = &payload;
+  return writer->Write(message.message, ::grpc::WriteOptions());
 }
 
 arrow::Result<bool> WritePayload(
     const FlightPayload& payload,
     ::grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer) {
   RETURN_NOT_OK(payload.Validate());
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                       ::grpc::WriteOptions());
+  FlightPayloadMessage message;
+  message.payload = &payload;
+  return writer->Write(message.message, ::grpc::WriteOptions());
 }
 
 arrow::Result<bool> WritePayload(
     const FlightPayload& payload,
     ::grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer) {
   RETURN_NOT_OK(payload.Validate());
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                       ::grpc::WriteOptions());
+  FlightPayloadMessage message;
+  message.payload = &payload;
+  return writer->Write(message.message, ::grpc::WriteOptions());
 }
 
 arrow::Result<bool> WritePayload(const FlightPayload& payload,
                                  ::grpc::ServerWriter<pb::FlightData>* writer) {
   RETURN_NOT_OK(payload.Validate());
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return writer->Write(*reinterpret_cast<const pb::FlightData*>(&payload),
-                       ::grpc::WriteOptions());
+  FlightPayloadMessage message;
+  message.payload = &payload;
+  return writer->Write(message.message, ::grpc::WriteOptions());
 }
 
 bool ReadPayload(::grpc::ClientReader<pb::FlightData>* reader,
                  flight::internal::FlightData* data) {
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+  FlightDataMessage message;
+  message.data = data;
+  return reader->Read(&message.message);
 }
 
 bool ReadPayload(::grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* reader,
                  flight::internal::FlightData* data) {
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+  FlightDataMessage message;
+  message.data = data;
+  return reader->Read(&message.message);
 }
 
 bool ReadPayload(::grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader,
                  flight::internal::FlightData* data) {
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+  FlightDataMessage message;
+  message.data = data;
+  return reader->Read(&message.message);
 }
 
 bool ReadPayload(::grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* reader,
                  flight::internal::FlightData* data) {
-  // Pretend to be pb::FlightData and intercept in SerializationTraits
-  return reader->Read(reinterpret_cast<pb::FlightData*>(data));
+  FlightDataMessage message;
+  message.data = data;
+  return reader->Read(&message.message);
 }
 
 bool ReadPayload(::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* reader,
