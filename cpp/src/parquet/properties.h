@@ -29,6 +29,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/type_fwd.h"
+#include "parquet/encoding.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
@@ -257,6 +258,8 @@ class PARQUET_EXPORT ColumnProperties {
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
+  void set_encoding_options(const EncodingOptions& options);
+
   void set_compression(Compression::type codec) { codec_ = codec; }
 
   void set_dictionary_enabled(bool dictionary_enabled) {
@@ -301,6 +304,8 @@ class PARQUET_EXPORT ColumnProperties {
 
   Encoding::type encoding() const { return encoding_; }
 
+  const EncodingOptions& encoding_options() const { return encoding_options_; }
+
   Compression::type compression() const { return codec_; }
 
   bool dictionary_enabled() const { return dictionary_enabled_; }
@@ -335,6 +340,7 @@ class PARQUET_EXPORT ColumnProperties {
   std::shared_ptr<CodecOptions> codec_options_;
   bool page_index_enabled_;
   std::optional<BloomFilterOptions> bloom_filter_options_;
+  EncodingOptions encoding_options_;
 };
 
 // EXPERIMENTAL: Options for content-defined chunking.
@@ -373,19 +379,6 @@ struct PARQUET_EXPORT CdcOptions {
   /// Note that values outside [-3, 3] are not recommended, prefer using the default
   /// value of 0 for most use cases.
   int norm_level = 0;
-};
-
-/// EXPERIMENTAL: Configuration for ALP encoding.
-struct PARQUET_EXPORT AlpConfig {
-  /// Values per encoded vector. Must be a power of two in [8, 32768].
-  int32_t vector_size = 1024;
-
-  /// Target number of non-null input values examined before caching the preset.
-  /// Must be positive.
-  int64_t sampling_window_size = 122880;
-
-  /// Throws ParquetException if a configuration value is invalid.
-  void Validate() const;
 };
 
 class PARQUET_EXPORT WriterProperties {
@@ -427,8 +420,7 @@ class PARQUET_EXPORT WriterProperties {
           content_defined_chunking_enabled_(
               properties.content_defined_chunking_enabled()),
           content_defined_chunking_options_(
-              properties.content_defined_chunking_options()),
-          alp_config_(properties.alp_config()) {
+              properties.content_defined_chunking_options()) {
       CopyColumnSpecificProperties(properties);
     }
 
@@ -531,8 +523,17 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Set the ALP configuration for all columns. See AlpConfig for defaults.
-    Builder* alp_config(const AlpConfig& config);
+    /// Set the encoding-specific options for all columns.
+    Builder* encoding_options(const EncodingOptions& options);
+
+    /// Set encoding-specific options for column specified by `path`.
+    Builder* encoding_options(const std::string& path, const EncodingOptions& options);
+
+    /// Set encoding-specific options for column specified by `path`.
+    Builder* encoding_options(const std::shared_ptr<schema::ColumnPath>& path,
+                              const EncodingOptions& options) {
+      return encoding_options(path->ToDotString(), options);
+    }
 
     /// Specify the maximum number of rows per data page.
     /// Default 20K rows.
@@ -931,6 +932,9 @@ class PARQUET_EXPORT WriterProperties {
         get(item.first).set_codec_options(item.second);
       for (const auto& item : dictionary_enabled_)
         get(item.first).set_dictionary_enabled(item.second);
+      for (const auto& [path, options] : encoding_options_) {
+        get(path).set_encoding_options(options);
+      }
       for (const auto& item : statistics_enabled_)
         get(item.first).set_statistics_enabled(item.second);
       for (const auto& item : page_index_enabled_)
@@ -953,7 +957,7 @@ class PARQUET_EXPORT WriterProperties {
           default_column_properties_, column_properties, data_page_version_,
           min_compression_savings_, store_decimal_as_integer_,
           std::move(sorting_columns_), content_defined_chunking_enabled_,
-          content_defined_chunking_options_, alp_config_));
+          content_defined_chunking_options_));
     }
 
    private:
@@ -987,10 +991,10 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
     std::unordered_map<std::string, BloomFilterOptions> bloom_filter_options_;
+    std::unordered_map<std::string, EncodingOptions> encoding_options_;
 
     bool content_defined_chunking_enabled_;
     CdcOptions content_defined_chunking_options_;
-    AlpConfig alp_config_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -1046,7 +1050,14 @@ class PARQUET_EXPORT WriterProperties {
     }
   }
 
-  const AlpConfig& alp_config() const;
+  const EncodingOptions& encoding_options() const {
+    return default_column_properties_.encoding_options();
+  }
+
+  const EncodingOptions& encoding_options(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).encoding_options();
+  }
 
   const ColumnProperties& column_properties(
       const std::shared_ptr<schema::ColumnPath>& path) const {
@@ -1142,8 +1153,7 @@ class PARQUET_EXPORT WriterProperties {
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, double min_compression_savings,
       bool store_short_decimal_as_integer, std::vector<SortingColumn> sorting_columns,
-      bool content_defined_chunking_enabled, CdcOptions content_defined_chunking_options,
-      AlpConfig alp_config)
+      bool content_defined_chunking_enabled, CdcOptions content_defined_chunking_options)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -1162,8 +1172,7 @@ class PARQUET_EXPORT WriterProperties {
         default_column_properties_(default_column_properties),
         column_properties_(column_properties),
         content_defined_chunking_enabled_(content_defined_chunking_enabled),
-        content_defined_chunking_options_(content_defined_chunking_options),
-        alp_config_(alp_config) {}
+        content_defined_chunking_options_(content_defined_chunking_options) {}
 
   MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
@@ -1188,7 +1197,6 @@ class PARQUET_EXPORT WriterProperties {
 
   bool content_defined_chunking_enabled_;
   CdcOptions content_defined_chunking_options_;
-  AlpConfig alp_config_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
