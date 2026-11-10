@@ -239,8 +239,10 @@ test_that("with_vendored_dependencies()", {
   on.exit(unlink(vendored_dir, recursive = TRUE), add = TRUE)
   original_dir <- nixlibs_env$vendored_dependency_dir
   original_get_component_names <- nixlibs_env$get_component_names
+  original_quietly <- nixlibs_env$quietly
   on.exit(nixlibs_env$vendored_dependency_dir <- original_dir, add = TRUE)
   on.exit(nixlibs_env$get_component_names <- original_get_component_names, add = TRUE)
+  on.exit(nixlibs_env$quietly <- original_quietly, add = TRUE)
   nixlibs_env$vendored_dependency_dir <- vendored_dir
   nixlibs_env$get_component_names <- function() {
     data.frame(
@@ -248,13 +250,20 @@ test_that("with_vendored_dependencies()", {
       filename = c("uriparser-1.0.2.tar.bz2", "xsimd-14.3.0.tar.gz", "zstd-1.5.7.tar.gz")
     )
   }
-  withr::local_envvar(ARROW_URIPARSER_URL = NA, ARROW_XSIMD_URL = NA)
+  withr::local_envvar(c(ARROW_URIPARSER_URL = NA, ARROW_XSIMD_URL = NA))
 
   # Without the vendored tarballs, nothing is set
+  nixlibs_env$quietly <- TRUE
+  expect_silent(
+    expect_identical(with_vendored_dependencies(list(A = "1")), list(A = "1"))
+  )
+  # The missing tarballs are only reported with verbose logging
+  nixlibs_env$quietly <- FALSE
   expect_output(
     expect_identical(with_vendored_dependencies(list(A = "1")), list(A = "1")),
     "Vendored source for ARROW_URIPARSER_URL not found"
   )
+  nixlibs_env$quietly <- TRUE
 
   uriparser <- file.path(vendored_dir, "uriparser-1.0.2.tar.bz2")
   xsimd <- file.path(vendored_dir, "xsimd-14.3.0.tar.gz")
@@ -273,7 +282,7 @@ test_that("with_vendored_dependencies()", {
   )
 
   # As is a user-set env var
-  withr::local_envvar(ARROW_URIPARSER_URL = "https://example.com/uriparser.tar.bz2")
+  withr::local_envvar(c(ARROW_URIPARSER_URL = "https://example.com/uriparser.tar.bz2"))
   expect_identical(
     with_vendored_dependencies(list(A = "1")),
     list(A = "1", ARROW_XSIMD_URL = normalizePath(xsimd))

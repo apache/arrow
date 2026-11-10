@@ -881,6 +881,13 @@ with_vendored_dependencies <- function(env_var_list) {
   # that works without network access, `make sync-cpp` saves their source
   # tarballs into vendored_dependency_dir and we point ARROW_*_URL at them here.
   # This does not change whether the system versions are used.
+  if (!dir.exists(vendored_dependency_dir)) {
+    # e.g. building from a git checkout without `make sync-cpp`
+    if (!quietly) {
+      lg("No vendored dependencies found, they will be downloaded if needed", .indent = "****")
+    }
+    return(env_var_list)
+  }
   deps_df <- get_component_names()
   for (env_varname in vendored_dependencies) {
     if (!is.null(env_var_list[[env_varname]]) || !env_is(env_varname, "")) {
@@ -890,7 +897,9 @@ with_vendored_dependencies <- function(env_var_list) {
     filename <- deps_df$filename[deps_df$env_varname == env_varname]
     tarball <- file.path(vendored_dependency_dir, filename)
     if (length(tarball) != 1 || !file.exists(tarball)) {
-      lg("Vendored source for %s not found, it will be downloaded if needed", env_varname, .indent = "****")
+      if (!quietly) {
+        lg("Vendored source for %s not found, it will be downloaded if needed", env_varname, .indent = "****")
+      }
       next
     }
     env_var_list <- replace(env_var_list, env_varname, normalizePath(tarball))
