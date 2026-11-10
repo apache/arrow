@@ -23,6 +23,15 @@ const INCOMPLETE_COMMENT =
   "If you wish to contribute, please open a new pull request using the [Apache Arrow PR template](https://github.com/apache/arrow/blob/main/.github/pull_request_template.md) " +
   "and complete all required sections";
 
+const AI_ONLY_COMMENT =
+  "This pull request has been automatically closed because its authorship is AI-only and it has no human review.\n\n" +
+  "Contributions involving AI assistance are welcome. However, we require human involvement in the contribution and its review.";
+
+const NEEDS_HUMAN_REVIEW_COMMENT =
+  "This pull request has been converted to Draft because it has not been reviewed by a human.\n\n" +
+  "Please review your contribution, update the review disclosure section, " +
+  "and mark the pull request as Ready for review.";
+
 function parseSection(lines, start, end, options) {
   const found = new Set();
   const selected = [];
@@ -148,20 +157,17 @@ module.exports = async ({github, context, core}) => {
     return;
   }
 
-  // workflow_run may not contain associated PR details for fork PRs.
-  // Fall back to looking up PRs by their source repository and branch.
-  const candidates = run.pull_requests?.length
-    ? run.pull_requests
-    : await github.paginate(
-        github.rest.pulls.list,
-        {
-          owner: context.repo.owner,
-          repo: context.repo.repo,
-          state: "open",
-          head: `${head.owner.login}:${run.head_branch}`,
-          per_page: 100
-        }
-      );
+  // Find the PR using the contributor's fork and branch.
+  const candidates = await github.paginate(
+    github.rest.pulls.list,
+    {
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      state: "open",
+      head: `${head.owner.login}:${run.head_branch}`,
+      per_page: 100
+    }
+  );
 
   for (const candidate of candidates) {
     const {data: pr} = await github.rest.pulls.get({
@@ -170,7 +176,7 @@ module.exports = async ({github, context, core}) => {
       pull_number: candidate.number
     });
 
-    // Ignore closed PRs, outdated runs, and bot-authored PRs.
+    // Ignore outdated runs and bot-authored PRs.
     if (
       pr.state !== "open" ||
       pr.head.sha !== run.head_sha ||
@@ -187,20 +193,14 @@ module.exports = async ({github, context, core}) => {
     // A valid disclosure requires no action.
     if (status === "complete") continue;
 
-    const messages = {
-      incomplete: INCOMPLETE_COMMENT,
-
-      "ai-only": `This pull request has been automatically closed because its authorship is AI-only and it has no human review.
-
-Contributions involving AI assistance are welcome. However, we require human involvement in the contribution and its review.`,
-
-      "needs-human-review": `This pull request has been converted to Draft because it has not been reviewed by a human.
-
-Please review your contribution, update the review disclosure section, and mark the pull request as Ready for review.`
-    };
+    const comment = {
+    incomplete: INCOMPLETE_COMMENT,
+    "ai-only": AI_ONLY_COMMENT,
+    "needs-human-review": NEEDS_HUMAN_REVIEW_COMMENT
+    }[status];
 
     await createDisclosureComment(
-      github, context, pr.number, messages[status]
+    github, context, pr.number, comment
     );
 
     // Close missing/incomplete disclosures and AI-only contributions
