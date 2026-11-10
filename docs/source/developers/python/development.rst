@@ -124,8 +124,8 @@ also lints and formats the stubs with ruff:
 
    $ pre-commit run --hook-stage manual python-stubs --all-files
 
-These hooks only run on request, not on commit. The Lint CI job runs them as
-well. CI also runs the type checkers, the type stub tests and stubtest (see
+The type checkers only run on request, while ruff also runs on commit. The
+Lint CI job runs all of them as well. CI also runs the type checkers, the type stub tests and stubtest (see
 below) against the PyArrow it builds, with
 ``ci/scripts/python_test_type_annotations.sh``.
 

@@ -145,8 +145,8 @@ repos:
           (
           ?^python/pyarrow/vendored/|
           )
-  # Linting, formatting and type checking of the type stubs. These hooks don't
-  # run on commit, only on request (the Lint CI job runs them too):
+  # Linting, formatting and type checking of the type stubs. The type checkers
+  # don't run on commit, only on request (the Lint CI job runs them too):
   #   pre-commit run --hook-stage manual python-stubs --all-files
   # Keep the versions of the type checkers and stub packages in sync with
   # python/requirements-stubs.txt.
@@ -156,8 +156,6 @@ repos:
       - id: ruff-check
         alias: python-stubs
         name: Python Stubs Lint (ruff)
-        stages:
-          - manual
         args:
           - "--fix"
         files: >-
@@ -167,8 +165,6 @@ repos:
       - id: ruff-format
         alias: python-stubs
         name: Python Stubs Format (ruff)
-        stages:
-          - manual
         files: >-
           ^python/pyarrow-stubs/
         types:
