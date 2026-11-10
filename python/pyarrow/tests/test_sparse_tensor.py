@@ -28,13 +28,13 @@ import pyarrow as pa
 try:
     from scipy.sparse import csr_array, coo_array, csr_matrix, coo_matrix
 except ImportError:
-    coo_matrix = None  # type: ignore[assignment, misc]
-    csr_matrix = None  # type: ignore[assignment, misc]
-    csr_array = None  # type: ignore[assignment, misc]
-    coo_array = None  # type: ignore[assignment, misc]
+    coo_matrix = None
+    csr_matrix = None
+    csr_array = None
+    coo_array = None
 
 try:
-    import sparse  # pyright: ignore[reportMissingImports]
+    import sparse
 except ImportError:
     sparse = None
 
@@ -401,7 +401,7 @@ def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
     assert np.array_equal(array, result_array)
 
 
-@pytest.mark.skipif(coo_matrix is None, reason="requires scipy")
+@pytest.mark.skipif(not coo_matrix, reason="requires scipy")
 @pytest.mark.parametrize('sparse_object', (coo_array, coo_matrix))
 @pytest.mark.parametrize('dtype_str,arrow_type', scipy_type_pairs)
 def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type,
@@ -443,7 +443,7 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type,
     assert out_scipy_matrix.has_canonical_format
 
 
-@pytest.mark.skipif(csr_matrix is None, reason="requires scipy")
+@pytest.mark.skipif(not csr_matrix, reason="requires scipy")
 @pytest.mark.parametrize('sparse_object', (csr_array, csr_matrix))
 @pytest.mark.parametrize('dtype_str,arrow_type', scipy_type_pairs)
 def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type,
@@ -483,8 +483,7 @@ def test_pydata_sparse_sparse_coo_tensor_roundtrip(dtype_str, arrow_type):
     shape = (4, 6)
     dim_names = ("x", "y")
 
-    sparse_array = sparse.COO(  # pyright: ignore[reportOptionalMemberAccess]
-        data=data, coords=coords, shape=shape)
+    sparse_array = sparse.COO(data=data, coords=coords, shape=shape)
     sparse_tensor = pa.SparseCOOTensor.from_pydata_sparse(sparse_array,
                                                           dim_names=dim_names)
     out_sparse_array = sparse_tensor.to_pydata_sparse()

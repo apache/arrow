@@ -18,13 +18,12 @@
 from collections import OrderedDict
 from collections.abc import Iterable
 import sys
-from typing import cast
 import weakref
 
 try:
     import numpy as np
 except ImportError:
-    pass
+    np = None
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -418,8 +417,7 @@ def test_to_pandas_empty_table():
     table = pa.table(df)
     result = table.schema.empty_table().to_pandas()
     assert result.shape == (0, 2)
-    expected = df.iloc[:0]
-    tm.assert_frame_equal(result, expected)
+    tm.assert_frame_equal(result, df.iloc[:0])
 
 
 @pytest.mark.pandas
@@ -487,25 +485,12 @@ def test_chunked_array_unify_dictionaries():
         pa.array(["foo", "bar", None, "foo"]).dictionary_encode(),
         pa.array(["quux", None, "foo"]).dictionary_encode(),
     ])
-    chunk_0 = arr.chunk(0)
-    assert isinstance(chunk_0, pa.DictionaryArray)
-    assert chunk_0.dictionary.equals(pa.array(["foo", "bar"]))
-
-    chunk_1 = arr.chunk(1)
-    assert isinstance(chunk_1, pa.DictionaryArray)
-    assert chunk_1.dictionary.equals(pa.array(["quux", "foo"]))
-
+    assert arr.chunk(0).dictionary.equals(pa.array(["foo", "bar"]))
+    assert arr.chunk(1).dictionary.equals(pa.array(["quux", "foo"]))
     arr = arr.unify_dictionaries()
     expected_dict = pa.array(["foo", "bar", "quux"])
-
-    chunk_0 = arr.chunk(0)
-    assert isinstance(chunk_0, pa.DictionaryArray)
-    assert chunk_0.dictionary.equals(expected_dict)
-
-    chunk_1 = arr.chunk(1)
-    assert isinstance(chunk_1, pa.DictionaryArray)
-    assert chunk_1.dictionary.equals(expected_dict)
-
+    assert arr.chunk(0).dictionary.equals(expected_dict)
+    assert arr.chunk(1).dictionary.equals(expected_dict)
     assert arr.to_pylist() == ["foo", "bar", None, "foo", "quux", None, "foo"]
 
 
@@ -730,7 +715,7 @@ def test_recordbatch_take():
 def test_recordbatch_column_sets_private_name():
     # ARROW-6429
     rb = pa.record_batch([pa.array([1, 2, 3, 4])], names=['a0'])
-    assert rb.column(0)._name == 'a0'
+    assert rb[0]._name == 'a0'
 
 
 def test_recordbatch_from_arrays_validate_schema():
@@ -812,7 +797,7 @@ def test_recordbatch_get_field():
         batch.field('d')
 
     with pytest.raises(TypeError):
-        batch.field(None)  # pyright: ignore[reportArgumentType]
+        batch.field(None)
 
     with pytest.raises(IndexError):
         batch.field(4)
@@ -833,7 +818,7 @@ def test_recordbatch_select_column():
         batch.column('d')
 
     with pytest.raises(TypeError):
-        batch.column(None)  # pyright: ignore[reportArgumentType]
+        batch.column(None)
 
     with pytest.raises(IndexError):
         batch.column(4)
@@ -969,10 +954,7 @@ def test_table_from_struct_array_chunked_array():
         [[{"ints": 1}, {"floats": 1.0}]],
         type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
     )
-    assert isinstance(chunked_struct_array.type, pa.StructType)
-    # Cast to the proper type for type checker
-    struct_chunked_array = cast(pa.ChunkedArray, chunked_struct_array)
-    result = pa.Table.from_struct_array(struct_chunked_array)
+    result = pa.Table.from_struct_array(chunked_struct_array)
     assert result.equals(pa.Table.from_arrays(
         [
             pa.array([1, None], type=pa.int32()),
@@ -1226,8 +1208,7 @@ def test_recordbatch_to_tensor_null():
         batch.to_tensor()
 
     result = batch.to_tensor(null_to_nan=True, row_major=False)
-    x = np.column_stack([arr1, arr2]).astype(
-        np.float64, order="F")
+    x = np.column_stack([arr1, arr2]).astype(np.float64, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1261,8 +1242,7 @@ def test_recordbatch_to_tensor_null():
     )
 
     result = batch.to_tensor(null_to_nan=True, row_major=False)
-    x = np.column_stack([arr1, arr2]).astype(
-        np.float32, order="F")
+    x = np.column_stack([arr1, arr2]).astype(np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1484,7 +1464,7 @@ def test_recordbatchlist_schema_equals():
 def test_table_column_sets_private_name():
     # ARROW-6429
     t = pa.table([pa.array([1, 2, 3, 4])], names=['a0'])
-    assert t.column(0)._name == 'a0'
+    assert t[0]._name == 'a0'
 
 
 def test_table_equals():
@@ -1645,8 +1625,7 @@ def test_table_from_arrays_preserves_column_metadata():
     field1 = pa.field('field2', pa.int64(), nullable=False)
     table = pa.Table.from_arrays([arr0, arr1],
                                  schema=pa.schema([field0, field1]))
-    field0_metadata = table.field(0).metadata
-    assert field0_metadata is not None and b"a" in field0_metadata
+    assert b"a" in table.field(0).metadata
     assert table.field(1).nullable is False
 
 
@@ -1711,7 +1690,7 @@ def test_table_get_field():
         table.field('d')
 
     with pytest.raises(TypeError):
-        table.field(None)  # pyright: ignore[reportArgumentType]
+        table.field(None)
 
     with pytest.raises(IndexError):
         table.field(4)
@@ -1732,7 +1711,7 @@ def test_table_select_column():
         table.column('d')
 
     with pytest.raises(TypeError):
-        table.column(None)  # pyright: ignore[reportArgumentType]
+        table.column(None)
 
     with pytest.raises(IndexError):
         table.column(4)
@@ -2025,41 +2004,22 @@ def test_table_unify_dictionaries():
 
     table = pa.Table.from_batches([batch1, batch2])
     table = table.replace_schema_metadata({b"key1": b"value1"})
-    chunk_0_0 = table.column(0).chunk(0)
-    assert isinstance(chunk_0_0, pa.DictionaryArray)
-    assert chunk_0_0.dictionary.equals(pa.array(["foo", "bar"]))
-
-    chunk_0_1 = table.column(0).chunk(1)
-    assert isinstance(chunk_0_1, pa.DictionaryArray)
-    assert chunk_0_1.dictionary.equals(pa.array(["quux", "foo"]))
-
-    chunk_1_0 = table.column(1).chunk(0)
-    assert isinstance(chunk_1_0, pa.DictionaryArray)
-    assert chunk_1_0.dictionary.equals(pa.array([123, 456, 789]))
-
-    chunk_1_1 = table.column(1).chunk(1)
-    assert isinstance(chunk_1_1, pa.DictionaryArray)
-    assert chunk_1_1.dictionary.equals(pa.array([456, 789]))
+    assert table.column(0).chunk(0).dictionary.equals(
+        pa.array(["foo", "bar"]))
+    assert table.column(0).chunk(1).dictionary.equals(
+        pa.array(["quux", "foo"]))
+    assert table.column(1).chunk(0).dictionary.equals(
+        pa.array([123, 456, 789]))
+    assert table.column(1).chunk(1).dictionary.equals(
+        pa.array([456, 789]))
 
     table = table.unify_dictionaries(pa.default_memory_pool())
     expected_dict_0 = pa.array(["foo", "bar", "quux"])
     expected_dict_1 = pa.array([123, 456, 789])
-
-    chunk_0_0 = table.column(0).chunk(0)
-    assert isinstance(chunk_0_0, pa.DictionaryArray)
-    assert chunk_0_0.dictionary.equals(expected_dict_0)
-
-    chunk_0_1 = table.column(0).chunk(1)
-    assert isinstance(chunk_0_1, pa.DictionaryArray)
-    assert chunk_0_1.dictionary.equals(expected_dict_0)
-
-    chunk_1_0 = table.column(1).chunk(0)
-    assert isinstance(chunk_1_0, pa.DictionaryArray)
-    assert chunk_1_0.dictionary.equals(expected_dict_1)
-
-    chunk_1_1 = table.column(1).chunk(1)
-    assert isinstance(chunk_1_1, pa.DictionaryArray)
-    assert chunk_1_1.dictionary.equals(expected_dict_1)
+    assert table.column(0).chunk(0).dictionary.equals(expected_dict_0)
+    assert table.column(0).chunk(1).dictionary.equals(expected_dict_0)
+    assert table.column(1).chunk(0).dictionary.equals(expected_dict_1)
+    assert table.column(1).chunk(1).dictionary.equals(expected_dict_1)
 
     assert table.to_pydict() == {
         'a': ["foo", "bar", None, "foo", "quux", "foo", None, "quux"],
@@ -2129,14 +2089,13 @@ def test_concat_tables_invalid_option():
     t = pa.Table.from_arrays([list(range(10))], names=('a',))
 
     with pytest.raises(ValueError, match="Invalid promote_options: invalid"):
-        pa.concat_tables(
-            [t, t], promote_options="invalid")  # pyright: ignore[reportArgumentType]
+        pa.concat_tables([t, t], promote_options="invalid")
 
 
 def test_concat_tables_none_table():
     # ARROW-11997
     with pytest.raises(AttributeError):
-        pa.concat_tables([None])  # pyright: ignore[reportArgumentType]
+        pa.concat_tables([None])
 
 
 @pytest.mark.pandas
@@ -2268,7 +2227,7 @@ def test_concat_batches_different_schema():
 def test_concat_batches_none_batches():
     # ARROW-11997
     with pytest.raises(AttributeError):
-        pa.concat_batches([None])  # pyright: ignore[reportArgumentType]
+        pa.concat_batches([None])
 
 
 @pytest.mark.parametrize(
@@ -2419,7 +2378,7 @@ def test_from_arrays_schema(data, klass):
     # with different and incompatible schema
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.timestamp('s'))])
     with pytest.raises((NotImplementedError, TypeError)):
-        pa.Table.from_pydict(data, schema=schema)  # pyright: ignore[reportArgumentType]
+        pa.Table.from_pydict(data, schema=schema)
 
     # Cannot pass both schema and metadata / names
     with pytest.raises(ValueError):
@@ -2745,10 +2704,10 @@ def test_table_factory_function_args_pandas():
 
 def test_factory_functions_invalid_input():
     with pytest.raises(TypeError, match="Expected pandas DataFrame, python"):
-        pa.table("invalid input")  # pyright: ignore[reportArgumentType]
+        pa.table("invalid input")
 
     with pytest.raises(TypeError, match="Expected pandas DataFrame"):
-        pa.record_batch("invalid input")  # pyright: ignore[reportArgumentType]
+        pa.record_batch("invalid input")
 
 
 def test_table_repr_to_string():
@@ -2882,8 +2841,8 @@ def test_table_function_unicode_schema():
     schema = pa.schema([(col_a, pa.int32()), (col_b, pa.string())])
 
     result = pa.table(d, schema=schema)
-    assert result.column(0).chunk(0).equals(pa.array([1, 2, 3], type='int32'))
-    assert result.column(1).chunk(0).equals(pa.array(['a', 'b', 'c'], type='string'))
+    assert result[0].chunk(0).equals(pa.array([1, 2, 3], type='int32'))
+    assert result[1].chunk(0).equals(pa.array(['a', 'b', 'c'], type='string'))
 
 
 def test_table_take_vanilla_functionality():
@@ -3815,7 +3774,7 @@ def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_arr
 
     # equals() test
     with pytest.raises(NotImplementedError):
-        _ = cuda_chunked_array == cuda_chunked_array
+        cuda_chunked_array == cuda_chunked_array
 
     # to_pandas() test
     with pytest.raises(NotImplementedError):

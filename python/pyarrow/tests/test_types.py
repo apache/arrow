@@ -25,22 +25,16 @@ import zoneinfo
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
-from typing import Any, TYPE_CHECKING
+try:
+    import hypothesis.extra.pytz as tzst
+except ImportError:
+    tzst = None
 import weakref
 
-if TYPE_CHECKING:
+try:
     import numpy as np
-    import hypothesis.extra.pytz as tzst
-else:
-    try:
-        import numpy as np
-    except ImportError:
-        np = None
-    try:
-        import hypothesis.extra.pytz as tzst
-    except ImportError:
-        tzst = None
-
+except ImportError:
+    np = None
 import pyarrow as pa
 import pyarrow.types as types
 import pyarrow.tests.strategies as past
@@ -421,7 +415,7 @@ def test_tzinfo_to_string_errors():
 if tzst:
     timezones = tzst.timezones()
 else:
-    timezones = st.none()  # type: ignore[assignment]
+    timezones = st.none()
 
 
 @h.given(timezones)
@@ -752,10 +746,10 @@ def test_struct_type():
 
     # Neither integer nor string
     with pytest.raises(TypeError):
-        ty[None]  # pyright: ignore[reportArgumentType]
+        ty[None]
 
     with pytest.raises(TypeError):
-        ty.field(None)  # pyright: ignore[reportArgumentType]
+        ty.field(None)
 
     for a, b in zip(ty, fields):
         assert a == b
@@ -882,7 +876,7 @@ def test_dictionary_type():
 
     # invalid index type raises
     with pytest.raises(TypeError):
-        pa.dictionary(pa.string(), pa.int64())  # pyright: ignore[reportArgumentType]
+        pa.dictionary(pa.string(), pa.int64())
 
 
 def test_dictionary_ordered_equals():
@@ -971,7 +965,7 @@ def test_run_end_encoded_type():
         pa.run_end_encoded(None, pa.utf8())
 
     with pytest.raises(ValueError):
-        pa.run_end_encoded(pa.int8(), pa.utf8())  # pyright: ignore[reportArgumentType]
+        pa.run_end_encoded(pa.int8(), pa.utf8())
 
 
 @pytest.mark.parametrize('t,check_func', [
@@ -1149,11 +1143,11 @@ def test_key_value_metadata():
     assert m1 != {'a': 'A', 'b': 'C'}
 
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata({'a': 1})  # pyright: ignore[reportArgumentType]
+        pa.KeyValueMetadata({'a': 1})
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata({1: 'a'})  # pyright: ignore[reportArgumentType]
+        pa.KeyValueMetadata({1: 'a'})
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata(a=1)  # pyright: ignore[reportArgumentType]
+        pa.KeyValueMetadata(a=1)
 
     expected = [(b'a', b'A'), (b'b', b'B')]
     result = [(k, v) for k, v in m3.items()]
@@ -1280,7 +1274,6 @@ def test_field_metadata():
 
     assert f1.metadata is None
     assert f2.metadata == {}
-    assert f3.metadata is not None
     assert f3.metadata[b'bizz'] == b'bazz'
 
 
@@ -1417,7 +1410,7 @@ class SchemaWrapper:
         return self.schema.__arrow_c_schema__()
 
 
-class SchemaMapping(Mapping[Any, Any]):
+class SchemaMapping(Mapping):
     def __init__(self, schema):
         self.schema = schema
 

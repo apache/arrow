@@ -23,7 +23,7 @@ import pytest
 try:
     import numpy as np
 except ImportError:
-    pass
+    np = None
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
@@ -253,7 +253,7 @@ baz: list<item: int8>
   child 0, item: int8"""
 
     with pytest.raises(TypeError):
-        pa.schema([None])  # pyright: ignore[reportArgumentType]
+        pa.schema([None])
 
 
 def test_schema_weakref():
@@ -584,7 +584,7 @@ def test_schema_get_fields():
     with pytest.raises(KeyError):
         schema.field('other')
     with pytest.raises(TypeError):
-        schema.field(0.0)  # pyright: ignore[reportArgumentType]
+        schema.field(0.0)
     with pytest.raises(IndexError):
         schema.field(4)
 
@@ -780,7 +780,7 @@ def test_schema_merge():
 
     # raise proper error when passing a non-Schema value
     with pytest.raises(TypeError):
-        pa.unify_schemas([a, 1])  # pyright: ignore[reportArgumentType]
+        pa.unify_schemas([a, 1])
 
 
 def test_undecodable_metadata():

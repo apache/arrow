@@ -27,15 +27,11 @@ import struct
 import subprocess
 import sys
 import weakref
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
+try:
     import numpy as np
-else:
-    try:
-        import numpy as np
-    except ImportError:
-        np = None
+except ImportError:
+    np = None
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -77,7 +73,7 @@ def test_constructor_raises():
     # This could happen by wrong capitalization.
     # ARROW-2638: prevent calling extension class constructors directly
     with pytest.raises(TypeError):
-        pa.Array([1, 2])  # pyright: ignore[reportCallIssue]
+        pa.Array([1, 2])
 
 
 def test_list_format():
@@ -770,8 +766,8 @@ def test_array_eq():
 
 @pytest.mark.numpy
 def test_array_from_buffers():
-    values_buf = pa.py_buffer(np.array([4, 5, 6, 7], dtype=np.int16()))
-    nulls_buf = pa.py_buffer(np.array([0b00001101], dtype=np.uint8()))
+    values_buf = pa.py_buffer(np.int16([4, 5, 6, 7]))
+    nulls_buf = pa.py_buffer(np.uint8([0b00001101]))
     arr = pa.Array.from_buffers(pa.int16(), 4, [nulls_buf, values_buf])
     assert arr.type == pa.int16()
     assert arr.to_pylist() == [4, None, 6, 7]
@@ -786,9 +782,7 @@ def test_array_from_buffers():
     assert arr.to_pylist() == [None, 6, 7]
 
     with pytest.raises(TypeError):
-        pa.Array.from_buffers(
-            pa.int16(), 3, ['', ''], offset=1  # pyright: ignore[reportArgumentType]
-        )
+        pa.Array.from_buffers(pa.int16(), 3, ['', ''], offset=1)
 
 
 def test_string_binary_from_buffers():
@@ -982,8 +976,7 @@ def test_struct_array_from_chunked():
     chunked_arr = pa.chunked_array([[1, 2, 3], [4, 5, 6]])
 
     with pytest.raises(TypeError, match="Expected Array"):
-        pa.StructArray.from_arrays(
-            [chunked_arr], ["foo"])  # pyright: ignore[reportArgumentType]
+        pa.StructArray.from_arrays([chunked_arr], ["foo"])
 
 
 @pytest.mark.parametrize("offset", (0, 1))
@@ -1309,15 +1302,15 @@ def test_map_from_arrays():
     assert result.equals(expected)
 
     # pass in the type explicitly
-    result = pa.MapArray.from_arrays(offsets, keys, items,
-                                     pa.map_(keys.type, items.type))
+    result = pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+        keys.type,
+        items.type
+    ))
     assert result.equals(expected)
 
     # pass in invalid types
     with pytest.raises(pa.ArrowTypeError, match='Expected map type, got string'):
-        pa.MapArray.from_arrays(
-            offsets, keys, items, pa.string()
-        )
+        pa.MapArray.from_arrays(offsets, keys, items, pa.string())
 
     with pytest.raises(pa.ArrowTypeError, match='Mismatching map items type'):
         pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
@@ -3203,7 +3196,7 @@ def test_buffers_primitive():
 
     assert struct.unpack('hhxxh', buffers[1].to_pybytes()) == (1, 2, 4)
 
-    a = pa.array(np.array([4, 5, 6], dtype=np.int8))
+    a = pa.array(np.int8([4, 5, 6]))
     buffers = a.buffers()
     assert len(buffers) == 2
     # No null bitmap from Numpy int array
@@ -3289,7 +3282,7 @@ def test_nbytes_size():
 def test_invalid_tensor_constructor_repr():
     # ARROW-2638: prevent calling extension class constructors directly
     with pytest.raises(TypeError):
-        repr(pa.Tensor([1]))  # pyright: ignore[reportCallIssue]
+        repr(pa.Tensor([1]))
 
 
 def test_invalid_tensor_construction():
@@ -3807,7 +3800,7 @@ def test_array_supported_masks():
 
     with pytest.raises(pa.ArrowTypeError):
         arr = pa.array([4, None, 4, 3],
-                       mask=[1.0, 2.0, 3.0, 4.0])  # pyright: ignore[reportArgumentType]
+                       mask=[1.0, 2.0, 3.0, 4.0])
 
     with pytest.raises(pa.ArrowTypeError):
         arr = pa.array([4, None, 4, 3],
@@ -4085,11 +4078,11 @@ def test_concat_array_invalid_type():
     # ARROW-9920 - do not segfault on non-array input
 
     with pytest.raises(TypeError, match="should contain Array objects"):
-        pa.concat_arrays([None])  # pyright: ignore[reportArgumentType]
+        pa.concat_arrays([None])
 
     arr = pa.chunked_array([[0, 1], [3, 4]])
     with pytest.raises(TypeError, match="should contain Array objects"):
-        pa.concat_arrays(arr)  # pyright: ignore[reportArgumentType]
+        pa.concat_arrays(arr)
 
 
 @pytest.mark.pandas
@@ -4618,7 +4611,7 @@ def test_non_cpu_array():
     with pytest.raises(NotImplementedError):
         [i for i in iter(arr)]
     with pytest.raises(NotImplementedError):
-        _ = arr == arr2
+        arr == arr2
     with pytest.raises(NotImplementedError):
         arr.is_null()
     with pytest.raises(NotImplementedError):
