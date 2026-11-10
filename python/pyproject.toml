@@ -178,8 +178,10 @@ include = ["pyarrow-stubs-tests/**"]
 # mypy and pyright check that the invalid usage in the tests is rejected.
 invalid-argument-type = "ignore"
 
-# Lints and formats the type stubs (*.pyi); see .pre-commit-config.yaml.
+# Lints and formats the type stubs (*.pyi) only; see .pre-commit-config.yaml.
+# The other Python files are checked with autopep8 and flake8.
 [tool.ruff]
+include = ["pyarrow-stubs/**/*.pyi"]
 line-length = 88
 
 [tool.ruff.lint]
