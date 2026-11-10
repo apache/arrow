@@ -67,6 +67,11 @@ def test_array() -> None:
     # Arrays of any type can diff()
     check(assert_type(arr.diff(other), str), str)
 
+    if TYPE_CHECKING_INVALID_USAGE:
+        pa.array([1, 2], mask=[True, None])  # type: ignore[list-item]
+        # TODO: when scalars get stubs
+        # pa.array([1, 2], mask=pa.chunked_array([[True, False]]))
+
 
 def test_array_numpy() -> None:
     pytest.importorskip("numpy")

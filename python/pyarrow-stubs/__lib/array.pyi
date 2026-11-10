@@ -22,6 +22,7 @@ from typing import Any, ClassVar, Self, SupportsIndex
 import numpy as np
 import pandas as pd
 
+from numpy.typing import NDArray
 from pyarrow._compute import CastOptions
 from pyarrow._stubs_typing import (
     ArrayLike,
@@ -57,7 +58,7 @@ def array(
     | SupportsArrowDeviceArray
     | SupportsPyArrowArray,
     type: Any | None = None,
-    mask: Mask | pd.Series[bool] | None = None,
+    mask: BooleanArray | Iterable[bool] | NDArray[np.bool_] | None = None,
     size: int | None = None,
     from_pandas: bool | None = None,
     safe: bool = True,
