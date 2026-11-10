@@ -149,9 +149,9 @@ repos:
   # don't run on commit, only on request (the Lint CI job runs them too):
   #   pre-commit run --hook-stage manual python-stubs --all-files
   # The type checkers run with uvx, in the environment of
-  # python/requirements-stubs.txt. They don't need PyArrow installed: the stubs
-  # are marked partial, so the modules that aren't annotated yet, e.g.
-  # pyarrow.compute, are read from the source tree.
+  # python/requirements-stubs.txt. They don't need PyArrow installed: the
+  # modules that aren't annotated yet, e.g. pyarrow.compute, are treated as Any
+  # (see python/pyproject.toml).
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.2
     hooks:

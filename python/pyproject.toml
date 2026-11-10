@@ -149,7 +149,10 @@ typeCheckingMode = "basic"
 # usage is rejected, so an ignore that is no longer needed is an error there.
 executionEnvironments = [
     { root = "pyarrow-stubs-tests", extraPaths = ["."], reportUnnecessaryTypeIgnoreComment = "error" },
-    { root = "." },
+    # The stubs import modules that will be annotated in later PRs (GH-32609),
+    # which only resolve when PyArrow is installed, and the optional sparse
+    # dependency. mypy reports the other imports that can't be resolved.
+    { root = ".", reportMissingImports = false },
 ]
 # In editable install, pyright finds the stubs but compiled modules (e.g. pyarrow.lib)
 reportMissingModuleSource = false

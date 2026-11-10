@@ -212,10 +212,7 @@ process and will be included when users install PyArrow, enabling type checking
 in downstream projects and for users' IDEs.
 
 Note: ``py.typed`` marker file in the ``pyarrow/`` directory indicates to type
-checkers that PyArrow supports type checking according to :pep:`561`. The
-``py.typed`` file in ``pyarrow-stubs/`` marks the stubs as partial, so type
-checkers use the PyArrow sources for the modules without stubs yet. Remove
-``partial`` from it once the stubs are complete.
+checkers that PyArrow supports type checking according to :pep:`561`.
 
 Testing Type Stubs
 ------------------
