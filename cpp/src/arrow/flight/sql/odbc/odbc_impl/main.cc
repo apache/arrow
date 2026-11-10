@@ -184,8 +184,9 @@ void TestGetColumnsV3(const std::shared_ptr<Connection>& connection) {
 
   while (result_set->Move(1, 0, 0, nullptr) == 1) {
     for (size_t i = 0; i < column_count; ++i) {
-      result_set->GetData(1 + i, arrow::flight::sql::odbc::CDataType_CHAR, 0, 0,
-                          result.data(), buffer_length, &result_length);
+      result_set->GetData(static_cast<int>(i + 1),
+                          arrow::flight::sql::odbc::CDataType_CHAR, 0, 0, result.data(),
+                          buffer_length, &result_length);
       std::cout << (result_length != -1 ? result.data() : "NULL") << '\t';
     }
 

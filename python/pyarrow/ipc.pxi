@@ -1192,6 +1192,36 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         """
         return self.reader.get().num_record_batches()
 
+    def count_rows(self):
+        """
+        The total number of rows in the IPC file.
+
+        This reads the metadata of each record batch in the file, without
+        deserializing the record batches themselves.
+
+        Returns
+        -------
+        count : int
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> schema = pa.schema([('a', pa.int64())])
+        >>> sink = pa.BufferOutputStream()
+        >>> with pa.ipc.new_file(sink, schema) as writer:
+        ...     for i in range(3):
+        ...         writer.write_batch(pa.record_batch([[1, 2]], schema=schema))
+        >>> with pa.ipc.open_file(sink.getvalue()) as reader:
+        ...     reader.count_rows()
+        6
+        """
+        cdef int64_t nrows
+
+        with nogil:
+            nrows = GetResultValue(self.reader.get().CountRows())
+
+        return nrows
+
     def get_batch(self, int i):
         """
         Read the record batch with the given index.

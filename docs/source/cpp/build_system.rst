@@ -120,6 +120,8 @@ This is the list of available packages:
 * ArrowFlight
 * ArrowFlightSql
 * ArrowFlightTesting
+* ArrowGcs
+* ArrowS3
 * ArrowSubstrait
 * ArrowTesting
 * Gandiva
@@ -190,10 +192,12 @@ all available packages:
   * ``arrow-filesystem``
   * ``arrow-flight-testing``
   * ``arrow-flight``
+  * ``arrow-gcs``
   * ``arrow-json``
   * ``arrow-orc``
   * ``arrow-python-flight``
   * ``arrow-python``
+  * ``arrow-s3``
   * ``arrow-tensorflow``
   * ``arrow-testing``
   * ``arrow``

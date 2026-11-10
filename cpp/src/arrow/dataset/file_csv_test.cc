@@ -449,9 +449,56 @@ TEST_P(TestCsvFileFormat, WriteRecordBatchReaderCustomOptions) {
   ASSERT_EQ("0\n0\n0\n0\n0\n", written->ToString());
 }
 
+TEST_P(TestCsvFileFormat, WriteRecordBatchReaderDelimiterPropagation) {
+  // Verify that CsvFileFormat::DefaultWriteOptions() propagates the parse
+  // delimiter to write options
+  auto csv_format = std::make_shared<CsvFileFormat>();
+  csv_format->parse_options.delimiter = '|';
+  auto write_options =
+      checked_pointer_cast<CsvFileWriteOptions>(csv_format->DefaultWriteOptions());
+  ASSERT_EQ(write_options->write_options->delimiter, '|');
+
+  // Verify that the default delimiter is ',' when no parse options are set
+  auto default_format = std::make_shared<CsvFileFormat>();
+  auto default_write_options =
+      checked_pointer_cast<CsvFileWriteOptions>(default_format->DefaultWriteOptions());
+  ASSERT_EQ(default_write_options->write_options->delimiter, ',');
+}
+
 TEST_P(TestCsvFileFormat, CountRows) { TestCountRows(); }
 
 TEST_P(TestCsvFileFormat, FragmentEquals) { TestFragmentEquals(); }
+
+TEST(CsvFileFormat, DelimiterEquals) {
+  CsvFileFormat left;
+  CsvFileFormat right;
+  auto check_equals = [&](bool expected) {
+    EXPECT_EQ(left.Equals(right), expected);
+    EXPECT_EQ(right.Equals(left), expected);
+  };
+
+  check_equals(true);
+  right.parse_options.delimiter = '|';
+  check_equals(false);
+
+  left.parse_options.delimiter_string = "||";
+  right.parse_options.delimiter_string = "||";
+  check_equals(true);
+  right.parse_options.delimiter_string = "::";
+  check_equals(false);
+
+  right.parse_options.delimiter_string.clear();
+  check_equals(false);
+  left.parse_options.delimiter_string = "|";
+  check_equals(true);
+
+  right.parse_options.quoting = false;
+  check_equals(false);
+  left.parse_options.quoting = false;
+  check_equals(true);
+  left.parse_options.quote_char = '\'';
+  check_equals(false);
+}
 
 INSTANTIATE_TEST_SUITE_P(TestUncompressedCsv, TestCsvFileFormat,
                          ::testing::Values(CsvFileFormatParams{Compression::UNCOMPRESSED,

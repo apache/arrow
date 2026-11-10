@@ -150,6 +150,7 @@ struct ARROW_DS_EXPORT ScanOptions {
   std::vector<FieldRef> MaterializedFields() const;
 
   /// Parameters which control when the plan should pause for a slow consumer
+  /// \hideinitializer
   acero::BackpressureOptions backpressure =
       acero::BackpressureOptions::DefaultBackpressure();
 };

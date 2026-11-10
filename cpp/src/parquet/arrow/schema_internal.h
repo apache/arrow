@@ -18,12 +18,16 @@
 #pragma once
 
 #include "arrow/result.h"
+#include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "parquet/schema.h"
 
 namespace parquet::arrow {
 
 using ::arrow::Result;
+
+Result<::arrow::TimeUnit::type> ArrowTimeUnitFromParquet(
+    LogicalType::TimeUnit::unit unit);
 
 Result<std::shared_ptr<::arrow::DataType>> FromInt32(
     const LogicalType& logical_type, const ArrowReaderProperties& reader_properties);

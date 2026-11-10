@@ -213,7 +213,10 @@ Status RunEndEncodedBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeat
 }
 
 Status RunEndEncodedBuilder::AppendScalars(const ScalarVector& scalars) {
-  RETURN_NOT_OK(this->ArrayBuilder::AppendScalars(scalars));
+  if (scalars.empty()) return Status::OK();
+  for (const auto& scalar : scalars) {
+    RETURN_NOT_OK(AppendScalar(*scalar, 1));
+  }
   UpdateDimensions(committed_logical_length_, value_run_builder_->open_run_length());
   return Status::OK();
 }

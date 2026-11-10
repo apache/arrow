@@ -38,9 +38,8 @@ def backend_factory(backend_name):
 
 
 def supported_factories():
-    yield pa.default_memory_pool
-    for backend_name in pa.supported_memory_backends():
-        yield backend_factory(backend_name)
+    factories = [pa.default_memory_pool]
+    return factories + [backend_factory(bn) for bn in pa.supported_memory_backends()]
 
 
 @contextlib.contextmanager

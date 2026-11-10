@@ -4762,6 +4762,40 @@ TEST_F(TestPivotKernel, ScalarValue) {
               PivotWiderOptions(/*key_names=*/{"height", "width"}));
 }
 
+TEST_F(TestPivotKernel, NonMonotonicGroupId) {
+  // Hard-coded test for GH-48679: FastGrouperImpl can yield non-mononotonic group ids
+  // and the pivot_wider implementation has to account for that.
+
+  // NOTE The precise keys to trigger this situation rely on implementation details
+  // of FastGrouperImpl. Any internal change might lead to this test not exercising
+  // the desired situation anymore.
+  // (see similar test in hash_aggregate_test.cc)
+
+  auto key_type = utf8();
+  auto value_type = int16();
+  auto keys = ArrayFromJSON(key_type, R"(["m", "n", "o"])");
+  auto values = ArrayFromJSON(value_type, "[10, 11, 12]");
+  auto expected = ScalarFromJSON(
+      struct_({field("m", value_type), field("n", value_type), field("o", value_type)}),
+      "[10, 11, 12]");
+  AssertPivot(keys, values, *expected, PivotWiderOptions(/*key_names=*/{"m", "n", "o"}));
+}
+
+TEST_F(TestPivotKernel, NonMonotonicGroupIdWithScalarKey) {
+  // Like NonMonotonicGroupId, but with a scalar key.
+  // Even with a single key in the data, the presence of several keys in key_names
+  // can still trigger the issue.
+  auto key_type = utf8();
+  auto value_type = int16();
+
+  auto keys = ScalarFromJSON(key_type, R"("o")");
+  auto values = ArrayFromJSON(value_type, "[null, 11, null]");
+  auto expected = ScalarFromJSON(
+      struct_({field("m", value_type), field("n", value_type), field("o", value_type)}),
+      "[null, null, 11]");
+  AssertPivot(keys, values, *expected, PivotWiderOptions(/*key_names=*/{"m", "n", "o"}));
+}
+
 TEST_F(TestPivotKernel, EmptyInput) {
   auto key_type = utf8();
   auto value_type = float32();

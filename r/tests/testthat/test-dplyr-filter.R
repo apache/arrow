@@ -547,3 +547,42 @@ test_that("More complex select/filter_out", {
     tbl
   )
 })
+
+test_that("filter() and filter_out() with across() warn about deprecation", {
+  # the warning is rate-limited to once per session by default
+  withr::local_options(rlib_warning_verbosity = "verbose")
+  tab <- arrow_table(tbl)
+
+  expect_warning(
+    tab |> filter(across(c(int, dbl), ~ .x > 2)) |> collect(),
+    "Using `across\\(\\)` in `filter\\(\\)` is deprecated",
+    class = "lifecycle_warning_deprecated"
+  )
+  expect_warning(
+    tab |> filter_out(across(c(int, dbl), ~ .x > 2)) |> collect(),
+    "Using `across\\(\\)` in `filter_out\\(\\)` is deprecated",
+    class = "lifecycle_warning_deprecated"
+  )
+})
+
+test_that("filter() with a variable from the calling environment", {
+  my_constant <- "d"
+  compare_dplyr_binding(
+    .input |>
+      filter(chr == my_constant) |>
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter() with a variable that shares a name with a function binding", {
+  # GH-39688: `date` and `day` are also function bindings
+  date <- "d"
+  day <- 5L
+  compare_dplyr_binding(
+    .input |>
+      filter(chr == date, int <= day) |>
+      collect(),
+    tbl
+  )
+})

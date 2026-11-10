@@ -647,20 +647,48 @@ TEST(RandomChildFieldNullablity, Map) {
 TEST(RandomRunEndEncoded, Basics) {
   random::RandomArrayGenerator rng(42);
   for (const double null_probability : {0.0, 0.1, 1.0}) {
-    SCOPED_TRACE("null_probability = " + std::to_string(null_probability));
-    auto array = rng.ArrayOf(run_end_encoded(int32(), int16()), 12345, null_probability);
+    ARROW_SCOPED_TRACE("null_probability = ", null_probability);
+    for (const int64_t logical_length : {12345}) {
+      auto check_run_end_encoded = [&](const std::shared_ptr<Array>& array,
+                                       int64_t average_run_length) {
+        ASSERT_OK(array->ValidateFull());
+        ASSERT_EQ(array->length(), logical_length);
+        const auto& ree_array = checked_cast<const RunEndEncodedArray&>(*array);
+        ASSERT_EQ(*ree_array.type(), *run_end_encoded(int32(), int16()));
+        const int64_t physical_length = ree_array.run_ends()->length();
+        ASSERT_EQ(ree_array.values()->length(), physical_length);
+        const auto actual_average_run_length =
+            static_cast<double>(logical_length) / physical_length;
+        ASSERT_GE(actual_average_run_length, average_run_length * 0.9);
+        ASSERT_LE(actual_average_run_length, average_run_length * 1.1);
+        if (null_probability == 0.0) {
+          ASSERT_EQ(ree_array.values()->null_count(), 0);
+        }
+        if (null_probability == 1.0) {
+          ASSERT_EQ(ree_array.values()->null_count(), physical_length);
+        }
+      };
+
+      auto array = rng.ArrayOf(run_end_encoded(int32(), int16()), logical_length,
+                               null_probability);
+      // 50 is the default value in RandomArrayGenerator::RunEndEncoded
+      check_run_end_encoded(array, /*average_run_length=*/50);
+
+      for (const int64_t physical_length : {100, 1000}) {
+        auto values =
+            rng.Int16(physical_length, /*min=*/0, /*max=*/16384, null_probability);
+        auto array = rng.RunEndEncoded(values, logical_length);
+        check_run_end_encoded(array,
+                              /*average_run_length=*/logical_length / physical_length);
+      }
+    }
+  }
+  // Small-sized REE arrays should be generated adequately
+  for (const int64_t logical_length : {0, 1, 10, 55}) {
+    auto array = rng.ArrayOf(run_end_encoded(int32(), int16()), logical_length,
+                             /*null_probability=*/0.2);
     ASSERT_OK(array->ValidateFull());
-    ASSERT_EQ(array->length(), 12345);
-    const auto& ree_array = checked_cast<const RunEndEncodedArray&>(*array);
-    ASSERT_EQ(*ree_array.type(), *run_end_encoded(int32(), int16()));
-    const int64_t physical_length = ree_array.run_ends()->length();
-    ASSERT_EQ(ree_array.values()->length(), physical_length);
-    if (null_probability == 0.0) {
-      ASSERT_EQ(ree_array.values()->null_count(), 0);
-    }
-    if (null_probability == 1.0) {
-      ASSERT_EQ(ree_array.values()->null_count(), physical_length);
-    }
+    ASSERT_EQ(array->length(), logical_length);
   }
 }
 

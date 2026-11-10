@@ -49,6 +49,24 @@ using internal::checked_pointer_cast;
 TEST(TestTypeId, AllTypeIds) {
   const auto all_ids = AllTypeIds();
   ASSERT_EQ(static_cast<int>(all_ids.size()), Type::MAX_ID);
+  std::unordered_set<Type::type> distinct_ids(all_ids.begin(), all_ids.end());
+  ASSERT_EQ(distinct_ids.size(), all_ids.size());
+
+  for (const auto id : all_ids) {
+    // Check that all known type ids:
+    // - are supported by VisitTypeId
+    // - have a corresponding `TypeIdTraits` specialization
+    ASSERT_OK(VisitTypeId(id, [id]<typename T>(const T*) {
+      if constexpr (!std::is_same_v<T, DataType>) {
+        EXPECT_EQ(T::type_id, id);
+        using TypeInferredFromId = typename TypeIdTraits<T::type_id>::Type;
+        EXPECT_TRUE((std::is_same_v<T, TypeInferredFromId>));
+        return Status::OK();
+      } else {
+        return Status::Invalid("Unexpectedly got DataType* for id ", id);
+      }
+    }));
+  }
 }
 
 TEST(TestTypeSingleton, ParameterFreeTypes) {
@@ -1492,6 +1510,20 @@ PRIMITIVE_TEST(FloatType, float, FLOAT, "float");
 PRIMITIVE_TEST(DoubleType, double, DOUBLE, "double");
 
 PRIMITIVE_TEST(BooleanType, bool, BOOL, "bool");
+
+TEST(TypesTest, DecimalTraits) {
+  static_assert(std::is_same_v<TypeTraits<Decimal32Type>::CType, Decimal32>);
+  static_assert(std::is_same_v<CTypeTraits<Decimal32>::ArrowType, Decimal32Type>);
+
+  static_assert(std::is_same_v<TypeTraits<Decimal64Type>::CType, Decimal64>);
+  static_assert(std::is_same_v<CTypeTraits<Decimal64>::ArrowType, Decimal64Type>);
+
+  static_assert(std::is_same_v<TypeTraits<Decimal128Type>::CType, Decimal128>);
+  static_assert(std::is_same_v<CTypeTraits<Decimal128>::ArrowType, Decimal128Type>);
+
+  static_assert(std::is_same_v<TypeTraits<Decimal256Type>::CType, Decimal256>);
+  static_assert(std::is_same_v<CTypeTraits<Decimal256>::ArrowType, Decimal256Type>);
+}
 
 TEST(TestBinaryType, ToString) {
   BinaryType t1;

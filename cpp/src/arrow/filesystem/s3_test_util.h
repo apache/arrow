@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -73,6 +74,11 @@ class MinioTestEnvironment : public ::testing::Environment {
   void SetUp() override;
 
   Result<std::shared_ptr<MinioTestServer>> GetOneServer();
+
+  bool IsAvailable();
+
+ private:
+  std::optional<bool> available_;
 
  protected:
   struct Impl;

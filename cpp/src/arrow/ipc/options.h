@@ -67,7 +67,7 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// \brief Compression codec to use for record batch body buffers
   ///
   /// May only be UNCOMPRESSED, LZ4_FRAME and ZSTD.
-  std::shared_ptr<util::Codec> codec;
+  std::shared_ptr<util::Codec> codec = {};
 
   /// \brief Minimum space savings percentage required for compression to be applied
   ///
@@ -82,7 +82,7 @@ struct ARROW_EXPORT IpcWriteOptions {
   ///
   /// Note that enabling this option may result in unreadable data for Arrow C++ versions
   /// prior to 12.0.0.
-  std::optional<double> min_space_savings;
+  std::optional<double> min_space_savings = {};
 
   /// \brief Use global CPU thread pool to parallelize any computational tasks
   /// like compression

@@ -22,7 +22,7 @@ class TestFlightClient < Test::Unit::TestCase
     @server = nil
     omit("Arrow Flight is required") unless defined?(ArrowFlight)
     omit("Unstable on Windows") if Gem.win_platform?
-    omit("Unstable on x86_64 macOS") if /x86_64-darwin/.match?(RUBY_PLATFORM)
+    omit("Unstable on macOS") if /darwin/.match?(RUBY_PLATFORM)
     require_gi_bindings(3, 4, 7)
     @server = Helper::FlightServer.new
     host = "127.0.0.1"
@@ -80,8 +80,9 @@ class TestFlightClient < Test::Unit::TestCase
 
     def test_error
       client = ArrowFlight::Client.new(@location)
+      invalid_data = GLib::Bytes.new("invalid")
       assert_raise(Arrow::Error::Invalid) do
-        client.do_get(ArrowFlight::Ticket.new("invalid"))
+        client.do_get(ArrowFlight::Ticket.new(invalid_data))
       end
     end
   end

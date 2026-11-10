@@ -21,7 +21,9 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/integration/json_internal.h"
@@ -32,9 +34,12 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/simdjson_internal.h"
 
 using arrow::ipc::DictionaryFieldMapper;
 using arrow::ipc::DictionaryMemo;
+
+using JsonWriter = arrow::internal::JsonWriter;
 
 namespace arrow::internal::integration {
 
@@ -44,13 +49,10 @@ namespace arrow::internal::integration {
 class IntegrationJsonWriter::Impl {
  public:
   explicit Impl(const std::shared_ptr<Schema>& schema)
-      : schema_(schema), mapper_(*schema), first_batch_written_(false) {
-    writer_.reset(new RjWriter(string_buffer_));
-  }
-
+      : schema_(schema), mapper_(*schema), first_batch_written_(false) {}
   Status Start() {
-    writer_->StartObject();
-    RETURN_NOT_OK(json::WriteSchema(*schema_, mapper_, writer_.get()));
+    writer_.StartObject();
+    RETURN_NOT_OK(json::WriteSchema(*schema_, mapper_, &writer_));
     return Status::OK();
   }
 
@@ -59,26 +61,27 @@ class IntegrationJsonWriter::Impl {
 
     // Write dictionaries, if any
     if (!dictionaries.empty()) {
-      writer_->Key("dictionaries");
-      writer_->StartArray();
+      writer_.Key("dictionaries");
+      writer_.StartArray();
       for (const auto& entry : dictionaries) {
-        RETURN_NOT_OK(json::WriteDictionary(entry.first, entry.second, writer_.get()));
+        RETURN_NOT_OK(json::WriteDictionary(entry.first, entry.second, &writer_));
       }
-      writer_->EndArray();
+      writer_.EndArray();
     }
 
     // Record batches
-    writer_->Key("batches");
-    writer_->StartArray();
+    writer_.Key("batches");
+    writer_.StartArray();
     first_batch_written_ = true;
     return Status::OK();
   }
 
   Result<std::string> Finish() {
-    writer_->EndArray();  // Record batches
-    writer_->EndObject();
+    writer_.EndArray();  // Record batches
+    writer_.EndObject();
 
-    return string_buffer_.GetString();
+    ARROW_ASSIGN_OR_RAISE(std::string_view json, writer_.GetString());
+    return std::string(json);
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) {
@@ -87,7 +90,7 @@ class IntegrationJsonWriter::Impl {
     if (!first_batch_written_) {
       RETURN_NOT_OK(FirstRecordBatch(batch));
     }
-    return json::WriteRecordBatch(batch, writer_.get());
+    return json::WriteRecordBatch(batch, &writer_);
   }
 
  private:
@@ -96,8 +99,7 @@ class IntegrationJsonWriter::Impl {
 
   bool first_batch_written_;
 
-  rj::StringBuffer string_buffer_;
-  std::unique_ptr<RjWriter> writer_;
+  JsonWriter writer_;
 };
 
 IntegrationJsonWriter::IntegrationJsonWriter(const std::shared_ptr<Schema>& schema) {
@@ -125,44 +127,46 @@ Status IntegrationJsonWriter::WriteRecordBatch(const RecordBatch& batch) {
 class IntegrationJsonReader::Impl {
  public:
   Impl(MemoryPool* pool, const std::shared_ptr<Buffer>& data)
-      : pool_(pool), data_(data), record_batches_(nullptr) {}
+      : pool_(pool), data_(data) {}
 
   Status ParseAndReadSchema() {
-    doc_.Parse(reinterpret_cast<const rj::Document::Ch*>(data_->data()),
-               static_cast<size_t>(data_->size()));
-    if (doc_.HasParseError()) {
-      return Status::IOError("JSON parsing failed");
-    }
+    ARROW_ASSIGN_OR_RAISE(doc_,
+                          internal::ResolveSimdjsonResult(
+                              parser_.parse(reinterpret_cast<const char*>(data_->data()),
+                                            static_cast<size_t>(data_->size())),
+                              "Failed to parse JSON"));
 
     ARROW_ASSIGN_OR_RAISE(schema_, json::ReadSchema(doc_, pool_, &dictionary_memo_));
 
-    auto it = std::as_const(doc_).FindMember("batches");
-    RETURN_NOT_ARRAY("batches", it, doc_);
-    record_batches_ = &it->value;
+    ARROW_ASSIGN_OR_RAISE(auto batches,
+                          internal::ResolveSimdjsonResult(doc_["batches"].get_array(),
+                                                          "Failed to get batches"));
+
+    batches.get_values(record_batches_);
 
     return Status::OK();
   }
 
   Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) {
-    if (i < 0 || i >= static_cast<int>(record_batches_->GetArray().Size())) {
+    if (i < 0 || i >= static_cast<int>(record_batches_.size())) {
       return Status::IndexError("record batch index ", i, " out of bounds");
     }
-    return json::ReadRecordBatch(record_batches_->GetArray()[i], schema_,
-                                 &dictionary_memo_, pool_);
+
+    return json::ReadRecordBatch(record_batches_[i], schema_, &dictionary_memo_, pool_);
   }
 
   std::shared_ptr<Schema> schema() const { return schema_; }
 
-  int num_record_batches() const {
-    return static_cast<int>(record_batches_->GetArray().Size());
-  }
+  int num_record_batches() const { return static_cast<int>(record_batches_.size()); }
 
  private:
   MemoryPool* pool_;
   std::shared_ptr<Buffer> data_;
-  rj::Document doc_;
 
-  const rj::Value* record_batches_;
+  simdjson::dom::parser parser_;
+  JsonValue doc_;
+  std::vector<JsonValue> record_batches_;
+
   std::shared_ptr<Schema> schema_;
   DictionaryMemo dictionary_memo_;
 };

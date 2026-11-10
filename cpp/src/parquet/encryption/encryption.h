@@ -108,12 +108,6 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    PARQUET_DEPRECATED("name argument is ignored, use default constructor instead")
-    explicit Builder(const std::string& name) : encrypted_(true) {}
-
-    PARQUET_DEPRECATED("path argument is ignored, use default constructor instead")
-    explicit Builder(const schema::ColumnPath& path) : encrypted_(true) {}
-
     Builder() = default;
 
     /// Set a column-specific key.

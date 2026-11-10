@@ -52,4 +52,4 @@ gh run watch \
    --exit-status \
    --interval 60 \
    --repo "${REPOSITORY}" \
-   ${RUN_ID}
+   "${RUN_ID}"

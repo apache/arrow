@@ -58,7 +58,7 @@
  *                                  (instead of key retrieval callback).
  *  - Decryption Configuration 4:   PlainText Footer mode - test legacy reads,
  *                                  read the footer + all non-encrypted columns.
- *                                  (pairs with encryption configuration 3)
+ *                                  (pairs with encryption configurations 3 and 7)
  *
  * The encrypted parquet files that are read were encrypted using one of the
  * configurations below:
@@ -79,7 +79,9 @@
  *                                  identity storage in file metadata.
  *  - Encryption configuration 6:   Encrypt two columns and the footer, with different
  *                                  keys. Use the alternative (AES_GCM_CTR_V1) algorithm.
-
+ *  - Encryption configuration 7:   Encrypt two columns, with different keys.
+ *                                  Don't encrypt the footer.
+ *                                  Use the alternative (AES_GCM_CTR_V1) algorithm.
  */
 
 namespace parquet::encryption::test {
@@ -222,8 +224,10 @@ class TestDecryptionConfiguration
       }
     }
 
-    // decryption config 4 can only work when the encryption configuration is 3
-    if (decryption_config_num == 4 && encryption_config_num != 3) {
+    // decryption config 4 can only work with a plaintext footer (encryption
+    // configurations 3 and 7)
+    if (decryption_config_num == 4 && encryption_config_num != 3 &&
+        encryption_config_num != 7) {
       return;
     }
     EXPECT_NO_THROW(DecryptFile(file_name, decryption_config_num - 1));
@@ -290,6 +294,7 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple(4, "encrypt_columns_and_footer_aad.parquet.encrypted"),
         std::make_tuple(
             5, "encrypt_columns_and_footer_disable_aad_storage.parquet.encrypted"),
-        std::make_tuple(6, "encrypt_columns_and_footer_ctr.parquet.encrypted")));
+        std::make_tuple(6, "encrypt_columns_and_footer_ctr.parquet.encrypted"),
+        std::make_tuple(7, "encrypt_columns_plaintext_footer_ctr.parquet.encrypted")));
 
 }  // namespace parquet::encryption::test

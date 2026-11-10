@@ -22,23 +22,28 @@ class TestFlightTicket < Test::Unit::TestCase
 
   def test_data
     data = "data"
-    ticket = ArrowFlight::Ticket.new(data)
+    data_bytes = GLib::Bytes.new(data)
+    ticket = ArrowFlight::Ticket.new(data_bytes)
     assert_equal(data,
                  ticket.data.to_s)
   end
 
   sub_test_case("#==") do
     def test_true
-      ticket1 = ArrowFlight::Ticket.new("data")
-      ticket2 = ArrowFlight::Ticket.new("data")
+      data1 = GLib::Bytes.new("data")
+      data2 = GLib::Bytes.new("data")
+      ticket1 = ArrowFlight::Ticket.new(data1)
+      ticket2 = ArrowFlight::Ticket.new(data2)
       assert do
         ticket1 == ticket2
       end
     end
 
     def test_false
-      ticket1 = ArrowFlight::Ticket.new("data1")
-      ticket2 = ArrowFlight::Ticket.new("data2")
+      data1 = GLib::Bytes.new("data1")
+      data2 = GLib::Bytes.new("data2")
+      ticket1 = ArrowFlight::Ticket.new(data1)
+      ticket2 = ArrowFlight::Ticket.new(data2)
       assert do
         not (ticket1 == ticket2)
       end

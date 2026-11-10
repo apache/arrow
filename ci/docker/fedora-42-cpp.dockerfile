@@ -60,8 +60,10 @@ RUN dnf update -y && \
         python-pip \
         rapidjson-devel \
         re2-devel \
+        simdjson-devel \
         snappy-devel \
         thrift-devel \
+        uriparser-devel \
         utf8proc-devel \
         wget \
         which \
@@ -108,6 +110,6 @@ ENV ARROW_ACERO=ON \
     opentelemetry_cpp_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
-    PATH=/usr/lib/ccache/:$PATH \
     PYARROW_TEST_GANDIVA=OFF \
+    simdjson_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED

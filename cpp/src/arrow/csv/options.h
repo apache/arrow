@@ -61,6 +61,12 @@ struct ARROW_EXPORT ParseOptions {
   bool ignore_empty_lines = true;
   /// A handler function for rows which do not have the correct number of columns
   InvalidRowHandler invalid_row_handler;
+  /// Whether rows with fewer columns than expected are padded with nulls.
+  bool pad_short_rows = false;
+  /// Whether rows with more columns than expected should ignore the extra columns.
+  bool ignore_extra_columns = false;
+  /// Multi-character field delimiter.  If non-empty, overrides `delimiter`.
+  std::string delimiter_string;
 
   /// Create parsing options with default values
   static ParseOptions Defaults();

@@ -135,8 +135,8 @@ class DecimalFromStringTest : public ::testing::Test {
   void TestInvalidInput() {
     for (const std::string invalid_value :
          {"-", "0.0.0", "0-13-32", "a", "-23092.235-", "-+23092.235", "+-23092.235",
-          "00a", "1e1a", "0.00123D/3", "1.23eA8", "1.23E+3A", "-1.23E--5",
-          "1.2345E+++07"}) {
+          "00a", "1e1a", "0.00123D/3", "1.23eA8", "1.23E+3A", "-1.23E--5", "1.2345E+++07",
+          "0E-2147483648", "1.0E-2147483647"}) {
       ARROW_SCOPED_TRACE("invalid_value = '", invalid_value, "'");
       ASSERT_RAISES(Invalid, DecimalType::FromString(invalid_value));
     }

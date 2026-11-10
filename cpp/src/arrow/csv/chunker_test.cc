@@ -193,6 +193,47 @@ TEST_P(BaseChunkerTest, QuotingNewline) {
   }
 }
 
+TEST_P(BaseChunkerTest, MultiDelimiter) {
+  if (!options_.newlines_in_values) {
+    GTEST_SKIP() << "Quoted newlines require newlines_in_values";
+  }
+  options_.delimiter_string = "||";
+  options_.escaping = true;
+  MakeChunker();
+
+  // The escape breaks the delimiter prefix, so the quote before "me" is literal.
+  auto partial = std::make_shared<Buffer>("na|\\x|\"me|");
+  auto block = std::make_shared<Buffer>("|mes|sage||\"hello\nworld\"||42\nnext||row\n");
+  std::shared_ptr<Buffer> completion;
+  std::shared_ptr<Buffer> rest;
+  ASSERT_OK(chunker_->ProcessWithPartial(partial, block, &completion, &rest));
+  ASSERT_EQ(completion->ToString(), "|mes|sage||\"hello\nworld\"||42\n");
+  ASSERT_EQ(rest->ToString(), "next||row\n");
+
+  partial = std::make_shared<Buffer>("name|");
+  block = std::make_shared<Buffer>("|message");
+  ASSERT_RAISES(Invalid,
+                chunker_->ProcessWithPartial(partial, block, &completion, &rest));
+
+  // Long ordinary fields make the bulk filter profitable.
+  for (size_t padding : {0, 256}) {
+    const std::string row = std::string(padding, 'a') + "a|b||\"c\n d\"||e\n";
+    const std::string next_row = std::string(padding, 'n') + "next||row\n";
+    MakeChunker();
+    const auto lengths = {row.size(), next_row.size()};
+    AssertChunking(*chunker_, row + next_row, lengths);
+
+    for (size_t split = padding + 1; split < row.size(); ++split) {
+      ARROW_SCOPED_TRACE("padding = ", padding, ", split = ", split);
+      partial = Buffer::FromString(row.substr(0, split));
+      block = Buffer::FromString(row.substr(split) + next_row);
+      ASSERT_OK(chunker_->ProcessWithPartial(partial, block, &completion, &rest));
+      ASSERT_EQ(completion->ToString(), row.substr(split));
+      ASSERT_EQ(rest->ToString(), next_row);
+    }
+  }
+}
+
 TEST_P(BaseChunkerTest, QuotingUnbalanced) {
   // Quote introduces a quoted field that doesn't end
   auto csv = MakeCSVData({"a,b\n", "1,\",3,,5\n", "c,d\n"});
@@ -339,6 +380,26 @@ TEST_P(BaseChunkerTest, EscapingAndQuoting) {
       }
     }
   }
+}
+
+TEST_P(BaseChunkerTest, EmbeddedNulBytesDisableBulkFilter) {
+  // Regression test for GH-50481 in Lexer's own bulk filter (used for
+  // chunking, separately from BlockParser's).
+  //
+  // Lead-in with no structural bytes so ShouldUseBulkFilter's probe of the
+  // first 256 bytes decides to use the bulk filter here.
+  std::string lead_in(300, 'x');
+  // NUL right before the closing quote: the misaligned-SIMD-scan trigger.
+  std::string trigger_field = "abc";
+  trigger_field += '\0';
+  trigger_field += "def";
+  std::string first_row = lead_in + ",\"" + trigger_field + "\",tail\n";
+  // No trailing newline on the second row, so Process() must split it out
+  // as the partial remainder -- proving the first row's boundary was found.
+  std::string csv = first_row + "next";
+
+  MakeChunker();
+  AssertChunkSize(*chunker_, csv, static_cast<uint32_t>(first_row.size()));
 }
 
 TEST_P(BaseChunkerTest, ParseSkip) {

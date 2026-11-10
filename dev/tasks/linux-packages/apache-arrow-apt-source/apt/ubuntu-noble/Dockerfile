@@ -37,6 +37,7 @@ RUN \
     fakeroot \
     gnupg \
     libfaketime \
+    locales-all \
     lsb-release && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

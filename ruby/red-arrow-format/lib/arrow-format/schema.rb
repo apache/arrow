@@ -1,3 +1,4 @@
+# Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
@@ -25,6 +26,17 @@ module ArrowFormat
       @message_metadata = message_metadata
     end
 
+    def [](name_or_index)
+      case name_or_index
+      when Integer
+        @fields[name_or_index]
+      when Symbol
+        name_to_field[name_or_index.to_s]
+      else
+        name_to_field[name_or_index.to_str]
+      end
+    end
+
     def to_flatbuffers
       fb_schema = FB::Schema::Data.new
       fb_schema.endianness = FB::Endianness::LITTLE
@@ -32,6 +44,19 @@ module ArrowFormat
       fb_schema.custom_metadata = FB.build_custom_metadata(@metadata)
       # fb_schema.features = @features
       fb_schema
+    end
+
+    private
+    def name_to_field
+      @name_to_field ||= build_name_to_field
+    end
+
+    def build_name_to_field
+      name_to_field = {}
+      @fields.each do |field|
+        name_to_field[field.name] = field
+      end
+      name_to_field
     end
   end
 end

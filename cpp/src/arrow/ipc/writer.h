@@ -23,33 +23,16 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/io/type_fwd.h"
 #include "arrow/ipc/dictionary.h"  // IWYU pragma: export
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-
-class Array;
-class Buffer;
-class MemoryManager;
-class MemoryPool;
-class RecordBatch;
-class Schema;
-class Status;
-class Table;
-class Tensor;
-class SparseTensor;
-
-namespace io {
-
-class OutputStream;
-
-}  // namespace io
-
-namespace ipc {
+namespace arrow::ipc {
 
 /// \brief Intermediate data structure with metadata header, and zero
 /// or more buffers for the message body.
@@ -284,6 +267,9 @@ Status GetRecordBatchSize(const RecordBatch& batch, const IpcWriteOptions& optio
 /// \param[in] tensor the tensor to write
 /// \param[out] size the size of the complete encapsulated message
 /// \return Status
+ARROW_DEPRECATED(
+    "Tensor-specific IPC messages are deprecated in 26.0.0. "
+    "Use FixedShapeTensor extension arrays instead.")
 ARROW_EXPORT
 Status GetTensorSize(const Tensor& tensor, int64_t* size);
 
@@ -293,6 +279,9 @@ Status GetTensorSize(const Tensor& tensor, int64_t* size);
 /// \param[in] tensor the Tensor to write
 /// \param[in] pool MemoryPool to allocate space for metadata
 /// \return the resulting Message
+ARROW_DEPRECATED(
+    "Tensor-specific IPC messages are deprecated in 26.0.0. "
+    "Use FixedShapeTensor extension arrays instead.")
 ARROW_EXPORT
 Result<std::unique_ptr<Message>> GetTensorMessage(const Tensor& tensor, MemoryPool* pool);
 
@@ -312,6 +301,9 @@ Result<std::unique_ptr<Message>> GetTensorMessage(const Tensor& tensor, MemoryPo
 /// \param[out] metadata_length the actual metadata length, including padding
 /// \param[out] body_length the actual message body length
 /// \return Status
+ARROW_DEPRECATED(
+    "Tensor-specific IPC messages are deprecated in 26.0.0. "
+    "Use FixedShapeTensor extension arrays instead.")
 ARROW_EXPORT
 Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadata_length,
                    int64_t* body_length);
@@ -327,6 +319,9 @@ Status WriteTensor(const Tensor& tensor, io::OutputStream* dst, int32_t* metadat
 /// \param[in] sparse_tensor the SparseTensor to write
 /// \param[in] pool MemoryPool to allocate space for metadata
 /// \return the resulting Message
+ARROW_DEPRECATED(
+    "Tensor-specific IPC messages are deprecated in 26.0.0. "
+    "Use FixedShapeTensor extension arrays instead.")
 ARROW_EXPORT
 Result<std::unique_ptr<Message>> GetSparseTensorMessage(const SparseTensor& sparse_tensor,
                                                         MemoryPool* pool);
@@ -341,6 +336,9 @@ Result<std::unique_ptr<Message>> GetSparseTensorMessage(const SparseTensor& spar
 /// \param[out] metadata_length the actual metadata length, including padding
 /// \param[out] body_length the actual message body length
 /// \return Status
+ARROW_DEPRECATED(
+    "Tensor-specific IPC messages are deprecated in 26.0.0. "
+    "Use FixedShapeTensor extension arrays instead.")
 ARROW_EXPORT
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length);
@@ -413,6 +411,9 @@ Status WriteIpcPayload(const IpcPayload& payload, const IpcWriteOptions& options
 /// \param[in,out] pool for any required temporary memory allocations
 /// \param[out] out the returned IpcPayload
 /// \return Status
+ARROW_DEPRECATED(
+    "Tensor-specific IPC messages are deprecated in 26.0.0. "
+    "Use FixedShapeTensor extension arrays instead.")
 ARROW_EXPORT
 Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
                               IpcPayload* out);
@@ -471,5 +472,4 @@ Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
     const IpcWriteOptions& options = IpcWriteOptions::Defaults());
 
 }  // namespace internal
-}  // namespace ipc
-}  // namespace arrow
+}  // namespace arrow::ipc

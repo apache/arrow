@@ -772,6 +772,9 @@ garrow_table_validate_full(GArrowTable *table, GError **error)
   return garrow::check(error, arrow_table->ValidateFull(), "[table][validate-full]");
 }
 
+// The Feather C++ API is deprecated; this GLib binding still wraps it.
+ARROW_SUPPRESS_DEPRECATION_WARNING
+
 typedef struct GArrowFeatherWritePropertiesPrivate_
 {
   arrow::ipc::feather::WriteProperties properties;
@@ -932,6 +935,8 @@ garrow_table_write_as_feather(GArrowTable *table,
   return garrow::check(error, status, "[feather-write-file]");
 }
 
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
+
 G_END_DECLS
 
 GArrowTable *
@@ -948,9 +953,11 @@ garrow_table_get_raw(GArrowTable *table)
   return priv->table;
 }
 
+ARROW_SUPPRESS_DEPRECATION_WARNING
 arrow::ipc::feather::WriteProperties *
 garrow_feather_write_properties_get_raw(GArrowFeatherWriteProperties *properties)
 {
   auto priv = GARROW_FEATHER_WRITE_PROPERTIES_GET_PRIVATE(properties);
   return &(priv->properties);
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING

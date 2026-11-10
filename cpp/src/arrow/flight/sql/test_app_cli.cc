@@ -18,8 +18,6 @@
 #include "arrow/util/config.h"
 
 #include <gflags/gflags.h>
-#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
-#include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -33,6 +31,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/string.h"
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 #  include "arrow/flight/otel_logging.h"
@@ -74,6 +73,15 @@ DEFINE_string(query, "", "Query");
 DEFINE_string(catalog, "", "Catalog");
 DEFINE_string(schema, "", "Schema");
 DEFINE_string(table, "", "Table");
+
+namespace {
+
+bool AsciiStartsWithCaseInsensitive(std::string_view value, std::string_view prefix) {
+  return value.size() >= prefix.size() && arrow::internal::AsciiEqualsCaseInsensitive(
+                                              value.substr(0, prefix.size()), prefix);
+}
+
+}  // namespace
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 class OtelScope {
@@ -234,7 +242,7 @@ Status RunMain() {
   }
 
   if (info != NULLPTR &&
-      !boost::istarts_with(FLAGS_command, "PreparedStatementExecute")) {
+      !AsciiStartsWithCaseInsensitive(FLAGS_command, "PreparedStatementExecute")) {
     return PrintResults(sql_client, call_options, info);
   }
 

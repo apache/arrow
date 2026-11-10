@@ -17,6 +17,7 @@
 
 #include "arrow/compute/row/row_encoder_internal.h"
 
+#include "arrow/array/builder_binary.h"
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging_internal.h"
 
@@ -63,13 +64,13 @@ Status KeyEncoder::DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encod
 }
 
 void BooleanKeyEncoder::AddLength(const ExecValue&, int64_t batch_length,
-                                  int32_t* lengths) {
+                                  int64_t* lengths) {
   for (int64_t i = 0; i < batch_length; ++i) {
     lengths[i] += kByteWidth + kExtraByteForNull;
   }
 }
 
-void BooleanKeyEncoder::AddLengthNull(int32_t* length) {
+void BooleanKeyEncoder::AddLengthNull(int64_t* length) {
   *length += kByteWidth + kExtraByteForNull;
 }
 
@@ -133,13 +134,13 @@ Result<std::shared_ptr<ArrayData>> BooleanKeyEncoder::Decode(uint8_t** encoded_b
 }
 
 void FixedWidthKeyEncoder::AddLength(const ExecValue&, int64_t batch_length,
-                                     int32_t* lengths) {
+                                     int64_t* lengths) {
   for (int64_t i = 0; i < batch_length; ++i) {
     lengths[i] += byte_width_ + kExtraByteForNull;
   }
 }
 
-void FixedWidthKeyEncoder::AddLengthNull(int32_t* length) {
+void FixedWidthKeyEncoder::AddLengthNull(int64_t* length) {
   *length += byte_width_ + kExtraByteForNull;
 }
 
@@ -196,7 +197,8 @@ Result<std::shared_ptr<ArrayData>> FixedWidthKeyEncoder::Decode(uint8_t** encode
   int32_t null_count;
   RETURN_NOT_OK(DecodeNulls(pool, length, encoded_bytes, &null_buf, &null_count));
 
-  ARROW_ASSIGN_OR_RAISE(auto key_buf, AllocateBuffer(length * byte_width_, pool));
+  ARROW_ASSIGN_OR_RAISE(auto key_buf,
+                        AllocateBuffer(int64_t{length} * byte_width_, pool));
 
   uint8_t* raw_output = key_buf->mutable_data();
   for (int32_t i = 0; i < length; ++i) {
@@ -256,6 +258,34 @@ Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encode
   return data;
 }
 
+Result<std::shared_ptr<ArrayData>> BinaryViewKeyEncoder::Decode(uint8_t** encoded_bytes,
+                                                                int32_t length,
+                                                                MemoryPool* pool) {
+  // Build a fresh view array; MakeBuilder gives the type-faithful builder and
+  // Append handles inline vs. out-of-line storage.
+  std::unique_ptr<ArrayBuilder> builder;
+  RETURN_NOT_OK(MakeBuilder(pool, type_, &builder));
+  auto& view_builder = checked_cast<BinaryViewBuilder&>(*builder);
+  RETURN_NOT_OK(view_builder.Reserve(length));
+
+  for (int32_t i = 0; i < length; ++i) {
+    uint8_t*& encoded_ptr = encoded_bytes[i];
+    const bool is_valid = (*encoded_ptr++ == kValidByte);
+    const auto key_length = util::SafeLoadAs<Offset>(encoded_ptr);
+    encoded_ptr += sizeof(Offset);
+    if (is_valid) {
+      RETURN_NOT_OK(view_builder.Append(encoded_ptr, key_length));
+    } else {
+      RETURN_NOT_OK(view_builder.AppendNull());
+    }
+    encoded_ptr += key_length;  // zero for null rows
+  }
+
+  std::shared_ptr<Array> out;
+  RETURN_NOT_OK(view_builder.Finish(&out));
+  return out->data();
+}
+
 void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx) {
   ctx_ = ctx;
   encoders_.resize(column_types.size());
@@ -301,11 +331,16 @@ void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* 
       continue;
     }
 
+    if (is_binary_view_like(type.id())) {
+      encoders_[i] = std::make_shared<BinaryViewKeyEncoder>(type.GetSharedPtr());
+      continue;
+    }
+
     // We should not get here
     ARROW_DCHECK(false);
   }
 
-  int32_t total_length = 0;
+  int64_t total_length = 0;
   for (size_t i = 0; i < column_types.size(); ++i) {
     encoders_[i]->AddLengthNull(&total_length);
   }
@@ -322,34 +357,33 @@ void RowEncoder::Clear() {
 }
 
 Status RowEncoder::EncodeAndAppend(const ExecSpan& batch) {
+  const int64_t batch_length = batch.length;
   if (offsets_.empty()) {
     offsets_.resize(1);
     offsets_[0] = 0;
   }
   size_t length_before = offsets_.size() - 1;
-  offsets_.resize(length_before + batch.length + 1);
-  for (int64_t i = 0; i < batch.length; ++i) {
-    offsets_[length_before + 1 + i] = 0;
-  }
+  // resize value-initializes the new offsets to zero.
+  offsets_.resize(length_before + batch_length + 1);
 
   for (int i = 0; i < batch.num_values(); ++i) {
-    encoders_[i]->AddLength(batch[i], batch.length, offsets_.data() + length_before + 1);
+    encoders_[i]->AddLength(batch[i], batch_length, offsets_.data() + length_before + 1);
   }
 
-  int32_t total_length = offsets_[length_before];
-  for (int64_t i = 0; i < batch.length; ++i) {
+  int64_t total_length = offsets_[length_before];
+  for (int64_t i = 0; i < batch_length; ++i) {
     total_length += offsets_[length_before + 1 + i];
     offsets_[length_before + 1 + i] = total_length;
   }
 
   bytes_.resize(total_length);
-  std::vector<uint8_t*> buf_ptrs(batch.length);
-  for (int64_t i = 0; i < batch.length; ++i) {
+  std::vector<uint8_t*> buf_ptrs(batch_length);
+  for (int64_t i = 0; i < batch_length; ++i) {
     buf_ptrs[i] = bytes_.data() + offsets_[length_before + i];
   }
 
   for (int i = 0; i < batch.num_values(); ++i) {
-    RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, buf_ptrs.data()));
+    RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch_length, buf_ptrs.data()));
   }
 
   return Status::OK();

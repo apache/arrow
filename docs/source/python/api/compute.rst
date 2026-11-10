@@ -95,12 +95,17 @@ throws an ``ArrowInvalid`` exception when overflow is detected.
    divide_checked
    exp
    expm1
+   hypot
+   modulo
+   modulo_checked
    multiply
    multiply_checked
    negate
    negate_checked
    power
    power_checked
+   remainder
+   remainder_checked
    sign
    sqrt
    sqrt_checked
@@ -568,6 +573,7 @@ Structural Transforms
    fill_null
    fill_null_backward
    fill_null_forward
+   list_contains
    list_element
    list_flatten
    list_parent_indices
@@ -598,7 +604,6 @@ Compute Options
    CastOptions
    CountOptions
    CumulativeOptions
-   CumulativeSumOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
    ElementWiseAggregateOptions

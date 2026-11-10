@@ -91,7 +91,7 @@ jobs:
       TEST_APT: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -135,7 +135,7 @@ jobs:
       TEST_BINARY: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Run
@@ -160,10 +160,10 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: 3
       - name: Setup Archery
@@ -201,14 +201,14 @@ jobs:
       fail-fast: false
       matrix:
         runs-on:
-          - macos-15-intel
-          - macos-14
+          - macos-26-intel
+          - macos-26
     env:
       RC: ${{ needs.target.outputs.rc }}
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Run
@@ -228,11 +228,11 @@ jobs:
       TEST_WHEELS: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           submodules: recursive
-      - uses: conda-incubator/setup-miniconda@8ee1f361103df19b6f8c8655fd3967a8ecb162d5 # v4.0.1
+      - uses: conda-incubator/setup-miniconda@be893c923ea9cf1cf7cd510fbdde27c7e18cbdcb # v4.1.0
       - name: Install System Dependencies
         run: |
           choco install --no-progress --yes boost-msvc-14.1
@@ -251,7 +251,7 @@ jobs:
     name: Yum
     needs: target
     runs-on: ${{ matrix.runs-on }}
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -263,7 +263,7 @@ jobs:
       TEST_YUM: "1"
       VERSION: ${{ needs.target.outputs.version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0

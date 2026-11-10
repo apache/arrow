@@ -159,6 +159,12 @@ struct BloomFilterBuilderFoldingTestCase {
   int64_t expected_bitset_ndv;
 };
 
+void PrintTo(const BloomFilterBuilderFoldingTestCase& test_case, std::ostream* os) {
+  *os << "{ndv=" << test_case.ndv << ", fold=" << test_case.fold
+      << ", inserted_count=" << test_case.inserted_count
+      << ", expected_bitset_ndv=" << test_case.expected_bitset_ndv << "}";
+}
+
 class BloomFilterBuilderFoldingTest
     : public ::testing::TestWithParam<BloomFilterBuilderFoldingTestCase> {};
 

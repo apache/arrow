@@ -28,16 +28,17 @@ ARG yarn=1.22
 ARG jdk=17
 
 # Install Archery and integration dependencies
+# jpype1 is installed here rather than with pip in integration_arrow.sh, as
+# PyPI may not yet have wheels for the Python version selected by conda
+# and building jpype1 from source requires Apache Ant.
 COPY ci/conda_env_archery.txt /arrow/ci/
 
-# Pin Python until pythonnet is made compatible with 3.12
-# (https://github.com/pythonnet/pythonnet/pull/2249)
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_archery.txt \
-        "python < 3.12" \
         numpy \
         compilers \
-        go \
+        go-cgo \
+        jpype1 \
         maven=${maven} \
         nodejs=${node} \
         yarn=${yarn} \

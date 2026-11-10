@@ -491,7 +491,8 @@ It has the following fields:
    The buffer pointers MAY be null only in two situations:
 
    1. for the null bitmap buffer, if :c:member:`ArrowArray.null_count` is 0;
-   2. for any buffer, if the size in bytes of the corresponding buffer would be 0.
+   2. for any buffer (including variadic buffers), if the size in bytes of the
+      corresponding buffer would be 0.
 
    Buffers of children arrays are not included.
 

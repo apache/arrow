@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cmath>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -27,6 +29,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
+#include "arrow/util/compression.h"
 #include "arrow/util/config.h"
 #include "arrow/util/key_value_metadata.h"
 
@@ -100,8 +103,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
     ReaderProperties readerProperties;
     readerProperties.set_page_checksum_verification(page_checksum_verify);
-    std::unique_ptr<PageReader> page_reader =
-        PageReader::Open(std::move(source), num_rows, compression, readerProperties);
+    std::unique_ptr<PageReader> page_reader = PageReader::Open(
+        std::move(source), num_rows, compression, readerProperties, *this->descr_);
     reader_ = std::static_pointer_cast<TypedColumnReader<TestType>>(
         ColumnReader::Make(this->descr_, std::move(page_reader)));
   }
@@ -112,7 +115,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
       const ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
       bool enable_checksum = false, int64_t page_size = kDefaultDataPageSize,
-      int64_t max_rows_per_page = kDefaultMaxRowsPerPage) {
+      int64_t max_rows_per_page = kDefaultMaxRowsPerPage,
+      double min_compression_savings = kDefaultMinCompressionSavings) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version)->data_page_version(data_page_version);
@@ -130,6 +134,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
     wp_builder.data_pagesize(page_size);
     wp_builder.max_rows_per_page(max_rows_per_page);
+    wp_builder.min_compression_savings(min_compression_savings);
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
@@ -176,6 +181,40 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                                           enable_statistics, num_rows, compression_level,
                                           enable_checksum);
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
+  }
+
+  // Round-trip an optional ALP column through a DataPageV2 page. Optional pages
+  // carry definition levels, and when every value is null the encoder is flushed
+  // with no values at all.
+  void TestAlpOptionalDataPageV2(int num_nulls) {
+    ASSERT_LE(num_nulls, SMALL_SIZE);
+    this->SetUpSchema(Repetition::OPTIONAL);
+    this->descr_ = this->schema_.Column(0);
+    this->GenerateData(SMALL_SIZE);
+
+    // The nulls come first, so the values the writer consumes are the leading
+    // SMALL_SIZE - num_nulls entries of `values_`.
+    std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
+    for (int i = 0; i < num_nulls; ++i) {
+      definition_levels[i] = 0;
+    }
+
+    ColumnProperties column_properties;
+    column_properties.set_encoding(Encoding::ALP);
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2);
+    writer->WriteBatch(SMALL_SIZE, definition_levels.data(), nullptr, this->values_ptr_);
+    writer->Close();
+
+    ASSERT_EQ(SMALL_SIZE, this->metadata_num_values());
+
+    this->ReadColumn();
+    const int64_t num_expected = SMALL_SIZE - num_nulls;
+    ASSERT_EQ(num_expected, this->values_read_);
+    this->values_out_.resize(num_expected);
+    this->values_.resize(num_expected);
+    ASSERT_EQ(this->values_, this->values_out_);
   }
 
   void TestRequiredWithCodecOptions(Encoding::type encoding,
@@ -2058,8 +2097,9 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
     ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
     auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
     ReaderProperties readerProperties;
-    std::unique_ptr<PageReader> page_reader = PageReader::Open(
-        std::move(source), total_num_values, compression, readerProperties);
+    std::unique_ptr<PageReader> page_reader =
+        PageReader::Open(std::move(source), total_num_values, compression,
+                         readerProperties, *this->descr_);
     auto data_page = std::static_pointer_cast<DataPageV2>(page_reader->NextPage());
     ASSERT_TRUE(data_page != nullptr);
     ASSERT_FALSE(data_page->is_compressed());
@@ -2083,6 +2123,66 @@ TEST_F(TestValuesWriterInt32Type, AvoidCompressedInDataPageV2) {
     verify_only_one_uncompressed_page(/*total_num_values=*/1);
   }
 }
+
+// Tests the default, fixed thresholds, and both sides of the actual savings.
+TEST_F(TestValuesWriterInt32Type, MinCompressionSavingsDataPageV2) {
+  // Used zeros because it compresses well
+  this->SetUpSchema(Repetition::OPTIONAL);
+  this->descr_ = this->schema_.Column(0);
+  this->GenerateData(SMALL_SIZE);
+  std::fill(this->values_.begin(), this->values_.end(), 0);
+  std::fill(this->def_levels_.begin(), this->def_levels_.end(), 1);
+
+  ColumnProperties column_properties;
+  column_properties.set_compression(Compression::ZSTD);
+
+  // PLAIN-encoded int32 zeros have the same bytes as the input values.
+  auto codec = GetCodec(Compression::ZSTD);
+  const int64_t values_size = SMALL_SIZE * sizeof(int32_t);
+  const auto* values_bytes = reinterpret_cast<const uint8_t*>(this->values_ptr_);
+  std::vector<uint8_t> compressed(codec->MaxCompressedLen(values_size, values_bytes));
+  ASSERT_OK_AND_ASSIGN(
+      auto compressed_size,
+      codec->Compress(values_size, values_bytes, compressed.size(), compressed.data()));
+  const double savings = 1.0 - static_cast<double>(compressed_size) / values_size;
+  ASSERT_GT(savings, 0.01);
+  ASSERT_LT(savings, 0.99);
+
+  const std::vector<std::pair<double, bool>> cases = {
+      {kDefaultMinCompressionSavings, true},
+      {0.0, true},
+      {0.1, true},
+      {1.0, false},
+      {savings - 0.01, true},
+      {savings + 0.01, false},
+  };
+
+  for (const auto& [minimum, expected_compressed] : cases) {
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, column_properties, ParquetVersion::PARQUET_2_LATEST,
+                          ParquetDataPageVersion::V2, false, kDefaultDataPageSize,
+                          kDefaultMaxRowsPerPage, minimum);
+
+    writer->WriteBatch(SMALL_SIZE, this->def_levels_.data(), nullptr, this->values_ptr_);
+    writer->Close();
+
+    ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
+
+    auto page_reader =
+        PageReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer), SMALL_SIZE,
+                         Compression::ZSTD, default_reader_properties(), *this->descr_);
+
+    auto page = page_reader->NextPage();
+
+    ASSERT_NE(page, nullptr);
+    ASSERT_EQ(PageType::DATA_PAGE_V2, page->type());
+
+    auto data_page = std::static_pointer_cast<DataPageV2>(page);
+
+    ASSERT_EQ(expected_compressed, data_page->is_compressed());
+  }
+}
+
 #endif
 
 // Test writing and reading geometry columns
@@ -2472,6 +2572,53 @@ TYPED_TEST(TestBloomFilterWriter, Basic) {
       EXPECT_TRUE(this->bloom_filter_->FindHash(this->bloom_filter_->Hash(value)));
     }
   }
+}
+
+// ----------------------------------------------------------------------
+// ALP Encoding Tests for Float/Double Columns
+// ----------------------------------------------------------------------
+
+using TestFloatValuesWriter = TestPrimitiveWriter<FloatType>;
+using TestDoubleValuesWriter = TestPrimitiveWriter<DoubleType>;
+
+TEST_F(TestFloatValuesWriter, RequiredAlpEncoding) {
+  this->TestRequiredWithEncoding(Encoding::ALP);
+}
+
+TEST_F(TestDoubleValuesWriter, RequiredAlpEncoding) {
+  this->TestRequiredWithEncoding(Encoding::ALP);
+}
+
+// ALP pages still go through a codec and carry statistics; ZSTD is what the
+// interop fixture uses.
+#ifdef ARROW_WITH_ZSTD
+TEST_F(TestFloatValuesWriter, AlpWithZstdCompressionAndStats) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::ZSTD, false, true,
+                                 LARGE_SIZE);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpWithZstdCompressionAndStats) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::ZSTD, false, true,
+                                 LARGE_SIZE);
+}
+#endif
+
+// ALP on an optional column with DataPageV2 pages
+TEST_F(TestFloatValuesWriter, AlpOptionalDataPageV2) {
+  this->TestAlpOptionalDataPageV2(/*num_nulls=*/3);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpOptionalDataPageV2) {
+  this->TestAlpOptionalDataPageV2(/*num_nulls=*/3);
+}
+
+// An all-null page holds no values, so its ALP payload is a bare header
+TEST_F(TestFloatValuesWriter, AlpAllNullDataPageV2) {
+  this->TestAlpOptionalDataPageV2(/*num_nulls=*/SMALL_SIZE);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpAllNullDataPageV2) {
+  this->TestAlpOptionalDataPageV2(/*num_nulls=*/SMALL_SIZE);
 }
 
 }  // namespace test

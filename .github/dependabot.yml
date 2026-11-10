@@ -24,3 +24,8 @@ updates:
     commit-message:
       prefix: "MINOR: [CI] "
     open-pull-requests-limit: 10
+    groups:
+      apache-infrastructure-actions-stash:
+        patterns:
+          - "apache/infrastructure-actions/stash/save"
+          - "apache/infrastructure-actions/stash/restore"

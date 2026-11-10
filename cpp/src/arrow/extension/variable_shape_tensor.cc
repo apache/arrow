@@ -17,22 +17,21 @@
 
 #include <sstream>
 
+#include <simdjson.h>
+
 #include "arrow/extension/tensor_internal.h"
 #include "arrow/extension/variable_shape_tensor.h"
 
 #include "arrow/array/array_primitive.h"
-#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/scalar.h"
 #include "arrow/tensor.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/print_internal.h"
+#include "arrow/util/simdjson_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/util/string.h"
 
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-
-namespace rj = arrow::rapidjson;
+using ::arrow::internal::JsonWriter;
 
 namespace arrow::extension {
 
@@ -82,42 +81,47 @@ std::string VariableShapeTensorType::ToString(bool show_metadata) const {
 }
 
 std::string VariableShapeTensorType::Serialize() const {
-  rj::Document document;
-  document.SetObject();
-  rj::Document::AllocatorType& allocator = document.GetAllocator();
+  JsonWriter writer;
+
+  writer.StartObject();
 
   if (!permutation_.empty()) {
-    rj::Value permutation(rj::kArrayType);
+    writer.Key("permutation");
+    writer.StartArray();
     for (auto v : permutation_) {
-      permutation.PushBack(v, allocator);
+      writer.Int64(v);
     }
-    document.AddMember(rj::Value("permutation", allocator), permutation, allocator);
+    writer.EndArray();
   }
 
   if (!dim_names_.empty()) {
-    rj::Value dim_names(rj::kArrayType);
-    for (const std::string& v : dim_names_) {
-      dim_names.PushBack(rj::Value{}.SetString(v.c_str(), allocator), allocator);
+    writer.Key("dim_names");
+    writer.StartArray();
+    for (const auto& v : dim_names_) {
+      writer.String(v);
     }
-    document.AddMember(rj::Value("dim_names", allocator), dim_names, allocator);
+    writer.EndArray();
   }
 
   if (!uniform_shape_.empty()) {
-    rj::Value uniform_shape(rj::kArrayType);
-    for (auto v : uniform_shape_) {
+    writer.Key("uniform_shape");
+    writer.StartArray();
+    for (const auto& v : uniform_shape_) {
       if (v.has_value()) {
-        uniform_shape.PushBack(v.value(), allocator);
+        writer.Int64(*v);
       } else {
-        uniform_shape.PushBack(rj::Value{}.SetNull(), allocator);
+        writer.Null();
       }
     }
-    document.AddMember(rj::Value("uniform_shape", allocator), uniform_shape, allocator);
+    writer.EndArray();
   }
 
-  rj::StringBuffer buffer;
-  rj::Writer<rj::StringBuffer> writer(buffer);
-  document.Accept(writer);
-  return buffer.GetString();
+  writer.EndObject();
+
+  Result<std::string_view> json = writer.GetString();
+  // can only fail in OutOfMemory scenarios
+  ARROW_CHECK_OK(json.status());
+  return std::string(*json);
 }
 
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
@@ -149,63 +153,46 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
       internal::checked_cast<const FixedSizeListType&>(*storage_type->field(1)->type())
           .list_size();
 
-  rj::Document document;
-  if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError() ||
-      !document.IsObject()) {
-    return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
-  }
+  simdjson::dom::parser parser;
+  ARROW_ASSIGN_OR_RAISE(auto object, internal::ParseJsonObject(parser, serialized_data));
+
+  ARROW_ASSIGN_OR_RAISE(auto permutation_value,
+                        internal::GetOptionalJsonField(object, "permutation"));
 
   std::vector<int64_t> permutation;
-  if (document.HasMember("permutation")) {
-    const auto& json_permutation = document["permutation"];
-    if (!json_permutation.IsArray()) {
-      return Status::Invalid("permutation must be an array, got ",
-                             internal::JsonTypeName(json_permutation));
-    }
-    permutation.reserve(ndim);
-    for (const auto& x : json_permutation.GetArray()) {
-      if (!x.IsInt64()) {
-        return Status::Invalid("permutation must contain integers, got ",
-                               internal::JsonTypeName(x));
-      }
-      permutation.emplace_back(x.GetInt64());
+  if (permutation_value.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(permutation,
+                          internal::GetJsonIntArray(*permutation_value, "permutation"));
+
+    if (permutation.size() != static_cast<size_t>(ndim)) {
+      return Status::Invalid("Invalid permutation");
     }
     RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
+
+  ARROW_ASSIGN_OR_RAISE(auto dim_names_value,
+                        internal::GetOptionalJsonField(object, "dim_names"));
+
   std::vector<std::string> dim_names;
-  if (document.HasMember("dim_names")) {
-    const auto& json_dim_names = document["dim_names"];
-    if (!json_dim_names.IsArray()) {
-      return Status::Invalid("dim_names must be an array, got ",
-                             internal::JsonTypeName(json_dim_names));
-    }
-    dim_names.reserve(ndim);
-    for (const auto& x : json_dim_names.GetArray()) {
-      if (!x.IsString()) {
-        return Status::Invalid("dim_names must contain strings, got ",
-                               internal::JsonTypeName(x));
-      }
-      dim_names.emplace_back(x.GetString());
+  if (dim_names_value.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(dim_names,
+                          internal::GetJsonStringArray(*dim_names_value, "dim_names"));
+
+    if (dim_names.size() != static_cast<size_t>(ndim)) {
+      return Status::Invalid("Invalid dim_names");
     }
   }
 
+  ARROW_ASSIGN_OR_RAISE(auto uniform_shape_value,
+                        internal::GetOptionalJsonField(object, "uniform_shape"));
+
   std::vector<std::optional<int64_t>> uniform_shape;
-  if (document.HasMember("uniform_shape")) {
-    const auto& json_uniform_shape = document["uniform_shape"];
-    if (!json_uniform_shape.IsArray()) {
-      return Status::Invalid("uniform_shape must be an array, got ",
-                             internal::JsonTypeName(json_uniform_shape));
-    }
-    uniform_shape.reserve(ndim);
-    for (const auto& x : json_uniform_shape.GetArray()) {
-      if (x.IsNull()) {
-        uniform_shape.emplace_back(std::nullopt);
-      } else if (x.IsInt64()) {
-        uniform_shape.emplace_back(x.GetInt64());
-      } else {
-        return Status::Invalid("uniform_shape must contain integers or nulls, got ",
-                               internal::JsonTypeName(x));
-      }
+  if (uniform_shape_value.has_value()) {
+    ARROW_ASSIGN_OR_RAISE(uniform_shape, internal::GetJsonNullableIntArray(
+                                             *uniform_shape_value, "uniform_shape"));
+
+    if (uniform_shape.size() != static_cast<size_t>(ndim)) {
+      return Status::Invalid("Invalid uniform_shape");
     }
   }
 

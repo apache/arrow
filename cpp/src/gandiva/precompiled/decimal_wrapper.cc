@@ -423,11 +423,23 @@ FORCE_INLINE
 char* castVARCHAR_decimal128_int64(int64_t context, int64_t x_high, uint64_t x_low,
                                    int32_t x_precision, int32_t x_scale,
                                    int64_t out_len_param, int32_t* out_length) {
+  if (out_len_param < 0) {
+    gdv_fn_context_set_error_msg(context, "Output buffer length can't be negative");
+    *out_length = 0;
+    return const_cast<char*>("");
+  }
   int32_t full_dec_str_len;
   char* dec_str =
       gdv_fn_dec_to_string(context, x_high, x_low, x_scale, &full_dec_str_len);
-  int32_t trunc_dec_str_len =
-      out_len_param < full_dec_str_len ? out_len_param : full_dec_str_len;
+  if (dec_str == nullptr) {
+    // Allocation failed upstream; error message is already set. Avoid copying from
+    // an invalid buffer with a non-zero length.
+    *out_length = 0;
+    return const_cast<char*>("");
+  }
+  int32_t trunc_dec_str_len = out_len_param < full_dec_str_len
+                                  ? static_cast<int32_t>(out_len_param)
+                                  : full_dec_str_len;
   *out_length = trunc_dec_str_len;
   return dec_str;
 }

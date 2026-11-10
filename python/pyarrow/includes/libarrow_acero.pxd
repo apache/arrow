@@ -42,6 +42,9 @@ cdef extern from "arrow/acero/options.h" namespace "arrow::acero" nogil:
         CTableSourceNodeOptions(shared_ptr[CTable] table)
         CTableSourceNodeOptions(shared_ptr[CTable] table, int64_t max_batch_size)
 
+    cdef cppclass CRecordBatchReaderSourceNodeOptions "arrow::acero::RecordBatchReaderSourceNodeOptions"(CExecNodeOptions):
+        CRecordBatchReaderSourceNodeOptions(shared_ptr[CRecordBatchReader] reader)
+
     cdef cppclass CSinkNodeOptions "arrow::acero::SinkNodeOptions"(CExecNodeOptions):
         pass
 

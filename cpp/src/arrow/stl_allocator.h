@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -72,6 +73,9 @@ class allocator {
   const_pointer address(const_reference r) const noexcept { return std::addressof(r); }
 
   pointer allocate(size_type n, const void* /*hint*/ = NULLPTR) {
+    if (n > size_max() || n > std::numeric_limits<int64_t>::max() / sizeof(T)) {
+      throw BadAlloc(Status::OutOfMemory("Memory allocation size too large"));
+    }
     uint8_t* data;
     Status s = pool_->Allocate(n * sizeof(T), &data);
     if (!s.ok()) throw BadAlloc(std::move(s));

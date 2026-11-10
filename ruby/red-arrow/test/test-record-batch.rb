@@ -184,5 +184,89 @@ class RecordBatchTest < Test::Unit::TestCase
         assert_equal(@counts.size, @record_batch[:count].size)
       end
     end
+
+    sub_test_case("#merge") do
+      def setup
+        @count_array = Arrow::UInt8Array.new([1, 2, 4, 8])
+        @visible_array = Arrow::BooleanArray.new([true, false, nil, true])
+
+        @record_batch = Arrow::RecordBatch.new(
+          count: @count_array,
+          visible: @visible_array,
+        )
+      end
+
+      test("add column") do
+        name_array = Arrow::StringArray.new(["a", "b", "c", "d"])
+
+        expected = Arrow::RecordBatch.new(
+          count: @count_array,
+          visible: @visible_array,
+          name: name_array,
+        )
+
+        assert_equal(expected,
+                     @record_batch.merge(name: name_array))
+      end
+      test("remove column") do
+        expected = Arrow::RecordBatch.new(
+          count: @count_array,
+        )
+
+        assert_equal(expected,
+                     @record_batch.merge(visible: nil))
+      end
+
+      test("replace column") do
+        visible_array = Arrow::Int32Array.new([1, 1, 1, 1])
+
+        expected = Arrow::RecordBatch.new(
+          count: @count_array,
+          visible: visible_array,
+        )
+
+        assert_equal(expected,
+                     @record_batch.merge(visible: visible_array))
+      end
+
+      test("merge record batch add") do
+        name_array = Arrow::StringArray.new(["a", "b", "c", "d"])
+
+        other = Arrow::RecordBatch.new(
+          name: name_array,
+        )
+
+        expected = Arrow::RecordBatch.new(
+          count: @count_array,
+          visible: @visible_array,
+          name: name_array,
+        )
+
+        assert_equal(expected,
+                     @record_batch.merge(other))
+      end
+
+      test("merge record batch replace") do
+        visible_array = Arrow::Int32Array.new([1, 1, 1, 1])
+
+        other = Arrow::RecordBatch.new(
+          visible: visible_array,
+        )
+
+        expected = Arrow::RecordBatch.new(
+          count: @count_array,
+          visible: visible_array,
+        )
+
+        assert_equal(expected,
+                     @record_batch.merge(other))
+      end
+
+      test("invalid target") do
+        assert_raise(ArgumentError) do
+          @record_batch.merge(29)
+        end
+      end
+    end
   end
 end

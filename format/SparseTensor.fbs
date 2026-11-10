@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// EXPERIMENTAL: Metadata for n-dimensional sparse arrays, aka "sparse tensors".
+/// DEPRECATED: Metadata for n-dimensional sparse arrays, aka "sparse tensors".
 /// Arrow implementations in general are not required to implement this type
 
 include "Tensor.fbs";
@@ -206,6 +206,11 @@ union SparseTensorIndex {
   SparseTensorIndexCSF
 }
 
+/// DEPRECATED. Unlike dense tensors (see Tensor.fbs), the SparseTensor message
+/// currently doesn't have a recommended replacement as a RecordBatch column type.
+/// Feel free to discuss this on the development mailing-list (*) if this use case
+/// is important to you.
+/// (*) see https://arrow.apache.org/community/
 table SparseTensor {
   /// The type of data contained in a value cell.
   /// Currently only fixed-width value types are supported,

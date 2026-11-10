@@ -74,7 +74,15 @@ macro(arrow_find_dependencies dependencies)
         endif()
       endif()
     endif()
-    find_dependency(${dependency})
+    if(${dependency} STREQUAL "opentelemetry-cpp")
+      find_dependency(${dependency}
+                      COMPONENTS
+                      exporters_ostream
+                      exporters_otlp_http
+                      sdk)
+    else()
+      find_dependency(${dependency})
+    endif()
     if(ARROW_OPENSSL_HOMEBREW_MAKE_DETECTABLE)
       set(OPENSSL_ROOT_DIR ${ARROW_OPENSSL_ROOT_DIR_ORIGINAL})
     endif()

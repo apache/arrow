@@ -73,10 +73,12 @@ Status PairwiseExecImpl(KernelContext* ctx, const ArraySpan& input,
   }
   result->null_count = null_count;
   // prepare input span
+  // SetSlice overwrites offset. Keep the input's offset so a sliced
+  // array is not read from the start of the parent buffer.
   ArraySpan left(input);
-  left.SetSlice(left_start, computed_length);
+  left.SetSlice(input.offset + left_start, computed_length);
   ArraySpan right(input);
-  right.SetSlice(right_start, computed_length);
+  right.SetSlice(input.offset + right_start, computed_length);
   // prepare output span
   ArraySpan output_span;
   output_span.SetMembers(*result);

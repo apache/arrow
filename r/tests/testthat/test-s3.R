@@ -45,9 +45,9 @@ if (run_these) {
   now <- as.numeric(Sys.time())
   on.exit(bucket$DeleteDir(now))
 
-  test_that("read/write Feather on S3", {
-    write_feather(example_data, bucket_uri(now, "test.feather"))
-    expect_identical(read_feather(bucket_uri(now, "test.feather")), example_data)
+  test_that("read/write IPC on S3", {
+    write_ipc_file(example_data, bucket_uri(now, "test.arrow"))
+    expect_identical(read_ipc_file(bucket_uri(now, "test.arrow")), example_data)
   })
 
   test_that("read/write Parquet on S3", {

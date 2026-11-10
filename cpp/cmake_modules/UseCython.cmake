@@ -154,9 +154,7 @@ function(compile_pyx
             "${CMAKE_CURRENT_BINARY_DIR}/${output_file}"
             "${CMAKE_CURRENT_SOURCE_DIR}/${pyx_file}"
     DEPENDS ${pyx_location}
-            # Do not specify byproducts for now since they don't work with the older
-            # version of cmake available in the apt repositories.
-            #BYPRODUCTS ${_generated_files}
+    BYPRODUCTS ${_generated_files}
     COMMENT ${comment})
 
   # Remove their visibility to the user.

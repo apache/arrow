@@ -17,6 +17,7 @@
 
 #include "arrow/scalar.h"
 
+#include <chrono>
 #include <memory>
 #include <ostream>
 #include <sstream>
@@ -31,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/chrono_internal.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/hashing.h"
@@ -770,6 +772,30 @@ DictionaryScalar::DictionaryScalar(std::shared_ptr<DataType> type)
                             0)
                 .ValueOrDie()} {}
 
+namespace {
+
+struct DictionaryIndexValueImpl {
+  int64_t value = 0;
+
+  Status Visit(const Scalar& scalar) {
+    return Status::TypeError("Invalid dictionary index type: ", scalar.type->ToString());
+  }
+
+  template <typename ScalarType, typename Type = typename ScalarType::TypeClass>
+  enable_if_integer<Type, Status> Visit(const ScalarType& scalar) {
+    value = static_cast<int64_t>(scalar.value);
+    return Status::OK();
+  }
+};
+
+Result<int64_t> DictionaryIndexValue(const Scalar& index) {
+  DictionaryIndexValueImpl impl;
+  RETURN_NOT_OK(VisitScalarInline(index, &impl));
+  return impl.value;
+}
+
+}  // namespace
+
 Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
   const auto& dict_type = checked_cast<DictionaryType&>(*type);
 
@@ -777,45 +803,19 @@ Result<std::shared_ptr<Scalar>> DictionaryScalar::GetEncodedValue() const {
     return MakeNullScalar(dict_type.value_type());
   }
 
-  int64_t index_value = 0;
-  switch (dict_type.index_type()->id()) {
-    case Type::UINT8:
-      index_value =
-          static_cast<int64_t>(checked_cast<const UInt8Scalar&>(*value.index).value);
-      break;
-    case Type::INT8:
-      index_value =
-          static_cast<int64_t>(checked_cast<const Int8Scalar&>(*value.index).value);
-      break;
-    case Type::UINT16:
-      index_value =
-          static_cast<int64_t>(checked_cast<const UInt16Scalar&>(*value.index).value);
-      break;
-    case Type::INT16:
-      index_value =
-          static_cast<int64_t>(checked_cast<const Int16Scalar&>(*value.index).value);
-      break;
-    case Type::UINT32:
-      index_value =
-          static_cast<int64_t>(checked_cast<const UInt32Scalar&>(*value.index).value);
-      break;
-    case Type::INT32:
-      index_value =
-          static_cast<int64_t>(checked_cast<const Int32Scalar&>(*value.index).value);
-      break;
-    case Type::UINT64:
-      index_value =
-          static_cast<int64_t>(checked_cast<const UInt64Scalar&>(*value.index).value);
-      break;
-    case Type::INT64:
-      index_value =
-          static_cast<int64_t>(checked_cast<const Int64Scalar&>(*value.index).value);
-      break;
-    default:
-      return Status::TypeError("Not implemented dictionary index type");
-      break;
-  }
+  ARROW_ASSIGN_OR_RAISE(int64_t index_value, DictionaryIndexValue(*value.index));
   return value.dictionary->GetScalar(index_value);
+}
+
+bool DictionaryScalar::IsLogicalNull() const {
+  if (!is_valid) {
+    return true;
+  }
+  const auto& dict = value.dictionary;
+  int64_t index_value = DictionaryIndexValue(*value.index).ValueOrDie();
+  DCHECK_GE(index_value, 0);
+  DCHECK_LT(index_value, dict->length());
+  return dict->IsNull(index_value);
 }
 
 std::shared_ptr<DictionaryScalar> DictionaryScalar::Make(std::shared_ptr<Scalar> index,
@@ -1193,13 +1193,13 @@ constexpr int64_t kMillisecondsInDay = 86400000;
 
 // date to date
 template <typename To>
-enable_if_t<std::is_same<To, Date64Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date64Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const Date32Scalar& from, std::shared_ptr<DataType> to_type) {
   return std::make_shared<Date64Scalar>(from.value * kMillisecondsInDay,
                                         std::move(to_type));
 }
 template <typename To>
-enable_if_t<std::is_same<To, Date32Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date32Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const Date64Scalar& from, std::shared_ptr<DataType> to_type) {
   return std::make_shared<Date32Scalar>(
       static_cast<int32_t>(from.value / kMillisecondsInDay), std::move(to_type));
@@ -1207,27 +1207,31 @@ CastImpl(const Date64Scalar& from, std::shared_ptr<DataType> to_type) {
 
 // timestamp to date
 template <typename To>
-enable_if_t<std::is_same<To, Date64Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date64Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const TimestampScalar& from, std::shared_ptr<DataType> to_type) {
   ARROW_ASSIGN_OR_RAISE(
       auto millis,
       util::ConvertTimestampValue(from.type, timestamp(TimeUnit::MILLI), from.value));
-  return std::make_shared<Date64Scalar>(millis - millis % kMillisecondsInDay,
+  const auto days_since_epoch =
+      internal::chrono::floor<internal::chrono::days>(std::chrono::milliseconds{millis});
+  return std::make_shared<Date64Scalar>(days_since_epoch.count() * kMillisecondsInDay,
                                         std::move(to_type));
 }
 template <typename To>
-enable_if_t<std::is_same<To, Date32Scalar>::value, Result<std::shared_ptr<Scalar>>>
+enable_if_t<std::is_same<To, Date32Type>::value, Result<std::shared_ptr<Scalar>>>
 CastImpl(const TimestampScalar& from, std::shared_ptr<DataType> to_type) {
   ARROW_ASSIGN_OR_RAISE(
       auto millis,
       util::ConvertTimestampValue(from.type, timestamp(TimeUnit::MILLI), from.value));
-  return std::make_shared<Date32Scalar>(static_cast<int32_t>(millis / kMillisecondsInDay),
+  const auto days_since_epoch =
+      internal::chrono::floor<internal::chrono::days>(std::chrono::milliseconds{millis});
+  return std::make_shared<Date32Scalar>(static_cast<int32_t>(days_since_epoch.count()),
                                         std::move(to_type));
 }
 
 // date to timestamp
 template <typename To, typename From>
-enable_if_timestamp<Result<std::shared_ptr<To>>> CastImpl(
+enable_if_timestamp<To, Result<std::shared_ptr<Scalar>>> CastImpl(
     const DateScalar<From>& from, std::shared_ptr<DataType> to_type) {
   using ToScalar = typename TypeTraits<To>::ScalarType;
   int64_t millis = from.value;

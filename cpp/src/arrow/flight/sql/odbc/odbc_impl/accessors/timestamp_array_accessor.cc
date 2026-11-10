@@ -95,7 +95,7 @@ RowStatus TimestampArrayFlightSqlAccessor<TARGET_TYPE, UNIT>::MoveSingleCellImpl
           ? ((value + 1) / divisor) - 1
           // Towards zero is already floor
           : value / divisor;
-  tm timestamp = {0};
+  tm timestamp{};
 
   GetTimeForSecondsSinceEpoch(converted_result_seconds, timestamp);
 

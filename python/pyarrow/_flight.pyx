@@ -21,7 +21,6 @@ import collections
 import enum
 import re
 import time
-import warnings
 import weakref
 
 from cython.operator cimport dereference as deref
@@ -181,7 +180,7 @@ class CertKeyPair(_CertKeyPair):
     """A TLS certificate and key for use in Flight."""
 
 
-cdef class FlightError(Exception):
+class FlightError(Exception):
     """
     The base class for Flight-specific errors.
 
@@ -201,73 +200,65 @@ cdef class FlightError(Exception):
     extra_info : bytes
         Extra binary error details that were provided by the
         server/will be sent to the client.
-  """
-
-    cdef dict __dict__
+    """
 
     def __init__(self, message='', extra_info=b''):
         super().__init__(message)
         self.extra_info = tobytes(extra_info)
 
-    cdef CStatus to_status(self):
-        message = tobytes(f"Flight error: {self}")
-        return CStatus_UnknownError(message)
 
-
-cdef class FlightInternalError(FlightError, ArrowException):
+class FlightInternalError(FlightError, ArrowException):
     """An error internal to the Flight server occurred."""
 
-    cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusInternal,
-                               tobytes(str(self)), self.extra_info)
 
-
-cdef class FlightTimedOutError(FlightError, ArrowException):
+class FlightTimedOutError(FlightError, ArrowException):
     """The Flight RPC call timed out."""
 
-    cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusTimedOut,
-                               tobytes(str(self)), self.extra_info)
 
-
-cdef class FlightCancelledError(FlightError, ArrowCancelled):
+class FlightCancelledError(FlightError, ArrowCancelled):
     """The operation was cancelled."""
 
-    cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)),
-                               self.extra_info)
 
-
-cdef class FlightServerError(FlightError, ArrowException):
+class FlightServerError(FlightError, ArrowException):
     """A server error occurred."""
 
-    cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusFailed, tobytes(str(self)),
-                               self.extra_info)
 
-
-cdef class FlightUnauthenticatedError(FlightError, ArrowException):
+class FlightUnauthenticatedError(FlightError, ArrowException):
     """The client is not authenticated."""
 
-    cdef CStatus to_status(self):
-        return MakeFlightError(
-            CFlightStatusUnauthenticated, tobytes(str(self)), self.extra_info)
 
-
-cdef class FlightUnauthorizedError(FlightError, ArrowException):
+class FlightUnauthorizedError(FlightError, ArrowException):
     """The client is not authorized to perform the given operation."""
 
-    cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusUnauthorized, tobytes(str(self)),
-                               self.extra_info)
 
-
-cdef class FlightUnavailableError(FlightError, ArrowException):
+class FlightUnavailableError(FlightError, ArrowException):
     """The server is not reachable or available."""
 
-    cdef CStatus to_status(self):
-        return MakeFlightError(CFlightStatusUnavailable, tobytes(str(self)),
-                               self.extra_info)
+
+cdef CStatus _flight_error_to_status(error) except *:
+    extra_info = tobytes(getattr(error, "extra_info", b""))
+    if isinstance(error, FlightInternalError):
+        return MakeFlightError(CFlightStatusInternal, tobytes(str(error)),
+                               extra_info)
+    elif isinstance(error, FlightTimedOutError):
+        return MakeFlightError(CFlightStatusTimedOut, tobytes(str(error)),
+                               extra_info)
+    elif isinstance(error, FlightCancelledError):
+        return MakeFlightError(CFlightStatusCancelled, tobytes(str(error)),
+                               extra_info)
+    elif isinstance(error, FlightServerError):
+        return MakeFlightError(CFlightStatusFailed, tobytes(str(error)),
+                               extra_info)
+    elif isinstance(error, FlightUnauthenticatedError):
+        return MakeFlightError(CFlightStatusUnauthenticated, tobytes(str(error)),
+                               extra_info)
+    elif isinstance(error, FlightUnauthorizedError):
+        return MakeFlightError(CFlightStatusUnauthorized, tobytes(str(error)),
+                               extra_info)
+    elif isinstance(error, FlightUnavailableError):
+        return MakeFlightError(CFlightStatusUnavailable, tobytes(str(error)),
+                               extra_info)
+    return CStatus_UnknownError(tobytes(f"Flight error: {error}"))
 
 
 class FlightWriteSizeExceededError(ArrowInvalid):
@@ -1239,7 +1230,7 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
             check_flight_status(
                 self._writer().WriteRecordBatch(deref(batch.batch), custom_metadata))
 
-    def write_table(self, Table table, max_chunksize=None, **kwargs):
+    def write_table(self, Table table, max_chunksize=None):
         """
         Write Table to stream in (contiguous) RecordBatch objects.
 
@@ -1253,13 +1244,6 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
         cdef:
             # max_chunksize must be > 0 to have any impact
             int64_t c_max_chunksize = -1
-
-        if 'chunksize' in kwargs:
-            max_chunksize = kwargs['chunksize']
-            msg = ('The parameter chunksize is deprecated for the write_table '
-                   'methods as of 0.15, please use parameter '
-                   'max_chunksize instead')
-            warnings.warn(msg, FutureWarning)
 
         if max_chunksize is not None:
             c_max_chunksize = max_chunksize
@@ -1530,25 +1514,6 @@ cdef class FlightClient(_Weakrefable):
                 break
             else:
                 break
-
-    @classmethod
-    def connect(cls, location, tls_root_certs=None, cert_chain=None,
-                private_key=None, override_hostname=None,
-                disable_server_verification=None):
-        """Connect to a Flight server.
-
-        .. deprecated:: 0.15.0
-            Use the ``FlightClient`` constructor or ``pyarrow.flight.connect`` function instead.
-        """
-        warnings.warn("The 'FlightClient.connect' method is deprecated, use "
-                      "FlightClient constructor or pyarrow.flight.connect "
-                      "function instead")
-        return FlightClient(
-            location, tls_root_certs=tls_root_certs,
-            cert_chain=cert_chain, private_key=private_key,
-            override_hostname=override_hostname,
-            disable_server_verification=disable_server_verification
-        )
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server.
@@ -2140,7 +2105,7 @@ cdef CStatus _data_stream_next(void* self, CFlightPayload* payload) except *:
             payload.ipc_message.metadata.reset(<CBuffer*> nullptr)
             return CStatus_OK()
         except FlightError as flight_error:
-            return (<FlightError> flight_error).to_status()
+            return _flight_error_to_status(flight_error)
 
         if isinstance(result, (list, tuple)):
             result, metadata = result
@@ -2214,7 +2179,7 @@ cdef CStatus _list_flights(void* self, const CServerCallContext& context,
             flights.push_back(deref((<FlightInfo> info).info.get()))
         listing.reset(new CSimpleFlightListing(flights))
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     return CStatus_OK()
 
 
@@ -2231,7 +2196,7 @@ cdef CStatus _get_flight_info(void* self, const CServerCallContext& context,
             ServerCallContext.wrap(context),
             py_descriptor)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     if not isinstance(result, FlightInfo):
         raise TypeError("FlightServerBase.get_flight_info must return "
                         f"a FlightInfo instance, but got {type(result)}")
@@ -2272,7 +2237,7 @@ cdef CStatus _do_put(void* self, const CServerCallContext& context,
                                py_reader, py_writer)
         return CStatus_OK()
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
 
 
 cdef CStatus _do_get(void* self, const CServerCallContext& context,
@@ -2287,7 +2252,7 @@ cdef CStatus _do_get(void* self, const CServerCallContext& context,
         result = (<object> self).do_get(ServerCallContext.wrap(context),
                                         py_ticket)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     if not isinstance(result, FlightDataStream):
         raise TypeError("FlightServerBase.do_get must return "
                         "a FlightDataStream")
@@ -2316,7 +2281,7 @@ cdef CStatus _do_exchange(void* self, const CServerCallContext& context,
                                     descriptor, py_reader, py_writer)
         return CStatus_OK()
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
 
 
 cdef CStatus _do_action_result_next(
@@ -2336,7 +2301,7 @@ cdef CStatus _do_action_result_next(
     except StopIteration:
         result.reset(nullptr)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     return CStatus_OK()
 
 
@@ -2351,7 +2316,7 @@ cdef CStatus _do_action(void* self, const CServerCallContext& context,
         responses = (<object> self).do_action(ServerCallContext.wrap(context),
                                               py_action)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     # Let the application return an iterator or anything convertible
     # into one
     if responses is None:
@@ -2377,7 +2342,7 @@ cdef CStatus _list_actions(void* self, const CServerCallContext& context,
             action_type.description = tobytes(action[1])
             actions.push_back(action_type)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     return CStatus_OK()
 
 
@@ -2389,7 +2354,7 @@ cdef CStatus _server_authenticate(void* self, CServerAuthSender* outgoing,
     try:
         (<object> self).authenticate(sender, reader)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     finally:
         sender.poison()
         reader.poison()
@@ -2403,7 +2368,7 @@ cdef CStatus _is_valid(void* self, const c_string& token,
         c_result = tobytes((<object> self).is_valid(token))
         peer_identity[0] = c_result
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     return CStatus_OK()
 
 
@@ -2415,7 +2380,7 @@ cdef CStatus _client_authenticate(void* self, CClientAuthSender* outgoing,
     try:
         (<object> self).authenticate(sender, reader)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     finally:
         sender.poison()
         reader.poison()
@@ -2429,7 +2394,7 @@ cdef CStatus _get_token(void* self, c_string* token) except *:
         c_result = tobytes((<object> self).get_token())
         token[0] = c_result
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     return CStatus_OK()
 
 
@@ -2439,7 +2404,7 @@ cdef CStatus _middleware_sending_headers(
     try:
         headers = (<object> self).sending_headers()
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
 
     if headers:
         for header, values in headers.items():
@@ -2471,7 +2436,7 @@ cdef CStatus _middleware_call_completed(
         else:
             (<object> self).call_completed(None)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     return CStatus_OK()
 
 
@@ -2483,7 +2448,7 @@ cdef CStatus _middleware_received_headers(
         headers = convert_headers(c_headers)
         (<object> self).received_headers(headers)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
     return CStatus_OK()
 
 
@@ -2516,7 +2481,7 @@ cdef CStatus _server_middleware_start_call(
         headers = convert_headers(c_headers)
         instance = (<object> self).start_call(call_info, headers)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
 
     if instance:
         ServerMiddleware.wrap(instance, c_instance)
@@ -2534,7 +2499,7 @@ cdef CStatus _client_middleware_start_call(
         call_info = wrap_call_info(c_info)
         instance = (<object> self).start_call(call_info)
     except FlightError as flight_error:
-        return (<FlightError> flight_error).to_status()
+        return _flight_error_to_status(flight_error)
 
     if instance:
         ClientMiddleware.wrap(instance, c_instance)
@@ -2891,10 +2856,9 @@ cdef class _FlightServerFinalizer(_Weakrefable):
         try:
             with nogil:
                 status = server.Shutdown()
-                if status.ok():
-                    status = server.Wait()
             check_flight_status(status)
         finally:
+            server.ReleasePythonServerRef()
             self.server.reset()
 
 
@@ -3214,16 +3178,6 @@ cdef class FlightServerBase(_Weakrefable):
         with nogil:
             check_flight_status(self.server.get().ServeWithSignals())
 
-    def run(self):
-        """Block until the server shuts down.
-
-        .. deprecated:: 0.15.0
-            Use the ``FlightServer.serve`` method instead
-        """
-        warnings.warn("The 'FlightServer.run' method is deprecated, use "
-                      "FlightServer.serve method instead")
-        self.serve()
-
     def shutdown(self):
         """Shut down the server, blocking until current requests finish.
 
@@ -3242,6 +3196,7 @@ cdef class FlightServerBase(_Weakrefable):
             raise ValueError("shutdown() on uninitialized FlightServerBase")
         with nogil:
             check_flight_status(self.server.get().Shutdown())
+        self.server.get().ReleasePythonServerRef()
 
     def wait(self):
         """Block until server is terminated with shutdown."""

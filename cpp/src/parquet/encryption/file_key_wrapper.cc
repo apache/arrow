@@ -40,7 +40,7 @@ FileKeyWrapper::FileKeyWrapper(KeyToolkit* key_toolkit,
   key_toolkit->kms_client_cache_per_token().CheckCacheForExpiredTokens(
       cache_entry_lifetime_seconds_);
   kms_client_ =
-      key_toolkit->GetKmsClient(kms_connection_config, cache_entry_lifetime_seconds_);
+      key_toolkit->GetKmsClient(kms_connection_config_, cache_entry_lifetime_seconds_);
 
   if (double_wrapping) {
     key_toolkit->kek_write_cache_per_token().CheckCacheForExpiredTokens(

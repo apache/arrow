@@ -29,7 +29,7 @@
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-25.0.0-SNAPSHOT/apache-arrow-25.0.0-SNAPSHOT.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-27.0.0-SNAPSHOT/apache-arrow-27.0.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   license "Apache-2.0"
   head "https://github.com/apache/arrow.git", branch: "main"
@@ -46,31 +46,34 @@ class ApacheArrow < Formula
   depends_on "grpc"
   depends_on "llvm"
   depends_on "lz4"
-  depends_on "openssl@3"
+  depends_on "openssl@4"
   depends_on "protobuf"
   depends_on "re2"
+  depends_on "simdjson"
   depends_on "snappy"
   depends_on "thrift"
+  depends_on "uriparser"
   depends_on "utf8proc"
   depends_on "zstd"
 
   uses_from_macos "python" => :build
   uses_from_macos "bzip2"
-  uses_from_macos "zlib"
 
-  # Issue ref: https://github.com/protocolbuffers/protobuf/issues/19447
+  on_linux do
+    depends_on "zlib-ng-compat"
+  end
+
   fails_with :gcc do
     version "12"
-    cause "Protobuf 29+ generated code with visibility and deprecated attributes needs GCC 13+"
+    cause "fails handling PROTOBUF_FUTURE_ADD_EARLY_WARN_UNUSED"
   end
 
   def install
-    ENV.llvm_clang if OS.linux?
+    ENV.runtime_cpu_detection
 
-    # We set `ARROW_ORC=OFF` because it fails to build with Protobuf 27.0
     args = %W[
       -DCMAKE_INSTALL_RPATH=#{rpath}
-      -DLLVM_ROOT=#{Formula["llvm"].opt_prefix}
+      -DLLVM_ROOT=#{formula_opt_prefix("llvm")}
       -DARROW_DEPENDENCY_SOURCE=SYSTEM
       -DARROW_ACERO=ON
       -DARROW_COMPUTE=ON
@@ -96,15 +99,14 @@ class ApacheArrow < Formula
       -DARROW_INSTALL_NAME_RPATH=OFF
       -DPARQUET_BUILD_EXECUTABLES=ON
     ]
-    args << "-DARROW_MIMALLOC=ON" unless Hardware::CPU.arm?
-    # Reduce overlinking. Can remove on Linux if GCC 11 issue is fixed
-    args << "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,#{OS.mac? ? "-dead_strip_dylibs" : "--as-needed"}"
+    args << "-DCMAKE_SHARED_LINKER_FLAGS=-Wl,-dead_strip_dylibs" if OS.mac? # Reduce overlinking
+
     # ARROW_SIMD_LEVEL sets the minimum required SIMD. Since this defaults to
     # SSE4.2 on x86_64, we need to reduce level to match oldest supported CPU.
     # Ref: https://arrow.apache.org/docs/cpp/env_vars.html#envvar-ARROW_USER_SIMD_LEVEL
-    if build.bottle? && Hardware::CPU.intel? && (!OS.mac? || !MacOS.version.requires_sse42?)
-      args << "-DARROW_SIMD_LEVEL=NONE"
-    end
+    #
+    # NOTE: Do not remove this while Core 2 is oldest supported CPU
+    args << "-DARROW_SIMD_LEVEL=NONE" if Hardware::CPU.intel?
 
     system "cmake", "-S", "cpp", "-B", "build", *args, *std_cmake_args
     system "cmake", "--build", "build"
@@ -112,8 +114,6 @@ class ApacheArrow < Formula
   end
 
   test do
-    ENV.method(DevelopmentTools.default_compiler).call if OS.linux?
-
     (testpath/"test.cpp").write <<~CPP
       #include "arrow/api.h"
       int main(void) {

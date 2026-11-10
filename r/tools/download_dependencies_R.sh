@@ -45,7 +45,7 @@ download_dependency() {
   local url=$1
   local out=$2
 
-  echo 'download.file("'${url}'", "'${out}'", quiet = TRUE)'
+  echo "download.file(\"${url}\", \"${out}\", quiet = TRUE)"
 }
 
 print_tar_name() {
@@ -56,7 +56,7 @@ print_tar_name() {
 
 main() {
   # Load `DEPENDENCIES` variable.
-  source ${SOURCE_DIR}/cpp/thirdparty/versions.txt
+  source "${SOURCE_DIR}/cpp/thirdparty/versions.txt"
 
   for ((i = 0; i < ${#DEPENDENCIES[@]}; i++)); do
     local dep_packed=${DEPENDENCIES[$i]}
@@ -65,7 +65,7 @@ main() {
     IFS=" " read -r dep_url_var dep_tar_name dep_url <<< "${dep_packed}"
 
     if [[ "$run_mode" == "download_dependency" ]]; then
-      local out=${DESTDIR}/${dep_tar_name}
+      local out="${DESTDIR}/${dep_tar_name}"
       download_dependency "${dep_url}" "${out}"
     elif [[ "$run_mode" == "print_tar_name" ]]; then
       print_tar_name "${dep_url_var}" "${dep_tar_name}"

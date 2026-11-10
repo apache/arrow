@@ -24,6 +24,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
+#include "arrow/memory_pool.h"
 
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
@@ -44,6 +45,22 @@ TEST(TestReaderProperties, Basics) {
   ASSERT_FALSE(props.page_checksum_verification());
 }
 
+TEST(TestReaderProperties, SetMemoryPool) {
+  ReaderProperties props;
+  ASSERT_EQ(props.memory_pool(), ::arrow::default_memory_pool());
+
+  ::arrow::ProxyMemoryPool custom_pool(::arrow::default_memory_pool());
+  props.set_memory_pool(&custom_pool);
+  ASSERT_EQ(props.memory_pool(), &custom_pool);
+
+  ReaderProperties copied_props = props;
+  ASSERT_EQ(copied_props.memory_pool(), &custom_pool);
+
+  copied_props.set_memory_pool(::arrow::default_memory_pool());
+  ASSERT_EQ(copied_props.memory_pool(), ::arrow::default_memory_pool());
+  ASSERT_EQ(props.memory_pool(), &custom_pool);
+}
+
 TEST(TestWriterProperties, Basics) {
   std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
 
@@ -61,6 +78,53 @@ TEST(TestWriterProperties, DefaultCompression) {
             Compression::UNCOMPRESSED);
   ASSERT_EQ(props->compression_level(ColumnPath::FromDotString("any")),
             ::arrow::util::kUseDefaultCompressionLevel);
+}
+
+// Checks the default, stored, and copied min_compression_savings.
+TEST(TestWriterProperties, MinCompressionSavings) {
+  WriterProperties::Builder builder;
+  ASSERT_EQ(0.01, builder.build()->min_compression_savings());
+
+  builder.data_page_version(ParquetDataPageVersion::V2);
+  for (double savings : {0.0, kDefaultMinCompressionSavings, 0.1, 1.0}) {
+    auto properties = builder.min_compression_savings(savings)->build();
+    ASSERT_EQ(savings, properties->min_compression_savings());
+
+    auto copied = WriterProperties::Builder(*properties).build();
+    ASSERT_EQ(properties->min_compression_savings(), copied->min_compression_savings());
+  }
+
+  auto properties = builder.min_compression_savings(0.0)->build();
+  ASSERT_EQ(0.0, properties->min_compression_savings());
+}
+
+// Tests for invalid settings
+TEST(TestWriterProperties, InvalidMinCompressionSavings) {
+  for (double savings : {-0.1, 1.1, std::numeric_limits<double>::infinity(),
+                         -std::numeric_limits<double>::infinity(),
+                         std::numeric_limits<double>::quiet_NaN()}) {
+    EXPECT_THROW(WriterProperties::Builder().min_compression_savings(savings),
+                 ParquetException);
+  }
+}
+
+TEST(TestWriterProperties, MinCompressionSavingsRequiresDataPageV2) {
+  for (double savings : {2 * kDefaultMinCompressionSavings, 0.1, 1.0}) {
+    WriterProperties::Builder builder;
+    builder.min_compression_savings(savings);
+    EXPECT_THROW(builder.build(), ParquetException);
+
+    builder.data_page_version(ParquetDataPageVersion::V2);
+    EXPECT_NO_THROW(builder.build());
+
+    builder.data_page_version(ParquetDataPageVersion::V1);
+    EXPECT_THROW(builder.build(), ParquetException);
+
+    builder.min_compression_savings(0.0);
+    EXPECT_NO_THROW(builder.build());
+    builder.min_compression_savings(kDefaultMinCompressionSavings);
+    EXPECT_NO_THROW(builder.build());
+  }
 }
 
 TEST(TestWriterProperties, AdvancedHandling) {

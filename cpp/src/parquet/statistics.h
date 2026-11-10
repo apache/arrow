@@ -401,7 +401,9 @@ std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
 /// \param[in] num_values number of values
 /// \param[in] null_count number of null values
 /// \param[in] distinct_count number of distinct values
+/// \note Deprecated in 26.0.0. Use a ColumnDescriptor-based overload instead.
 template <typename DType>
+PARQUET_DEPRECATED("Deprecated in 26.0.0. Use a ColumnDescriptor-based overload instead.")
 std::shared_ptr<TypedStatistics<DType>> MakeStatistics(const typename DType::c_type& min,
                                                        const typename DType::c_type& max,
                                                        int64_t num_values,

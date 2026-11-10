@@ -908,12 +908,29 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
 
   Status AppendNdarray(PyObject* value) {
     PyArrayObject* ndarray = reinterpret_cast<PyArrayObject*>(value);
-    if (PyArray_NDIM(ndarray) != 1) {
-      return Status::Invalid("Can only convert 1-dimensional array values");
-    }
     if (PyArray_ISBYTESWAPPED(ndarray)) {
       // TODO
       return Status::NotImplemented("Byte-swapped arrays not supported");
+    }
+    OwnedRef flattened;
+    if (PyArray_NDIM(ndarray) != 1) {
+      // GH-49644: a fixed-size list (e.g. fixed-shape-tensor storage) is built
+      // from a multi- or 0-dimensional array by flattening it in C order.
+      if (this->list_type_->id() != Type::FIXED_SIZE_LIST) {
+        return Status::Invalid("Can only convert 1-dimensional array values of ",
+                               this->list_type_->ToString(), " to a variable-sized list");
+      }
+      // Get an aligned, C-contiguous array (copying only if needed).
+      PyObject* contiguous =
+          PyArray_CheckFromAny(value, nullptr, /*min_depth=*/0, /*max_depth=*/0,
+                               NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_ALIGNED, nullptr);
+      RETURN_IF_PYERROR();
+      flattened.reset(
+          PyArray_Ravel(reinterpret_cast<PyArrayObject*>(contiguous), NPY_CORDER));
+      Py_DECREF(contiguous);
+      RETURN_IF_PYERROR();
+      value = flattened.obj();
+      ndarray = reinterpret_cast<PyArrayObject*>(value);
     }
     const int64_t size = PyArray_SIZE(ndarray);
     RETURN_NOT_OK(AppendTo(this->list_type_, size));
@@ -1242,6 +1259,7 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
     OwnedRef iter_ref(iter);
     PyObject* lst = PyList_New(n);
     RETURN_IF_PYERROR();
+    OwnedRef lst_ref(lst);
     for (i = 0; i < n; i++) {
       PyObject* item = PyIter_Next(iter);
       if (!item) {
@@ -1253,10 +1271,9 @@ Status ConvertToSequenceAndInferSize(PyObject* obj, PyObject** seq, int64_t* siz
     }
     // Shrink list if len(iterator) < size
     if (i < n && PyList_SetSlice(lst, i, n, NULL)) {
-      Py_DECREF(lst);
       RETURN_IF_PYERROR();
     }
-    *seq = lst;
+    *seq = lst_ref.detach();
     *size = std::min<int64_t>(i, *size);
   }
   return Status::OK();

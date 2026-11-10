@@ -393,6 +393,19 @@ TypeHolder CommonBinary(const TypeHolder* begin, size_t count) {
   return large_binary();
 }
 
+Status ValidateComparison(const DataType& lhs, const DataType& rhs) {
+  if (lhs.id() == Type::TIMESTAMP && rhs.id() == Type::TIMESTAMP) {
+    const auto& lhs_timestamp = checked_cast<const TimestampType&>(lhs);
+    const auto& rhs_timestamp = checked_cast<const TimestampType&>(rhs);
+    if (lhs_timestamp.timezone().empty() ^ rhs_timestamp.timezone().empty()) {
+      return Status::Invalid(
+          "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
+          lhs, " and ", rhs);
+    }
+  }
+  return Status::OK();
+}
+
 bool CastableToDecimal(const DataType& type) {
   return is_numeric(type.id()) || is_decimal(type.id());
 }

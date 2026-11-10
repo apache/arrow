@@ -34,6 +34,7 @@
 #include <flatbuffers/flatbuffers.h>  // IWYU pragma: export
 
 #include "arrow/array.h"
+#include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/caching.h"
@@ -79,6 +80,7 @@ namespace flatbuf = org::apache::arrow::flatbuf;
 using internal::AddWithOverflow;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::MultiplyWithOverflow;
 
 namespace ipc {
 
@@ -454,6 +456,20 @@ class ArrayLoader {
 
   Status Visit(const MapType& type) {
     RETURN_NOT_OK(LoadList(type));
+    DCHECK_EQ(out_->child_data.size(), 1);  // ensured by LoadList()
+    // Ensure that GetNullCount() calls in MapArray::ValidateChildData
+    // don't access invalid memory.
+    // We cannot call array validation as it will fail on non-native endianness
+    // (due to checking the last offset on variable-width data) or missing
+    // dictionaries (they are not yet populated at this point).
+    const ArrayData& child_data = *out_->child_data[0];
+    if (child_data.null_count != 0) {
+      return Status::Invalid("Map array child array should have no nulls");
+    }
+    if (!child_data.child_data.empty() && child_data.child_data[0]->null_count != 0) {
+      return Status::Invalid("Map array keys array should have no nulls");
+    }
+    // If we don't do this, MapArray::SetData will abort on invalid data.
     return MapArray::ValidateChildData(out_->child_data);
   }
 
@@ -573,8 +589,7 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
                            actual_decompressed);
   }
 
-  // R build with openSUSE155 requires an explicit shared_ptr construction
-  return std::shared_ptr<Buffer>(std::move(uncompressed));
+  return uncompressed;
 }
 
 Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
@@ -765,7 +780,8 @@ Status GetCompressionExperimental(const flatbuf::Message* message,
   if (message->custom_metadata() != nullptr) {
     // TODO: Ensure this deserialization only ever happens once
     std::shared_ptr<KeyValueMetadata> metadata;
-    RETURN_NOT_OK(internal::GetKeyValueMetadata(message->custom_metadata(), &metadata));
+    ARROW_ASSIGN_OR_RAISE(metadata,
+                          internal::GetKeyValueMetadata(message->custom_metadata()));
     int index = metadata->FindKey("ARROW:experimental_compression");
     if (index != -1) {
       // Arrow 0.17 stored string in upper case, internal utils now require lower case
@@ -810,8 +826,8 @@ Result<RecordBatchWithMetadata> ReadRecordBatchInternal(
 
   std::shared_ptr<KeyValueMetadata> custom_metadata;
   if (message->custom_metadata() != nullptr) {
-    RETURN_NOT_OK(
-        internal::GetKeyValueMetadata(message->custom_metadata(), &custom_metadata));
+    ARROW_ASSIGN_OR_RAISE(custom_metadata,
+                          internal::GetKeyValueMetadata(message->custom_metadata()));
   }
   ARROW_ASSIGN_OR_RAISE(auto record_batch,
                         LoadRecordBatch(batch, schema, inclusion_mask, context, file));
@@ -1426,8 +1442,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(message_obj));
       std::shared_ptr<KeyValueMetadata> custom_metadata;
       if (message->custom_metadata() != nullptr) {
-        RETURN_NOT_OK(
-            internal::GetKeyValueMetadata(message->custom_metadata(), &custom_metadata));
+        ARROW_ASSIGN_OR_RAISE(custom_metadata,
+                              internal::GetKeyValueMetadata(message->custom_metadata()));
       }
       return RecordBatchWithMetadata{std::move(batch), std::move(custom_metadata)};
     }
@@ -1898,7 +1914,9 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
           const auto magic_start = buffer->data() + sizeof(int32_t);
           if (std::string_view(reinterpret_cast<const char*>(magic_start), kMagicSize) !=
               kArrowMagicBytes) {
-            return Status::Invalid("Not an Arrow file");
+            return Status::Invalid(
+                "Not an Arrow file. If this is an Arrow IPC stream, use "
+                "the IPC stream reader instead.");
           }
 
           int32_t footer_length = bit_util::FromLittleEndian(
@@ -1928,8 +1946,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
           auto fb_metadata = self->footer_->custom_metadata();
           if (fb_metadata != nullptr) {
             std::shared_ptr<KeyValueMetadata> md;
-            RETURN_NOT_OK(internal::GetKeyValueMetadata(fb_metadata, &md));
-            self->metadata_ = std::move(md);  // const-ify
+            ARROW_ASSIGN_OR_RAISE(self->metadata_,
+                                  internal::GetKeyValueMetadata(fb_metadata));
           }
           return Status::OK();
         });
@@ -2275,7 +2293,9 @@ Result<std::shared_ptr<Schema>> ReadSchema(const Message& message,
 Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   return ReadTensor(*message);
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 Result<std::shared_ptr<Tensor>> ReadTensor(const Message& message) {
@@ -2290,6 +2310,25 @@ Result<std::shared_ptr<Tensor>> ReadTensor(const Message& message) {
 }
 
 namespace {
+
+Status ValidateSparseCSFIndexMetadata(const flatbuf::SparseTensorIndexCSF* sparse_index,
+                                      int64_t ndim) {
+  if (sparse_index == nullptr) {
+    return Status::Invalid("Missing CSF sparse index metadata");
+  }
+  auto* indptr_buffers = sparse_index->indptrBuffers();
+  auto* indices_buffers = sparse_index->indicesBuffers();
+  auto* axis_order = sparse_index->axisOrder();
+  if (ndim < 2 || indptr_buffers == nullptr || indices_buffers == nullptr ||
+      axis_order == nullptr || static_cast<int64_t>(indptr_buffers->size()) != ndim - 1 ||
+      static_cast<int64_t>(indices_buffers->size()) != ndim ||
+      static_cast<int64_t>(axis_order->size()) != ndim) {
+    return Status::Invalid(
+        "Inconsistent CSF sparse index: a CSF tensor must have at least 2 dimensions "
+        "with indptr, indices and axis_order counts of ndim - 1, ndim and ndim");
+  }
+  return Status::OK();
+}
 
 Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
     const flatbuf::SparseTensor* sparse_tensor, const std::vector<int64_t>& shape,
@@ -2306,6 +2345,13 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
                         file->ReadAt(indices_buffer->offset(), indices_buffer->length(),
                                      /*allow_short_read=*/false));
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
+  int64_t indices_minimum_bytes;
+  if (MultiplyWithOverflow(non_zero_length, ndim, &indices_minimum_bytes) ||
+      MultiplyWithOverflow(indices_minimum_bytes, indices_elsize,
+                           &indices_minimum_bytes) ||
+      indices_minimum_bytes > indices_buffer->length()) {
+    return Status::Invalid("shape is inconsistent to the size of indices buffer");
+  }
   auto* indices_strides = sparse_index->indicesStrides();
   std::vector<int64_t> strides(2);
   if (indices_strides && indices_strides->size() > 0) {
@@ -2349,16 +2395,24 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
                                      /*allow_short_read=*/false));
 
   std::vector<int64_t> indices_shape({non_zero_length});
-  const auto indices_minimum_bytes = indices_shape[0] * indices_type->byte_width();
-  if (indices_minimum_bytes > indices_buffer->length()) {
+  const auto indices_minimum_bytes =
+      MultiplyWithOverflow<int64_t>({indices_shape[0], indices_type->byte_width()});
+  if (!indices_minimum_bytes.has_value() ||
+      indices_minimum_bytes.value() > indices_buffer->length()) {
     return Status::Invalid("shape is inconsistent to the size of indices buffer");
   }
 
   switch (sparse_index->compressedAxis()) {
     case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Row: {
-      std::vector<int64_t> indptr_shape({shape[0] + 1});
-      const int64_t indptr_minimum_bytes = indptr_shape[0] * indptr_byte_width;
-      if (indptr_minimum_bytes > indptr_buffer->length()) {
+      const auto indptr_length = AddWithOverflow<int64_t>({shape[0], 1});
+      if (!indptr_length.has_value()) {
+        return Status::Invalid("shape is inconsistent to the size of indptr buffer");
+      }
+      std::vector<int64_t> indptr_shape({indptr_length.value()});
+      const auto indptr_minimum_bytes =
+          MultiplyWithOverflow<int64_t>({indptr_shape[0], indptr_byte_width});
+      if (!indptr_minimum_bytes.has_value() ||
+          indptr_minimum_bytes.value() > indptr_buffer->length()) {
         return Status::Invalid("shape is inconsistent to the size of indptr buffer");
       }
       return std::make_shared<SparseCSRIndex>(
@@ -2366,9 +2420,15 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
           std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
     }
     case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Column: {
-      std::vector<int64_t> indptr_shape({shape[1] + 1});
-      const int64_t indptr_minimum_bytes = indptr_shape[0] * indptr_byte_width;
-      if (indptr_minimum_bytes > indptr_buffer->length()) {
+      const auto indptr_length = AddWithOverflow<int64_t>({shape[1], 1});
+      if (!indptr_length.has_value()) {
+        return Status::Invalid("shape is inconsistent to the size of indptr buffer");
+      }
+      std::vector<int64_t> indptr_shape({indptr_length.value()});
+      const auto indptr_minimum_bytes =
+          MultiplyWithOverflow<int64_t>({indptr_shape[0], indptr_byte_width});
+      if (!indptr_minimum_bytes.has_value() ||
+          indptr_minimum_bytes.value() > indptr_buffer->length()) {
         return Status::Invalid("shape is inconsistent to the size of indptr buffer");
       }
       return std::make_shared<SparseCSCIndex>(
@@ -2385,6 +2445,7 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSFIndex(
     io::RandomAccessFile* file) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCSF();
   const auto ndim = static_cast<int64_t>(shape.size());
+  RETURN_NOT_OK(ValidateSparseCSFIndexMetadata(sparse_index, ndim));
   auto* indptr_buffers = sparse_index->indptrBuffers();
   auto* indices_buffers = sparse_index->indicesBuffers();
   std::vector<std::shared_ptr<Buffer>> indptr_data(ndim - 1);
@@ -2493,6 +2554,9 @@ Result<size_t> GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id
       return 3;
 
     case SparseTensorFormat::CSF:
+      if (ndim < 2) {
+        return Status::Invalid("Invalid shape length for a sparse CSF tensor");
+      }
       return 2 * ndim;
 
     default:
@@ -2588,9 +2652,11 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
       std::shared_ptr<DataType> indptr_type, indices_type;
       std::vector<int64_t> axis_order, indices_size;
 
+      auto fb_sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCSF();
+      RETURN_NOT_OK(ValidateSparseCSFIndexMetadata(fb_sparse_index,
+                                                   static_cast<int64_t>(shape.size())));
       RETURN_NOT_OK(internal::GetSparseCSFIndexMetadata(
-          sparse_tensor->sparseIndex_as_SparseTensorIndexCSF(), &axis_order,
-          &indices_size, &indptr_type, &indices_type));
+          fb_sparse_index, &axis_order, &indices_size, &indptr_type, &indices_type));
       ARROW_CHECK_EQ(indptr_type, indices_type);
 
       const int64_t ndim = shape.size();
@@ -2875,7 +2941,7 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
     }
   }
 
-  if (maybe_read_result.has_value()) {
+  if (final_status.ok()) {
     // IPC file read successful: compare results with IPC stream reader,
     // if possible.
     // NOTE: some valid IPC files may not be readable as IPC streams,
@@ -2922,7 +2988,9 @@ Status FuzzIpcTensorStream(const uint8_t* data, int64_t size) {
   std::shared_ptr<Tensor> tensor;
 
   while (true) {
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ARROW_ASSIGN_OR_RAISE(tensor, ReadTensor(&buffer_reader));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     if (tensor == nullptr) {
       break;
     }

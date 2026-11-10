@@ -487,53 +487,64 @@ overflow-checking variant, suffixed ``_checked``, which returns
 an ``Invalid`` :class:`Status` when overflow is detected.
 
 For functions which support decimal inputs (currently ``add``, ``subtract``,
-``multiply``, and ``divide`` and their checked variants), decimals of different
-precisions/scales will be promoted appropriately. Mixed decimal and
-floating-point arguments will cast all arguments to floating-point, while mixed
-decimal and integer arguments will cast all arguments to decimals.
+``multiply``, ``divide``, ``modulo``, and ``remainder`` and their checked
+variants), decimals of different precisions/scales will be promoted
+appropriately. Mixed decimal and floating-point arguments will cast all
+arguments to floating-point, while mixed decimal and integer arguments will
+cast all arguments to decimals.
 Mixed time resolution temporal inputs will be cast to finest input resolution.
 
-+------------------+--------+-------------------------+-------------------------------+-------+
-| Function name    | Arity  | Input types             | Output type                   | Notes |
-+==================+========+=========================+===============================+=======+
-| abs              | Unary  | Numeric/Duration        | Numeric/Duration              |       |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| abs_checked      | Unary  | Numeric/Duration        | Numeric/Duration              |       |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| add              | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| add_checked      | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| divide           | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| exp              | Unary  | Numeric                 | Float32/Float64               |       |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| expm1            | Unary  | Numeric                 | Float32/Float64               |       |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| multiply         | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| negate           | Unary  | Numeric/Duration        | Numeric/Duration              |       |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| negate_checked   | Unary  | Signed Numeric/Duration | Signed Numeric/Duration       |       |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| power            | Binary | Numeric                 | Numeric                       |       |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| power_checked    | Binary | Numeric                 | Numeric                       |       |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| sign             | Unary  | Numeric/Duration        | Int8/Float16/Float32/Float64  | \(2)  |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| sqrt             | Unary  | Numeric                 | Numeric                       |       |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| sqrt_checked     | Unary  | Numeric                 | Numeric                       |       |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| subtract         | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
-+------------------+--------+-------------------------+-------------------------------+-------+
-| subtract_checked | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
-+------------------+--------+-------------------------+-------------------------------+-------+
++-------------------+--------+-------------------------+-------------------------------+-------+
+| Function name     | Arity  | Input types             | Output type                   | Notes |
++===================+========+=========================+===============================+=======+
+| abs               | Unary  | Numeric/Duration        | Numeric/Duration              |       |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| abs_checked       | Unary  | Numeric/Duration        | Numeric/Duration              |       |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| add               | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| add_checked       | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| divide            | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| divide_checked    | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| exp               | Unary  | Numeric                 | Float32/Float64               |       |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| expm1             | Unary  | Numeric                 | Float32/Float64               |       |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| hypot             | Binary | Numeric                 | Float32/Float64               | \(3)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| modulo            | Binary | Numeric                 | Numeric                       | \(4)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| modulo_checked    | Binary | Numeric                 | Numeric                       | \(4)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| multiply          | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| multiply_checked  | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| negate            | Unary  | Numeric/Duration        | Numeric/Duration              |       |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| negate_checked    | Unary  | Signed Numeric/Duration | Signed Numeric/Duration       |       |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| power             | Binary | Numeric                 | Numeric                       |       |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| power_checked     | Binary | Numeric                 | Numeric                       |       |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| remainder         | Binary | Numeric                 | Numeric                       | \(5)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| remainder_checked | Binary | Numeric                 | Numeric                       | \(5)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| sign              | Unary  | Numeric/Duration        | Int8/Float16/Float32/Float64  | \(2)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| sqrt              | Unary  | Numeric                 | Numeric                       |       |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| sqrt_checked      | Unary  | Numeric                 | Numeric                       |       |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| subtract          | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
+| subtract_checked  | Binary | Numeric/Temporal        | Numeric/Temporal              | \(1)  |
++-------------------+--------+-------------------------+-------------------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
 
@@ -559,6 +570,24 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
 * \(2) Output is any of (-1,1) for nonzero inputs and 0 for zero input.  NaN
   values return NaN.  Integral and decimal values return signedness as Int8 and
   floating-point values return it with the same type as the input values.
+
+* \(3) Computes ``sqrt(x^2 + y^2)`` without undue overflow or underflow at
+  intermediate stages of the computation.  If either argument is infinite, the
+  result is ``+Inf`` even if the other argument is NaN.
+
+* \(4) Computes the floored modulo, where the result has the same sign as the
+  divisor.  This is equivalent to Python's ``%`` operator.  Division by zero
+  returns an error for integer and decimal inputs.  For floating-point inputs
+  it returns ``NaN`` in ``modulo`` and an error in ``modulo_checked``.  Decimal
+  arguments are promoted to a common scale ``s``; the result then has
+  ``scale = s`` and ``precision = max(p1, p2)``.
+
+* \(5) Computes the truncated remainder, where the result has the same sign as
+  the dividend.  This is equivalent to C/C++'s ``%`` operator.  Division by
+  zero returns an error for integer and decimal inputs.  For floating-point
+  inputs it returns ``NaN`` in ``remainder`` and an error in
+  ``remainder_checked``.  Decimal arguments are promoted to a common scale
+  ``s``; the result then has ``scale = s`` and ``precision = max(p1, p2)``.
 
 Bit-wise functions
 ~~~~~~~~~~~~~~~~~~
@@ -1802,7 +1831,7 @@ These functions select and return a subset of their input.
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
 | filter              | Binary | Any            | Boolean      | Input type 1        | :struct:`FilterOptions`             | \(2)  |
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
-| inverse_permutation | Unary  | Signed Integer |              | Signed Integer \(4) | :struct:`InversePermutationOptions` | \(5)  |
+| inverse_permutation | Unary  | Integer        |              | Integer \(4)        | :struct:`InversePermutationOptions` | \(5)  |
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
 | scatter             | Binary | Any            | Integer      | Input type 1        | :struct:`ScatterOptions`            | \(6)  |
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
@@ -1873,6 +1902,8 @@ in the respective option classes.
 +-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 | sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`         | \(1) \(6)      |
 +-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| search_sorted         | Binary     | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SearchSortedOptions` | \(8)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 
 
 * \(1) The output is an array of indices into the input, that define a
@@ -1901,6 +1932,13 @@ in the respective option classes.
 * \(7) The output is an array of indices into the input, that define a
   non-stable sort of the input.
 
+* \(8) The first argument must be sorted in ascending order. If it contains
+  nulls, they must be clustered entirely at the start or the end, and non-null
+  needles are matched only against the non-null portion. The second argument
+  may be a scalar, array, or run-end encoded array. Null needles yield null
+  outputs. Both arguments must have the same logical type. A scalar needle
+  yields a UInt64 scalar; otherwise the result is a UInt64 array.
+
 .. _cpp-compute-vector-structural-transforms:
 
 Structural transforms
@@ -1909,6 +1947,8 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | Function name       | Arity      | Input types                         | Output type      | Options class                | Notes  |
 +=====================+============+=====================================+==================+==============================+========+
+| list_contains       | Binary     | List-like (Arg 0), Any (Arg 1)      | Boolean          |                              | \(7)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                              | \(1)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
@@ -1966,6 +2006,14 @@ Structural transforms
     at an index *n* if and only if the child array ``a`` is valid at
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
+
+* \(7) Output is true for each list containing a value equal to the second
+  argument. If the second argument is an array, each list is searched for the
+  value at the same index, and a scalar list is searched for each value: the
+  list ``[1, 2]`` and the array ``[2, 3]`` give ``[true, false]``. Unlike
+  ``equal``, a null second argument matches null list values and a NaN second
+  argument matches NaN list values; otherwise null list values never match.
+  Null lists emit a null in the output.
 
 .. _cpp-compute-vector-replace-functions:
 

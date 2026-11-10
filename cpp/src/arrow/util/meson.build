@@ -187,7 +187,6 @@ utility_test_srcs = [
     'atfork_test.cc',
     'byte_size_test.cc',
     'byte_stream_split_test.cc',
-    'cache_test.cc',
     'checked_cast_test.cc',
     'compression_test.cc',
     'decimal_test.cc',
@@ -216,10 +215,17 @@ utility_test_srcs = [
     'time_test.cc',
     'tracing_test.cc',
     'trie_test.cc',
+    'ulp_distance_test.cc',
     'uri_test.cc',
     'utf8_util_test.cc',
     'value_parsing_test.cc',
 ]
+
+utility_test_deps = [arrow_test_dep_no_main]
+if needs_simdjson
+    utility_test_srcs += ['simdjson_internal_test.cc']
+    utility_test_deps += [simdjson_dep]
+endif
 
 if host_machine.system() == 'windows'
     # This manifest enables long file paths on Windows 10+
@@ -234,7 +240,7 @@ endif
 exc = executable(
     'arrow-utility-test',
     sources: utility_test_srcs,
-    dependencies: arrow_test_dep_no_main,
+    dependencies: utility_test_deps,
     implicit_include_directories: false,
 )
 test('arrow-utility-test', exc)
@@ -267,6 +273,7 @@ util_tests = {
             'thread_pool_test.cc',
         ],
     },
+    'arrow-encoding-utility-test': {'sources': ['alp/alp_test.cc']},
     'arrow-crc32-test': {'sources': ['crc32_test.cc']},
 }
 
@@ -285,7 +292,6 @@ util_benchmarks = [
     'bit_util',
     'bitmap_reader',
     'bpacking',
-    'cache',
     'compression',
     'decimal',
     'hashing',

@@ -286,6 +286,32 @@ def test_buffer_heap(gdb_arrow):
 
 
 def test_decimals(gdb_arrow):
+    v32 = "987654321"
+    check_stack_repr(gdb_arrow, "decimal32_zero", "arrow::Decimal32(0)")
+    check_stack_repr(gdb_arrow, "decimal32_pos",
+                     f"arrow::Decimal32({v32})")
+    check_stack_repr(gdb_arrow, "decimal32_neg",
+                     f"arrow::Decimal32(-{v32})")
+    check_stack_repr(gdb_arrow, "basic_decimal32_zero",
+                     "arrow::BasicDecimal32(0)")
+    check_stack_repr(gdb_arrow, "basic_decimal32_pos",
+                     f"arrow::BasicDecimal32({v32})")
+    check_stack_repr(gdb_arrow, "basic_decimal32_neg",
+                     f"arrow::BasicDecimal32(-{v32})")
+
+    v64 = "987654321098765432"
+    check_stack_repr(gdb_arrow, "decimal64_zero", "arrow::Decimal64(0)")
+    check_stack_repr(gdb_arrow, "decimal64_pos",
+                     f"arrow::Decimal64({v64})")
+    check_stack_repr(gdb_arrow, "decimal64_neg",
+                     f"arrow::Decimal64(-{v64})")
+    check_stack_repr(gdb_arrow, "basic_decimal64_zero",
+                     "arrow::BasicDecimal64(0)")
+    check_stack_repr(gdb_arrow, "basic_decimal64_pos",
+                     f"arrow::BasicDecimal64({v64})")
+    check_stack_repr(gdb_arrow, "basic_decimal64_neg",
+                     f"arrow::BasicDecimal64(-{v64})")
+
     v128 = "98765432109876543210987654321098765432"
     check_stack_repr(gdb_arrow, "decimal128_zero", "arrow::Decimal128(0)")
     check_stack_repr(gdb_arrow, "decimal128_pos",
@@ -359,6 +385,10 @@ def test_types_stack(gdb_arrow):
     check_stack_repr(gdb_arrow, "duration_type_ns",
                      "arrow::duration(arrow::TimeUnit::NANO)")
 
+    check_stack_repr(gdb_arrow, "decimal32_type",
+                     "arrow::decimal32(8, 3)")
+    check_stack_repr(gdb_arrow, "decimal64_type",
+                     "arrow::decimal64(16, 5)")
     check_stack_repr(gdb_arrow, "decimal128_type",
                      "arrow::decimal128(16, 5)")
     check_stack_repr(gdb_arrow, "decimal256_type",
@@ -377,6 +407,9 @@ def test_types_stack(gdb_arrow):
                      "arrow::large_list(arrow::large_utf8())")
     check_stack_repr(gdb_arrow, "fixed_size_list_type",
                      "arrow::fixed_size_list(arrow::float64(), 3)")
+    check_stack_repr(
+        gdb_arrow, "run_end_encoded_type",
+        "arrow::run_end_encoded(arrow::int32(), arrow::utf8())")
     check_stack_repr(
         gdb_arrow, "map_type_unsorted",
         "arrow::map(arrow::utf8(), arrow::binary(), keys_sorted=false)")
@@ -425,6 +458,10 @@ def test_types_heap(gdb_arrow):
         gdb_arrow, "heap_timestamp_type_ns_timezone",
         'arrow::timestamp(arrow::TimeUnit::NANO, "Europe/Paris")')
 
+    check_heap_repr(gdb_arrow, "heap_decimal32_type",
+                    "arrow::decimal32(8, 3)")
+    check_heap_repr(gdb_arrow, "heap_decimal64_type",
+                    "arrow::decimal64(16, 5)")
     check_heap_repr(gdb_arrow, "heap_decimal128_type",
                     "arrow::decimal128(16, 5)")
 
@@ -434,6 +471,9 @@ def test_types_heap(gdb_arrow):
                     "arrow::large_list(arrow::large_utf8())")
     check_heap_repr(gdb_arrow, "heap_fixed_size_list_type",
                     "arrow::fixed_size_list(arrow::float64(), 3)")
+    check_heap_repr(
+        gdb_arrow, "heap_run_end_encoded_type",
+        "arrow::run_end_encoded(arrow::int32(), arrow::utf8())")
     check_heap_repr(
         gdb_arrow, "heap_map_type",
         "arrow::map(arrow::utf8(), arrow::binary(), keys_sorted=false)")
@@ -566,6 +606,28 @@ def test_scalars_stack(gdb_arrow):
                      "arrow::Date64Scalar of null value")
 
     check_stack_repr(
+        gdb_arrow, "decimal32_scalar_null",
+        "arrow::Decimal32Scalar of null value [precision=9, scale=4]")
+    check_stack_repr(
+        gdb_arrow, "decimal32_scalar_pos",
+        "arrow::Decimal32Scalar of value 123.4567 [precision=9, scale=4]")
+    check_stack_repr(
+        gdb_arrow, "decimal32_scalar_neg",
+        "arrow::Decimal32Scalar of value -123.4567 [precision=9, scale=4]")
+
+    check_stack_repr(
+        gdb_arrow, "decimal64_scalar_null",
+        "arrow::Decimal64Scalar of null value [precision=18, scale=4]")
+    check_stack_repr(
+        gdb_arrow, "decimal64_scalar_pos",
+        ("arrow::Decimal64Scalar of value 1234567890123.4567 "
+         "[precision=18, scale=4]"))
+    check_stack_repr(
+        gdb_arrow, "decimal64_scalar_neg",
+        ("arrow::Decimal64Scalar of value -1234567890123.4567 "
+         "[precision=18, scale=4]"))
+
+    check_stack_repr(
         gdb_arrow, "decimal128_scalar_null",
         "arrow::Decimal128Scalar of null value [precision=10, scale=4]")
     check_stack_repr(
@@ -688,6 +750,14 @@ def test_scalars_stack(gdb_arrow):
         gdb_arrow, "fixed_size_list_scalar_null",
         ('arrow::FixedSizeListScalar of type '
          'arrow::fixed_size_list(arrow::int32(), 3), null value'))
+    check_stack_repr(
+        gdb_arrow, "run_end_encoded_scalar",
+        ('arrow::RunEndEncodedScalar of value '
+         'arrow::StringScalar of size 3, value "foo"'))
+    check_stack_repr(
+        gdb_arrow, "run_end_encoded_scalar_null",
+        ('arrow::RunEndEncodedScalar of type '
+         'arrow::run_end_encoded(arrow::int32(), arrow::utf8()), null value'))
 
     check_stack_repr(
         gdb_arrow, "struct_scalar",
@@ -731,6 +801,13 @@ def test_scalars_heap(gdb_arrow):
     check_heap_repr(gdb_arrow, "heap_bool_scalar",
                     "arrow::BooleanScalar of value true")
     check_heap_repr(
+        gdb_arrow, "heap_decimal32_scalar",
+        "arrow::Decimal32Scalar of value 123.4567 [precision=9, scale=4]")
+    check_heap_repr(
+        gdb_arrow, "heap_decimal64_scalar",
+        ("arrow::Decimal64Scalar of value 1234567890123.4567 "
+         "[precision=18, scale=4]"))
+    check_heap_repr(
         gdb_arrow, "heap_decimal128_scalar",
         "arrow::Decimal128Scalar of value 123.4567 [precision=10, scale=4]")
     check_heap_repr(
@@ -747,6 +824,10 @@ def test_scalars_heap(gdb_arrow):
         gdb_arrow, "heap_map_scalar_null",
         ('arrow::MapScalar of type arrow::map(arrow::utf8(), arrow::int32(), '
          'keys_sorted=false), null value'))
+    check_heap_repr(
+        gdb_arrow, "heap_run_end_encoded_scalar",
+        ('arrow::RunEndEncodedScalar of value '
+         'arrow::StringScalar of size 3, value "foo"'))
 
 
 def test_array_data(gdb_arrow):
@@ -765,6 +846,13 @@ def test_arrays_stack(gdb_arrow):
         gdb_arrow, "list_array",
         ("arrow::ListArray of type arrow::list(arrow::int64()), "
          "length 3, offset 0, null count 1"))
+    check_stack_repr(
+        gdb_arrow, "run_end_encoded_array",
+        ("arrow::RunEndEncodedArray of type "
+         "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
+         "length 5, offset 0, null count 0 = "
+         "{[0] = \"foo\", [1] = \"foo\", [2] = null, "
+         "[3] = null, [4] = null}"))
 
 
 def test_arrays_heap(gdb_arrow):
@@ -945,6 +1033,17 @@ def test_arrays_heap(gdb_arrow):
 
     # Decimal
     check_heap_repr(
+        gdb_arrow, "heap_decimal32_array",
+        ("arrow::Decimal32Array of type arrow::decimal32(9, 4), "
+         "length 3, offset 0, null count 1 = {"
+         "[0] = null, [1] = -12345.6789, [2] = 12345.6789}"))
+    check_heap_repr(
+        gdb_arrow, "heap_decimal64_array",
+        ("arrow::Decimal64Array of type arrow::decimal64(18, 4), "
+         "length 3, offset 0, null count 1 = {"
+         "[0] = null, [1] = -12345678901234.5678, "
+         "[2] = 12345678901234.5678}"))
+    check_heap_repr(
         gdb_arrow, "heap_decimal128_array",
         ("arrow::Decimal128Array of type arrow::decimal128(30, 6), "
          "length 3, offset 0, null count 1 = {"
@@ -956,6 +1055,11 @@ def test_arrays_heap(gdb_arrow):
          "length 2, offset 0, null count 1 = {"
          "[0] = null, "
          "[1] = -123456789012345678901234567890123456789.012345}"))
+    check_heap_repr(
+        gdb_arrow, "heap_decimal32_array_sliced",
+        ("arrow::Decimal32Array of type arrow::decimal32(9, 4), "
+         "length 1, offset 1, unknown null count = {"
+         "[0] = -12345.6789}"))
     check_heap_repr(
         gdb_arrow, "heap_decimal128_array_sliced",
         ("arrow::Decimal128Array of type arrow::decimal128(30, 6), "
@@ -1002,6 +1106,31 @@ def test_arrays_heap(gdb_arrow):
         gdb_arrow, "heap_list_array",
         ("arrow::ListArray of type arrow::list(arrow::int64()), "
          "length 3, offset 0, null count 1"))
+    check_heap_repr(
+        gdb_arrow, "heap_run_end_encoded_array",
+        ("arrow::RunEndEncodedArray of type "
+         "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
+         "length 5, offset 0, null count 0 = "
+         "{[0] = \"foo\", [1] = \"foo\", [2] = null, "
+         "[3] = null, [4] = null}"))
+    check_heap_repr(
+        gdb_arrow, "heap_run_end_encoded_array_sliced",
+        ("arrow::RunEndEncodedArray of type "
+         "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
+         "length 3, offset 1, null count 0 = "
+         "{[0] = \"foo\", [1] = null, [2] = null}"))
+    check_heap_repr(
+        gdb_arrow, "heap_ree_sliced",
+        ("arrow::RunEndEncodedArray of type "
+         "arrow::run_end_encoded(arrow::int32(), arrow::utf8()), "
+         "length 3, offset 1, null count 0 = "
+         "{[0] = \"foo\", [1] = null, [2] = null}"))
+    check_heap_repr(
+        gdb_arrow, "heap_ree_int64",
+        ("arrow::RunEndEncodedArray of type "
+         "arrow::run_end_encoded(arrow::int64(), arrow::int32()), "
+         "length 3, offset 0, null count 0 = "
+         "{[0] = 42, [1] = null, [2] = null}"))
 
 
 def test_schema(gdb_arrow):

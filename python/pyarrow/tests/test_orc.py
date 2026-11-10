@@ -311,19 +311,9 @@ def test_buffer_readwrite():
     assert orc_file.row_index_stride == 10000
     assert orc_file.compression_size == 65536
 
-    # deprecated keyword order
-    buffer_output_stream = pa.BufferOutputStream()
-    with pytest.warns(FutureWarning):
-        orc.write_table(buffer_output_stream, table)
-    buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
-    orc_file = orc.ORCFile(buffer_reader)
-    output_table = orc_file.read()
-    assert table.equals(output_table)
-    # Check for default WriteOptions
-    assert orc_file.compression == 'UNCOMPRESSED'
-    assert orc_file.file_version == '0.12'
-    assert orc_file.row_index_stride == 10000
-    assert orc_file.compression_size == 65536
+    # swapped argument order is no longer accepted
+    with pytest.raises(TypeError):
+        orc.write_table(pa.BufferOutputStream(), table)
 
 
 @pytest.mark.snappy
@@ -350,27 +340,6 @@ def test_buffer_readwrite_with_writeoptions():
     assert orc_file.compression == 'SNAPPY'
     assert orc_file.file_version == '0.11'
     assert orc_file.row_index_stride == 5000
-    assert orc_file.compression_size == 65536
-
-    # deprecated keyword order
-    buffer_output_stream = pa.BufferOutputStream()
-    with pytest.warns(FutureWarning):
-        orc.write_table(
-            buffer_output_stream,
-            table,
-            compression='uncompressed',
-            file_version='0.11',
-            row_index_stride=20000,
-            compression_block_size=65536,
-        )
-    buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
-    orc_file = orc.ORCFile(buffer_reader)
-    output_table = orc_file.read()
-    assert table.equals(output_table)
-    # Check for default WriteOptions
-    assert orc_file.compression == 'UNCOMPRESSED'
-    assert orc_file.file_version == '0.11'
-    assert orc_file.row_index_stride == 20000
     assert orc_file.compression_size == 65536
 
 

@@ -175,6 +175,73 @@ TEST(Comparison, SignedFLBA) {
   }
 }
 
+TEST(Comparison, SignedLittleEndianFLBA12Timestamp) {
+  NodePtr node =
+      PrimitiveNode::Make("ts_flba12", Repetition::REQUIRED,
+                          LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
+                          Type::FIXED_LEN_BYTE_ARRAY, 12);
+  ColumnDescriptor descr(node, 0, 0);
+  ASSERT_EQ(SortOrder::SIGNED, descr.sort_order());
+  auto comparator = MakeComparator<FLBAType>(&descr);
+
+  // large_neg: 0x80 00…00  (most negative 96-bit LE value, sign byte=0x80)
+  // neg256:    0x00 FF FF…FF (= -256 in LE two's complement)
+  // minus_one: FF FF…FF     (= -1)
+  // zero:      00 00…00
+  // plus_one:  01 00…00
+  // large_pos: 7F FF…FF     (= near max positive)
+  std::vector<uint8_t> large_neg_bytes = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                          0x00, 0x00, 0x00, 0x00, 0x00, 0x80};
+  std::vector<uint8_t> neg256_bytes = {0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                       0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  std::vector<uint8_t> minus_one_bytes = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                          0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+  std::vector<uint8_t> zero_bytes = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                     0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  std::vector<uint8_t> plus_one_bytes = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                         0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  std::vector<uint8_t> large_pos_bytes = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                          0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F};
+
+  std::vector<FLBA> vals = {FLBA(large_neg_bytes.data()), FLBA(neg256_bytes.data()),
+                            FLBA(minus_one_bytes.data()), FLBA(zero_bytes.data()),
+                            FLBA(plus_one_bytes.data()),  FLBA(large_pos_bytes.data())};
+
+  for (size_t x = 0; x < vals.size(); x++) {
+    EXPECT_FALSE(comparator->Compare(vals[x], vals[x])) << x;
+    for (size_t y = x + 1; y < vals.size(); y++) {
+      EXPECT_TRUE(comparator->Compare(vals[x], vals[y])) << x << " < " << y;
+      EXPECT_FALSE(comparator->Compare(vals[y], vals[x])) << y << " < " << x;
+    }
+  }
+}
+
+TEST(Comparison, SignedLittleEndianFLBA12TimestampMinMax) {
+  // Guards the DefaultMin/DefaultMax accumulator seeds: over positive-only values.
+  NodePtr node =
+      PrimitiveNode::Make("ts_flba12", Repetition::REQUIRED,
+                          LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS),
+                          Type::FIXED_LEN_BYTE_ARRAY, 12);
+  ColumnDescriptor descr(node, 0, 0);
+  auto comparator = MakeComparator<FLBAType>(&descr);
+
+  std::vector<uint8_t> plus_one = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  std::vector<uint8_t> plus_five = {0x05, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+  std::vector<uint8_t> large_pos = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                                    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F};
+  std::vector<FLBA> vals = {FLBA(plus_five.data()), FLBA(large_pos.data()),
+                            FLBA(plus_one.data())};
+
+  auto min_max = comparator->GetMinMax(vals.data(), vals.size());
+  // min == plus_one and max == large_pos.
+  EXPECT_FALSE(comparator->Compare(min_max.first, FLBA(plus_one.data())));
+  EXPECT_FALSE(comparator->Compare(FLBA(plus_one.data()), min_max.first));
+  EXPECT_FALSE(comparator->Compare(min_max.second, FLBA(large_pos.data())));
+  EXPECT_FALSE(comparator->Compare(FLBA(large_pos.data()), min_max.second));
+}
+
 TEST(Comparison, UnsignedFLBA) {
   int size = 10;
   auto comparator =
@@ -1485,6 +1552,7 @@ class TestFloatStatistics : public ::testing::Test {
   }
 
   void TestNaNs();
+  void TestInfinities();
 
  protected:
   std::vector<uint8_t> data_buf_;
@@ -1559,6 +1627,30 @@ void TestFloatStatistics<T>::TestNaNs() {
                   valid_bitmap_no_nans);
 }
 
+// GH-50182: an all-infinity column must report that infinity as its min/max,
+// rather than the largest finite value (a finite seed is never displaced by an
+// infinity of the same sign). A NaN interspersed in such a column must be
+// ignored without corrupting the infinite min/max.
+template <typename T>
+void TestFloatStatistics<T>::TestInfinities() {
+  NodePtr node = this->MakeNode("f", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+
+  constexpr c_type inf = std::numeric_limits<c_type>::infinity();
+  constexpr c_type nan = std::numeric_limits<c_type>::quiet_NaN();
+  std::vector<c_type> all_pos_inf{inf, inf, inf};
+  std::vector<c_type> all_neg_inf{-inf, -inf, -inf};
+  std::vector<c_type> mixed_inf{inf, -inf};
+  std::vector<c_type> pos_inf_with_nan{inf, nan, inf};
+  std::vector<c_type> neg_inf_with_nan{-inf, nan, -inf};
+
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, inf, inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, -inf, -inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), mixed_inf, -inf, inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), pos_inf_with_nan, inf, inf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), neg_inf_with_nan, -inf, -inf);
+}
+
 struct BufferedFloat16 {
   explicit BufferedFloat16(Float16 f16) : f16(f16) {
     this->f16.ToLittleEndian(bytes_.data());
@@ -1611,12 +1703,39 @@ void TestFloatStatistics<Float16LogicalType>::TestNaNs() {
                   valid_bitmap_no_nans);
 }
 
+template <>
+void TestFloatStatistics<Float16LogicalType>::TestInfinities() {
+  NodePtr node = this->MakeNode("f", Repetition::REQUIRED);
+  ColumnDescriptor descr(node, 0, 0);
+
+  using F16 = BufferedFloat16;
+  const auto pos_inf = F16(std::numeric_limits<Float16>::infinity());
+  const auto neg_inf = F16(-std::numeric_limits<Float16>::infinity());
+  const auto nan = F16(std::numeric_limits<Float16>::quiet_NaN());
+  const auto pinf = FLBA{pos_inf.bytes()};
+  const auto ninf = FLBA{neg_inf.bytes()};
+  const auto fnan = FLBA{nan.bytes()};
+
+  std::vector<FLBA> all_pos_inf{pinf, pinf, pinf};
+  std::vector<FLBA> all_neg_inf{ninf, ninf, ninf};
+  std::vector<FLBA> mixed_inf{pinf, ninf};
+  std::vector<FLBA> pos_inf_with_nan{pinf, fnan, pinf};
+  std::vector<FLBA> neg_inf_with_nan{ninf, fnan, ninf};
+
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_pos_inf, pinf, pinf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), all_neg_inf, ninf, ninf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), mixed_inf, ninf, pinf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), pos_inf_with_nan, pinf, pinf);
+  AssertMinMaxAre(MakeStatistics<ParquetType>(&descr), neg_inf_with_nan, ninf, ninf);
+}
+
 using FloatingPointTypes = ::testing::Types<FloatType, DoubleType, Float16LogicalType>;
 
 TYPED_TEST_SUITE(TestFloatStatistics, FloatingPointTypes);
 
 TYPED_TEST(TestFloatStatistics, NegativeZeros) { this->TestNegativeZeroes(); }
 TYPED_TEST(TestFloatStatistics, NaNs) { this->TestNaNs(); }
+TYPED_TEST(TestFloatStatistics, Infinities) { this->TestInfinities(); }
 
 // ARROW-7376
 TEST(TestStatisticsSortOrderFloatNaN, NaNAndNullsInfiniteLoop) {
@@ -1660,6 +1779,13 @@ TEST(TestStatisticsSortOrder, UNKNOWN) {
   ASSERT_EQ(1, enc_stats->null_count);
   ASSERT_FALSE(enc_stats->is_max_value_exact.has_value());
   ASSERT_FALSE(enc_stats->is_min_value_exact.has_value());
+
+  // Unknown sort order should not cause min/max to be set
+  std::shared_ptr<Statistics> stats = column_chunk->statistics();
+  ASSERT_NE(nullptr, stats);
+  ASSERT_FALSE(stats->HasMinMax());
+  ASSERT_TRUE(stats->HasNullCount());
+  ASSERT_EQ(1, stats->null_count());
 }
 
 // Test statistics for binary column with UNSIGNED sort order

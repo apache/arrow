@@ -27,6 +27,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/fuzz_internal.h"
 #include "arrow/util/macros.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -76,7 +77,8 @@ struct FuzzEncodingHeader {
 };
 
 /// Fuzz a payload encoded as explained in FuzzEncodingHeader
-PARQUET_EXPORT ::arrow::Status FuzzEncoding(const uint8_t* data, int64_t size);
+PARQUET_EXPORT ::arrow::internal::FuzzStatus FuzzEncoding(const uint8_t* data,
+                                                          int64_t size);
 
 PARQUET_EXPORT ColumnDescriptor MakeColumnDescriptor(Type::type type,
                                                      int type_length = -1);
