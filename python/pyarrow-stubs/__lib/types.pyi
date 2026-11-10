@@ -287,7 +287,7 @@ _MetadataMapping: TypeAlias = (
     | Mapping[str, bytes]
 )
 _MetadataIterable: TypeAlias = Iterable[tuple[_StrOrBytes, _StrOrBytes]]
-_KeyValueMetadataInput: TypeAlias = _MetadataMapping | _MetadataIterable | None
+_KeyValueMetadataInput: TypeAlias = _MetadataMapping | _MetadataIterable
 _DataTypeAlias: TypeAlias = Literal[
     "null",
     "bool",
@@ -351,7 +351,7 @@ _DataTypeLike: TypeAlias = DataType | _DataTypeAliasInput
 class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
     def __init__(
         self,
-        __arg0__: _KeyValueMetadataInput | KeyValueMetadata = None,
+        __arg0__: _KeyValueMetadataInput | KeyValueMetadata | None = None,
         **kwargs: str | bytes,
     ) -> None: ...
     __hash__: ClassVar[None]  # type: ignore[assignment]
@@ -381,7 +381,7 @@ class Field(_Weakrefable):
     def type(self) -> DataType: ...
     def with_metadata(
         self,
-        metadata: _KeyValueMetadataInput | KeyValueMetadata,
+        metadata: _KeyValueMetadataInput | KeyValueMetadata | None,
     ) -> Field: ...
     def remove_metadata(self) -> Field: ...
     def with_type(self, new_type: DataType) -> Field: ...
@@ -402,7 +402,7 @@ _FieldTuple: TypeAlias = (
         _FieldName,
         _DataTypeLike,
         bool | None,
-        _KeyValueMetadataInput | KeyValueMetadata,
+        _KeyValueMetadataInput | KeyValueMetadata | None,
     ]
 )
 _StructFieldsInput: TypeAlias = (
@@ -440,12 +440,8 @@ class Schema(_Weakrefable):
     def insert(self, i: int, field: Field) -> Schema: ...
     def remove(self, i: int) -> Schema: ...
     def set(self, i: int, field: Field) -> Schema: ...
-    @deprecated("Use 'with_metadata' instead")
-    def add_metadata(
-        self, metadata: _KeyValueMetadataInput | KeyValueMetadata
-    ) -> Schema: ...
     def with_metadata(
-        self, metadata: _KeyValueMetadataInput | KeyValueMetadata
+        self, metadata: _KeyValueMetadataInput | KeyValueMetadata | None
     ) -> Schema: ...
     def serialize(self, memory_pool: MemoryPool | None = None) -> Buffer: ...
     def remove_metadata(self) -> Schema: ...
@@ -473,14 +469,14 @@ def field(
     name: SupportsArrowSchema,
     type: None = None,
     nullable: bool | None = None,
-    metadata: _KeyValueMetadataInput | KeyValueMetadata = None,
+    metadata: _KeyValueMetadataInput | KeyValueMetadata | None = None,
 ) -> Field: ...
 @overload
 def field(
     name: _FieldName,
     type: _DataTypeLike,
     nullable: bool | None = None,
-    metadata: _KeyValueMetadataInput | KeyValueMetadata = None,
+    metadata: _KeyValueMetadataInput | KeyValueMetadata | None = None,
 ) -> Field: ...
 def null() -> NullType: ...
 def bool_() -> BoolType: ...
@@ -570,7 +566,7 @@ def opaque(storage_type: DataType, type_name: str, vendor_name: str) -> OpaqueTy
 def type_for_alias(name: str) -> DataType: ...
 def schema(
     fields: SupportsArrowSchema | _SchemaFieldsInput,
-    metadata: _KeyValueMetadataInput | KeyValueMetadata = None,
+    metadata: _KeyValueMetadataInput | KeyValueMetadata | None = None,
 ) -> Schema: ...
 def from_numpy_dtype(dtype: np.typing.DTypeLike) -> DataType: ...
 

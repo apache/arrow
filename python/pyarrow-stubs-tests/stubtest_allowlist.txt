@@ -60,6 +60,5 @@ pyarrow\.__lib\.table\.ChunkedArray\.data
 pyarrow\.__lib\.table\.ChunkedArray\.format
 pyarrow\.__lib\.table\.concat_tables
 pyarrow\.__lib\.types\.Schema\.__getitem__
-pyarrow\.__lib\.types\.Schema\.add_metadata
 pyarrow\.__lib\.types\.Schema\.field_by_name
 pyarrow\.types\.__all__

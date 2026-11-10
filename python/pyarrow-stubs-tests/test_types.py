@@ -73,13 +73,10 @@ def test_list_types() -> None:
     variable = pa.list_(pa.int32(), -1)
     check(assert_type(variable, pa.ListType), pa.ListType)
     fixed = pa.list_(pa.int32(), 2)
-    check(assert_type(fixed, pa.ListType | pa.FixedSizeListType),
-          pa.FixedSizeListType)
+    check(assert_type(fixed, pa.ListType | pa.FixedSizeListType), pa.FixedSizeListType)
 
-    check(assert_type(pa.large_list(pa.int32()), pa.LargeListType),
-          pa.LargeListType)
-    check(assert_type(pa.list_view(pa.int32()), pa.ListViewType),
-          pa.ListViewType)
+    check(assert_type(pa.large_list(pa.int32()), pa.LargeListType), pa.LargeListType)
+    check(assert_type(pa.list_view(pa.int32()), pa.ListViewType), pa.ListViewType)
 
 
 def test_dictionary_type() -> None:
@@ -98,8 +95,7 @@ def test_map_and_run_end_encoded_types() -> None:
 
     ree = pa.run_end_encoded(pa.int16(), pa.string())
     check(assert_type(ree, pa.RunEndEncodedType), pa.RunEndEncodedType)
-    check(assert_type(ree.run_end_type, Int16Type | Int32Type | Int64Type),
-          pa.DataType)
+    check(assert_type(ree.run_end_type, Int16Type | Int32Type | Int64Type), pa.DataType)
 
 
 def test_data_type_hashable() -> None:
@@ -119,6 +115,11 @@ def test_field() -> None:
 
     field = pa.field("a", pa.int32(), metadata={"k": "v"})
     check(assert_type(field.metadata, dict[bytes, bytes] | None), dict)
+    check(assert_type(field.with_metadata(None), pa.Field), pa.Field)
+    check(
+        assert_type(field.with_metadata(None).metadata, dict[bytes, bytes] | None),
+        dict  # Empty dict
+    )
 
 
 def test_schema() -> None:
@@ -135,8 +136,7 @@ def test_key_value_metadata() -> None:
     metadata = pa.KeyValueMetadata([(b"a", b"1"), (b"a", b"2")])
     check(assert_type(metadata.keys(), Iterator[bytes]), Iterator)
     check(assert_type(metadata.values(), Iterator[bytes]), Iterator)
-    check(assert_type(metadata.items(), Iterator[tuple[bytes, bytes]]),
-          Iterator)
+    check(assert_type(metadata.items(), Iterator[tuple[bytes, bytes]]), Iterator)
 
 
 def test_type_predicates_narrow() -> None:
@@ -153,8 +153,7 @@ def test_type_predicates_narrow() -> None:
     check(
         assert_type(
             dec,
-            pa.Decimal32Type | pa.Decimal64Type | pa.Decimal128Type
-            | pa.Decimal256Type,
+            pa.Decimal32Type | pa.Decimal64Type | pa.Decimal128Type | pa.Decimal256Type,
         ),
         pa.Decimal64Type,
     )
@@ -167,7 +166,9 @@ def test_type_predicates_narrow() -> None:
         check(
             assert_type(
                 dec128,
-                pa.Decimal32Type | pa.Decimal64Type | pa.Decimal128Type
+                pa.Decimal32Type
+                | pa.Decimal64Type
+                | pa.Decimal128Type
                 | pa.Decimal256Type,
             ),
             pa.Decimal128Type,
