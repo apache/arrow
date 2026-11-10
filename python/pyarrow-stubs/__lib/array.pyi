@@ -157,7 +157,7 @@ class Array(_PandasConvertible):
     def from_buffers(
         type: DataType,
         length: int,
-        buffers: Sequence[Buffer | None],
+        buffers: Collection[Buffer | None],
         null_count: int = -1,
         offset: int = 0,
         children: Collection[Array] | None = None,
@@ -464,7 +464,7 @@ class DictionaryArray(Array):
     def from_buffers(  # type: ignore[override]
         type: DataType,
         length: int,
-        buffers: Sequence[Buffer | None],
+        buffers: Collection[Buffer | None],
         dictionary: Array,
         null_count: int = -1,
         offset: int = 0,

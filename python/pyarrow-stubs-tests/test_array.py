@@ -123,8 +123,9 @@ def test_import_from_c_capsule() -> None:
 def test_from_buffers() -> None:
     values = cast(pa.Int64Array, pa.array([1, 2]))
     offsets = pa.array([0, 2], pa.int32()).buffers()[1]
-    # Children can be any collection of arrays, like a tuple
-    list_arr = pa.Array.from_buffers(pa.list_(pa.int64()), 1, [None, offsets],
+    # Buffers and children can be any collection, like dict values or a tuple
+    buffers = {"validity": None, "offsets": offsets}
+    list_arr = pa.Array.from_buffers(pa.list_(pa.int64()), 1, buffers.values(),
                                      children=(values,))
     check(assert_type(list_arr, pa.Array), pa.ListArray)
 
