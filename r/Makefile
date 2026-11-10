@@ -47,6 +47,7 @@ sync-cpp:
 	cp -p ../NOTICE.txt tools/
 	cp -p ../LICENSE.txt tools/
 	sed -i"" -e "s/\.env/dotenv/g" tools/cpp/CMakeLists.txt
+	bash tools/vendor_dependencies.sh
 
 build:
 	$(MAKE) clean
