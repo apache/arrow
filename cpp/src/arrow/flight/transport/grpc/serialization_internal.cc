@@ -198,10 +198,12 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
   return ::grpc::Status::OK;
 }
 
-// The pointer bitcast hack below causes legitimate warnings, silence them.
+// offsetof() below is used on types that are not standard-layout, which is
+// conditionally-supported. GCC, Clang and MSVC support it for types without
+// virtual base classes, as here.
 #ifndef _WIN32
 #  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#  pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
 // grpc::*Writer<T>::Write() and grpc::*Reader<T>::Read() take a T (here
