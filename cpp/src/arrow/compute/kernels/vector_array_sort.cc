@@ -523,6 +523,8 @@ using ArraySortIndicesState = internal::OptionsWrapper<ArraySortOptions>;
 
 template <typename OutType, typename InType>
 struct ArraySortIndices {
+  static_assert(std::is_same_v<UInt64Type, OutType>,
+                "Invalid output type for ArraySortIndices");
   using ArrayType = typename TypeTraits<InType>::ArrayType;
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -565,29 +567,29 @@ void AddArraySortingKernels(VectorKernel base, VectorFunction* func) {
 
   // duration type
   base.signature = KernelSignature::Make({Type::DURATION}, uint64());
-  base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*int64());
+  base.exec = GenerateNumeric<ExecTemplate, WithType0<UInt64Type>>(*int64());
   DCHECK_OK(func->AddKernel(base));
 
   for (const auto& ty : NumericTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({ty}, uint64());
-    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateNumeric<ExecTemplate, WithType0<UInt64Type>>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : TemporalTypes()) {
     auto physical_type = GetPhysicalType(ty);
     base.signature = KernelSignature::Make({ty->id()}, uint64());
-    base.exec = GenerateNumeric<ExecTemplate, UInt64Type>(*physical_type);
+    base.exec = GenerateNumeric<ExecTemplate, WithType0<UInt64Type>>(*physical_type);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
     base.signature = KernelSignature::Make({id}, uint64());
-    base.exec = GenerateDecimal<ExecTemplate, UInt64Type>(id);
+    base.exec = GenerateDecimal<ExecTemplate, WithType0<UInt64Type>>(id);
     DCHECK_OK(func->AddKernel(base));
   }
   for (const auto& ty : BaseBinaryTypes()) {
     base.signature = KernelSignature::Make({ty}, uint64());
-    base.exec = GenerateVarBinaryBase<ExecTemplate, UInt64Type>(ty);
+    base.exec = GenerateVarBinaryBase<ExecTemplate, WithType0<UInt64Type>>(ty);
     DCHECK_OK(func->AddKernel(base));
   }
   base.signature = KernelSignature::Make({Type::FIXED_SIZE_BINARY}, uint64());

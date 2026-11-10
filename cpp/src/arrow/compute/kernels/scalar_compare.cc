@@ -300,13 +300,7 @@ struct CompareKernel {
 template <typename Op>
 struct CompareTimestamps {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
-    const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
-    if (lhs.timezone().empty() ^ rhs.timezone().empty()) {
-      return Status::Invalid(
-          "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
-          lhs, " and ", rhs);
-    }
+    RETURN_NOT_OK(ValidateComparison(*batch[0].type(), *batch[1].type()));
     return CompareKernel<Int64Type>::Exec(ctx, batch, out);
   }
 };
@@ -317,14 +311,11 @@ ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type,
   ScalarKernel kernel;
   kernel.signature = KernelSignature::Make({ty, ty}, boolean());
   BinaryKernel func_aa =
-      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayArray, Op>(
-          compare_type);
+      GeneratePhysicalNumeric<ComparePrimitiveArrayArray, Op>(compare_type);
   BinaryKernel func_sa =
-      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveScalarArray, Op>(
-          compare_type);
+      GeneratePhysicalNumeric<ComparePrimitiveScalarArray, Op>(compare_type);
   BinaryKernel func_as =
-      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayScalar, Op>(
-          compare_type);
+      GeneratePhysicalNumeric<ComparePrimitiveArrayScalar, Op>(compare_type);
   kernel.data = std::make_shared<CompareData>(func_aa, func_sa, func_as);
   kernel.exec = exec;
   return kernel;
@@ -351,6 +342,8 @@ struct CompareFunction : ScalarFunction {
 
     EnsureDictionaryDecoded(types);
     ReplaceNullWithOtherType(types);
+
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
     if (auto type = CommonNumeric(*types)) {
       ReplaceTypes(type, types);
@@ -429,19 +422,39 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
-    auto exec =
-        GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
+    auto exec = GenerateVarBinaryBase<applicator::ScalarBinaryEqualTypes,
+                                      WithType0<BooleanType>, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
   for (const auto& ty : BinaryViewTypes()) {
-    auto exec =
-        GenerateVarBinaryViewBase<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            *ty);
+    auto exec = GenerateVarBinaryViewBase<applicator::ScalarBinaryEqualTypes,
+                                          WithType0<BooleanType>, Op>(*ty);
     DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
   }
 
+  auto exec_base_view =
+      applicator::ScalarBinary<BooleanType, BinaryType, BinaryViewType, Op>::Exec;
+  auto exec_view_base =
+      applicator::ScalarBinary<BooleanType, BinaryViewType, BinaryType, Op>::Exec;
+  auto exec_large_view =
+      applicator::ScalarBinary<BooleanType, LargeBinaryType, BinaryViewType, Op>::Exec;
+  auto exec_view_large =
+      applicator::ScalarBinary<BooleanType, BinaryViewType, LargeBinaryType, Op>::Exec;
+
+  DCHECK_OK(func->AddKernel({utf8(), utf8_view()}, boolean(), exec_base_view));
+  DCHECK_OK(func->AddKernel({utf8_view(), utf8()}, boolean(), exec_view_base));
+  DCHECK_OK(func->AddKernel({large_utf8(), utf8_view()}, boolean(), exec_large_view));
+  DCHECK_OK(func->AddKernel({utf8_view(), large_utf8()}, boolean(), exec_view_large));
+
+  DCHECK_OK(func->AddKernel({binary(), binary_view()}, boolean(), exec_base_view));
+  DCHECK_OK(func->AddKernel({binary_view(), binary()}, boolean(), exec_view_base));
+  DCHECK_OK(func->AddKernel({large_binary(), binary_view()}, boolean(), exec_large_view));
+  DCHECK_OK(func->AddKernel({binary_view(), large_binary()}, boolean(), exec_view_large));
+
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
-    auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
+    auto exec =
+        GenerateDecimal<applicator::ScalarBinaryEqualTypes, WithType0<BooleanType>, Op>(
+            id);
     DCHECK_OK(func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec),
                               /*init=*/nullptr, DecimalsHaveSameScale()));
   }
@@ -478,6 +491,15 @@ std::shared_ptr<ScalarFunction> MakeFlippedCompare(std::string name,
       std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
+    const auto& in_types = kernel->signature->in_types();
+    if (in_types[0] != in_types[1]) {
+      // Currently, all heterogeneous-type kernels (e.g. utf8 vs utf8_view) have no
+      // match constraint, so we can safely create a new signature without one.
+      // For symmetric-type kernels (e.g. decimal128 vs decimal128), we preserve the
+      // original signature which may carry constraints like DecimalsHaveSameScale.
+      flipped_kernel.signature = KernelSignature::Make({in_types[1], in_types[0]},
+                                                       kernel->signature->out_type());
+    }
     if (kernel->data) {
       auto compare_data = checked_cast<const CompareData*>(kernel->data.get());
       flipped_kernel.data =

@@ -411,11 +411,11 @@ struct GrouperImpl : public Grouper {
   }
 
   template <typename VisitGroupFunc, typename VisitUnknownGroupFunc>
-  void VisitKeys(int64_t length, const int32_t* key_offsets, const uint8_t* key_data,
+  void VisitKeys(int64_t length, const int64_t* key_offsets, const uint8_t* key_data,
                  bool insert_new_keys, VisitGroupFunc&& visit_group,
                  VisitUnknownGroupFunc&& visit_unknown_group) {
     for (int64_t i = 0; i < length; ++i) {
-      const int32_t key_length = key_offsets[i + 1] - key_offsets[i];
+      const int64_t key_length = key_offsets[i + 1] - key_offsets[i];
       const uint8_t* key_ptr = key_data + key_offsets[i];
       std::string key(reinterpret_cast<const char*>(key_ptr), key_length);
 
@@ -426,7 +426,7 @@ struct GrouperImpl : public Grouper {
           // New key: update offsets and key_bytes
           ++num_groups_;
           if (key_length > 0) {
-            const auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
+            const auto next_key_offset = static_cast<int64_t>(key_bytes_.size());
             key_bytes_.resize(next_key_offset + key_length);
             offsets_.push_back(next_key_offset + key_length);
             memcpy(key_bytes_.data() + next_key_offset, key_ptr, key_length);
@@ -453,12 +453,12 @@ struct GrouperImpl : public Grouper {
       auto batch_slice = batch.ToExecBatch().Slice(offset, length);
       return ConsumeImpl(ExecSpan(batch_slice), 0, -1, mode);
     }
-    std::vector<int32_t> offsets_batch(batch.length + 1);
+    std::vector<int64_t> offsets_batch(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
       encoders_[i]->AddLength(batch[i], batch.length, offsets_batch.data());
     }
 
-    int32_t total_length = 0;
+    int64_t total_length = 0;
     for (int64_t i = 0; i < batch.length; ++i) {
       auto total_length_before = total_length;
       total_length += offsets_batch[i];
@@ -546,7 +546,7 @@ struct GrouperImpl : public Grouper {
   ExecContext* ctx_;
   // TODO We could use std::string_view since the keys are copied in key_bytes_.
   std::unordered_map<std::string, uint32_t> map_;
-  std::vector<int32_t> offsets_ = {0};
+  std::vector<int64_t> offsets_ = {0};
   std::vector<uint8_t> key_bytes_;
   uint32_t num_groups_ = 0;
   std::vector<std::unique_ptr<internal::KeyEncoder>> encoders_;
