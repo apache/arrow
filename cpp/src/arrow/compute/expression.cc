@@ -20,7 +20,6 @@
 #include "arrow/compute/expression.h"
 
 #include <algorithm>
-#include <cmath>
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
@@ -1226,18 +1225,6 @@ struct OrderPreservingCasts {
 // the guarantee (see internal::RangeEvaluator), which never rebinds.
 constexpr int64_t kIsInSimplificationMaxValueSet = 50;
 
-// Whether a (valid) scalar of a floating point type is NaN.
-bool IsNaNScalar(const Scalar& value) {
-  switch (value.type->id()) {
-    case Type::FLOAT:
-      return std::isnan(checked_cast<const FloatScalar&>(value).value);
-    case Type::DOUBLE:
-      return std::isnan(checked_cast<const DoubleScalar&>(value).value);
-    default:
-      return false;
-  }
-}
-
 // Whether values of the two types are ordered alike, so that a guarantee bound of
 // one type which casts exactly to the other bounds the same values there. This does
 // not hold across families: "10" <= "9" as strings, but both cast exactly to
@@ -1245,7 +1232,7 @@ bool IsNaNScalar(const Scalar& value) {
 bool HaveSameOrder(const DataType& left, const DataType& right) {
   if (left.id() == right.id()) return true;
   auto family = [](Type::type id) {
-    if (is_integer(id) || is_floating(id) || is_decimal(id)) return 1;
+    if (is_integer(id) || is_floating(id)) return 1;
     if (is_base_binary_like(id)) return 2;
     if (id == Type::DATE32 || id == Type::DATE64 || id == Type::TIMESTAMP) return 3;
     return 0;
@@ -1363,8 +1350,8 @@ struct Inequality {
   std::optional<std::pair<Comparison::type, std::shared_ptr<Scalar>>> Restate(
       const OrderPreservingCasts& casts) const {
     std::shared_ptr<Scalar> value = bound.scalar();
-    // A comparison against null or NaN cannot be guaranteed true, but be defensive.
-    if (!value->is_valid || IsNaNScalar(*value)) return std::nullopt;
+    // A comparison against null cannot be guaranteed true, but be defensive.
+    if (!value->is_valid) return std::nullopt;
 
     ExecContext exec_context;
     const auto& target_type = casts.inner->type();
@@ -1382,7 +1369,6 @@ struct Inequality {
     }
     auto cast_value = casts.ApplyToBound(std::move(value), &exec_context);
     if (!cast_value.ok()) return std::nullopt;
-    // A valid non-NaN bound stays valid and non-NaN through order preserving casts.
     return std::make_pair(casts.ApplyToComparison(cmp), *std::move(cast_value));
   }
 

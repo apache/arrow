@@ -2421,6 +2421,15 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
        and_(and_(greater(i32, literal(10)), greater(i32, literal(50))),
             less(i32, literal(100))),
        kFalse},
+      // ... of which the strict one wins over an inclusive one at the same value
+      {i32, int32(), gapped,
+       and_(and_(greater_equal(i32, literal(50)), greater(i32, literal(50))),
+            less(i32, literal(100))),
+       kFalse},
+      {i32, int32(), gapped,
+       and_(and_(less(i32, literal(100)), less_equal(i32, literal(100))),
+            greater(i32, literal(50))),
+       kFalse},
       // Bounds on other fields are irrelevant, including those of a range which may
       // be null for another field
       {i32, int32(), gapped, and_(greater(u32, literal(50)), less(u32, literal(100))),
@@ -2465,6 +2474,7 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
       // Statistics cannot bound NaN, so a value set containing NaN is never simplified
       {f64, float64(), concat_json("[NaN]", range), greater(f64, literal(100.5)),
        kUnchanged},
+      {f64, float64(), concat_json("[NaN]", range), less(f64, literal(0.5)), kUnchanged},
       // Strict bounds through a stripped narrowing cast are weakened to inclusive
       // ones: f64 = 51.00000001 satisfies f64 > 51 and casts to 51f, a set member.
       {cast(f64, float32()), float32(), make_range_json(1, 51),
@@ -2509,6 +2519,10 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
       // ... whereas bounds of another numeric type are converted
       {i64, int64(), concat_json("[5]", make_range_json(1000, 1059)),
        and_(greater_equal(i64, literal(9.0)), less_equal(i64, literal(10.0))), kFalse},
+      // ... as are dates bounding a timestamp: day 1 is second 86400
+      {field_ref("ts_s"), timestamp(TimeUnit::SECOND), range,
+       greater_equal(field_ref("ts_s"), literal(std::make_shared<Date32Scalar>(1))),
+       kFalse},
       // Dictionaries are not searchable
       {field_ref("dict_i32"), int32(), range,
        greater(field_ref("dict_i32"), literal(100)), kUnchanged},
@@ -2527,6 +2541,11 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
     }
   }
 
+  // index_in shares the kernel state of is_in but is never simplified
+  Simplify{call("index_in", {i32}, SetLookupOptions{ArrayFromJSON(int32(), gapped)})}
+      .WithGuarantee(in_gap)
+      .ExpectUnchanged();
+
   // Value sets longer than kIsInMaxSortedValueSet are only bounded by their smallest
   // and largest value, so a guarantee inside a gap of the value set does not prune
   auto huge = call("is_in", {i32},
@@ -2539,6 +2558,13 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
       .WithGuarantee(and_(greater(i32, literal(70000)), less(i32, literal(100001))))
       .ExpectUnchanged();
   Simplify{huge}.WithGuarantee(greater_equal(i32, literal(170000))).ExpectUnchanged();
+  // ... unless they contain NaN, which the smallest and largest value ignore
+  auto huge_nan =
+      call("is_in", {f64},
+           SetLookupOptions{ArrayFromJSON(
+               float64(), concat_json("[NaN]", make_range_json(1, 140000)))});
+  Simplify{huge_nan}.WithGuarantee(less(f64, literal(0.5))).ExpectUnchanged();
+  Simplify{huge_nan}.WithGuarantee(greater(f64, literal(140000.5))).ExpectUnchanged();
 
   // Chunked value sets are concatenated before they are sorted
   SetLookupOptions chunked_options{
