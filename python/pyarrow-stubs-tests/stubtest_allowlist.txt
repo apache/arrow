@@ -59,8 +59,6 @@ pyarrow\.__lib\.device\.DeviceAllocationType\.__format__
 pyarrow\.__lib\.table\.ChunkedArray\.data
 pyarrow\.__lib\.table\.ChunkedArray\.format
 pyarrow\.__lib\.table\.concat_tables
-pyarrow\.__lib\.tensor\.Sparse[A-Z]+(Tensor|Matrix)\.from_(numpy|pydata_sparse|scipy|tensor)
-pyarrow\.__lib\.tensor\.Tensor\.from_numpy
 pyarrow\.__lib\.types\.Schema\.__getitem__
 pyarrow\.__lib\.types\.Schema\.add_metadata
 pyarrow\.__lib\.types\.Schema\.field_by_name
