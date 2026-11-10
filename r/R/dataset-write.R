@@ -73,7 +73,7 @@
 #' hierarchical filesystem. Default is TRUE.
 #' @param preserve_order Preserve the order of the rows.
 #' @param ... additional format-specific arguments. For available Parquet
-#' options, see [write_parquet()]. The available Feather options are:
+#' options, see [write_parquet()]. The available IPC options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
 #'   versions 0.14 and lower can read it. Default is `FALSE`. You can also
 #'   enable this by setting the environment variable `ARROW_PRE_0_15_IPC_FORMAT=1`.
@@ -143,8 +143,21 @@ write_dataset <- function(
   ...
 ) {
   format <- match.arg(format)
+  if (format == "feather") {
+    .Deprecated(
+      msg = '`format = "feather"` is deprecated; use `format = "ipc"` instead.'
+    )
+  }
+  if (format == "txt") {
+    .Deprecated(
+      msg = '`format = "txt"` is deprecated; use `format = "csv"` instead.'
+    )
+  }
   if (format %in% c("feather", "ipc")) {
     format <- "arrow"
+  }
+  if (format %in% c("text", "txt")) {
+    format <- "csv"
   }
   if (inherits(dataset, "arrow_dplyr_query")) {
     # partitioning vars need to be in the `select` schema
@@ -154,7 +167,7 @@ write_dataset <- function(
     if (inherits(dataset, "grouped_df")) {
       force(partitioning)
       # Drop the grouping metadata before writing; we've already consumed it
-      # now to construct `partitioning` and don't want it in the metadata$r
+      # now to construct `partitioning` and don't want it in the metadata[["r"]]
       dataset <- dplyr::ungroup(dataset)
     }
     dataset <- as_adq(dataset)
@@ -189,9 +202,6 @@ write_dataset <- function(
   path_and_fs <- get_path_and_filesystem(path)
 
   dots <- list(...)
-  if (format %in% c("txt", "text") && !any(c("delimiter", "delim") %in% names(dots))) {
-    stop("A delimiter must be given for a txt format.")
-  }
   if (format == "tsv" && any(c("delimiter", "delim") %in% names(dots))) {
     stop("Can't set a delimiter for the tsv format.")
   }
@@ -311,7 +321,7 @@ write_delim_dataset <- function(
   write_dataset(
     dataset = dataset,
     path = path,
-    format = "txt",
+    format = "text",
     partitioning = partitioning,
     basename_template = basename_template,
     hive_style = hive_style,

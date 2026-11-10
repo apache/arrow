@@ -744,7 +744,8 @@ Status SwissTable::grow_double() {
           static_cast<int>(std::countl_zero(block_new & kHighBitOfEachByte) >> 3);
       while (full_slots_new == kSlotsPerBlock) {
         block_id_new = (block_id_new + 1) & ((1 << log_blocks_after) - 1);
-        block_base_new = blocks_new->mutable_data() + block_id_new * block_size_after;
+        block_base_new = mutable_block_data(blocks_new->mutable_data(), block_id_new,
+                                            block_size_after);
         block_new = util::SafeLoadAs<uint64_t>(block_base_new);
         full_slots_new =
             static_cast<int>(std::countl_zero(block_new & kHighBitOfEachByte) >> 3);

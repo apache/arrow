@@ -59,10 +59,13 @@ RUN apk add \
         re2-dev \
         rsync \
         samurai \
+        simdjson-dev \
+        simdjson-static \
         snappy-dev \
         sqlite-dev \
         thrift-dev \
         tzdata \
+        uriparser-dev \
         utf8proc-dev \
         zlib-dev \
         zstd-dev && \
@@ -102,5 +105,8 @@ ENV ARROW_ACERO=ON \
     AWSSDK_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     MUSL_LOCPATH=/usr/share/i18n/locales/musl \
-    PATH=/usr/lib/ccache/bin:$PATH \
+    # We can remove this once
+    # https://gitlab.alpinelinux.org/alpine/aports/-/work_items/18353
+    # is fixed.
+    simdjson_SOURCE=BUNDLED \
     xsimd_SOURCE=BUNDLED

@@ -43,16 +43,34 @@ if(ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_GCS)
+  set(ARROW_GCS_TEST_EXTRA_LINK_LIBS)
+  if(ARROW_TEST_LINKAGE STREQUAL "shared")
+    list(APPEND ARROW_GCS_TEST_EXTRA_LINK_LIBS arrow_gcs_shared)
+  else()
+    list(APPEND ARROW_GCS_TEST_EXTRA_LINK_LIBS arrow_gcs_static)
+  endif()
+  list(APPEND ARROW_GCS_TEST_EXTRA_LINK_LIBS google-cloud-cpp::storage)
   add_arrow_test(gcsfs_test
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
-                 google-cloud-cpp::storage)
+                 ${ARROW_GCS_TEST_EXTRA_LINK_LIBS})
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
     if(TARGET arrow-gcsfs-test)
       target_compile_options(arrow-gcsfs-test PRIVATE -Wno-documentation
                                                       -Wno-documentation-deprecated-sync)
     endif()
+  endif()
+  if(ARROW_BUILD_TESTS AND ARROW_BUILD_SHARED)
+    add_arrow_test(gcsfs_module_test
+                   SOURCES
+                   gcsfs_module_test.cc
+                   EXTRA_LABELS
+                   filesystem
+                   DEFINITIONS
+                   ARROW_GCS_LIBPATH="$<TARGET_FILE:arrow_gcs_shared>"
+                   EXTRA_DEPENDENCIES
+                   arrow_gcs_shared)
   endif()
 endif()
 
@@ -73,9 +91,9 @@ if(ARROW_S3)
   # static variables storage of AWS SDK for C++ in libaws*.a may be
   # mixed with one in libarrow.
   if(ARROW_TEST_LINKAGE STREQUAL "shared")
-    list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_shared)
+    list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_s3_shared)
   else()
-    list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_static)
+    list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS arrow_s3_static)
   endif()
   list(APPEND ARROW_S3_TEST_EXTRA_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
   add_arrow_test(s3fs_test
@@ -107,7 +125,7 @@ if(ARROW_S3)
   if(ARROW_BUILD_TESTS)
     add_executable(arrow-s3fs-narrative-test s3fs_narrative_test.cc)
     target_link_libraries(arrow-s3fs-narrative-test ${ARROW_TEST_LINK_LIBS}
-                          ${GFLAGS_LIBRARIES})
+                          ${ARROW_S3_TEST_EXTRA_LINK_LIBS} ${GFLAGS_LIBRARIES})
     add_dependencies(arrow-tests arrow-s3fs-narrative-test)
   endif()
 
@@ -119,7 +137,7 @@ if(ARROW_S3)
                         s3fs_benchmark.cc
                         s3_test_util.cc
                         STATIC_LINK_LIBS
-                        ${AWSSDK_LINK_LIBRARIES}
+                        ${ARROW_S3_TEST_EXTRA_LINK_LIBS}
                         ${ARROW_BENCHMARK_LINK_LIBS})
     if(ARROW_TEST_LINKAGE STREQUAL "static")
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_static)
@@ -128,7 +146,7 @@ if(ARROW_S3)
     endif()
   endif()
 
-  if(ARROW_S3_MODULE)
+  if(ARROW_BUILD_TESTS AND ARROW_BUILD_SHARED)
     add_arrow_test(s3fs_module_test
                    SOURCES
                    s3fs_module_test.cc
@@ -136,13 +154,11 @@ if(ARROW_S3)
                    EXTRA_LABELS
                    filesystem
                    DEFINITIONS
-                   ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>"
+                   ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3_shared>"
+                   EXTRA_DEPENDENCIES
+                   arrow_s3_shared
                    EXTRA_LINK_LIBS
                    Boost::filesystem)
-    target_compile_definitions(arrow-filesystem-test
-                               PUBLIC ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>")
-    target_sources(arrow-filesystem-test PUBLIC s3fs_module_test.cc s3_test_util.cc)
-    target_link_libraries(arrow-filesystem-test PUBLIC Boost::filesystem)
   endif()
 endif()
 

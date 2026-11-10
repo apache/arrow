@@ -197,10 +197,10 @@ if [ "${cmake_version_major}" -gt "3" ] || \
    [ "${cmake_version_major}" -eq "3" -a "${cmake_version_minor}" -ge "25" ]; then
   cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
   pushd build/minimal_build
-  cmake -S . -B build_shared
+  cmake -S . -B build_shared -DCMAKE_VERBOSE_MAKEFILE=ON
   make -C build_shared -j$(nproc)
   build_shared/arrow-example
-  cmake -S . -B build_static -DARROW_LINK_SHARED=OFF
+  cmake -S . -B build_static -DARROW_LINK_SHARED=OFF -DCMAKE_VERBOSE_MAKEFILE=ON
   make -C build_static -j$(nproc)
   build_static/arrow-example
   mkdir -p build_pkg_config
@@ -257,6 +257,11 @@ if [ "${have_flight}" = "yes" ]; then
   if [ "${have_ruby}" = "yes" ]; then
     ruby -r gi -e "p GI.load('ArrowFlightSQL')"
   fi
+  echo "::endgroup::"
+
+  echo "::group::Test Apache Arrow Flight SQL ODBC driver"
+  ${install_command} ${enablerepo_epel} arrow-flight-sql-odbc-devel-${package_version}
+  odbcinst -q -d -n 'Apache Arrow Flight SQL ODBC Driver'
   echo "::endgroup::"
 fi
 

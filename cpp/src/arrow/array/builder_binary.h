@@ -84,6 +84,7 @@ class BaseBinaryBuilder
   }
 
   Status Append(std::string_view value) {
+    ARROW_RETURN_NOT_OK(ValidateOverflow(static_cast<int64_t>(value.size())));
     return Append(value.data(), static_cast<offset_type>(value.size()));
   }
 
@@ -100,6 +101,7 @@ class BaseBinaryBuilder
   }
 
   Status ExtendCurrent(std::string_view value) {
+    ARROW_RETURN_NOT_OK(ValidateOverflow(static_cast<int64_t>(value.size())));
     return ExtendCurrent(reinterpret_cast<const uint8_t*>(value.data()),
                          static_cast<offset_type>(value.size()));
   }
@@ -949,6 +951,12 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
   }
 
   Status Append(std::string_view value) {
+    if (ARROW_PREDICT_FALSE(value.size() >
+                            static_cast<size_t>(BinaryBuilder::memory_limit()))) {
+      return Status::CapacityError("array cannot contain more than ",
+                                   BinaryBuilder::memory_limit(), " bytes, have ",
+                                   value.size());
+    }
     return Append(reinterpret_cast<const uint8_t*>(value.data()),
                   static_cast<int32_t>(value.size()));
   }

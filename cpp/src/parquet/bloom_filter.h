@@ -223,6 +223,9 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// Minimum Bloom filter size, it sets to 32 bytes to fit a tiny Bloom filter.
   static constexpr uint32_t kMinimumBloomFilterBytes = 32;
 
+  /// The number of bits set in each tiny (256-bit) Bloom filter block.
+  static constexpr int kBitsSetPerBlock = 8;
+
   /// Calculate optimal size according to the number of distinct values and false
   /// positive probability.
   ///
@@ -362,9 +365,6 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
 
   // Bytes in a tiny Bloom filter block.
   static constexpr int kBytesPerFilterBlock = 32;
-
-  // The number of bits to be set in each tiny Bloom filter
-  static constexpr int kBitsSetPerBlock = 8;
 
   // A mask structure used to set bits in each tiny Bloom filter.
   struct BlockMask {

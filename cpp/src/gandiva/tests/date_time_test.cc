@@ -105,9 +105,9 @@ int32_t DaysSince(time_t base_line, int32_t yy, int32_t mm, int32_t dd, int32_t 
   given_ts.tm_min = min;
   given_ts.tm_sec = sec;
 
-  time_t ts = mktime(&given_ts);
+  time_t ts = timegm(&given_ts);
   if (ts == static_cast<time_t>(-1)) {
-    ARROW_LOG(FATAL) << "mktime() failed";
+    ARROW_LOG(FATAL) << "timegm() failed";
   }
   // time_t is an arithmetic type on both POSIX and Windows, we can simply
   // subtract to get a duration in seconds.

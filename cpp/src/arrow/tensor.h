@@ -27,6 +27,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -70,12 +71,25 @@ bool IsTensorStridesContiguous(const std::shared_ptr<DataType>& type,
                                const std::vector<int64_t>& shape,
                                const std::vector<int64_t>& strides);
 
+/// Compute the size needed to store the tensor with the given strides and shape.
+///
+/// If the strides are in number of element, pass `elem_size=1` to compute the buffer size
+/// in the number of elements. If the strides are in bytes, pass the element size in byte
+/// to `elem_size` and get the result in bytes.
+ARROW_EXPORT
+Result<int64_t> ComputeTensorSize(std::span<const int64_t> shape,
+                                  std::span<const int64_t> strides, int64_t elem_size);
+
 ARROW_EXPORT
 Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
                                 const std::shared_ptr<Buffer>& data,
                                 const std::vector<int64_t>& shape,
                                 const std::vector<int64_t>& strides,
                                 const std::vector<std::string>& dim_names);
+
+ARROW_EXPORT
+Status TableToTensor(const Table& table, bool null_to_nan, bool row_major,
+                     MemoryPool* pool, std::shared_ptr<Tensor>* tensor);
 
 ARROW_EXPORT
 Status RecordBatchToTensor(const RecordBatch& batch, bool null_to_nan, bool row_major,
@@ -104,6 +118,12 @@ class ARROW_EXPORT Tensor {
         internal::ValidateTensorParameters(type, data, shape, strides, dim_names));
     return std::make_shared<Tensor>(type, data, shape, strides, dim_names);
   }
+
+  /// \brief Attempt to create a Tensor from an Array.
+  ///
+  /// \see Array::ToTensor
+  static Result<std::shared_ptr<Tensor>> FromArray(const std::shared_ptr<Array>& array,
+                                                   bool allow_nulls = false);
 
   virtual ~Tensor() = default;
 

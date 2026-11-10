@@ -141,7 +141,7 @@ template <typename ArrowType>
 }
 
 template <int32_t byte_width>
-static void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out) {
+void random_decimals(int64_t n, uint32_t seed, int32_t precision, uint8_t* out) {
   auto gen = ::arrow::random::RandomArrayGenerator(seed);
   std::shared_ptr<Array> decimals;
   if constexpr (byte_width == 4) {

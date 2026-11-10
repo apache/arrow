@@ -184,41 +184,44 @@ TEST_F(TestIn, TestInDecimal) {
   auto field0 = field("f0", arrow::decimal128(precision, scale));
   auto schema = arrow::schema({field0});
 
-  // Build In f0 + f1 in (6, 11)
   auto node_f0 = TreeExprBuilder::MakeField(field0);
 
   gandiva::DecimalScalar128 d0("6", precision, scale);
   gandiva::DecimalScalar128 d1("12", precision, scale);
   gandiva::DecimalScalar128 d2("11", precision, scale);
   std::unordered_set<gandiva::DecimalScalar128> in_constants({d0, d1, d2});
+
   auto in_expr = TreeExprBuilder::MakeInExpressionDecimal(node_f0, in_constants);
   auto condition = TreeExprBuilder::MakeCondition(in_expr);
 
-  std::shared_ptr<Filter> filter;
-  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
-  EXPECT_TRUE(status.ok());
-
-  // Create a row-batch with some sample data
   int num_records = 5;
   auto values0 = MakeDecimalVector({"1", "2", "0", "-6", "6"});
   auto array0 =
       MakeArrowArrayDecimal(decimal_type, values0, {true, true, true, false, true});
-  // expected output (indices for which condition matches)
+
   auto exp = MakeArrowArrayUint16({4});
 
-  // prepare input record batch
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
 
-  std::shared_ptr<SelectionVector> selection_vector;
-  status = SelectionVector::MakeInt16(num_records, pool_, &selection_vector);
-  EXPECT_TRUE(status.ok());
+  // GH-39784: Verify decimal in_expr works correctly when the generated
+  // object code is reused from cache.
+  for (int i = 0; i < 2; ++i) {
+    std::shared_ptr<Filter> filter;
+    ASSERT_OK(Filter::Make(schema, condition, TestConfiguration(), &filter));
 
-  // Evaluate expression
-  status = filter->Evaluate(*in_batch, selection_vector);
-  EXPECT_TRUE(status.ok());
+    if (i == 0) {
+      EXPECT_FALSE(filter->GetBuiltFromCache());
+    } else {
+      EXPECT_TRUE(filter->GetBuiltFromCache());
+    }
 
-  // Validate results
-  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+    std::shared_ptr<SelectionVector> selection_vector;
+    ASSERT_OK(SelectionVector::MakeInt16(num_records, pool_, &selection_vector));
+
+    ASSERT_OK(filter->Evaluate(*in_batch, selection_vector));
+
+    EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+  }
 }
 
 TEST_F(TestIn, TestInString) {

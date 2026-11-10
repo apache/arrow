@@ -18,16 +18,27 @@
 Other Data Structures
 =====================
 
+.. deprecated::
+
+   The IPC features described hereafter are deprecated, as they don't compose
+   well with other Arrow concepts such as the :ref:`Columnar format <format_columnar>`.
+
 Our `Flatbuffers protocol definition files`_ have metadata for some other data
 structures defined to allow other kinds of applications to take advantage of
 common interprocess communication machinery. These data structures are not
 considered to be part of the columnar format.
 
-An Arrow columnar implementation is not required to implement these
-types.
+Most Arrow implementations don't support these message types.
+
 
 Tensor (Multi-dimensional Array)
 --------------------------------
+
+.. warning::
+   This message type is :ref:`mostly unsupported <status-ipc-format>`
+   by existing Arrow implementations.
+   The recommended way to pass tensors over Arrow IPC is using RecordBatch
+   columns with the :ref:`fixed_shape_tensor_extension` type.
 
 The ``Tensor`` message types provides a way to write a
 multidimensional array of fixed-size values (such as a NumPy ndarray).
@@ -43,6 +54,13 @@ tensor body to be a multiple of 64 bytes: ::
 
 Sparse Tensor
 -------------
+
+.. warning::
+   This message type is :ref:`mostly unsupported <status-ipc-format>`
+   by existing Arrow implementations.
+   It currently doesn't have a recommended replacement. If this use case
+   is important to you, feel free to discuss it on the
+   `development mailing-list <https://arrow.apache.org/community/>`_.
 
 ``SparseTensor`` represents a multidimensional array whose elements
 are generally almost all zeros.

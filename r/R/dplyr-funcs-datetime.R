@@ -538,7 +538,7 @@ register_bindings_duration <- function() {
     "base::as.difftime",
     function(x, format = "%X", units = "secs") {
       # windows doesn't seem to like "%X"
-      if (format == "%X" & tolower(Sys.info()[["sysname"]]) == "windows") {
+      if (format == "%X" && tolower(Sys.info()[["sysname"]]) == "windows") {
         format <- "%H:%M:%S"
       }
 

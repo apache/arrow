@@ -162,8 +162,8 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
                                SparseTensorFormat::type* sparse_tensor_format_id);
 
 ARROW_EXPORT
-Status GetKeyValueMetadata(const KVVector* fb_metadata,
-                           std::shared_ptr<KeyValueMetadata>* out);
+Result<std::shared_ptr<KeyValueMetadata>> GetKeyValueMetadata(
+    const KVVector* fb_metadata);
 
 ARROW_EXPORT
 Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
@@ -193,17 +193,17 @@ static inline Status VerifyMessage(const uint8_t* data, int64_t size,
 
 // Serialize arrow::Schema as a Flatbuffer
 ARROW_EXPORT
-Status WriteSchemaMessage(const Schema& schema, const DictionaryFieldMapper& mapper,
-                          const IpcWriteOptions& options, std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> WriteSchemaMessage(const Schema& schema,
+                                                   const DictionaryFieldMapper& mapper,
+                                                   const IpcWriteOptions& options);
 
 // This function is used in a unit test
 ARROW_EXPORT
-Status WriteRecordBatchMessage(
+Result<std::shared_ptr<Buffer>> WriteRecordBatchMessage(
     const int64_t length, const int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const std::vector<int64_t>& variadic_counts, const IpcWriteOptions& options,
-    std::shared_ptr<Buffer>* out);
+    const std::vector<int64_t>& variadic_counts, const IpcWriteOptions& options);
 
 ARROW_EXPORT
 Result<std::shared_ptr<Buffer>> WriteTensorMessage(const Tensor& tensor,
@@ -222,13 +222,12 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
                        io::OutputStream* out);
 
 ARROW_EXPORT
-Status WriteDictionaryMessage(
+Result<std::shared_ptr<Buffer>> WriteDictionaryMessage(
     const int64_t id, const bool is_delta, const int64_t length,
     const int64_t body_length,
     const std::shared_ptr<const KeyValueMetadata>& custom_metadata,
     const std::vector<FieldMetadata>& nodes, const std::vector<BufferMetadata>& buffers,
-    const std::vector<int64_t>& variadic_counts, const IpcWriteOptions& options,
-    std::shared_ptr<Buffer>* out);
+    const std::vector<int64_t>& variadic_counts, const IpcWriteOptions& options);
 
 static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
     flatbuffers::FlatBufferBuilder& fbb,  // NOLINT non-const reference
@@ -239,8 +238,7 @@ static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);
-  // R build with openSUSE155 requires an explicit shared_ptr construction
-  return std::shared_ptr<Buffer>(std::move(result));
+  return result;
 }
 
 ARROW_EXPORT

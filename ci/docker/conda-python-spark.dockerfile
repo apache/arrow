@@ -18,10 +18,10 @@
 ARG repo
 ARG arch
 ARG arch_short
-ARG python=3.10
+ARG python=3.11
 FROM --platform=linux/${arch} ${repo}:${arch_short}-conda-python-${python}
 
-ARG jdk=11
+ARG jdk=17
 ARG maven=3.9.9
 
 ARG numpy=latest

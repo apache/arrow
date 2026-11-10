@@ -144,6 +144,15 @@ After ODBC has been registered, you can run the ODBC tests. It is recommended to
       .\cpp\build\< release | debug >\< Release | Debug>\arrow-flight-sql-odbc-test.exe
       ```
 
+## Installers
+
+ODBC Windows and macOS installers are uploaded to the CI artifacts for developer use.
+
+| Operating System | Package Format |
+|------------------|----------------|
+| Windows          | MSI            |
+| macOS            | PKG            |
+
 ## Known Limitations
 
 - Conversion from timestamp data type with specified time zone value to strings is not supported at the moment. This doesn't impact driver's usage of retrieving timestamp data from Power BI on Windows, and Excel on macOS and Windows. See GH-47504 for more context.

@@ -137,9 +137,6 @@ def test_exported_option_classes():
                                       param.VAR_KEYWORD)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:pyarrow.CumulativeSumOptions is deprecated as of 14.0"
-)
 def test_option_class_equality(request):
     options = [
         pc.ArraySortOptions(),
@@ -172,10 +169,9 @@ def test_option_class_equality(request):
         pc.PivotWiderOptions(["height"], unexpected_key_behavior="raise"),
         pc.QuantileOptions(),
         pc.RandomOptions(),
-        pc.RankOptions(sort_keys="ascending",
-                       null_placement="at_start", tiebreaker="max"),
-        pc.RankQuantileOptions(sort_keys="ascending",
-                               null_placement="at_start"),
+        pc.RankOptions(sort_keys=[("", "ascending", "at_end")],
+                       tiebreaker="max"),
+        pc.RankQuantileOptions(sort_keys=[("", "ascending", "at_end")]),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
         pc.RoundOptions(2, "towards_infinity"),
@@ -183,11 +179,11 @@ def test_option_class_equality(request):
         pc.RoundTemporalOptions(1, "second", week_starts_monday=True),
         pc.RoundToMultipleOptions(100, "towards_infinity"),
         pc.ScalarAggregateOptions(),
-        pc.SelectKOptions(0, sort_keys=[("b", "ascending")]),
+        pc.SelectKOptions(0, sort_keys=[("b", "ascending", "at_end")]),
         pc.SetLookupOptions(pa.array([1])),
         pc.SkewOptions(min_count=2),
         pc.SliceOptions(0, 1, 1),
-        pc.SortOptions([("dummy", "descending")], null_placement="at_start"),
+        pc.SortOptions([("dummy", "descending", "at_end")]),
         pc.SplitOptions(),
         pc.SplitPatternOptions("pattern"),
         pc.StrftimeOptions(),
@@ -227,18 +223,19 @@ def test_option_class_equality(request):
         buf = option.serialize()
         deserialized = pc.FunctionOptions.deserialize(buf)
         assert option == deserialized
-        # TODO remove the check under the if statement and the filterwarnings
-        # mark when the deprecated class CumulativeSumOptions is removed.
-        if repr(option).startswith("CumulativeSumOptions"):
-            assert repr(deserialized).startswith("CumulativeOptions")
-        else:
-            assert repr(option) == repr(deserialized)
+        assert repr(option) == repr(deserialized)
     for option1, option2 in zip(options, options[1:]):
         assert option1 != option2
 
     assert repr(pc.IndexOptions(pa.scalar(1))) == "IndexOptions(value=int64:1)"
     assert repr(pc.ArraySortOptions()) == \
         "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
+
+
+@pytest.mark.parametrize("value", [None, 1, [], b""])
+def test_function_options_deserialize_rejects_non_buffers(value):
+    with pytest.raises(TypeError):
+        pc.FunctionOptions.deserialize(value)
 
 
 def test_list_functions():
@@ -1944,6 +1941,18 @@ def test_arithmetic_multiply():
     assert result.equals(expected)
 
 
+def test_arithmetic_remainder_modulo():
+    left = pa.array([7, -7, 7, -7, None])
+    right = pa.array([3, 3, -3, -3, 3])
+    expected_remainder = [1, -1, 1, -1, None]
+    expected_modulo = [1, 2, -2, -1, None]
+
+    assert pc.remainder(left, right).to_pylist() == expected_remainder
+    assert pc.remainder_checked(left, right).to_pylist() == expected_remainder
+    assert pc.modulo(left, right).to_pylist() == expected_modulo
+    assert pc.modulo_checked(left, right).to_pylist() == expected_modulo
+
+
 @pytest.mark.parametrize("ty", ["round", "round_to_multiple"])
 def test_round_to_integer(ty):
     if ty == "round":
@@ -2612,8 +2621,6 @@ def test_strftime():
 
 
 def _check_datetime_components(timestamps, timezone=None):
-    from pyarrow.vendored.version import Version
-
     ts = pd.to_datetime(timestamps).tz_localize(
         "UTC").tz_convert(timezone).to_series()
     tsa = pa.array(ts, pa.timestamp("ns", tz=timezone))
@@ -2626,17 +2633,11 @@ def _check_datetime_components(timestamps, timezone=None):
         pa.field('iso_day_of_week', pa.int64())
     ]
 
-    if Version(pd.__version__) < Version("1.1.0"):
-        # https://github.com/pandas-dev/pandas/issues/33206
-        iso_year = ts.map(lambda x: x.isocalendar()[0]).astype("int64")
-        iso_week = ts.map(lambda x: x.isocalendar()[1]).astype("int64")
-        iso_day = ts.map(lambda x: x.isocalendar()[2]).astype("int64")
-    else:
-        # Casting is required because pandas isocalendar returns int32
-        # while arrow isocalendar returns int64.
-        iso_year = ts.dt.isocalendar()["year"].astype("int64")
-        iso_week = ts.dt.isocalendar()["week"].astype("int64")
-        iso_day = ts.dt.isocalendar()["day"].astype("int64")
+    # Casting is required because pandas isocalendar returns int32
+    # while arrow isocalendar returns int64.
+    iso_year = ts.dt.isocalendar()["year"].astype("int64")
+    iso_week = ts.dt.isocalendar()["week"].astype("int64")
+    iso_day = ts.dt.isocalendar()["day"].astype("int64")
 
     iso_calendar = pa.StructArray.from_arrays(
         [iso_year, iso_week, iso_day],
@@ -2647,8 +2648,8 @@ def _check_datetime_components(timestamps, timezone=None):
     year = ts.dt.year.astype("int64")
     month = ts.dt.month.astype("int64")
     day = ts.dt.day.astype("int64")
-    dayofweek = ts.dt.dayofweek.astype("int64")
-    dayofyear = ts.dt.dayofyear.astype("int64")
+    dayofweek = ts.dt.day_of_week.astype("int64")
+    dayofyear = ts.dt.day_of_year.astype("int64")
     quarter = ts.dt.quarter.astype("int64")
     hour = ts.dt.hour.astype("int64")
     minute = ts.dt.minute.astype("int64")
@@ -2971,7 +2972,7 @@ def test_round_temporal(unit):
     if sys.platform == "win32":
         timestamps = timestamps[:3] + timestamps[5:]
 
-    ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
+    ts = pd.Series([pd.Timestamp(x).as_unit("ns") for x in timestamps])
     _check_temporal_rounding(ts, values, unit)
 
     timezones = ["Asia/Kolkata", "America/New_York", "Etc/GMT-4", "Etc/GMT+4",
@@ -2980,6 +2981,49 @@ def test_round_temporal(unit):
     for timezone in timezones:
         ts_zoned = ts.dt.tz_localize("UTC").dt.tz_convert(timezone)
         _check_temporal_rounding(ts_zoned, values, unit)
+
+
+@pytest.mark.parametrize(
+    ("unit", "base_frequency", "round_frequency"),
+    (
+        ("nanosecond", "1ns", "4ns"),
+        ("microsecond", "1us", "4us"),
+        ("millisecond", "1ms", "4ms"),
+        ("second", "1s", "4s"),
+        ("minute", "1min", "4min"),
+        ("hour", "1h", "4h"),
+        ("day", "1D", "4D"),
+        ("week", "7D", "28D"),
+    ),
+)
+@pytest.mark.pandas
+def test_round_temporal_duration(unit, base_frequency, round_frequency):
+    base = pd.Timedelta(base_frequency)
+    values = pd.Series([
+        -7 * base,
+        -4 * base,
+        -1 * base,
+        0 * base,
+        1 * base,
+        4 * base,
+        7 * base,
+        pd.NaT,
+    ])
+    arrow_values = pa.array(values)
+    assert pa.types.is_duration(arrow_values.type)
+
+    options = pc.RoundTemporalOptions(4, unit)
+
+    for arrow_round, pandas_round in (
+        (pc.ceil_temporal, values.dt.ceil),
+        (pc.floor_temporal, values.dt.floor),
+        (pc.round_temporal, values.dt.round),
+    ):
+        result = arrow_round(
+            arrow_values, options=options
+        ).to_pandas()
+        expected = pandas_round(round_frequency)
+        np.testing.assert_array_equal(result, expected)
 
 
 def test_count():
@@ -3108,8 +3152,10 @@ def test_partition_nth_null_placement():
 
 
 def test_select_k_array():
-    def validate_select_k(select_k_indices, arr, order, stable_sort=False):
-        sorted_indices = pc.sort_indices(arr, sort_keys=[("dummy", order)])
+    def validate_select_k(select_k_indices, arr, order, null_placement="at_end",
+                          stable_sort=False):
+        sorted_indices = pc.sort_indices(
+            arr, sort_keys=[("dummy", order, null_placement)])
         head_k_indices = sorted_indices.slice(0, len(select_k_indices))
         if stable_sort:
             assert select_k_indices == head_k_indices
@@ -3122,8 +3168,8 @@ def test_select_k_array():
     for k in [0, 2, 4]:
         for order in ["descending", "ascending"]:
             result = pc.select_k_unstable(
-                arr, k=k, sort_keys=[("dummy", order)])
-            validate_select_k(result, arr, order)
+                arr, k=k, sort_keys=[("dummy", order, "at_end")])
+            validate_select_k(result, arr, order, "at_end")
 
         result = pc.top_k_unstable(arr, k=k)
         validate_select_k(result, arr, "descending")
@@ -3133,19 +3179,20 @@ def test_select_k_array():
 
     result = pc.select_k_unstable(
         arr, options=pc.SelectKOptions(
-            k=2, sort_keys=[("dummy", "descending")])
+            k=2, sort_keys=[("dummy", "descending", "at_end")])
     )
     validate_select_k(result, arr, "descending")
 
     result = pc.select_k_unstable(
-        arr, options=pc.SelectKOptions(k=2, sort_keys=[("dummy", "ascending")])
+        arr, options=pc.SelectKOptions(
+            k=2, sort_keys=[("dummy", "ascending", "at_end")])
     )
     validate_select_k(result, arr, "ascending")
 
     # Position options
     assert pc.select_k_unstable(arr, 2,
-                                sort_keys=[("dummy", "ascending")]) == result
-    assert pc.select_k_unstable(arr, 2, [("dummy", "ascending")]) == result
+                                sort_keys=[("dummy", "ascending", "at_end")]) == result
+    assert pc.select_k_unstable(arr, 2, [("dummy", "ascending", "at_end")]) == result
 
 
 def test_select_k_table():
@@ -3162,20 +3209,25 @@ def test_select_k_table():
     table = pa.table({"a": [1, 2, 0], "b": [1, 0, 1]})
     for k in [0, 2, 4]:
         result = pc.select_k_unstable(
-            table, k=k, sort_keys=[("a", "ascending")])
-        validate_select_k(result, table, sort_keys=[("a", "ascending")])
+            table, k=k, sort_keys=[("a", "ascending", "at_end")])
+        validate_select_k(result, table, sort_keys=[("a", "ascending", "at_end")])
 
         result = pc.select_k_unstable(
-            table, k=k, sort_keys=[(pc.field("a"), "ascending"), ("b", "ascending")])
+            table, k=k, sort_keys=[(pc.field("a"), "ascending", "at_end"),
+                                   ("b", "ascending", "at_end")])
         validate_select_k(
-            result, table, sort_keys=[("a", "ascending"), ("b", "ascending")])
+            result, table, sort_keys=[("a", "ascending", "at_end"),
+                                      ("b", "ascending", "at_end")])
 
-        result = pc.top_k_unstable(table, k=k, sort_keys=["a"])
-        validate_select_k(result, table, sort_keys=[("a", "descending")])
+        result = pc.top_k_unstable(table, k=k, sort_keys=[
+                                   "a"], null_placements=["at_end"])
+        validate_select_k(result, table, sort_keys=[("a", "descending", "at_end")])
 
-        result = pc.bottom_k_unstable(table, k=k, sort_keys=["a", "b"])
+        result = pc.bottom_k_unstable(
+            table, k=k, sort_keys=["a", "b"], null_placements=["at_end", "at_start"])
         validate_select_k(
-            result, table, sort_keys=[("a", "ascending"), ("b", "ascending")])
+            result, table, sort_keys=[("a", "ascending", "at_end"), ("b", "ascending",
+                                                                     "at_start")])
 
     with pytest.raises(
             ValueError,
@@ -3184,7 +3236,7 @@ def test_select_k_table():
 
     with pytest.raises(ValueError,
                        match="select_k_unstable requires a nonnegative `k`"):
-        pc.select_k_unstable(table, k=-1, sort_keys=[("a", "ascending")])
+        pc.select_k_unstable(table, k=-1, sort_keys=[("a", "ascending", "at_end")])
 
     with pytest.raises(ValueError,
                        match="select_k_unstable requires a "
@@ -3192,11 +3244,11 @@ def test_select_k_table():
         pc.select_k_unstable(table, k=2, sort_keys=[])
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending")])
+        pc.select_k_unstable(table, k=k, sort_keys=[("a", "nonscending", "at_end")])
 
     with pytest.raises(ValueError,
                        match="Invalid sort key column: No match for.*unknown"):
-        pc.select_k_unstable(table, k=k, sort_keys=[("unknown", "ascending")])
+        pc.select_k_unstable(table, k=k, sort_keys=[("unknown", "ascending", "at_end")])
 
 
 def test_array_sort_indices():
@@ -3218,29 +3270,116 @@ def test_array_sort_indices():
         pc.array_sort_indices(arr, order="nonscending")
 
 
+def test_search_sorted():
+    values = pa.array([1, 1, 3, 5, 8])
+    needles = pa.array([0, 1, 3, 4, 5, 8, 9])
+
+    expected_left = pa.array([0, 0, 2, 3, 3, 4, 5], type=pa.uint64())
+    expected_right = pa.array([0, 2, 3, 3, 4, 5, 5], type=pa.uint64())
+
+    assert pc.search_sorted(values, needles).equals(expected_left)
+    assert pc.search_sorted(values, needles, side="left").equals(expected_left)
+    assert pc.search_sorted(values, needles, "right").equals(expected_right)
+    assert pc.search_sorted(
+        values, needles, options=pc.SearchSortedOptions(side="right")
+    ).equals(expected_right)
+
+    assert pc.search_sorted(values, pa.scalar(5, type=pa.int64())).as_py() == 3
+    assert pc.search_sorted(
+        values, pa.scalar(5, type=pa.int64()), side="right"
+    ).as_py() == 4
+
+
+def test_search_sorted_null_values():
+    needles = pa.array([50, 200, 250, 400], type=pa.int64())
+
+    values = pa.array([None, 200, 300, 300], type=pa.int64())
+    expected_left = pa.array([1, 1, 2, 4], type=pa.uint64())
+    expected_right = pa.array([1, 2, 2, 4], type=pa.uint64())
+    assert pc.search_sorted(values, needles, side="left").equals(expected_left)
+    assert pc.search_sorted(values, needles, side="right").equals(expected_right)
+
+    values = pa.array([200, 300, 300, None, None], type=pa.int64())
+    expected_left = pa.array([0, 0, 1, 3], type=pa.uint64())
+    expected_right = pa.array([0, 1, 1, 3], type=pa.uint64())
+    assert pc.search_sorted(values, needles, side="left").equals(expected_left)
+    assert pc.search_sorted(values, needles, side="right").equals(expected_right)
+
+
+def test_search_sorted_null_needles_emit_null():
+    values = pa.array([None, 200, 300, 300], type=pa.int64())
+    needles = pa.array([None, 50, 200, None, 400], type=pa.int64())
+
+    expected_left = pa.array([None, 1, 1, None, 4], type=pa.uint64())
+    expected_right = pa.array([None, 1, 2, None, 4], type=pa.uint64())
+
+    assert pc.search_sorted(values, needles, side="left").equals(expected_left)
+    assert pc.search_sorted(values, needles, side="right").equals(expected_right)
+
+    scalar_result = pc.search_sorted(values, pa.scalar(None, type=pa.int64()))
+    assert scalar_result.as_py() is None
+
+
+def test_search_sorted_run_end_encoded():
+    run_ends = pa.array([2, 3, 4, 5], type=pa.int16())
+    encoded_values = pa.array([1, 3, 5, 8], type=pa.int64())
+    values = pa.RunEndEncodedArray.from_arrays(run_ends, encoded_values)
+    needles = pa.array([0, 1, 3, 4, 5, 8, 9], type=pa.int64())
+
+    expected_left = pa.array([0, 0, 2, 3, 3, 4, 5], type=pa.uint64())
+    assert pc.search_sorted(values, needles).equals(expected_left)
+
+    ree_needles = pa.RunEndEncodedArray.from_arrays(
+        pa.array([2, 4, 6], type=pa.int16()),
+        pa.array([1, 4, 9], type=pa.int64())
+    )
+    expected_right = pa.array([2, 2, 3, 3, 5, 5], type=pa.uint64())
+    assert pc.search_sorted(values, ree_needles, side="right").equals(
+        expected_right
+    )
+
+
+def test_search_sorted_run_end_encoded_nulls():
+    values = pa.RunEndEncodedArray.from_arrays(
+        pa.array([2, 3, 5], type=pa.int16()),
+        pa.array([None, 2, 4], type=pa.int64())
+    )
+    needles = pa.RunEndEncodedArray.from_arrays(
+        pa.array([2, 3, 5, 6], type=pa.int16()),
+        pa.array([None, 1, 4, None], type=pa.int64())
+    )
+
+    expected = pa.array([None, None, 2, 3, 3, None], type=pa.uint64())
+    assert pc.search_sorted(values, needles, side="left").equals(expected)
+
+
+def test_search_sorted_errors():
+    values = pa.array([1, 1, 3, 5, 8])
+
+    with pytest.raises(ValueError, match='"middle" is not a valid search sorted side'):
+        pc.search_sorted(values, pa.array([1]), side="middle")
+
+
 def test_sort_indices_array():
     arr = pa.array([1, 2, None, 0])
     result = pc.sort_indices(arr)
     assert result.to_pylist() == [3, 0, 1, 2]
-    result = pc.sort_indices(arr, sort_keys=[("dummy", "ascending")])
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "ascending", "at_end")])
     assert result.to_pylist() == [3, 0, 1, 2]
-    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")])
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending", "at_end")])
     assert result.to_pylist() == [1, 0, 3, 2]
-    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending")],
-                             null_placement="at_start")
+    result = pc.sort_indices(arr, sort_keys=[("dummy", "descending", "at_start")])
     assert result.to_pylist() == [2, 1, 0, 3]
     # Positional `sort_keys`
-    result = pc.sort_indices(arr, [("dummy", "descending")],
-                             null_placement="at_start")
+    result = pc.sort_indices(arr, [("dummy", "descending", "at_start")])
     assert result.to_pylist() == [2, 1, 0, 3]
     # Using SortOptions
     result = pc.sort_indices(
-        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending")])
+        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending", "at_end")])
     )
     assert result.to_pylist() == [1, 0, 3, 2]
     result = pc.sort_indices(
-        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending")],
-                                    null_placement="at_start")
+        arr, options=pc.SortOptions(sort_keys=[("dummy", "descending", "at_start")])
     )
     assert result.to_pylist() == [2, 1, 0, 3]
 
@@ -3248,26 +3387,23 @@ def test_sort_indices_array():
 def test_sort_indices_table():
     table = pa.table({"a": [1, 1, None, 0], "b": [1, 0, 0, 1]})
 
-    result = pc.sort_indices(table, sort_keys=[("a", "ascending")])
+    result = pc.sort_indices(table, sort_keys=[("a", "ascending", "at_end")])
     assert result.to_pylist() == [3, 0, 1, 2]
-    result = pc.sort_indices(table, sort_keys=[(pc.field("a"), "ascending")],
-                             null_placement="at_start")
+    result = pc.sort_indices(
+        table, sort_keys=[(pc.field("a"), "ascending", "at_start")])
     assert result.to_pylist() == [2, 3, 0, 1]
 
     result = pc.sort_indices(
-        table, sort_keys=[("a", "descending"), ("b", "ascending")]
+        table, sort_keys=[("a", "descending", "at_end"), ("b", "ascending", "at_end")]
     )
     assert result.to_pylist() == [1, 0, 3, 2]
     result = pc.sort_indices(
-        table, sort_keys=[("a", "descending"), ("b", "ascending")],
-        null_placement="at_start"
-    )
+        table, sort_keys=[("a", "descending", "at_start"), ("b", "ascending",
+                                                            "at_start")])
     assert result.to_pylist() == [2, 1, 0, 3]
     # Positional `sort_keys`
     result = pc.sort_indices(
-        table, [("a", "descending"), ("b", "ascending")],
-        null_placement="at_start"
-    )
+        table, [("a", "descending", "at_start"), ("b", "ascending", "at_start")])
     assert result.to_pylist() == [2, 1, 0, 3]
 
     with pytest.raises(ValueError, match="Must specify one or more sort keys"):
@@ -3275,10 +3411,10 @@ def test_sort_indices_table():
 
     with pytest.raises(ValueError,
                        match="Invalid sort key column: No match for.*unknown"):
-        pc.sort_indices(table, sort_keys=[("unknown", "ascending")])
+        pc.sort_indices(table, sort_keys=[("unknown", "ascending", "at_end")])
 
     with pytest.raises(ValueError, match="not a valid sort order"):
-        pc.sort_indices(table, sort_keys=[("a", "nonscending")])
+        pc.sort_indices(table, sort_keys=[("a", "nonscending", "at_end")])
 
 
 def test_is_in():
@@ -3589,6 +3725,28 @@ def test_cumulative_max(start, skip_nulls):
 
 
 @pytest.mark.numpy
+def test_cumulative_max_min_negative_default_start():
+    # GH-51194: the implicit start for cumulative_max was initialized with
+    # std::numeric_limits<T>::min(), which is the smallest positive value for
+    # floating-point types, so non-positive values never replaced the start
+    values = [-2.5, 2.5]
+    arr = pa.array(values, type=pa.float64())
+    assert pc.cumulative_max(arr).to_pylist() == [-2.5, 2.5]
+    assert pc.cumulative_min(arr).to_pylist() == [-2.5, -2.5]
+
+    arr = pa.chunked_array([[-2.5, -1.5], [-3.5, -0.5]])
+    assert pc.cumulative_max(arr).to_pylist() == [-2.5, -1.5, -1.5, -0.5]
+    assert pc.cumulative_min(arr).to_pylist() == [-2.5, -2.5, -3.5, -3.5]
+
+    # The default start must compare lower (higher for min) than every value
+    # of the type, including infinities
+    arr = pa.array([-np.inf, -2.5], type=pa.float64())
+    assert pc.cumulative_max(arr).to_pylist() == [-np.inf, -2.5]
+    arr = pa.array([np.inf, 2.5], type=pa.float64())
+    assert pc.cumulative_min(arr).to_pylist() == [np.inf, 2.5]
+
+
+@pytest.mark.numpy
 @pytest.mark.parametrize('start', (0.5, 3.5, 6.5))
 @pytest.mark.parametrize('skip_nulls', (True, False))
 def test_cumulative_min(start, skip_nulls):
@@ -3745,6 +3903,124 @@ def test_list_element():
     assert result.equals(expected)
 
 
+@pytest.mark.parametrize("list_type", [
+    pa.list_(pa.int64()), pa.large_list(pa.int64()),
+    pa.list_view(pa.int64()), pa.large_list_view(pa.int64()),
+])
+def test_list_contains(list_type):
+    lists = pa.array([[1, 2, None], [3], [], None], list_type)
+    assert pc.list_contains(lists, 2).to_pylist() == [True, False, False, None]
+    assert pc.list_contains(lists, 2.0).to_pylist() == [True, False, False, None]
+    assert pc.list_contains(lists, 4).to_pylist() == [False, False, False, None]
+    # A null value matches null list values
+    assert pc.list_contains(lists, None).to_pylist() == [True, False, False, None]
+
+
+def test_list_contains_nan():
+    lists = pa.array([[1.5, None], [float("nan")], []])
+    result = pc.list_contains(lists, float("nan"))
+    assert result.to_pylist() == [False, True, False]
+
+
+def test_list_contains_fixed_size_list():
+    lists = pa.array([["a", "b"], ["c", None], None], pa.list_(pa.string(), 2))
+    assert pc.list_contains(lists, "c").to_pylist() == [False, True, None]
+
+
+def test_list_contains_array():
+    lists = pa.array([[1, 2], [3, None], [4], None])
+    values = pa.array([2, None, 5, 1])
+    result = pc.list_contains(lists, values)
+    assert result.to_pylist() == [True, True, False, None]
+
+
+@pytest.mark.parametrize("value_type, values, query_type, queries", [
+    # 2**53 + 1 doesn't cast to float64, so it's only in null lists
+    (pa.int64(), [0, 1, -1, 2**53 + 1], pa.float64(), [0.0, 1.0, 1.5]),
+    (pa.float32(), [0.0, -0.0, 1.5, math.nan], pa.float64(), [0.0, 1.5, math.nan]),
+    (pa.string(), ["", "a", "ab"], pa.large_string(), ["", "a", "b"]),
+    (pa.string_view(), ["", "a", "ab"], pa.string(), ["", "a", "b"]),
+    (pa.binary(1), [b"a", b"b"], pa.binary(2), [b"ab"]),
+    # Dictionary values are null for null indices and for nulls in the dictionary
+    (pa.dictionary(pa.int8(), pa.int64()), [0, 1, None], pa.int64(), [0, 1, 2]),
+    (pa.dictionary(pa.int8(), pa.float16()), [0.0, math.nan, None], pa.float32(),
+     [0.0, 1.0, math.nan]),
+])
+def test_list_contains_matches_decoded(value_type, values, query_type, queries):
+    # Compare list_contains to searching the decoded lists, for each input form
+    def search(lists, query):
+        if lists is None:
+            return None
+        if query is None:
+            return None in lists
+        if query != query:
+            return any(v != v for v in lists if v is not None)
+        return any(v == query for v in lists if v is not None)
+
+    rng = random.Random(42)
+    n = 100
+    sizes = [rng.randint(0, 4) for _ in range(n)]
+    offsets = list(itertools.accumulate(sizes, initial=0))
+    mask = [rng.random() < 0.1 for _ in range(n)]
+    hidden = set()
+    if pa.types.is_dictionary(value_type):
+        indices = [rng.choice([0, 1, 2, None]) for _ in range(offsets[-1])]
+        child = pa.DictionaryArray.from_arrays(
+            pa.array(indices, value_type.index_type),
+            pa.array(values, value_type.value_type))
+    else:
+        child = [rng.choice(values[:3] + [None]) for _ in range(offsets[-1])]
+        for i in itertools.compress(range(n), mask):
+            child[offsets[i]:offsets[i + 1]] = values[-1:] * sizes[i]
+            hidden.update(range(offsets[i], offsets[i + 1]))
+        child = pa.array(child, value_type)
+    lists = pa.ListArray.from_arrays(offsets, child, mask=pa.array(mask))
+    forms = [
+        lists, lists.slice(7, 50), lists.cast(pa.large_list(value_type)),
+        # Views of the same lists in reverse order
+        pa.ListViewArray.from_arrays(offsets[-2::-1], sizes[::-1], child,
+                                     mask=pa.array(mask[::-1])),
+        pa.FixedSizeListArray.from_arrays(
+            child.slice(0, n), 1, mask=pa.array([i in hidden for i in range(n)])),
+    ] + [pa.chunked_array([lists.slice(i, size) for i in range(0, n, size)])
+         for size in (1, 7, n)]
+    query_array = pa.array([rng.choice(queries + [None]) for _ in range(n)],
+                           query_type)
+    for form in forms:
+        decoded = form.to_pylist()
+        for query in queries + [None]:
+            result = pc.list_contains(form, pa.scalar(query, query_type))
+            assert result.to_pylist() == [search(x, query) for x in decoded]
+        expected = [search(x, q) for x, q in zip(decoded, query_array.to_pylist())]
+        q = query_array.slice(0, len(form))
+        assert pc.list_contains(form, q).to_pylist() == expected
+        assert pc.list_contains(form, pa.chunked_array(
+            [q.slice(0, 3), q.slice(3)])).to_pylist() == expected
+        assert pc.list_contains(form, q.dictionary_encode()).to_pylist() == expected
+    for x in lists[:10]:
+        result = pc.list_contains(x, query_array)
+        assert result.to_pylist() == [search(x.as_py(), q)
+                                      for q in query_array.to_pylist()]
+
+
+def test_list_contains_null_list_queries():
+    # Unlike values of null lists, their queries are cast, as for "equal":
+    # 2**53 + 1 isn't a float64
+    ty = pa.list_(pa.float64())
+    queries = pa.array([2**53 + 1], pa.int64())
+    for lists in (pa.scalar(None, ty), pa.array([None], ty)):
+        with pytest.raises(pa.ArrowInvalid):
+            pc.list_contains(lists, queries)
+
+
+def test_list_contains_invalid():
+    lists = pa.array([[1, 2], [3]])
+    with pytest.raises(pa.ArrowNotImplementedError):
+        pc.list_contains(lists, "a")
+    with pytest.raises(pa.ArrowNotImplementedError):
+        pc.list_contains(lists, pa.array(["a", "b"]))
+
+
 def test_count_distinct():
     samples = [datetime.datetime(year=y, month=1, day=1) for y in range(1992, 2092)]
     arr = pa.array(samples, pa.timestamp("ns"))
@@ -3766,6 +4042,15 @@ def test_utf8_normalize():
     assert pc.utf8_normalize(arr, form="NFKC") == pa.array(["0123"])
     assert pc.utf8_normalize(arr, "NFD") == arr
     assert pc.utf8_normalize(arr, "NFKD") == pa.array(["0123"])
+    # GH-51225: composing forms must compose, not only decompose
+    composed = pa.array(["\u00e9", "\ud55c", None])
+    decomposed = pa.array(["e\u0301", "\u1112\u1161\u11ab", None])
+    for form in ("NFC", "NFKC"):
+        assert pc.utf8_normalize(decomposed, form=form) == composed
+        assert pc.utf8_normalize(composed, form=form) == composed
+    for form in ("NFD", "NFKD"):
+        assert pc.utf8_normalize(composed, form=form) == decomposed
+        assert pc.utf8_normalize(decomposed, form=form) == decomposed
     with pytest.raises(
             ValueError,
             match='"NFZ" is not a valid Unicode normalization form'):
@@ -3808,8 +4093,7 @@ def test_random():
 )
 def test_rank_options_tiebreaker(tiebreaker, expected_values):
     arr = pa.array([1.2, 0.0, 5.3, None, 5.3, None, 0.0])
-    rank_options = pc.RankOptions(sort_keys="ascending",
-                                  null_placement="at_end",
+    rank_options = pc.RankOptions(sort_keys=[("", "ascending", "at_end")],
                                   tiebreaker=tiebreaker)
     result = pc.rank(arr, options=rank_options)
     expected = pa.array(expected_values, type=pa.uint64())
@@ -3830,11 +4114,11 @@ def test_rank_options():
 
     # Ensure sort_keys tuple usage
     result = pc.rank(arr, options=pc.RankOptions(
-        sort_keys=[("b", "ascending")])
+        sort_keys=[("b", "ascending", "at_end")])
     )
     assert result.equals(expected)
 
-    result = pc.rank(arr, null_placement="at_start")
+    result = pc.rank(arr, sort_keys=[("", "ascending", "at_start")])
     expected_at_start = pa.array([5, 3, 6, 1, 7, 2, 4], type=pa.uint64())
     assert result.equals(expected_at_start)
 
@@ -3844,8 +4128,7 @@ def test_rank_options():
 
     with pytest.raises(ValueError,
                        match=r'"NonExisting" is not a valid tiebreaker'):
-        pc.RankOptions(sort_keys="descending",
-                       null_placement="at_end",
+        pc.RankOptions(sort_keys=[("", "descending", "at_end")],
                        tiebreaker="NonExisting")
 
 
@@ -3867,7 +4150,7 @@ def test_rank_quantile_options():
     )
     assert result.equals(expected)
 
-    result = pc.rank_quantile(arr, null_placement="at_start")
+    result = pc.rank_quantile(arr, sort_keys=[("", "ascending", "at_start")])
     expected_at_start = pa.array([0.3, 0.7, 0.3, 0.9, 0.3], type=pa.float64())
     assert result.equals(expected_at_start)
 
@@ -3887,7 +4170,7 @@ def test_rank_normal_options():
          -0.5244005127080409, 0.5244005127080407])
     result = pc.rank_normal(arr)
     assert result.to_pylist() == expected
-    result = pc.rank_normal(arr, null_placement="at_end", sort_keys="ascending")
+    result = pc.rank_normal(arr, sort_keys=[("", "ascending", "at_end")])
     assert result.to_pylist() == expected
     result = pc.rank_normal(arr, options=pc.RankQuantileOptions())
     assert result.to_pylist() == expected
@@ -3895,12 +4178,25 @@ def test_rank_normal_options():
     expected = pytest.approx(
         [-0.5244005127080409, 1.2815515655446004, -0.5244005127080409,
          0.5244005127080407, -0.5244005127080409])
-    result = pc.rank_normal(arr, null_placement="at_start", sort_keys="descending")
+    result = pc.rank_normal(arr, sort_keys=[("", "descending", "at_start")])
     assert result.to_pylist() == expected
     result = pc.rank_normal(arr,
-                            options=pc.RankQuantileOptions(null_placement="at_start",
-                                                           sort_keys="descending"))
+                            options=pc.RankQuantileOptions(
+                                sort_keys=[("", "descending", "at_start")])
+                            )
     assert result.to_pylist() == expected
+
+
+@pytest.mark.numpy
+def test_hypot():
+    x = np.array([3.0, 0.0, -5.0, 1.5, 7.25])
+    y = np.array([4.0, 0.0, 12.0, -2.0, 0.0])
+    result = pc.hypot(pa.array(x), pa.array(y))
+    np.testing.assert_array_almost_equal(
+        result.to_numpy(zero_copy_only=False), np.hypot(x, y))
+
+    # scalar inputs
+    assert pc.hypot(pa.scalar(3.0), pa.scalar(4.0)).as_py() == pytest.approx(5.0)
 
 
 def create_sample_expressions():

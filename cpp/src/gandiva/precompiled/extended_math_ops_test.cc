@@ -19,6 +19,7 @@
 #  define M_PI 3.14159265358979323846
 #endif
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <cmath>
@@ -61,11 +62,12 @@ TEST(TestExtendedMathOps, TestFactorial) {
   }
 
   factorial_int32(ctx, 21);
-  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("overflow"));
   context.Reset();
 
   factorial_int32(ctx, -5);
-  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("FACTORIAL"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("non-negative"));
   context.Reset();
 
   for (int64_t i = 0; i <= 20; ++i) {
@@ -79,11 +81,12 @@ TEST(TestExtendedMathOps, TestFactorial) {
   }
 
   factorial_int64(ctx, 21);
-  EXPECT_TRUE(context.get_error().find("overflow") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("overflow"));
   context.Reset();
 
   factorial_int64(ctx, -5);
-  EXPECT_TRUE(context.get_error().find("Factorial of negative") != std::string::npos);
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("FACTORIAL"));
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("non-negative"));
   context.Reset();
 }
 
@@ -125,7 +128,7 @@ TEST(TestExtendedMathOps, TestLogWithBase) {
       log_int32_int32(reinterpret_cast<gdv_int64>(&context), 1 /*base*/, 10 /*value*/);
   VerifyFuzzyEquals(out, 0);
   EXPECT_EQ(context.has_error(), true);
-  EXPECT_TRUE(context.get_error().find("divide by zero error") != std::string::npos)
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("divide by zero error"))
       << context.get_error();
 
   gandiva::ExecutionContext context1;
@@ -200,6 +203,18 @@ TEST(TestExtendedMathOps, TestRound) {
   EXPECT_EQ(round_int64_int32(-23453462343, -4), -23453460000);
   EXPECT_EQ(round_int64_int32(-23453462343, -5), -23453500000);
   EXPECT_EQ(round_int64_int32(345353425343, -12), 0);
+
+  // The last in-range precision still rounds; one past it returns 0. These guard
+  // against an off-by-one in the range check at both overloads' boundary.
+  EXPECT_EQ(round_int32_int32(1234567890, -9), 1000000000);
+  EXPECT_EQ(round_int32_int32(1234567890, -10), 0);
+  EXPECT_EQ(round_int64_int32(1234567890123456789, -18), 1000000000000000000);
+  EXPECT_EQ(round_int64_int32(1234567890123456789, -19), 0);
+
+  // The most negative precision must be rejected by the range check rather than
+  // negated into an out-of-range table index.
+  EXPECT_EQ(round_int32_int32(1234, std::numeric_limits<int32_t>::min()), 0);
+  EXPECT_EQ(round_int64_int32(345353425343, std::numeric_limits<int32_t>::min()), 0);
 }
 
 TEST(TestExtendedMathOps, TestTruncate) {

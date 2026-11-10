@@ -19,8 +19,10 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -161,7 +163,17 @@ Result<std::vector<std::string>> GetOrderedColumnNames(
 
   uint32_t parsed_size = 0;
   int32_t max_num_rows = read_options.skip_rows + 1;
-  csv::BlockParser parser(pool, parse_options, /*num_cols=*/-1, /*first_row=*/1,
+  std::optional<csv::ParseOptions> inspection_parse_options;
+  const auto* parser_options = &parse_options;
+  if (parse_options.pad_short_rows || parse_options.ignore_extra_columns) {
+    // Do not adjust row widths while determining column names: padding cannot
+    // synthesize missing names, and ignoring extra columns may discard columns.
+    inspection_parse_options.emplace(parse_options);
+    inspection_parse_options->pad_short_rows = false;
+    inspection_parse_options->ignore_extra_columns = false;
+    parser_options = &*inspection_parse_options;
+  }
+  csv::BlockParser parser(pool, *parser_options, /*num_cols=*/-1, /*first_row=*/1,
                           max_num_rows);
 
   RETURN_NOT_OK(parser.Parse(std::string_view{first_block}, &parsed_size));
@@ -188,8 +200,9 @@ Result<std::vector<std::string>> GetOrderedColumnNames(
     return column_names;
   }
 
-  RETURN_NOT_OK(
-      parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+  RETURN_NOT_OK(parser.VisitLastRow(
+      [&](const uint8_t* data, uint32_t size, bool quoted, bool missing) -> Status {
+        DCHECK(!missing);
         std::string_view view{reinterpret_cast<const char*>(data), size};
         column_names.emplace_back(view);
         return Status::OK();
@@ -360,14 +373,20 @@ bool CsvFileFormat::Equals(const FileFormat& format) const {
   const auto& other_parse_options =
       checked_cast<const CsvFileFormat&>(format).parse_options;
 
-  return parse_options.delimiter == other_parse_options.delimiter &&
+  const auto effective_delimiter = [](const csv::ParseOptions& options) {
+    return options.delimiter_string.empty() ? std::string_view(&options.delimiter, 1)
+                                            : std::string_view(options.delimiter_string);
+  };
+  return effective_delimiter(parse_options) == effective_delimiter(other_parse_options) &&
          parse_options.quoting == other_parse_options.quoting &&
          parse_options.quote_char == other_parse_options.quote_char &&
          parse_options.double_quote == other_parse_options.double_quote &&
          parse_options.escaping == other_parse_options.escaping &&
          parse_options.escape_char == other_parse_options.escape_char &&
          parse_options.newlines_in_values == other_parse_options.newlines_in_values &&
-         parse_options.ignore_empty_lines == other_parse_options.ignore_empty_lines;
+         parse_options.ignore_empty_lines == other_parse_options.ignore_empty_lines &&
+         parse_options.pad_short_rows == other_parse_options.pad_short_rows &&
+         parse_options.ignore_extra_columns == other_parse_options.ignore_extra_columns;
 }
 
 Result<bool> CsvFileFormat::IsSupported(const FileSource& source) const {
@@ -474,6 +493,7 @@ std::shared_ptr<FileWriteOptions> CsvFileFormat::DefaultWriteOptions() {
       new CsvFileWriteOptions(shared_from_this()));
   csv_options->write_options =
       std::make_shared<csv::WriteOptions>(csv::WriteOptions::Defaults());
+  csv_options->write_options->delimiter = parse_options.delimiter;
   return csv_options;
 }
 
@@ -483,6 +503,13 @@ Result<std::shared_ptr<FileWriter>> CsvFileFormat::MakeWriter(
     fs::FileLocator destination_locator) const {
   if (!Equals(*options->format())) {
     return Status::TypeError("Mismatching format/write options.");
+  }
+  const auto& other_parse_options =
+      checked_cast<const CsvFileFormat&>(*options->format()).parse_options;
+  if (!parse_options.delimiter_string.empty() ||
+      !other_parse_options.delimiter_string.empty()) {
+    return Status::NotImplemented(
+        "Writing CSV files with delimiter_string is not supported");
   }
   auto csv_options = checked_pointer_cast<CsvFileWriteOptions>(options);
   ARROW_ASSIGN_OR_RAISE(

@@ -30,6 +30,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/path_util.h"
@@ -243,6 +244,140 @@ TEST_F(TestPartitioning, DirectoryPartitioningEquals) {
   EXPECT_FALSE(part->Equals(*other));
   EXPECT_TRUE(part->Equals(*another));
   EXPECT_TRUE(another->Equals(*some_other));
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningEscapesValues) {
+  partitioning_ =
+      std::make_shared<DirectoryPartitioning>(schema({field("part", utf8())}));
+  written_schema_ = partitioning_->schema();
+
+  AssertFormat(equal(field_ref("part"), literal("plain")), "plain");
+  AssertFormat(equal(field_ref("part"), literal("a b")), "a%20b");
+  AssertFormat(equal(field_ref("part"), literal("100%")), "100%25");
+  AssertFormat(equal(field_ref("part"), literal("a/b")), "a%2Fb");
+  AssertFormat(equal(field_ref("part"), literal("ab\\cd")), "ab%5Ccd");
+  AssertFormat(equal(field_ref("part"), literal("<test>")), "%3Ctest%3E");
+  AssertFormat(equal(field_ref("part"), literal(":|*")), "%3A%7C%2A");
+  // "." is only escaped when it is the first or last character
+  AssertFormat(equal(field_ref("part"), literal("a.b")), "a.b");
+  AssertFormat(equal(field_ref("part"), literal(".")), "%2E");
+  AssertFormat(equal(field_ref("part"), literal("..")), "%2E%2E");
+  AssertFormat(equal(field_ref("part"), literal("...")), "%2E.%2E");
+  AssertFormat(equal(field_ref("part"), literal("a.")), "a%2E");
+  AssertFormat(equal(field_ref("part"), literal("a ")), "a%20");
+  AssertFormat(equal(field_ref("part"), literal(".hidden")), "%2Ehidden");
+  AssertFormat(equal(field_ref("part"), literal("../escaped")), "%2E.%2Fescaped");
+  AssertFormat(equal(field_ref("part"), literal("..\\escaped")), "%2E.%5Cescaped");
+  // "_" is only escaped when it is the first character
+  AssertFormat(equal(field_ref("part"), literal("a_b")), "a_b");
+  AssertFormat(equal(field_ref("part"), literal("_unknown")), "%5Funknown");
+  AssertFormat(equal(field_ref("part"), literal("__x_")), "%5F_x_");
+  // Empty values would be dropped from the path, so are rejected
+  AssertFormatError(equal(field_ref("part"), literal("")));
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningEscapedValuesRoundTrip) {
+  // Write and scan a dataset, to check that escaped directories are created
+  // inside the base directory and aren't skipped by discovery when starting
+  // with a ".".
+  fs::TimePoint mock_now = std::chrono::system_clock::now();
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<fs::FileSystem> filesystem,
+                       fs::internal::MockFileSystem::Make(mock_now, {}));
+  auto base_path = "dataset";
+  ASSERT_OK(filesystem->CreateDir(base_path));
+  auto schema = arrow::schema(
+      {arrow::field("part", arrow::utf8()), arrow::field("x", arrow::int32())});
+
+  auto table = TableFromJSON(schema, {
+                                         R"([
+    ["../escaped", 0],
+    [".", 1],
+    ["..", 2],
+    ["_unknown", 3]
+  ])",
+                                     });
+
+  auto dataset = std::make_shared<dataset::InMemoryDataset>(table);
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+
+  auto partition_schema = arrow::schema({arrow::field("part", arrow::utf8())});
+  auto partitioning = std::make_shared<dataset::DirectoryPartitioning>(partition_schema);
+  auto ipc_format = std::make_shared<dataset::IpcFileFormat>();
+  dataset::FileSystemDatasetWriteOptions write_options;
+  write_options.file_write_options = ipc_format->DefaultWriteOptions();
+  write_options.filesystem = filesystem;
+  write_options.base_dir = base_path;
+  write_options.partitioning = partitioning;
+  write_options.basename_template = "part{i}.arrow";
+  ASSERT_OK(dataset::FileSystemDataset::Write(write_options, scanner));
+
+  auto mockfs =
+      arrow::internal::checked_pointer_cast<fs::internal::MockFileSystem>(filesystem);
+  std::vector<std::string> all_dirs;
+  for (const auto& dir : mockfs->AllDirs()) {
+    all_dirs.push_back(dir.full_path);
+  }
+  std::sort(all_dirs.begin(), all_dirs.end());
+  std::vector<std::string> expected_dirs = {"dataset", "dataset/%2E", "dataset/%2E%2E",
+                                            "dataset/%2E.%2Fescaped",
+                                            "dataset/%5Funknown"};
+  ASSERT_EQ(all_dirs, expected_dirs);
+
+  // Read dataset back to verify partition values round-trip correctly
+  fs::FileSelector selector;
+  selector.base_dir = base_path;
+  selector.recursive = true;
+  FileSystemFactoryOptions factory_options;
+  factory_options.partitioning = partitioning;
+  factory_options.partition_base_dir = base_path;
+  ASSERT_OK_AND_ASSIGN(
+      auto factory,
+      FileSystemDatasetFactory::Make(filesystem, selector, ipc_format, factory_options));
+  ASSERT_OK_AND_ASSIGN(auto read_dataset, factory->Finish());
+  ASSERT_OK_AND_ASSIGN(auto read_scanner_builder, read_dataset->NewScan());
+  ASSERT_OK(read_scanner_builder->Project({"part", "x"}));
+  ASSERT_OK_AND_ASSIGN(auto read_scanner, read_scanner_builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto read_table, read_scanner->ToTable());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto sort_indices,
+      compute::SortIndices(read_table, compute::SortOptions({compute::SortKey("x")})));
+  ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(read_table, sort_indices));
+  AssertTablesEqual(*table, *sorted.table(), /*same_chunk_layout=*/false);
+}
+
+TEST_F(TestPartitioning, DirectoryPartitioningNoSegmentEncoding) {
+  KeyValuePartitioningOptions options;
+  options.segment_encoding = SegmentEncoding::None;
+  partitioning_ = std::make_shared<DirectoryPartitioning>(schema({field("part", utf8())}),
+                                                          ArrayVector(), options);
+  written_schema_ = partitioning_->schema();
+
+  // Values are written unescaped and round-trip without decoding
+  AssertFormat(equal(field_ref("part"), literal("a b")), "a b");
+  AssertFormat(equal(field_ref("part"), literal("a%20b")), "a%20b");
+  AssertFormat(equal(field_ref("part"), literal("<test>")), "<test>");
+  AssertFormat(equal(field_ref("part"), literal("a_b")), "a_b");
+  AssertFormat(equal(field_ref("part"), literal("a.b")), "a.b");
+  // Values that aren't portable to all platforms are allowed
+  AssertFormat(equal(field_ref("part"), literal("a.")), "a.");
+  AssertFormat(equal(field_ref("part"), literal("a ")), "a ");
+  // Values starting with "." or "_" are allowed, although they are skipped by
+  // dataset discovery with the default selector_ignore_prefixes
+  AssertFormat(equal(field_ref("part"), literal(".hidden")), ".hidden");
+  AssertFormat(equal(field_ref("part"), literal("_unknown")), "_unknown");
+
+  // Values that aren't a single valid path segment are rejected
+  AssertFormatError(equal(field_ref("part"), literal("../escaped")));
+  AssertFormatError(equal(field_ref("part"), literal("a/b")));
+  AssertFormatError(equal(field_ref("part"), literal(".")));
+  AssertFormatError(equal(field_ref("part"), literal("..")));
+  // Backslash is a path separator on Windows, so is rejected on all platforms
+  AssertFormatError(equal(field_ref("part"), literal("..\\escaped")));
+  AssertFormatError(equal(field_ref("part"), literal("a\\b")));
+  // Empty values would be dropped from the path, so are rejected
+  AssertFormatError(equal(field_ref("part"), literal("")));
 }
 
 TEST_F(TestPartitioning, FilenamePartitioning) {
@@ -553,6 +688,18 @@ TEST_F(TestPartitioning, HivePartitioningFormat) {
 
   partitioning_ = std::make_shared<HivePartitioning>(schema({field("x", large_utf8())}));
   AssertFormat(equal(field_ref("x"), literal("hello")), "x=hello");
+
+  // Empty string values round-trip
+  partitioning_ = std::make_shared<HivePartitioning>(
+      schema({field("alpha", utf8()), field("beta", utf8())}));
+  written_schema_ = partitioning_->schema();
+  AssertFormat(equal(field_ref("alpha"), literal("")), "alpha=");
+  AssertFormat(and_(equal(field_ref("alpha"), literal("")),
+                    equal(field_ref("beta"), literal("x"))),
+               "alpha=/beta=x");
+  AssertFormat(and_(equal(field_ref("alpha"), literal("x")),
+                    equal(field_ref("beta"), literal(""))),
+               "alpha=x/beta=");
 }
 
 TEST_F(TestPartitioning, FilenamePartitioningFormat) {
@@ -565,6 +712,87 @@ TEST_F(TestPartitioning, FilenamePartitioningFormat) {
                     equal(field_ref("beta"), literal("hello"))),
                "", "0_hello_");
   AssertFormat(equal(field_ref("alpha"), literal(0)), "", "0_");
+}
+
+TEST_F(TestPartitioning, FilenamePartitioningEscapesValues) {
+  partitioning_ = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", utf8()), field("beta", utf8())}));
+  written_schema_ = partitioning_->schema();
+
+  AssertFormat(equal(field_ref("alpha"), literal("plain")), "", "plain_");
+  AssertFormat(equal(field_ref("alpha"), literal("a b")), "", "a%20b_");
+  AssertFormat(equal(field_ref("alpha"), literal("100%")), "", "100%25_");
+  AssertFormat(equal(field_ref("alpha"), literal("a/b")), "", "a%2Fb_");
+  AssertFormat(equal(field_ref("alpha"), literal("ab\\cd")), "", "ab%5Ccd_");
+  AssertFormat(equal(field_ref("alpha"), literal("<test>")), "", "%3Ctest%3E_");
+  AssertFormat(equal(field_ref("alpha"), literal(":|*")), "", "%3A%7C%2A_");
+  // "." is only escaped when it is the first or last character of a segment
+  AssertFormat(equal(field_ref("alpha"), literal("a.b")), "", "a.b_");
+  AssertFormat(equal(field_ref("alpha"), literal(".")), "", "%2E_");
+  AssertFormat(equal(field_ref("alpha"), literal("..")), "", "%2E%2E_");
+  AssertFormat(equal(field_ref("alpha"), literal("a.")), "", "a%2E_");
+  AssertFormat(equal(field_ref("alpha"), literal(".hidden")), "", "%2Ehidden_");
+  AssertFormat(equal(field_ref("alpha"), literal("../escaped")), "", "%2E.%2Fescaped_");
+  AssertFormat(equal(field_ref("alpha"), literal("..\\escaped")), "", "%2E.%5Cescaped_");
+  // "_" is the segment separator, so it is always escaped
+  AssertFormat(equal(field_ref("alpha"), literal("a_b")), "", "a%5Fb_");
+  AssertFormat(equal(field_ref("alpha"), literal("_unknown")), "", "%5Funknown_");
+  AssertFormat(equal(field_ref("alpha"), literal("__x_")), "", "%5F%5Fx%5F_");
+  // Each segment is escaped independently
+  AssertFormat(and_(equal(field_ref("alpha"), literal("a/b")),
+                    equal(field_ref("beta"), literal(".hidden"))),
+               "", "a%2Fb_%2Ehidden_");
+  AssertFormat(and_(equal(field_ref("alpha"), literal("a_b")),
+                    equal(field_ref("beta"), literal("c_d"))),
+               "", "a%5Fb_c%5Fd_");
+  // Empty values would be dropped from the filename, so are rejected
+  AssertFormatError(equal(field_ref("alpha"), literal("")));
+  AssertFormatError(and_(equal(field_ref("alpha"), literal("")),
+                         equal(field_ref("beta"), literal("x"))));
+  AssertFormatError(and_(equal(field_ref("alpha"), literal("x")),
+                         equal(field_ref("beta"), literal(""))));
+}
+
+TEST_F(TestPartitioning, FilenamePartitioningNoSegmentEncoding) {
+  KeyValuePartitioningOptions options;
+  options.segment_encoding = SegmentEncoding::None;
+  partitioning_ = std::make_shared<FilenamePartitioning>(
+      schema({field("alpha", utf8()), field("beta", utf8())}), ArrayVector(), options);
+  written_schema_ = partitioning_->schema();
+
+  // Values are written unescaped and round-trip without decoding
+  AssertFormat(equal(field_ref("alpha"), literal("a b")), "", "a b_");
+  AssertFormat(equal(field_ref("alpha"), literal("a%20b")), "", "a%20b_");
+  AssertFormat(equal(field_ref("alpha"), literal("<test>")), "", "<test>_");
+  AssertFormat(and_(equal(field_ref("alpha"), literal("a b")),
+                    equal(field_ref("beta"), literal("c.d"))),
+               "", "a b_c.d_");
+  // Values that aren't portable to all platforms are allowed
+  AssertFormat(equal(field_ref("alpha"), literal("a.")), "", "a._");
+  // Values starting with "." are allowed, although they are skipped by dataset
+  // discovery with the default selector_ignore_prefixes
+  AssertFormat(equal(field_ref("alpha"), literal(".hidden")), "", ".hidden_");
+
+  // Values that aren't a single valid path segment are rejected
+  AssertFormatError(equal(field_ref("alpha"), literal("../escaped")));
+  AssertFormatError(equal(field_ref("alpha"), literal("a/b")));
+  AssertFormatError(equal(field_ref("alpha"), literal(".")));
+  AssertFormatError(equal(field_ref("alpha"), literal("..")));
+  AssertFormatError(equal(field_ref("alpha"), literal("..\\escaped")));
+  AssertFormatError(equal(field_ref("alpha"), literal("a\\b")));
+  AssertFormatError(and_(equal(field_ref("alpha"), literal("ok")),
+                         equal(field_ref("beta"), literal("a/b"))));
+
+  // Values containing the "_" segment separator are rejected
+  AssertFormatError(equal(field_ref("alpha"), literal("a_b")));
+  AssertFormatError(equal(field_ref("alpha"), literal("_unknown")));
+  AssertFormatError(and_(equal(field_ref("alpha"), literal("ok")),
+                         equal(field_ref("beta"), literal("c_d"))));
+
+  // Empty values would be dropped from the filename, so are rejected
+  AssertFormatError(equal(field_ref("alpha"), literal("")));
+  AssertFormatError(and_(equal(field_ref("alpha"), literal("x")),
+                         equal(field_ref("beta"), literal(""))));
 }
 
 TEST_F(TestPartitioning, DiscoverHiveSchema) {

@@ -21,12 +21,15 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/row/grouper.h"
 #include "arrow/compute/row/grouper_internal.h"
 #include "arrow/compute/test_util_internal.h"
+#include "arrow/scalar.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
@@ -119,6 +122,8 @@ void TestGroupClassSupportedKeys(
   ASSERT_OK(make_func({float16(), float32(), float64()}));
 
   ASSERT_OK(make_func({utf8(), binary(), large_utf8(), large_binary()}));
+
+  ASSERT_OK(make_func({utf8_view(), binary_view()}));
 
   ASSERT_OK(make_func({fixed_size_binary(16), fixed_size_binary(32)}));
 
@@ -754,13 +759,24 @@ struct TestGrouper {
     auto group_ids = id_batch.make_array();
     ValidateOutput(*group_ids);
 
+    // Take has no view kernel yet (GH-43010); validate via the non-view cast.
+    // Output type is checked separately by ExpectUniques.
+    auto as_takeable = [](std::shared_ptr<Array> arr) -> std::shared_ptr<Array> {
+      if (is_binary_view_like(*arr->type())) {
+        auto target = arr->type_id() == Type::STRING_VIEW ? utf8() : binary();
+        arr = Cast(Datum(arr), target).ValueOrDie().make_array();
+      }
+      return arr;
+    };
+
     for (int i = 0; i < key_batch.num_values(); ++i) {
       SCOPED_TRACE(ToChars(i) + "th key array");
       auto original =
           key_batch[i].is_array()
               ? key_batch[i].make_array()
               : *MakeArrayFromScalar(*key_batch[i].scalar(), key_batch.length);
-      ASSERT_OK_AND_ASSIGN(auto encoded, Take(*uniques_[i].make_array(), *group_ids));
+      ASSERT_OK_AND_ASSIGN(auto encoded,
+                           Take(*as_takeable(uniques_[i].make_array()), *group_ids));
       std::shared_ptr<Array> expected = original;
       if (can_be_null && original->type_id() != Type::NA) {
         // To compute the expected output, mask out the original entries that
@@ -791,7 +807,7 @@ struct TestGrouper {
         expected_data->null_count = kUnknownNullCount;
         expected = MakeArray(expected_data);
       }
-      AssertArraysEqual(*expected, *encoded, /*verbose=*/true,
+      AssertArraysEqual(*as_takeable(expected), *encoded, /*verbose=*/true,
                         EqualOptions().nans_equal(true));
     }
   }
@@ -910,6 +926,146 @@ TEST(Grouper, StringKey) {
       g.ExpectPopulate(R"([["be"], [null]])");
       g.ExpectLookup(R"([["be"], [null], ["da"]])", "[1, 2, null]");
     }
+  }
+}
+
+TEST(Grouper, LARGE_MEMORY_TEST(BatchOver2GB)) {
+  constexpr int64_t kValueLength = 64 * 1024;
+  constexpr int64_t kBatchLength = 32768;
+  // large_utf8 selects GrouperImpl. Repeated scalar keys keep the input and
+  // unique-key storage small. 32,768 * 64 KiB is exactly 2 GiB of value bytes;
+  // adding the null byte and int64_t length per row takes the encoded batch
+  // beyond 2 GiB, even though there is only one distinct key.
+  const auto value = std::make_shared<LargeStringScalar>(std::string(kValueLength, 'x'));
+  const ExecBatch batch({value}, kBatchLength);
+  ASSERT_OK_AND_ASSIGN(auto grouper, Grouper::Make({large_utf8()}));
+  ASSERT_OK_AND_ASSIGN(auto expected, MakeArrayFromScalar(UInt32Scalar{0}, kBatchLength));
+
+  // All rows must receive group 0, despite the large temporary batch encoding.
+  ASSERT_OK_AND_ASSIGN(auto groups, grouper->Consume(ExecSpan(batch)));
+  ASSERT_OK(groups.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *groups.make_array());
+  ASSERT_EQ(grouper->num_groups(), 1);
+
+  // Re-inserting the same key must not create more groups; Lookup must find it
+  // for every row, and GetUniques must decode just the one original value.
+  ASSERT_OK(grouper->Populate(ExecSpan(batch)));
+  ASSERT_OK_AND_ASSIGN(auto found, grouper->Lookup(ExecSpan(batch)));
+  ASSERT_OK(found.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *found.make_array());
+  ASSERT_EQ(grouper->num_groups(), 1);
+
+  ASSERT_OK_AND_ASSIGN(auto uniques, grouper->GetUniques());
+  ASSERT_OK_AND_ASSIGN(auto expected_unique, MakeArrayFromScalar(*value, /*length=*/1));
+  ASSERT_OK(uniques[0].make_array()->ValidateFull());
+  AssertArraysEqual(*expected_unique, *uniques[0].make_array());
+}
+
+TEST(Grouper, LARGE_MEMORY_TEST(UniqueKeysOver2GB)) {
+  constexpr int32_t kBatchLength = 1024;
+  constexpr int32_t kNumBatches = 32;
+  constexpr int32_t kNumGroups = kBatchLength * kNumBatches;
+  constexpr int64_t kValueLength = 64 * 1024;
+  // Each batch encodes about 64 MiB, but 32 * 1024 * 64 KiB is already 2 GiB
+  // of value bytes. The int32 key, null bytes and length prefixes take the
+  // persistent unique-key buffer beyond 2 GiB. Distinct integer ids prevent
+  // deduplication even though every row reuses the same large binary scalar.
+  const auto value = std::make_shared<LargeBinaryScalar>(std::string(kValueLength, 'x'));
+  ASSERT_OK_AND_ASSIGN(auto grouper, Grouper::Make({int32(), large_binary()}));
+
+  for (int32_t batch_index = 0; batch_index < kNumBatches; ++batch_index) {
+    SCOPED_TRACE(batch_index);
+    Int32Builder builder;
+    const int32_t first_id = batch_index * kBatchLength;
+    for (int32_t i = 0; i < kBatchLength; ++i) {
+      ASSERT_OK(builder.Append(first_id + i));
+    }
+    ASSERT_OK_AND_ASSIGN(auto ids, builder.Finish());
+    const ExecBatch batch({ids, value}, kBatchLength);
+    // Exercise both insertion APIs on the same persistent buffer: Populate
+    // first, then Consume, whose returned group ids must follow insertion order.
+    if (batch_index < kNumBatches / 2) {
+      ASSERT_OK(grouper->Populate(ExecSpan(batch)));
+    } else {
+      ASSERT_OK_AND_ASSIGN(auto groups, grouper->Consume(ExecSpan(batch)));
+      auto group_array = groups.make_array();
+      ASSERT_OK(group_array->ValidateFull());
+      ASSERT_EQ(group_array->length(), kBatchLength);
+      ASSERT_EQ(group_array->null_count(), 0);
+      const auto& group_ids = checked_cast<const UInt32Array&>(*group_array);
+      for (int32_t i = 0; i < kBatchLength; ++i) {
+        ASSERT_EQ(group_ids.Value(i), first_id + i);
+      }
+    }
+  }
+  ASSERT_EQ(grouper->num_groups(), kNumGroups);
+
+  // Look up the last key (32767), the first key and a missing key. Lookup must
+  // return null for the miss without inserting a new group.
+  const ExecBatch query({ArrayFromJSON(int32(), "[32767, 0, -1]"), value}, /*length=*/3);
+  ASSERT_OK_AND_ASSIGN(auto found, grouper->Lookup(ExecSpan(query)));
+  ASSERT_OK(found.make_array()->ValidateFull());
+  AssertArraysEqual(*ArrayFromJSON(uint32(), "[32767, 0, null]"), *found.make_array());
+  ASSERT_EQ(grouper->num_groups(), kNumGroups);
+
+  // Decode all unique keys to validate the full offsets and value buffer, then
+  // check insertion order and sample large values at the beginning, middle and end.
+  ASSERT_OK_AND_ASSIGN(auto uniques, grouper->GetUniques());
+  ASSERT_EQ(uniques.length, kNumGroups);
+  auto unique_ids = uniques[0].make_array();
+  auto unique_values = uniques[1].make_array();
+  ASSERT_OK(unique_ids->ValidateFull());
+  ASSERT_OK(unique_values->ValidateFull());
+  const auto& ids = checked_cast<const Int32Array&>(*unique_ids);
+  const auto& values = checked_cast<const LargeBinaryArray&>(*unique_values);
+  ASSERT_EQ(values.value_data()->size(), kValueLength * kNumGroups);
+  for (int32_t i = 0; i < kNumGroups; ++i) {
+    ASSERT_EQ(ids.Value(i), i);
+  }
+  for (int32_t i : {0, kNumGroups / 2, kNumGroups - 1}) {
+    ASSERT_EQ(values.GetView(i), std::string_view(*value->value));
+  }
+}
+
+TEST(Grouper, StringViewKey) {
+  // Mix inline (<=12 byte) and out-of-line view keys.
+  for (auto ty : {utf8_view(), binary_view()}) {
+    ARROW_SCOPED_TRACE("key type = ", *ty);
+    {
+      TestGrouper g({ty});
+      g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
+      g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
+      g.ExpectConsume(R"([["be"], [null]])", "[1, 2]");
+      // Several distinct out-of-line (>12 byte) views, including two that share
+      // the same 4-byte inline prefix.
+      g.ExpectConsume(
+          R"([["a long out-of-line view"], ["a long out-of-line view"],
+              ["a different long view"], ["a distinct long-ish view"]])",
+          "[3, 3, 4, 5]");
+      g.ExpectUniques(
+          R"([["eh"], ["be"], [null], ["a long out-of-line view"],
+              ["a different long view"], ["a distinct long-ish view"]])");
+    }
+    {
+      TestGrouper g({ty});
+      g.ExpectPopulate(R"([["eh"], ["eh"]])");
+      g.ExpectPopulate(R"([["be"], [null]])");
+      g.ExpectLookup(R"([["be"], [null], ["da"]])", "[1, 2, null]");
+    }
+  }
+}
+
+TEST(Grouper, StringViewInt64Key) {
+  for (auto ty : {utf8_view(), binary_view()}) {
+    ARROW_SCOPED_TRACE("key type = ", *ty);
+    TestGrouper g({ty, int64()});
+
+    g.ExpectConsume(R"([["eh", 0], ["eh", 0]])", "[0, 0]");
+    g.ExpectConsume(R"([["eh", 0], ["eh", null]])", "[0, 1]");
+    g.ExpectConsume(R"([["eh", 1], ["bee", 1]])", "[2, 3]");
+    g.ExpectConsume(R"([["eh", null], ["bee", 1]])", "[1, 3]");
+
+    g.ExpectUniques(R"([["eh", 0], ["eh", null], ["eh", 1], ["bee", 1]])");
   }
 }
 
@@ -1074,6 +1230,10 @@ FieldVector AnnotateForRandomGeneration(FieldVector fields) {
     } else if (is_binary_like(*field->type())) {
       // (note this is unsupported for large binary types)
       field = field->WithMergedMetadata(key_value_metadata({"unique"}, {"100"}));
+    } else if (is_binary_view_like(*field->type())) {
+      // Views don't support the "unique" knob; small lengths keep cardinality low.
+      field = field->WithMergedMetadata(
+          key_value_metadata({"min_length", "max_length"}, {"0", "5"}));
     }
     field = field->WithMergedMetadata(key_value_metadata({"null_probability"}, {"0.1"}));
   }
@@ -1128,6 +1288,22 @@ TEST(Grouper, RandomStringInt64Keys) {
 TEST(Grouper, RandomStringInt64DoubleInt32Keys) {
   TestRandomConsume(TestGrouper({utf8(), int64(), float64(), int32()}));
   TestRandomLookup(TestGrouper({utf8(), int64(), float64(), int32()}));
+}
+
+TEST(Grouper, RandomStringViewKeys) {
+  for (auto ty : {utf8_view(), binary_view()}) {
+    ARROW_SCOPED_TRACE("key type = ", *ty);
+    TestRandomConsume(TestGrouper({ty}));
+    TestRandomLookup(TestGrouper({ty}));
+  }
+}
+
+TEST(Grouper, RandomStringViewInt64Keys) {
+  for (auto ty : {utf8_view(), binary_view()}) {
+    ARROW_SCOPED_TRACE("key type = ", *ty);
+    TestRandomConsume(TestGrouper({ty, int64()}));
+    TestRandomLookup(TestGrouper({ty, int64()}));
+  }
 }
 
 TEST(Grouper, NullKeys) {

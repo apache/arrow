@@ -612,6 +612,67 @@ TEST(Expression, BindNestedFieldRef) {
                                                                field("b", int64())}))})));
 }
 
+TEST(Expression, NullableFieldRef) {
+  auto input_schema = schema({field("r", int32(), false), field("n", int32(), true)});
+  for (int i = 0; i < input_schema->num_fields(); ++i) {
+    for (const auto& ref : {FieldRef(input_schema->field(i)->name()), FieldRef(i)}) {
+      SCOPED_TRACE(input_schema->field(i)->ToString());
+      SCOPED_TRACE(ref.ToString());
+      auto expr = field_ref(ref);
+      EXPECT_TRUE(expr.nullable());
+
+      ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*input_schema));
+      EXPECT_EQ(bound.nullable(), input_schema->field(i)->nullable());
+      EXPECT_TRUE(expr.nullable());
+
+      ASSERT_OK_AND_ASSIGN(auto bound_to_type,
+                           expr.Bind(struct_(input_schema->fields())));
+      EXPECT_EQ(bound_to_type.nullable(), bound.nullable());
+    }
+  }
+}
+
+TEST(Expression, NullableConservativeFallback) {
+  auto input_schema = schema({field("r", int32(), false), field("n", int32(), true)});
+  EXPECT_TRUE(Expression{}.nullable());
+  for (const auto& expr : {literal(1), literal(std::make_shared<Int32Scalar>()),
+                           add(field_ref("r"), literal(1)), is_valid(field_ref("n"))}) {
+    SCOPED_TRACE(expr.ToString());
+    EXPECT_TRUE(expr.nullable());
+    ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*input_schema));
+    EXPECT_TRUE(bound.IsBound());
+    EXPECT_TRUE(bound.nullable());
+  }
+}
+
+TEST(Expression, NullableNestedFieldRef) {
+  for (bool parent_nullable : {false, true}) {
+    for (bool child_nullable : {false, true}) {
+      auto input_schema = schema(
+          {field("a", struct_({field("b", int32(), child_nullable)}), parent_nullable)});
+      for (const auto& ref : {FieldRef("a", "b"), FieldRef(FieldPath({0, 0}))}) {
+        SCOPED_TRACE(input_schema->ToString());
+        SCOPED_TRACE(ref.ToString());
+        ASSERT_OK_AND_ASSIGN(auto bound, field_ref(ref).Bind(*input_schema));
+        EXPECT_TRUE(bound.nullable());
+      }
+    }
+  }
+}
+
+TEST(Expression, NullableRebind) {
+  auto required_schema = schema({field("a", int32(), false)});
+  auto optional_schema = schema({field("a", int32(), true)});
+  ASSERT_OK_AND_ASSIGN(auto required, field_ref("a").Bind(*required_schema));
+  ASSERT_OK_AND_ASSIGN(auto optional, required.Bind(*optional_schema));
+  EXPECT_FALSE(required.nullable());
+  EXPECT_TRUE(optional.nullable());
+
+  ASSERT_OK_AND_ASSIGN(auto rebound_required, optional.Bind(*required_schema));
+  EXPECT_FALSE(rebound_required.nullable());
+  EXPECT_TRUE(optional.nullable());
+}
+
 TEST(Expression, BindCall) {
   auto expr = add(field_ref("i32"), field_ref("i32_req"));
   EXPECT_FALSE(expr.IsBound());
@@ -936,6 +997,70 @@ TEST(Expression, BindWithImplicitCastsForCaseWhenOnDecimal) {
                      {field_ref("a"), cast(field_ref("dec256_20_3"), decimal256(23, 3)),
                       cast(field_ref("dec256_21_1"), decimal256(23, 3))}),
                 /*bound_out=*/nullptr, *exciting_schema);
+}
+
+TEST(Expression, BindWithImplicitCastsForCoalesceOnDecimal) {
+  auto exciting_schema = schema(
+      {field("dec128_3_2", decimal128(3, 2)), field("dec128_4_1", decimal128(4, 1)),
+       field("dec128_4_2", decimal128(4, 2)), field("dec128_4_3", decimal128(4, 3)),
+       field("dec256_3_2", decimal256(3, 2)), field("dec256_4_1", decimal256(4, 1))});
+
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec128_4_2")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal128(4, 2)),
+                                  field_ref("dec128_4_2")}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_4_2"), field_ref("dec128_3_2")}),
+                call("coalesce", {field_ref("dec128_4_2"),
+                                  cast(field_ref("dec128_3_2"), decimal128(4, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_4_1"), field_ref("dec128_3_2")}),
+                call("coalesce", {cast(field_ref("dec128_4_1"), decimal128(5, 2)),
+                                  cast(field_ref("dec128_3_2"), decimal128(5, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec128_4_1")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal128(5, 2)),
+                                  cast(field_ref("dec128_4_1"), decimal128(5, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec128_4_3")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal128(4, 3)),
+                                  field_ref("dec128_4_3")}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_4_3"), field_ref("dec128_3_2")}),
+                call("coalesce", {field_ref("dec128_4_3"),
+                                  cast(field_ref("dec128_3_2"), decimal128(4, 3))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec256_3_2")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal256(3, 2)),
+                                  field_ref("dec256_3_2")}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec256_3_2"), field_ref("dec128_3_2")}),
+                call("coalesce", {field_ref("dec256_3_2"),
+                                  cast(field_ref("dec128_3_2"), decimal256(3, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec256_4_1"), field_ref("dec128_3_2")}),
+                call("coalesce", {cast(field_ref("dec256_4_1"), decimal256(5, 2)),
+                                  cast(field_ref("dec128_3_2"), decimal256(5, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+  ExpectBindsTo(call("coalesce", {field_ref("dec128_3_2"), field_ref("dec256_4_1")}),
+                call("coalesce", {cast(field_ref("dec128_3_2"), decimal256(5, 2)),
+                                  cast(field_ref("dec256_4_1"), decimal256(5, 2))}),
+                /*bound_out=*/nullptr, *exciting_schema);
+}
+
+TEST(Expression, ExecuteCoalesceOnMixedDecimalTypes) {
+  ASSERT_OK_AND_ASSIGN(
+      auto input, StructArray::Make(
+                      ArrayVector{ArrayFromJSON(decimal128(3, 2), R"(["1.23", null])"),
+                                  ArrayFromJSON(decimal128(4, 3), R"([null, "2.345"])")},
+                      std::vector<std::string>{"left", "right"}));
+  Schema input_schema(input->type()->fields());
+  auto expr = call("coalesce", {field_ref("left"), field_ref("right")});
+
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(input_schema));
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       ExecuteScalarExpression(expr, input_schema, Datum(input)));
+
+  AssertDatumsEqual(actual, ArrayFromJSON(decimal128(4, 3), R"(["1.230", "2.345"])"));
 }
 
 TEST(Expression, BindNestedCall) {
@@ -1335,6 +1460,29 @@ TEST(Expression, RemoveNamedRefs) {
                       call("add", {literal(4), field_ref(2)}));
   auto nested_schema = Schema({field("a", struct_({field("b", int32())}))});
   ExpectRemovesRefsTo(field_ref({"a", "b"}), field_ref({0, 0}), nested_schema);
+}
+
+TEST(Expression, NullableRemoveNamedRefs) {
+  ASSERT_OK_AND_ASSIGN(auto bound, field_ref("i32_req").Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto without_named_refs, RemoveNamedRefs(bound));
+  EXPECT_TRUE(without_named_refs.IsBound());
+  EXPECT_TRUE(without_named_refs.field_ref()->IsFieldPath());
+  EXPECT_FALSE(without_named_refs.nullable());
+  EXPECT_FALSE(bound.nullable());
+
+  ASSERT_OK_AND_ASSIGN(auto bound_call,
+                       add(field_ref("i32_req"), literal(1)).Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto without_named_refs_call, RemoveNamedRefs(bound_call));
+  EXPECT_TRUE(without_named_refs_call.IsBound());
+  EXPECT_TRUE(without_named_refs_call.nullable());
+  const auto* call = without_named_refs_call.call();
+  ASSERT_NE(call, nullptr);
+  ASSERT_EQ(call->arguments.size(), 2);
+  const auto& field_arg = call->arguments[0];
+  EXPECT_TRUE(field_arg.IsBound());
+  ASSERT_NE(field_arg.field_ref(), nullptr);
+  EXPECT_TRUE(field_arg.field_ref()->IsFieldPath());
+  EXPECT_FALSE(field_arg.nullable());
 }
 
 TEST(Expression, ExtractKnownFieldValues) {

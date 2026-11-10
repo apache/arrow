@@ -47,7 +47,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -56,15 +56,13 @@ jobs:
           sudo apt update
           sudo apt install -y -V \
             pre-commit \
-            r-base \
             ruby-dev \
             libuv1-dev
       - name: Cache pre-commit
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cache/pre-commit
-            ~/.local/share/renv/cache
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: Run pre-commit
         run: |
@@ -88,12 +86,12 @@ jobs:
       GIT_COMMITTER_EMAIL: "github-actions[bot]@users.noreply.github.com"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
       - name: Install Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install Ruby
@@ -104,7 +102,14 @@ jobs:
         shell: bash
         run: |
           gem install test-unit openssl
-          pip install build "cython>=3.1" pytest requests scikit-build-core setuptools-scm
+          pip install \
+            build \
+            "cython>=3.1" \
+            "dev/archery[release]" \
+            pytest \
+            requests \
+            scikit-build-core \
+            setuptools-scm
       - name: Run Release Test
         shell: bash
         run: |

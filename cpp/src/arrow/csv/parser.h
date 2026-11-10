@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -71,6 +72,7 @@ class ARROW_EXPORT DataBatch {
     using detail::ParsedValueDesc;
 
     int32_t batch_row = 0;
+    size_t missing_index = 0;
     for (size_t buf_index = 0; buf_index < values_buffers_.size(); ++buf_index) {
       const auto& values_buffer = values_buffers_[buf_index];
       const auto values = reinterpret_cast<const ParsedValueDesc*>(values_buffer->data());
@@ -80,7 +82,16 @@ class ARROW_EXPORT DataBatch {
         auto start = values[pos].offset;
         auto stop = values[pos + 1].offset;
         auto quoted = values[pos + 1].quoted;
-        Status status = visit(parsed_ + start, stop - start, quoted);
+        const bool row_has_missing_fields =
+            missing_index < missing_fields_.size() &&
+            missing_fields_[missing_index].row == batch_row;
+        const bool missing =
+            row_has_missing_fields &&
+            col_index >= missing_fields_[missing_index].first_missing_column;
+        if (row_has_missing_fields) {
+          ++missing_index;
+        }
+        Status status = visit(parsed_ + start, stop - start, quoted, missing);
         if (ARROW_PREDICT_FALSE(!status.ok())) {
           return DecorateWithRowNumber(std::move(status), first_row, batch_row);
         }
@@ -98,11 +109,15 @@ class ARROW_EXPORT DataBatch {
     const auto start_pos =
         static_cast<int32_t>(values_buffer->size() / sizeof(ParsedValueDesc)) -
         num_cols_ - 1;
+    const bool last_row_has_missing_fields =
+        !missing_fields_.empty() && missing_fields_.back().row == num_rows_ - 1;
     for (int32_t col_index = 0; col_index < num_cols_; ++col_index) {
       auto start = values[start_pos + col_index].offset;
       auto stop = values[start_pos + col_index + 1].offset;
       auto quoted = values[start_pos + col_index + 1].quoted;
-      ARROW_RETURN_NOT_OK(visit(parsed_ + start, stop - start, quoted));
+      const bool missing = last_row_has_missing_fields &&
+                           col_index >= missing_fields_.back().first_missing_column;
+      ARROW_RETURN_NOT_OK(visit(parsed_ + start, stop - start, quoted, missing));
     }
     return Status::OK();
   }
@@ -138,6 +153,12 @@ class ARROW_EXPORT DataBatch {
 
   // Record the current num_rows_ each time a row is skipped
   std::vector<int32_t> skipped_rows_;
+  // Record the first missing column for rows padded with nulls
+  struct MissingFieldRange {
+    int32_t row;
+    int32_t first_missing_column;
+  };
+  std::vector<MissingFieldRange> missing_fields_;
 
   friend class ::arrow::csv::BlockParserImpl;
 };
@@ -206,7 +227,7 @@ class ARROW_EXPORT BlockParser {
   /// \brief Visit parsed values in a column
   ///
   /// The signature of the visitor is
-  /// Status(const uint8_t* data, uint32_t size, bool quoted)
+  /// Status(const uint8_t* data, uint32_t size, bool quoted, bool missing)
   template <typename Visitor>
   Status VisitColumn(int32_t col_index, Visitor&& visit) const {
     return parsed_batch().VisitColumn(col_index, first_row_num(),

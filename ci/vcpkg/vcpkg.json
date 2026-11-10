@@ -18,6 +18,7 @@
     "openssl",
     "re2",
     "snappy",
+    "uriparser",
     "utf8proc",
     "xsimd",
     "zlib",
@@ -57,7 +58,8 @@
     "json": {
       "description": "JSON support",
       "dependencies": [
-        "rapidjson"
+        "rapidjson",
+        "simdjson"
       ]
     },
     "gandiva": {

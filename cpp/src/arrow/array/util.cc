@@ -125,8 +125,7 @@ class ArrayDataEndianSwapper {
     for (int64_t i = 0; i < length; i++) {
       out_data[i] = bit_util::ByteSwap(in_data[i]);
     }
-    // R build with openSUSE155 requires an explicit shared_ptr construction
-    return std::shared_ptr<Buffer>(std::move(out_buffer));
+    return out_buffer;
   }
 
   template <typename VALUE_TYPE>

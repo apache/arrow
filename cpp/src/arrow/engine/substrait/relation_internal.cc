@@ -85,6 +85,9 @@ Result<EmitInfo> GetEmitInfo(const RelMessage& rel,
   FieldVector emit_fields(emit_size);
   for (int i = 0; i < emit_size; i++) {
     int32_t map_id = emit.output_mapping(i);
+    if (map_id < 0 || map_id >= input_schema->num_fields()) {
+      return Status::Invalid("Out of bounds emit index ", map_id);
+    }
     proj_field_refs[i] = compute::field_ref(FieldRef(map_id));
     emit_fields[i] = input_schema->field(map_id);
   }
@@ -111,6 +114,9 @@ Result<DeclarationInfo> ProcessEmitProject(
         std::vector<compute::Expression> emit_proj_exprs(emit_size);
         for (int i = 0; i < emit_size; i++) {
           int32_t map_id = emit.output_mapping(i);
+          if (map_id < 0 || map_id >= input_schema->num_fields()) {
+            return Status::Invalid("Out of bounds emit index ", map_id);
+          }
           emit_fields[i] = input_schema->field(map_id);
           emit_proj_exprs[i] = std::move(proj_options.expressions[map_id]);
         }
@@ -806,21 +812,10 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       std::vector<compute::SortKey> sort_keys;
       sort_keys.reserve(sort.sorts_size());
-      // Substrait allows null placement to differ for each field.  Acero expects it to
-      // be consistent across all fields.  So we grab the null placement from the first
-      // key and verify all other keys have the same null placement
-      std::optional<SortBehavior> sample_sort_behavior;
+      // Substrait allows null placement to differ for each field.
       for (const auto& sort : sort.sorts()) {
         ARROW_ASSIGN_OR_RAISE(SortBehavior sort_behavior,
                               SortBehavior::Make(sort.direction()));
-        if (sample_sort_behavior) {
-          if (sample_sort_behavior->null_placement != sort_behavior.null_placement) {
-            return Status::NotImplemented(
-                "substrait::SortRel with ordering with mixed null placement");
-          }
-        } else {
-          sample_sort_behavior = sort_behavior;
-        }
         if (sort.sort_kind_case() != substrait::SortField::SortKindCase::kDirection) {
           return Status::NotImplemented("substrait::SortRel with custom sort function");
         }
@@ -828,18 +823,17 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
                               FromProto(sort.expr(), ext_set, conversion_options));
         const FieldRef* field_ref = expr.field_ref();
         if (field_ref) {
-          sort_keys.push_back(compute::SortKey(*field_ref, sort_behavior.sort_order));
+          sort_keys.push_back(compute::SortKey(*field_ref, sort_behavior.sort_order,
+                                               sort_behavior.null_placement));
         } else {
           return Status::Invalid("Sort key expressions must be a direct reference.");
         }
       }
 
-      DCHECK(sample_sort_behavior.has_value());
       acero::Declaration sort_dec{
           "order_by",
           {input.declaration},
-          acero::OrderByNodeOptions(compute::Ordering(
-              std::move(sort_keys), sample_sort_behavior->null_placement))};
+          acero::OrderByNodeOptions(compute::Ordering(std::move(sort_keys)))};
 
       DeclarationInfo sort_declaration{std::move(sort_dec), input.output_schema};
       return ProcessEmit(sort, std::move(sort_declaration),

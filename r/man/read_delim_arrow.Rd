@@ -147,21 +147,29 @@ filled with missings.}
 If given, this overrides any
 parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, etc.).}
 
-\item{convert_options}{see \link[=csv_convert_options]{CSV conversion options}}
+\item{convert_options}{see \link[=csv_convert_options]{CSV conversion options}.
+If given, this overrides any conversion options provided in other arguments
+(e.g. \code{na}, \code{col_types}, \code{timestamp_parsers}, etc.).}
 
 \item{read_options}{see \link[=csv_read_options]{CSV reading options}}
 
 \item{as_data_frame}{Should the function return a \code{tibble} (default) or
 an Arrow \link{Table}?}
 
-\item{timestamp_parsers}{User-defined timestamp parsers. If more than one
-parser is specified, the CSV conversion logic will try parsing values
-starting from the beginning of this vector. Possible values are:
+\item{timestamp_parsers}{User-defined timestamp parsers, tried in order
+when inferring column types and when converting columns of type
+\code{\link[=timestamp]{timestamp()}}. Possible values are:
 \itemize{
 \item \code{NULL}: the default, which uses the ISO-8601 parser
 \item a character vector of \link[base:strptime]{strptime} parse strings
-\item a list of \link{TimestampParser} objects
-}}
+\item a list of \link{TimestampParser} objects and/or parse strings
+}
+
+Supplying parsers replaces the default ISO-8601 parser rather than adding
+to it. If none of the parsers match a value during type inference, the
+column is read as a string without error; to get an error instead, specify
+the column as a timestamp in \code{col_types}. These parsers are not used for
+date columns.}
 
 \item{decimal_point}{Character to use for decimal point in floating point numbers.}
 }
@@ -259,6 +267,16 @@ read_csv_arrow(
   tf,
   col_types = schema(x = timestamp(unit = "us", timezone = "UTC"))
 )
+
+# Parse non-ISO timestamps with `timestamp_parsers`. Supplying parsers
+# replaces the default ISO-8601 parser, so include `TimestampParser$create()`
+# to keep it as a fallback:
+write.csv(
+  data.frame(x = c("16/01/2023 19:47", "2023-01-17 08:00:00")),
+  file = tf,
+  row.names = FALSE
+)
+read_csv_arrow(tf, timestamp_parsers = list("\%d/\%m/\%Y \%H:\%M", TimestampParser$create()))
 
 # Read directly from strings with `I()`
 read_csv_arrow(I("x,y\n1,2\n3,4"))

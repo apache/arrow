@@ -671,6 +671,42 @@ Result<Datum> Divide(const Datum& left, const Datum& right,
                      ArithmeticOptions options = ArithmeticOptions(),
                      ExecContext* ctx = NULLPTR);
 
+/// \brief Compute the remainder (truncated division) of two values.
+/// Array values must be the same length. If either argument is null the result
+/// will be null. For integer and decimal types, if there is a zero divisor, an
+/// error will be raised. For floating-point types, a zero divisor yields NaN
+/// unless overflow checking is enabled, in which case an error is raised.
+///
+/// The result has the same sign as the dividend (C/C++ semantics).
+///
+/// \param[in] left the dividend
+/// \param[in] right the divisor
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise remainder
+ARROW_EXPORT
+Result<Datum> Remainder(const Datum& left, const Datum& right,
+                        ArithmeticOptions options = ArithmeticOptions(),
+                        ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the modulo (floored division) of two values.
+/// Array values must be the same length. If either argument is null the result
+/// will be null. For integer and decimal types, if there is a zero divisor, an
+/// error will be raised. For floating-point types, a zero divisor yields NaN
+/// unless overflow checking is enabled, in which case an error is raised.
+///
+/// The result has the same sign as the divisor (Python semantics).
+///
+/// \param[in] left the dividend
+/// \param[in] right the divisor
+/// \param[in] options arithmetic options (enable/disable overflow checking), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise modulo
+ARROW_EXPORT
+Result<Datum> Modulo(const Datum& left, const Datum& right,
+                     ArithmeticOptions options = ArithmeticOptions(),
+                     ExecContext* ctx = NULLPTR);
+
 /// \brief Negate values.
 ///
 /// If argument is null the result will be null.
@@ -805,6 +841,15 @@ Result<Datum> Atan(const Datum& arg, ExecContext* ctx = NULLPTR);
 /// \return the elementwise inverse tangent of the values
 ARROW_EXPORT
 Result<Datum> Atan2(const Datum& y, const Datum& x, ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the hypotenuse (Euclidean norm) of x and y, equivalent to
+/// sqrt(x^2 + y^2), without undue overflow or underflow at intermediate stages.
+/// \param[in] x The x-values to compute the hypotenuse for.
+/// \param[in] y The y-values to compute the hypotenuse for.
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise hypotenuse of the values
+ARROW_EXPORT
+Result<Datum> Hypot(const Datum& x, const Datum& y, ExecContext* ctx = NULLPTR);
 
 /// \brief Compute the hyperbolic sine of the array values.
 /// \param[in] arg The values to compute the hyperbolic sine for.

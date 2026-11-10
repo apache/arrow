@@ -133,6 +133,8 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_ma
   return KeyWithMasterId(std::move(data_key), master_key_id);
 }
 
+void FileKeyUnwrapper::EnableReadingKmsUrl() { read_kms_url_ = true; }
+
 std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial(
     const KeyMaterial& key_material) {
   std::string& kms_instance_id = kms_connection_config_.kms_instance_id;
@@ -140,18 +142,22 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
     kms_instance_id = key_material.kms_instance_id();
     if (kms_instance_id.empty()) {
       throw ParquetException(
-          "KMS instance ID is missing both in both kms connection configuration and file "
+          "KMS instance ID is missing in both the KMS connection configuration and file "
           "key material");
     }
   }
 
   std::string& kms_instance_url = kms_connection_config_.kms_instance_url;
   if (kms_instance_url.empty()) {
-    kms_instance_url = key_material.kms_instance_url();
-    if (kms_instance_url.empty()) {
-      throw ParquetException(
-          "KMS instance ID is missing both in both kms connection configuration and file "
-          "key material");
+    if (read_kms_url_) {
+      kms_instance_url = key_material.kms_instance_url();
+      if (kms_instance_url.empty()) {
+        throw ParquetException(
+            "KMS instance URL is missing in both the KMS connection configuration and "
+            "the file key material");
+      }
+    } else {
+      kms_instance_url = KmsClient::kKmsInstanceUrlDefault;
     }
   }
 

@@ -31,7 +31,10 @@
 #'   for functions with more than one argument. This signature will be used
 #'   to determine if this function is appropriate for a given set of arguments.
 #'   If this function is appropriate for more than one signature, pass a
-#'   `list()` of the above.
+#'   `list()` of the above. Arguments are passed to `fun` by position, so if
+#'   the schema (or field) is named, the names must match the argument names
+#'   of `fun` (after `context`). Fields that would be passed to `...` in `fun`
+#'   can be named anything.
 #' @param out_type A [DataType] of the output type or a function accepting
 #'   a single argument (`types`), which is a `list()` of [DataType]s. If a
 #'   function it must return a [DataType].
@@ -141,9 +144,12 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
     abort("Can't register user-defined scalar function with 0 kernels")
   }
 
+  # All kernels must have the same number of fields (RegisterScalarUDF enforces
+  # this later), so only the first needs comparing against fun
   expected_n_args <- in_type[[1]]$num_fields + 1L
-  fun_formals_have_dots <- any(names(formals(fun)) == "...")
-  if (!fun_formals_have_dots && length(formals(fun)) != expected_n_args) {
+  fun_arg_names <- names(formals(fun))
+  fun_formals_have_dots <- any(fun_arg_names == "...")
+  if (!fun_formals_have_dots && length(fun_arg_names) != expected_n_args) {
     abort(
       sprintf(
         paste0(
@@ -152,9 +158,31 @@ arrow_scalar_function <- function(fun, in_type, out_type, auto_convert = FALSE) 
           "Did you forget to include `context` as the first argument?"
         ),
         expected_n_args,
-        length(formals(fun))
+        length(fun_arg_names)
       )
     )
+  }
+
+  # Arguments are passed to fun by position, so if the user named the
+  # fields in in_type, make sure those names line up with fun's arguments
+  # rather than silently ignoring them (GH-37761). Only the arguments
+  # explicitly named in fun (after `context` and before any `...`) are
+  # checked: fields beyond those are swallowed by `...` and can be named
+  # anything.
+  n_explicit_args <- match("...", fun_arg_names, nomatch = length(fun_arg_names) + 1L) - 1L
+  explicit_arg_names <- fun_arg_names[seq_len(n_explicit_args)][-1]
+  in_type_names <- map(in_type, names)
+  mismatch <- map_lgl(in_type_names, function(nms) {
+    n_check <- min(length(nms), length(explicit_arg_names))
+    nms <- nms[seq_len(n_check)]
+    any(nzchar(nms) & nms != explicit_arg_names[seq_len(n_check)])
+  })
+  if (any(mismatch)) {
+    abort(c(
+      "Names in `in_type` must match the argument names of `fun` (after `context`)",
+      x = paste0("`in_type` names: ", oxford_paste(in_type_names[[which(mismatch)[1]]])),
+      x = paste0("`fun` argument names: ", oxford_paste(explicit_arg_names))
+    ))
   }
 
   structure(

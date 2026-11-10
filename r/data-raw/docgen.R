@@ -101,10 +101,16 @@ render_fun <- function(fun, pkg_fun, notes) {
   # Make it \code{} for better formatting
   fun <- paste0("`", fun, "`")
   # Wrap in \link{}
+  # Operators need base:: prefix to disambiguate from other packages (e.g. bit64)
+  link_target <- ifelse(
+    !not_operators & !grepl("::", pkg_fun),
+    paste0("base::", pkg_fun),
+    pkg_fun
+  )
   out <- ifelse(
     pkg_fun %in% do_not_link,
     fun,
-    paste0("[", fun, "][", pkg_fun, "()]")
+    paste0("[", fun, "][", link_target, "()]")
   )
   # Add notes after :, if exist
   has_notes <- nzchar(notes)

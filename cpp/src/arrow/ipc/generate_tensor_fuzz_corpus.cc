@@ -52,12 +52,14 @@ Result<std::shared_ptr<Buffer>> MakeSerializedBuffer(
 }
 
 Result<std::shared_ptr<Buffer>> SerializeTensor(const std::shared_ptr<Tensor>& tensor) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   return MakeSerializedBuffer(
       [&](const std::shared_ptr<io::BufferOutputStream>& sink) -> Status {
         int32_t metadata_length;
         int64_t body_length;
         return ipc::WriteTensor(*tensor, sink.get(), &metadata_length, &body_length);
       });
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 Result<std::vector<std::shared_ptr<Tensor>>> Tensors() {

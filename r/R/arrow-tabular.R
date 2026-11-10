@@ -82,10 +82,10 @@ ArrowTabular <- R6Class(
       # Helper for the R metadata that handles the serialization
       # See also method on Schema
       if (missing(new)) {
-        self$metadata$r
+        self$metadata[["r"]]
       } else {
         # Set the R metadata
-        self$metadata$r <- new
+        self$metadata[["r"]] <- new
         self
       }
     }
@@ -95,7 +95,7 @@ ArrowTabular <- R6Class(
 #' @export
 as.data.frame.ArrowTabular <- function(x, row.names = NULL, optional = FALSE, ...) {
   df <- x$to_data_frame()
-  out <- apply_arrow_r_metadata(df, x$metadata$r)
+  out <- apply_arrow_r_metadata(df, x$metadata[["r"]])
   as.data.frame(out, row.names = row.names, optional = optional, ...)
 }
 

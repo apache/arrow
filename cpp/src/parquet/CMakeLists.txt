@@ -41,23 +41,14 @@ function(ADD_PARQUET_TEST REL_TEST_NAME)
                         "${multi_value_args}"
                         ${ARGN})
 
-  set(TEST_ARGUMENTS PREFIX "parquet" LABELS "parquet-tests")
-
-  if(ARROW_TEST_LINKAGE STREQUAL "static")
-    add_test_case(${REL_TEST_NAME}
-                  STATIC_LINK_LIBS
-                  parquet_static
-                  ${PARQUET_TEST_LINK_LIBS}
-                  ${TEST_ARGUMENTS}
-                  ${ARG_UNPARSED_ARGUMENTS})
-  else()
-    add_test_case(${REL_TEST_NAME}
-                  STATIC_LINK_LIBS
-                  parquet_shared
-                  ${PARQUET_TEST_LINK_LIBS}
-                  ${TEST_ARGUMENTS}
-                  ${ARG_UNPARSED_ARGUMENTS})
-  endif()
+  add_test_case(${REL_TEST_NAME}
+                STATIC_LINK_LIBS
+                parquet_testing
+                PREFIX
+                "parquet"
+                LABELS
+                "parquet-tests"
+                ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
 function(ADD_PARQUET_FUZZ_TARGET REL_FUZZING_NAME)
@@ -108,7 +99,8 @@ function(ADD_PARQUET_BENCHMARK REL_TEST_NAME)
                 ${PREFIX}
                 LABELS
                 "parquet-benchmarks"
-                ${PARQUET_BENCHMARK_LINK_OPTION}
+                EXTRA_LINK_LIBS
+                parquet_testing
                 ${ARG_UNPARSED_ARGUMENTS})
 endfunction()
 
@@ -122,16 +114,6 @@ if(ARROW_BUILD_STATIC)
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 else()
   set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS)
-endif()
-
-set(PARQUET_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS} thrift::thrift)
-if(APPLE)
-  list(APPEND PARQUET_TEST_LINK_LIBS ${CMAKE_DL_LIBS})
-elseif(NOT MSVC)
-  if(ARROW_ENABLE_THREADING)
-    list(APPEND PARQUET_TEST_LINK_LIBS Threads::Threads)
-  endif()
-  list(APPEND PARQUET_TEST_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
 
 #
@@ -193,9 +175,18 @@ set(PARQUET_SRCS
     stream_writer.cc
     types.cc)
 
+# guards itself: Neon on aarch64, SSE4.2 on x86, empty elsewhere
+list(APPEND PARQUET_SRCS level_comparison_simd_128.cc)
+if(ARROW_CPU_FLAG STREQUAL "x86" AND ARROW_HAVE_RUNTIME_SSE4_2)
+  set_source_files_properties(level_comparison_simd_128.cc
+                              PROPERTIES COMPILE_OPTIONS "${ARROW_SSE4_2_FLAG}")
+endif()
+
+append_runtime_avx2_src(PARQUET_SRCS level_comparison_simd_256.cc)
+
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
-  list(APPEND PARQUET_SRCS level_comparison_avx2.cc level_conversion_bmi2.cc)
+  list(APPEND PARQUET_SRCS level_conversion_bmi2.cc bloom_filter_avx2.cc)
   # We need CMAKE_CXX_FLAGS_RELEASE here to prevent the one-definition-rule
   # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
@@ -205,8 +196,8 @@ if(ARROW_HAVE_RUNTIME_AVX2)
     separate_arguments(RELEASE_FLAGS NATIVE_COMMAND "${CMAKE_CXX_FLAGS_RELEASE}")
     list(APPEND AVX2_FLAGS ${RELEASE_FLAGS})
   endif()
-  set_source_files_properties(level_comparison_avx2.cc PROPERTIES COMPILE_OPTIONS
-                                                                  "${AVX2_FLAGS}")
+  set_source_files_properties(bloom_filter_avx2.cc PROPERTIES COMPILE_OPTIONS
+                                                              "${AVX2_FLAGS}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
@@ -223,6 +214,10 @@ if(ARROW_HAVE_RUNTIME_AVX2)
     set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_OPTIONS
                                                                     "${BMI2_FLAGS}")
   endif()
+elseif(ARROW_SIMD_LEVEL MATCHES "^(AVX2|AVX512)$")
+  # AVX2 baseline without runtime dispatch: the dispatch table still references
+  # FindHashBlockAvx2, so the kernel must be built (no extra flags needed here).
+  list(APPEND PARQUET_SRCS bloom_filter_avx2.cc)
 endif()
 
 set(PARQUET_SHARED_LINK_LIBS)
@@ -234,6 +229,7 @@ list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_XSIMD})
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENSSL_LIBS})
+  list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_OPENSSL_LIBS})
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc
                    encryption/openssl_internal.cc)
   # Encryption key management
@@ -255,9 +251,9 @@ endif()
 
 list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
 
-# Add RapidJSON libraries
-list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS RapidJSON)
-list(APPEND PARQUET_STATIC_LINK_LIBS RapidJSON)
+# Add simdjson libraries
+list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS simdjson::simdjson)
+list(APPEND PARQUET_STATIC_LINK_LIBS simdjson::simdjson)
 
 # These are libraries that we will link privately with parquet_shared (as they
 # do not need to be linked transitively by other linkers)
@@ -272,6 +268,7 @@ endif()
 
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+  list(APPEND PARQUET_STATIC_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
 endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
@@ -305,25 +302,30 @@ if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
               "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
   target_link_libraries(parquet_test_support thrift::thrift)
-  list(PREPEND PARQUET_TEST_LINK_LIBS parquet_test_support)
   list(APPEND PARQUET_LIBRARIES parquet_test_support)
 endif()
 
 if(ARROW_TESTING)
-  add_library(parquet_testing OBJECT test_util.cc)
-  # Even though this is still just an object library we still need to
-  # "link" our dependencies so that include paths are configured
-  # correctly
-  target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
-  list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing RapidJSON)
-endif()
-
-if(NOT ARROW_BUILD_SHARED)
-  set(PARQUET_BENCHMARK_LINK_OPTION STATIC_LINK_LIBS parquet_static
-                                    ${PARQUET_TEST_LINK_LIBS} benchmark::benchmark_main)
-else()
-  set(PARQUET_BENCHMARK_LINK_OPTION EXTRA_LINK_LIBS parquet_shared
-                                    ${PARQUET_TEST_LINK_LIBS})
+  # Define parquet_testing static library for common test files.
+  add_library(parquet_testing STATIC test_util.cc)
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
+    target_link_libraries(parquet_testing PUBLIC parquet_static)
+  else()
+    target_link_libraries(parquet_testing PUBLIC parquet_shared)
+  endif()
+  if(TARGET parquet_test_support)
+    target_link_libraries(parquet_testing PUBLIC parquet_test_support)
+  endif()
+  target_link_libraries(parquet_testing PUBLIC ${ARROW_TEST_LINK_LIBS} thrift::thrift
+                                               simdjson::simdjson)
+  if(APPLE)
+    target_link_libraries(parquet_testing PUBLIC ${CMAKE_DL_LIBS})
+  elseif(NOT MSVC)
+    if(ARROW_ENABLE_THREADING)
+      target_link_libraries(parquet_testing PUBLIC Threads::Threads)
+    endif()
+    target_link_libraries(parquet_testing PUBLIC ${CMAKE_DL_LIBS})
+  endif()
 endif()
 
 if(ARROW_BUILD_STATIC AND WIN32)
@@ -371,6 +373,7 @@ add_parquet_test(internals-test
                  bloom_filter_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
+                 geospatial/util_json_internal_test.cc
                  metadata_test.cc
                  page_index_test.cc
                  properties_test.cc
@@ -399,9 +402,27 @@ add_parquet_test(chunker-test SOURCES chunker_internal_test.cc)
 
 add_parquet_test(arrow-reader-writer-test
                  SOURCES
+                 arrow/arrow_encoding_test.cc
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
+
+if(ARROW_WITH_OPENTELEMETRY)
+  if(opentelemetry-cpp_SOURCE STREQUAL "SYSTEM")
+    # System OpenTelemetry is not bundled with libarrow.
+    # We need to link against it explicitly otherwise we get missing symbols.
+    set(EXTRA_TEST_LINK_LIBS ${ARROW_OPENTELEMETRY_LIBS})
+  else()
+    # Bundled OpenTelemetry is statically linked into libarrow; linking it
+    # again duplicates globals and causes a double free at exit.
+    set(EXTRA_TEST_LINK_LIBS opentelemetry-cpp::sdk)
+  endif()
+  add_parquet_test(arrow-reader-writer-tracing-test
+                   SOURCES
+                   arrow/arrow_reader_writer_tracing_test.cc
+                   EXTRA_LINK_LIBS
+                   ${EXTRA_TEST_LINK_LIBS})
+endif()
 
 add_parquet_test(arrow-index-test SOURCES arrow/index_test.cc)
 

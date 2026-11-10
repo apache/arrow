@@ -181,7 +181,7 @@ def filters_to_expression(filters):
         elif op == 'not in':
             return ~field.isin(val)
         else:
-            raise ValueError(f'"{col}" is not a valid operator in predicates.')
+            raise ValueError(f'"{op}" is not a valid operator in predicates.')
 
     disjunction_members = []
 
@@ -198,7 +198,7 @@ def filters_to_expression(filters):
 
 _filters_to_expression = _deprecate_api(
     "_filters_to_expression", "filters_to_expression",
-    filters_to_expression, "10.0.0", DeprecationWarning)
+    filters_to_expression, "10.0.0", FutureWarning)
 
 
 # ----------------------------------------------------------------------
@@ -258,6 +258,10 @@ class ParquetFile:
         If not None, override the maximum total size of containers allocated
         when decoding Thrift structures. The default limit should be
         sufficient for most Parquet files.
+    schema_depth_limit : int, default None
+        If not None, override the maximum nesting depth of the Parquet file schema.
+        This guards against recursion overflow on invalid schemas.
+        The default limit should be sufficient for most Parquet files.
     filesystem : FileSystem, default None
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
@@ -268,6 +272,9 @@ class ParquetFile:
         If True, read Parquet logical types as Arrow extension types where
         possible (e.g., read JSON as the canonical `arrow.json` extension type
         or UUID as the canonical `arrow.uuid` extension type).
+    memory_pool : pyarrow.MemoryPool, optional
+        Pool to allocate memory from. If not passed, the default memory pool
+        is used.
 
     Examples
     --------
@@ -316,8 +323,10 @@ class ParquetFile:
                  memory_map=False, buffer_size=0, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
-                 thrift_container_size_limit=None, filesystem=None,
-                 page_checksum_verification=False, arrow_extensions_enabled=True):
+                 thrift_container_size_limit=None, schema_depth_limit=None,
+                 filesystem=None,
+                 page_checksum_verification=False, arrow_extensions_enabled=True,
+                 memory_pool=None):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -327,7 +336,7 @@ class ParquetFile:
             source = filesystem.open_input_file(source)
             self._close_source = True  # We opened it here, ensure we close it.
 
-        self.reader = ParquetReader()
+        self.reader = ParquetReader(memory_pool=memory_pool)
         self.reader.open(
             source, use_memory_map=memory_map,
             buffer_size=buffer_size, pre_buffer=pre_buffer,
@@ -337,6 +346,7 @@ class ParquetFile:
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
+            schema_depth_limit=schema_depth_limit,
             page_checksum_verification=page_checksum_verification,
             arrow_extensions_enabled=arrow_extensions_enabled,
         )
@@ -800,10 +810,6 @@ data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
     pages within a column chunk (in bytes). If None, use the default data page
     size of 1MByte.
-max_rows_per_page : int, default None
-    Maximum number of rows per page within a column chunk.
-    If None, use the default of 20000.
-    Smaller values reduce memory usage during reads but increase metadata overhead.
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options to work with
     various target systems.
@@ -918,6 +924,42 @@ store_decimal_as_integer : bool, default False
     - fixed_len_byte_array: for precision > 18.
 
     As a consequence, decimal columns stored in integer types are more compact.
+write_time_adjusted_to_utc : bool, default False
+    Set the value of isAdjustedTOUTC when writing a TIME column.
+    If True, this tells the Parquet reader that the TIME columns
+    are expressed in reference to midnight in the UTC timezone.
+    If False (the default), the TIME columns are assumed to be expressed
+    in reference to midnight in an unknown, presumably local, timezone.
+max_rows_per_page : int, default None
+    Maximum number of rows per page within a column chunk.
+    If None, use the default of 20000.
+    Smaller values reduce memory usage during reads but increase metadata overhead.
+bloom_filter_options : dict, default None
+    Create Bloom filters for the columns specified by the provided `dict`.
+
+    Bloom filters can be configured with two parameters: number of distinct values
+    (NDV), and false-positive probability (FPP).
+
+    Bloom filters are most effective for high-cardinality columns. A good default
+    is to set NDV equal to the number of rows. Lower values reduce disk usage but
+    may not be worthwhile for very small NDVs. Increasing NDV (without increasing FPP)
+    increases disk and memory usage.
+
+    Lower FPP values require more disk and memory space. For a fixed NDV, the
+    space requirement grows roughly proportional to log(1/FPP). Recommended
+    values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
+    the bitset may exceed the size of the actual data. Set NDV appropriately
+    to minimize space usage.
+
+    The keys of the `dict` are column paths. For each path, the value can be either:
+
+    - A dictionary, with keys `ndv` and `fpp`. The value for `ndv` must be a positive
+      integer. If the 'ndv' key is not present, the default value of `1048576` will be
+      used. The value for `fpp` must be a float between 0.0 and 1.0. If the `fpp` key
+      is not present, the default value of `0.05` will be used.
+    - A boolean, with ``True`` indicating that a Bloom filter should be produced with
+      the above mentioned default values of `ndv=1048576` and `fpp=0.05`. This is
+      equivalent to passing an empty dict.
 use_content_defined_chunking : bool or dict, default False
     Optimize parquet files for content addressable storage (CAS) systems by writing
     data pages according to content-defined chunk boundaries. This allows for more
@@ -952,39 +994,13 @@ use_content_defined_chunking : bool or dict, default False
       balance between deduplication ratio and fragmentation. Use norm_level=1 or
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
-
-write_time_adjusted_to_utc : bool, default False
-    Set the value of isAdjustedTOUTC when writing a TIME column.
-    If True, this tells the Parquet reader that the TIME columns
-    are expressed in reference to midnight in the UTC timezone.
-    If False (the default), the TIME columns are assumed to be expressed
-    in reference to midnight in an unknown, presumably local, timezone.
-bloom_filter_options : dict, default None
-    Create Bloom filters for the columns specified by the provided `dict`.
-
-    Bloom filters can be configured with two parameters: number of distinct values
-    (NDV), and false-positive probability (FPP).
-
-    Bloom filters are most effective for high-cardinality columns. A good default
-    is to set NDV equal to the number of rows. Lower values reduce disk usage but
-    may not be worthwhile for very small NDVs. Increasing NDV (without increasing FPP)
-    increases disk and memory usage.
-
-    Lower FPP values require more disk and memory space. For a fixed NDV, the
-    space requirement grows roughly proportional to log(1/FPP). Recommended
-    values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
-    the bitset may exceed the size of the actual data. Set NDV appropriately
-    to minimize space usage.
-
-    The keys of the `dict` are column paths. For each path, the value can be either:
-
-    - A dictionary, with keys `ndv` and `fpp`. The value for `ndv` must be a positive
-      integer. If the 'ndv' key is not present, the default value of `1048576` will be
-      used. The value for `fpp` must be a float between 0.0 and 1.0. If the `fpp` key
-      is not present, the default value of `0.05` will be used.
-    - A boolean, with ``True`` indicating that a Bloom filter should be produced with
-      the above mentioned default values of `ndv=1048576` and `fpp=0.05`. This is
-      equivalent to passing an empty dict.
+min_compression_savings : float, default 0.01
+    Minimum space savings required to keep compression for each V2 data page.
+    Use a value from 0.0 to 1.0. For example, 0.1 requires at least 10% savings.
+    Savings are measured on encoded values, excluding repetition and definition
+    levels. The default is 0.01, so compression must save at least 1%.
+    Values above this default require ``data_page_version="2.0"``. Using
+    a larger value with V1 or a number outside the allowed range raises ``ValueError``.
 """
 
 _parquet_writer_example_doc = """\
@@ -1083,6 +1099,9 @@ Examples
                  store_decimal_as_integer=False,
                  write_time_adjusted_to_utc=False,
                  max_rows_per_page=None,
+                 bloom_filter_options=None,
+                 use_content_defined_chunking=False,
+                 min_compression_savings=0.01,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1138,6 +1157,9 @@ Examples
             store_decimal_as_integer=store_decimal_as_integer,
             write_time_adjusted_to_utc=write_time_adjusted_to_utc,
             max_rows_per_page=max_rows_per_page,
+            bloom_filter_options=bloom_filter_options,
+            use_content_defined_chunking=use_content_defined_chunking,
+            min_compression_savings=min_compression_savings,
             **options)
         self.is_open = True
 
@@ -1272,13 +1294,14 @@ memory_map : bool, default False
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
     column chunks. Otherwise IO calls are unbuffered.
-partitioning : pyarrow.dataset.Partitioning or str or list of str, \
+partitioning : pyarrow.dataset.Partitioning or str or list of str or None, \
 default "hive"
     The partitioning scheme for a partitioned dataset. The default of "hive"
     assumes directory names with key=value pairs like "/year=2009/month=11".
     In addition, a scheme like "/2009/11" is also supported, in which case
-    you need to specify the field names or a full schema. See the
-    ``pyarrow.dataset.partitioning()`` function for more details."""
+    you need to specify the field names or a full schema. If no partitioning
+    is used, pass ``None``.
+    See the ``pyarrow.dataset.partitioning()`` function for more details."""
 
 
 _parquet_dataset_example = """\
@@ -1372,6 +1395,10 @@ thrift_container_size_limit : int, default None
     If not None, override the maximum total size of containers allocated
     when decoding Thrift structures. The default limit should be
     sufficient for most Parquet files.
+schema_depth_limit : int, default None
+    If not None, override the maximum nesting depth of the Parquet file schema.
+    This guards against recursion overflow on invalid schemas.
+    The default limit should be sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the page checksum for each page read from the file.
 arrow_extensions_enabled : bool, default True
@@ -1390,7 +1417,7 @@ Examples
                  ignore_prefixes=None,
                  pre_buffer=True, coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
-                 thrift_container_size_limit=None,
+                 thrift_container_size_limit=None, schema_depth_limit=None,
                  page_checksum_verification=False,
                  arrow_extensions_enabled=True):
         import pyarrow.dataset as ds
@@ -1401,6 +1428,7 @@ Examples
             "coerce_int96_timestamp_unit": coerce_int96_timestamp_unit,
             "thrift_string_size_limit": thrift_string_size_limit,
             "thrift_container_size_limit": thrift_container_size_limit,
+            "schema_depth_limit": schema_depth_limit,
             "page_checksum_verification": page_checksum_verification,
             "arrow_extensions_enabled": arrow_extensions_enabled,
             "binary_type": binary_type,
@@ -1522,7 +1550,8 @@ Examples
         """
         return self._dataset.schema
 
-    def read(self, columns=None, use_threads=True, use_pandas_metadata=False):
+    def read(self, columns=None, use_threads=True, use_pandas_metadata=False,
+             memory_pool=None):
         """
         Read (multiple) Parquet files as a single pyarrow.Table.
 
@@ -1536,6 +1565,9 @@ Examples
         use_pandas_metadata : bool, default False
             If True and file has custom pandas schema metadata, ensure that
             index columns are also loaded.
+        memory_pool : pyarrow.MemoryPool, optional
+            Pool to allocate memory from. If not passed, the default memory
+            pool is used.
 
         Returns
         -------
@@ -1568,6 +1600,7 @@ Examples
         # column selection, to be able to restore those in the pandas DataFrame
         metadata = self.schema.metadata or {}
 
+        common_metadata = None
         if use_pandas_metadata:
             # if the dataset schema metadata itself doesn't have pandas
             # then try to get this from common file (for backwards compat)
@@ -1589,16 +1622,15 @@ Examples
 
         table = self._dataset.to_table(
             columns=columns, filter=self._filter_expression,
-            use_threads=use_threads
+            use_threads=use_threads, memory_pool=memory_pool
         )
 
-        # if use_pandas_metadata, restore the pandas metadata (which gets
-        # lost if doing a specific `columns` selection in to_table)
-        if use_pandas_metadata:
-            if metadata and b"pandas" in metadata:
-                new_metadata = table.schema.metadata or {}
-                new_metadata.update({b"pandas": metadata[b"pandas"]})
-                table = table.replace_schema_metadata(new_metadata)
+        # if the "pandas" metadata entry was retrieved from common_metadata,
+        # it will not live on the read table -> add it to the table metadata
+        if common_metadata and b"pandas" in metadata:
+            new_metadata = table.schema.metadata or {}
+            new_metadata.update({b"pandas": metadata[b"pandas"]})
+            table = table.replace_schema_metadata(new_metadata)
 
         return table
 
@@ -1788,12 +1820,19 @@ thrift_container_size_limit : int, default None
     If not None, override the maximum total size of containers allocated
     when decoding Thrift structures. The default limit should be
     sufficient for most Parquet files.
+schema_depth_limit : int, default None
+    If not None, override the maximum nesting depth of the Parquet file schema.
+    This guards against recursion overflow on invalid schemas.
+    The default limit should be sufficient for most Parquet files.
 page_checksum_verification : bool, default False
     If True, verify the checksum for each page read from the file.
 arrow_extensions_enabled : bool, default True
     If True, read Parquet logical types as Arrow extension types where possible,
     (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
     the canonical `arrow.uuid` extension type).
+memory_pool : pyarrow.MemoryPool, optional
+    Pool to allocate memory from. If not passed, the default memory pool
+    is used.
 
 Returns
 -------
@@ -1888,10 +1927,11 @@ def read_table(source, *, columns=None, use_threads=True,
                ignore_prefixes=None, pre_buffer=True,
                coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
-               thrift_container_size_limit=None,
+               thrift_container_size_limit=None, schema_depth_limit=None,
                page_checksum_verification=False,
-               arrow_extensions_enabled=True):
+               arrow_extensions_enabled=True, memory_pool=None):
 
+    read_kwargs = {"memory_pool": memory_pool}
     try:
         dataset = ParquetDataset(
             source,
@@ -1910,6 +1950,7 @@ def read_table(source, *, columns=None, use_threads=True,
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
+            schema_depth_limit=schema_depth_limit,
             page_checksum_verification=page_checksum_verification,
             arrow_extensions_enabled=arrow_extensions_enabled,
         )
@@ -1958,11 +1999,16 @@ def read_table(source, *, columns=None, use_threads=True,
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
+            schema_depth_limit=schema_depth_limit,
             page_checksum_verification=page_checksum_verification,
+            memory_pool=memory_pool,
         )
+        # ParquetFile takes the pool when it is opened, not when it is read
+        read_kwargs = {}
 
     return dataset.read(columns=columns, use_threads=use_threads,
-                        use_pandas_metadata=use_pandas_metadata)
+                        use_pandas_metadata=use_pandas_metadata,
+                        **read_kwargs)
 
 
 read_table.__doc__ = _read_table_docstring.format(
@@ -2017,6 +2063,8 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_time_adjusted_to_utc=False,
                 max_rows_per_page=None,
                 bloom_filter_options=None,
+                use_content_defined_chunking=False,
+                min_compression_savings=0.01,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -2051,6 +2099,8 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_time_adjusted_to_utc=write_time_adjusted_to_utc,
                 max_rows_per_page=max_rows_per_page,
                 bloom_filter_options=bloom_filter_options,
+                use_content_defined_chunking=use_content_defined_chunking,
+                min_compression_savings=min_compression_savings,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

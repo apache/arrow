@@ -20,6 +20,34 @@
 #include <arrow-glib/buffer.hpp>
 #include <arrow-glib/error.hpp>
 
+namespace garrow {
+  class GBytesBuffer : public arrow::Buffer {
+  public:
+    GBytesBuffer(GBytes *bytes, const uint8_t *data, int64_t size)
+      : arrow::Buffer(data, size),
+        bytes_(g_bytes_ref(bytes))
+    {
+    }
+    ~GBytesBuffer() override { g_bytes_unref(bytes_); }
+
+  private:
+    GBytes *bytes_;
+  };
+
+  class GBytesMutableBuffer : public arrow::MutableBuffer {
+  public:
+    GBytesMutableBuffer(GBytes *bytes, uint8_t *data, int64_t size)
+      : arrow::MutableBuffer(data, size),
+        bytes_(g_bytes_ref(bytes))
+    {
+    }
+    ~GBytesMutableBuffer() override { g_bytes_unref(bytes_); }
+
+  private:
+    GBytes *bytes_;
+  };
+} // namespace garrow
+
 G_BEGIN_DECLS
 
 /**
@@ -191,7 +219,8 @@ garrow_buffer_new(const guint8 *data, gint64 size)
 
 /**
  * garrow_buffer_new_bytes:
- * @data: Data for the buffer.
+ * @data: Data for the buffer. The data isn't copied. The buffer keeps
+ *   @data alive.
  *
  * Returns: A newly created #GArrowBuffer.
  *
@@ -202,8 +231,10 @@ garrow_buffer_new_bytes(GBytes *data)
 {
   size_t data_size;
   auto raw_data = g_bytes_get_data(data, &data_size);
-  auto arrow_buffer =
-    std::make_shared<arrow::Buffer>(static_cast<const uint8_t *>(raw_data), data_size);
+  std::shared_ptr<arrow::Buffer> arrow_buffer =
+    std::make_shared<garrow::GBytesBuffer>(data,
+                                           static_cast<const uint8_t *>(raw_data),
+                                           data_size);
   return garrow_buffer_new_raw_bytes(&arrow_buffer, data);
 }
 
@@ -281,8 +312,9 @@ garrow_buffer_get_capacity(GArrowBuffer *buffer)
  * garrow_buffer_get_data:
  * @buffer: A #GArrowBuffer.
  *
- * Returns: (transfer full): The data of the buffer. The data is owned by
- *   the buffer. You should not free or modify the data.
+ * Returns: (transfer full): The data of the buffer. The data isn't
+ *   copied. The returned #GBytes keeps the data alive. You should not
+ *   modify the data.
  *
  * Since: 0.3.0
  */
@@ -296,7 +328,10 @@ garrow_buffer_get_data(GArrowBuffer *buffer)
   }
 
   auto arrow_buffer = garrow_buffer_get_raw(buffer);
-  auto data = g_bytes_new_static(arrow_buffer->data(), arrow_buffer->size());
+  auto data = g_bytes_new_with_free_func(arrow_buffer->data(),
+                                         arrow_buffer->size(),
+                                         g_object_unref,
+                                         g_object_ref(buffer));
   return data;
 }
 
@@ -305,8 +340,8 @@ garrow_buffer_get_data(GArrowBuffer *buffer)
  * @buffer: A #GArrowBuffer.
  *
  * Returns: (transfer full) (nullable): The data of the buffer. If the
- *   buffer is immutable, it returns %NULL. The data is owned by the
- *   buffer. You should not free the data.
+ *   buffer is immutable, it returns %NULL. The data isn't copied. The
+ *   returned #GBytes keeps the data alive.
  *
  * Since: 0.3.0
  */
@@ -324,7 +359,10 @@ garrow_buffer_get_mutable_data(GArrowBuffer *buffer)
     return priv->data;
   }
 
-  return g_bytes_new_static(arrow_buffer->mutable_data(), arrow_buffer->size());
+  return g_bytes_new_with_free_func(arrow_buffer->mutable_data(),
+                                    arrow_buffer->size(),
+                                    g_object_unref,
+                                    g_object_ref(buffer));
 }
 
 /**
@@ -446,7 +484,8 @@ garrow_mutable_buffer_new(guint8 *data, gint64 size)
 
 /**
  * garrow_mutable_buffer_new_bytes:
- * @data: Data for the buffer.
+ * @data: Data for the buffer. The data isn't copied. The buffer keeps
+ *   @data alive.
  *
  * Returns: A newly created #GArrowMutableBuffer.
  *
@@ -458,9 +497,11 @@ garrow_mutable_buffer_new_bytes(GBytes *data)
   size_t data_size;
   auto raw_data = g_bytes_get_data(data, &data_size);
   auto mutable_raw_data = const_cast<gpointer>(raw_data);
-  auto arrow_buffer =
-    std::make_shared<arrow::MutableBuffer>(static_cast<uint8_t *>(mutable_raw_data),
-                                           data_size);
+  std::shared_ptr<arrow::MutableBuffer> arrow_buffer =
+    std::make_shared<garrow::GBytesMutableBuffer>(
+      data,
+      static_cast<uint8_t *>(mutable_raw_data),
+      data_size);
   return garrow_mutable_buffer_new_raw_bytes(&arrow_buffer, data);
 }
 

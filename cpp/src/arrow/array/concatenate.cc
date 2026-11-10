@@ -636,8 +636,7 @@ class ConcatenateImpl {
       }
       out_data += data->length * index_width;
     }
-    // R build with openSUSE155 requires an explicit shared_ptr construction
-    return std::shared_ptr<Buffer>(std::move(out));
+    return out;
   }
 
   Status Visit(const DictionaryType& d) {

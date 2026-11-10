@@ -36,8 +36,6 @@
 #include "arrow/util/logging.h"
 
 #include <odbcinst.h>
-#include <codecvt>
-#include <locale>
 #include <sstream>
 
 namespace arrow::flight::sql::odbc {

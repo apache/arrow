@@ -199,37 +199,37 @@ cdef class Scalar(_Weakrefable):
         return _pc().call_function('abs_checked', [self])
 
     def __add__(self, object other):
-        return _pc().call_function('add_checked', [self, other])
+        return _compute_binary_op('add_checked', self, other)
 
     def __truediv__(self, object other):
-        return _pc().call_function('divide_checked', [self, other])
+        return _compute_binary_op('divide_checked', self, other)
 
     def __mul__(self, object other):
-        return _pc().call_function('multiply_checked', [self, other])
+        return _compute_binary_op('multiply_checked', self, other)
 
     def __neg__(self):
         return _pc().call_function('negate_checked', [self])
 
     def __pow__(self, object other):
-        return _pc().call_function('power_checked', [self, other])
+        return _compute_binary_op('power_checked', self, other)
 
     def __sub__(self, object other):
-        return _pc().call_function('subtract_checked', [self, other])
+        return _compute_binary_op('subtract_checked', self, other)
 
     def __and__(self, object other):
-        return _pc().call_function('bit_wise_and', [self, other])
+        return _compute_binary_op('bit_wise_and', self, other)
 
     def __or__(self, object other):
-        return _pc().call_function('bit_wise_or', [self, other])
+        return _compute_binary_op('bit_wise_or', self, other)
 
     def __xor__(self, object other):
-        return _pc().call_function('bit_wise_xor', [self, other])
+        return _compute_binary_op('bit_wise_xor', self, other)
 
     def __lshift__(self, object other):
-        return _pc().call_function('shift_left_checked', [self, other])
+        return _compute_binary_op('shift_left_checked', self, other)
 
     def __rshift__(self, object other):
-        return _pc().call_function('shift_right_checked', [self, other])
+        return _compute_binary_op('shift_right_checked', self, other)
 
 
 _NULL = NA = None
@@ -1585,6 +1585,35 @@ cdef class FixedShapeTensorScalar(ExtensionScalar):
         with nogil:
             ctensor = GetResultValue(c_type.MakeTensor(scalar))
         return pyarrow_wrap_tensor(ctensor)
+
+    def __dlpack__(self, *, stream=None, max_version=None, dl_device=None, copy=None):
+        """
+        Export a tensor scalar as a DLPack capsule.
+
+        See :meth:`Tensor.__dlpack__` for the parameter semantics.
+        """
+        return self.to_tensor().__dlpack__(
+            stream=stream, max_version=max_version,
+            dl_device=dl_device, copy=copy,
+        )
+
+    def __dlpack_device__(self):
+        """
+        Return the DLPack device tuple this scalar resides on.
+
+        Returns
+        -------
+        tuple : Tuple[int, int]
+            Tuple with index specifying the type of the device (where
+            CPU = 1, see cpp/src/arrow/c/dlpack_abi.h) and index of the
+            device which is 0 by default for CPU.
+        """
+        cdef:
+            CExtensionScalar* ext = <CExtensionScalar*> self.wrapped.get()
+            CBaseListScalar* storage = <CBaseListScalar*> ext.value.get()
+        # The base storage for this type is an Array, so we call into this function
+        device = GetResultValue(ExportDevice(storage.value))
+        return device.device_type, device.device_id
 
 
 cdef class OpaqueScalar(ExtensionScalar):

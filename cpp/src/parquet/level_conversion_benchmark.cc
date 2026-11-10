@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "benchmark/benchmark.h"
+#include "parquet/level_comparison.h"
 #include "parquet/level_conversion.h"
 
 constexpr int64_t kLevelCount = 2048;
@@ -78,3 +79,22 @@ void BM_DefinitionLevelsToBitmapRepeatedMostPresent(::benchmark::State& state) {
 }
 
 BENCHMARK(BM_DefinitionLevelsToBitmapRepeatedMostPresent);
+
+void BM_FindMinMax(::benchmark::State& state) {
+  const int64_t num_levels = state.range(0);
+  std::vector<int16_t> levels(/*count=*/static_cast<size_t>(num_levels),
+                              kPresentDefLevel);
+  for (size_t x = 0; x < levels.size(); x++) {
+    if (x % 10 == 0) {
+      levels[x] = kMissingDefLevel;
+    }
+  }
+  for (auto _ : state) {
+    auto min_max = parquet::internal::FindMinMax(levels.data(), num_levels);
+    ::benchmark::DoNotOptimize(min_max);
+  }
+  state.SetItemsProcessed(int64_t(state.iterations()) * num_levels);
+  state.SetBytesProcessed(int64_t(state.iterations()) * num_levels * sizeof(int16_t));
+}
+
+BENCHMARK(BM_FindMinMax)->Arg(7)->Arg(1024)->Arg(2047)->Arg(kLevelCount);

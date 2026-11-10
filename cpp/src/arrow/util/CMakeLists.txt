@@ -50,7 +50,6 @@ add_arrow_test(utility-test
                base64_test.cc
                byte_size_test.cc
                byte_stream_split_test.cc
-               cache_test.cc
                checked_cast_test.cc
                compression_test.cc
                decimal_test.cc
@@ -81,10 +80,19 @@ add_arrow_test(utility-test
                tracing_test.cc
                trie_test.cc
                uri_test.cc
+               ulp_distance_test.cc
                utf8_util_test.cc
                value_parsing_test.cc
                EXTRA_LINK_LIBS
                ${ARROW_UTILITY_TEST_LINK_LIBS})
+
+if(ARROW_WITH_SIMDJSON)
+  add_arrow_test(simdjson-internal-test
+                 SOURCES
+                 simdjson_internal_test.cc
+                 EXTRA_LINK_LIBS
+                 arrow::simdjson)
+endif()
 
 add_arrow_test(async-utility-test
                SOURCES
@@ -98,8 +106,11 @@ add_arrow_test(bit-utility-test
                bit_util_test.cc
                bitmap_test.cc
                bpacking_test.cc
+               rle_bitmap_test.cc
                rle_encoding_test.cc
                test_common.cc)
+
+add_arrow_test(encoding-utility-test SOURCES alp/alp_test.cc)
 
 add_arrow_test(crc32-test
                SOURCES
@@ -120,7 +131,6 @@ add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(bitmap_reader_benchmark)
 add_arrow_benchmark(bpacking_benchmark)
-add_arrow_benchmark(cache_benchmark)
 add_arrow_benchmark(compression_benchmark)
 add_arrow_benchmark(decimal_benchmark)
 add_arrow_benchmark(hashing_benchmark)

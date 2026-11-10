@@ -62,6 +62,14 @@ ChunkedArray::ChunkedArray(ArrayVector chunks, std::shared_ptr<DataType> type)
   }
 }
 
+int64_t ChunkedArray::ComputeLogicalNullCount() const {
+  int64_t count = 0;
+  for (const auto& chunk : chunks_) {
+    count += chunk->ComputeLogicalNullCount();
+  }
+  return count;
+}
+
 Result<std::shared_ptr<ChunkedArray>> ChunkedArray::Make(ArrayVector chunks,
                                                          std::shared_ptr<DataType> type) {
   if (type == nullptr) {
@@ -161,7 +169,11 @@ bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other,
 
 bool ChunkedArray::ApproxEquals(const ChunkedArray& other,
                                 const EqualOptions& equal_options) const {
-  return Equals(other, equal_options.use_atol(true));
+  auto resolved_options = equal_options;
+  if (!resolved_options.atol()) {
+    resolved_options = resolved_options.atol(kDefaultAbsoluteTolerance);
+  }
+  return Equals(other, resolved_options);
 }
 
 Result<std::shared_ptr<Scalar>> ChunkedArray::GetScalar(int64_t index) const {

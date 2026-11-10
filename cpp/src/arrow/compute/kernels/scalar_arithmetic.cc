@@ -368,6 +368,14 @@ struct Atan2 {
   }
 };
 
+struct Hypot {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 x, Arg1 y, Status*) {
+    static_assert(std::is_same<T, Arg0>::value, "");
+    return std::hypot(x, y);
+  }
+};
+
 struct LogNatural {
   template <typename T, typename Arg>
   static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
@@ -605,6 +613,19 @@ Result<TypeHolder> ResolveDecimalAdditionOrSubtractionOutput(
       });
 }
 
+Result<TypeHolder> ResolveDecimalRemainderOutput(KernelContext*,
+                                                 const std::vector<TypeHolder>& types) {
+  return ResolveDecimalBinaryOperationOutput(
+      types,
+      [](int32_t p1, int32_t s1, int32_t p2,
+         int32_t s2) -> Result<std::pair<int32_t, int32_t>> {
+        DCHECK_EQ(s1, s2);
+        // Unlike addition, no extra digit is needed: the magnitude of a
+        // remainder is always less than that of the divisor.
+        return std::make_pair(std::max(p1, p2), s1);
+      });
+}
+
 Result<TypeHolder> ResolveDecimalMultiplicationOutput(
     KernelContext*, const std::vector<TypeHolder>& types) {
   return ResolveDecimalBinaryOperationOutput(
@@ -665,6 +686,9 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
   const std::string op = name.substr(0, name.find("_"));
   if (op == "add" || op == "subtract") {
     out_type = OutputType(ResolveDecimalAdditionOrSubtractionOutput);
+    constraint = DecimalsHaveSameScale();
+  } else if (op == "remainder" || op == "modulo") {
+    out_type = OutputType(ResolveDecimalRemainderOutput);
     constraint = DecimalsHaveSameScale();
   } else if (op == "multiply") {
     out_type = OutputType(ResolveDecimalMultiplicationOutput);
@@ -776,7 +800,7 @@ struct ArithmeticFunction : ScalarFunction {
       // "add_checked" -> "add"
       const auto func_name = name();
       const std::string op = func_name.substr(0, func_name.find("_"));
-      if (op == "add" || op == "subtract") {
+      if (op == "add" || op == "subtract" || op == "remainder" || op == "modulo") {
         return CastBinaryDecimalArgs(DecimalPromotion::kAdd, types);
       } else if (op == "multiply") {
         return CastBinaryDecimalArgs(DecimalPromotion::kMultiply, types);
@@ -889,7 +913,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
                                                        FunctionDoc doc) {
   auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
   AddNullExec(func.get());
@@ -903,7 +927,7 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
                                                               FunctionDoc doc) {
   auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
+    auto exec = ArithmeticExec<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
   }
   AddNullExec(func.get());
@@ -915,7 +939,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
                                                             FunctionDoc doc) {
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
+    auto exec = ArithmeticExec<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
   AddNullExec(func.get());
@@ -951,7 +975,7 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(std::string n
                                                                    FunctionDoc doc) {
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
+    auto exec = ArithmeticExec<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
   }
   AddNullExec(func.get());
@@ -966,7 +990,7 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
   auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     if (!arrow::is_unsigned_integer(ty->id())) {
-      auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
+      auto exec = ArithmeticExec<ScalarUnaryNotNull, Op>(ty);
       DCHECK_OK(func->AddKernel({ty}, ty, exec));
     }
   }
@@ -1165,6 +1189,42 @@ const FunctionDoc div_checked_doc{
      "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
+const FunctionDoc remainder_doc{
+    "Compute the remainder of the arguments element-wise",
+    ("The result has the same sign as the dividend (truncated division).\n"
+     "This is equivalent to the C/C++ '%' operator.\n"
+     "Integer and decimal division by zero returns an error, while\n"
+     "floating-point division by zero returns NaN.\n"
+     "Use function \"remainder_checked\" if you want to get an error\n"
+     "in all the aforementioned cases."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc remainder_checked_doc{
+    "Compute the remainder of the arguments element-wise",
+    ("The result has the same sign as the dividend (truncated division).\n"
+     "This is equivalent to the C/C++ '%' operator.\n"
+     "An error is returned when trying to divide by zero, or when\n"
+     "integer overflow is encountered."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc modulo_doc{
+    "Compute the modulo of the arguments element-wise",
+    ("The result has the same sign as the divisor (floored division).\n"
+     "This is equivalent to Python's '%' operator.\n"
+     "Integer and decimal division by zero returns an error, while\n"
+     "floating-point division by zero returns NaN.\n"
+     "Use function \"modulo_checked\" if you want to get an error\n"
+     "in all the aforementioned cases."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc modulo_checked_doc{
+    "Compute the modulo of the arguments element-wise",
+    ("The result has the same sign as the divisor (floored division).\n"
+     "This is equivalent to Python's '%' operator.\n"
+     "An error is returned when trying to divide by zero, or when\n"
+     "integer overflow is encountered."),
+    {"dividend", "divisor"}};
+
 const FunctionDoc negate_doc{"Negate the argument element-wise",
                              ("Results will wrap around on integer overflow.\n"
                               "Use function \"negate_checked\" if you want overflow\n"
@@ -1346,6 +1406,14 @@ const FunctionDoc atan2_doc{"Compute the inverse tangent of y/x",
                             ("The return value is in the range [-pi, pi]."),
                             {"y", "x"}};
 
+const FunctionDoc hypot_doc{
+    "Compute the hypotenuse (Euclidean norm) of x and y",
+    ("The result is equivalent to `sqrt(x^2 + y^2)`, but is computed without\n"
+     "undue overflow or underflow at intermediate stages of the computation.\n"
+     "If either x or y is +/-infinity, +infinity is returned, even if the\n"
+     "other argument is NaN."),
+    {"x", "y"}};
+
 const FunctionDoc atanh_doc{"Compute the inverse hyperbolic tangent",
                             ("NaN is returned for input values x with \\|x\\| > 1.\n"
                              "At x = +/- 1, returns +/- infinity.\n"
@@ -1440,7 +1508,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // abs(duration)
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnary, AbsoluteValue>(duration(unit));
+    auto exec = ArithmeticExec<ScalarUnary, AbsoluteValue>(duration(unit));
     DCHECK_OK(
         absolute_value->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
   }
@@ -1453,8 +1521,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   AddDecimalUnaryKernels<AbsoluteValueChecked>(absolute_value_checked.get());
   // abs_checked(duraton)
   for (auto unit : TimeUnit::values()) {
-    auto exec =
-        ArithmeticExecFromOp<ScalarUnaryNotNull, AbsoluteValueChecked>(duration(unit));
+    auto exec = ArithmeticExec<ScalarUnaryNotNull, AbsoluteValueChecked>(duration(unit));
     DCHECK_OK(absolute_value_checked->AddKernel({duration(unit)},
                                                 OutputType(duration(unit)), exec));
   }
@@ -1475,7 +1542,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add add(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Add>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, Add>(Type::DURATION);
     DCHECK_OK(add->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
@@ -1502,7 +1569,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add add(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, AddChecked>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, AddChecked>(Type::DURATION);
     DCHECK_OK(
         add_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
@@ -1519,7 +1586,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add subtract(timestamp, timestamp) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
     DCHECK_OK(subtract->AddKernel({in_type, in_type},
                                   OutputType::Resolver(ResolveTemporalOutput),
                                   std::move(exec)));
@@ -1536,7 +1603,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add subtract(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, Subtract>(Type::DURATION);
     DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
 
@@ -1578,8 +1645,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add subtract_checked(timestamp, timestamp) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    auto exec =
-        ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::TIMESTAMP);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, SubtractChecked>(Type::TIMESTAMP);
     DCHECK_OK(subtract_checked->AddKernel({in_type, in_type},
                                           OutputType::Resolver(ResolveTemporalOutput),
                                           std::move(exec)));
@@ -1596,8 +1662,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   // Add subtract_checked(duration, duration) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec =
-        ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, SubtractChecked>(Type::DURATION);
     DCHECK_OK(
         subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
@@ -1642,7 +1707,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add multiply(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
     DCHECK_OK(multiply->AddKernel({duration(unit), int64()}, duration(unit), exec));
     DCHECK_OK(multiply->AddKernel({int64(), duration(unit)}, duration(unit), exec));
   }
@@ -1656,8 +1721,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add multiply_checked(duration, int64) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec =
-        ArithmeticExecFromOp<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
+    auto exec = ArithmeticExec<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
     DCHECK_OK(
         multiply_checked->AddKernel({duration(unit), int64()}, duration(unit), exec));
     DCHECK_OK(
@@ -1709,13 +1773,35 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
+  auto remainder = MakeArithmeticFunctionNotNull<Remainder>("remainder", remainder_doc);
+  AddDecimalBinaryKernels<Remainder>("remainder", remainder.get());
+  DCHECK_OK(registry->AddFunction(std::move(remainder)));
+
+  // ----------------------------------------------------------------------
+  auto remainder_checked = MakeArithmeticFunctionNotNull<RemainderChecked>(
+      "remainder_checked", remainder_checked_doc);
+  AddDecimalBinaryKernels<RemainderChecked>("remainder_checked", remainder_checked.get());
+  DCHECK_OK(registry->AddFunction(std::move(remainder_checked)));
+
+  // ----------------------------------------------------------------------
+  auto modulo = MakeArithmeticFunctionNotNull<Modulo>("modulo", modulo_doc);
+  AddDecimalBinaryKernels<Modulo>("modulo", modulo.get());
+  DCHECK_OK(registry->AddFunction(std::move(modulo)));
+
+  // ----------------------------------------------------------------------
+  auto modulo_checked =
+      MakeArithmeticFunctionNotNull<ModuloChecked>("modulo_checked", modulo_checked_doc);
+  AddDecimalBinaryKernels<ModuloChecked>("modulo_checked", modulo_checked.get());
+  DCHECK_OK(registry->AddFunction(std::move(modulo_checked)));
+
+  // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
   AddHalfFloatUnaryKernel<Negate>(negate.get());
 
   // Add neg(duration) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnary, Negate>(duration(unit));
+    auto exec = ArithmeticExec<ScalarUnary, Negate>(duration(unit));
     DCHECK_OK(negate->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
   }
 
@@ -1729,7 +1815,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
 
   // Add neg_checked(duration) -> duration
   for (auto unit : TimeUnit::values()) {
-    auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Negate>(duration(unit));
+    auto exec = ArithmeticExec<ScalarUnaryNotNull, Negate>(duration(unit));
     DCHECK_OK(
         negate_checked->AddKernel({duration(unit)}, OutputType(duration(unit)), exec));
   }
@@ -1764,6 +1850,10 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   auto sqrt_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
       "sqrt_checked", sqrt_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(sqrt_checked)));
+
+  // ----------------------------------------------------------------------
+  auto hypot = MakeArithmeticFunctionFloatingPoint<Hypot>("hypot", hypot_doc);
+  DCHECK_OK(registry->AddFunction(std::move(hypot)));
 
   // ----------------------------------------------------------------------
   auto sign =

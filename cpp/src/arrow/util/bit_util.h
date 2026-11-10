@@ -18,9 +18,12 @@
 #pragma once
 
 #include <bit>
+#include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <type_traits>
 
+#include "arrow/util/endian.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -135,19 +138,37 @@ static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
   return (v << n) >> n;
 }
 
-// Returns ceil(log2(x)).
-static inline int Log2(uint64_t x) {
-  // DCHECK_GT(x, 0);
-
-// TODO: We can remove this condition once CRAN upgrades its macOS
-// SDK from 11.3.
-// __apple_build_version__ should be defined only on Apple clang
+// Returns the number of bits needed to represent x, i.e. std::bit_width(x).
+//
+// The libc++ in the macOS 11.3 SDK used by CRAN only has the pre-standard
+// name std::log2p1. __apple_build_version__ should be defined only on Apple
+// clang.
+// TODO: We can remove this condition once CRAN upgrades its macOS SDK from 11.3.
+template <typename T>
+constexpr int BitWidth(T x) noexcept {
+  static_assert(std::is_unsigned_v<T>, "BitWidth requires an unsigned integer type");
 #if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
-  return std::log2p1(x - 1);
+  return static_cast<int>(std::log2p1(x));
 #else
-  return std::bit_width(x - 1);
+  return static_cast<int>(std::bit_width(x));
 #endif
 }
+
+// Returns true if x is a power of two, i.e. std::has_single_bit(x).
+// See the note on BitWidth: the macOS 11.3 SDK only has the pre-standard
+// name std::ispow2.
+template <typename T>
+constexpr bool HasSingleBit(T x) noexcept {
+  static_assert(std::is_unsigned_v<T>, "HasSingleBit requires an unsigned integer type");
+#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
+  return std::ispow2(x);
+#else
+  return std::has_single_bit(x);
+#endif
+}
+
+// Returns ceil(log2(x)).
+static inline int Log2(uint64_t x) { return BitWidth(x - 1); }
 
 //
 // Utilities for reading and writing individual bits by their index
@@ -174,6 +195,39 @@ static constexpr bool GetBit(const uint8_t* bits, uint64_t i) {
 // Gets the i-th bit from a byte. Should only be used with i <= 7.
 static constexpr bool GetBitFromByte(uint8_t byte, uint8_t i) {
   return byte & kBitmask[i];
+}
+
+template <typename Uint>
+struct CopyBitsParams {
+  Uint src = {};
+  Uint dst = {};
+  int start = {};
+  int end = {};
+};
+
+/// Copy a contiguous span of bits from src into dst.
+///
+/// Copy bits [start, end[ from src into the position [start, end[ in dst
+/// and return the result (inputs are unmodified).
+/// Setting `kAllowFullCopy` to false is an optimization when the caller can
+/// guarantee that the range of bits to copy does not cover the whole range.
+template <typename Uint, bool kAllowFullCopy = true>
+[[nodiscard]] constexpr Uint CopyBitsInInteger(const CopyBitsParams<Uint>& params) {
+  constexpr auto kUintSizeBits = static_cast<int>(sizeof(Uint) * 8);
+  assert(params.start <= params.end);
+  assert(params.start < kUintSizeBits);
+  assert(params.end <= kUintSizeBits);
+
+  const int length = params.end - params.start;
+  if constexpr (kAllowFullCopy) {
+    if (length == kUintSizeBits) {
+      return params.src;
+    }
+  }
+  assert(length < kUintSizeBits);
+  const Uint mask =
+      static_cast<Uint>(LeastSignificantBitMask<Uint, false>(length) << params.start);
+  return (~mask & params.dst) | (mask & params.src);
 }
 
 static inline void ClearBit(uint8_t* bits, int64_t i) {

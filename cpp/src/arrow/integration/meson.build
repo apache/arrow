@@ -20,7 +20,7 @@ install_headers(['json_integration.h'])
 exc = executable(
     'arrow-json-integration-test',
     sources: ['json_integration_test.cc'],
-    dependencies: [arrow_test_dep_no_main, rapidjson_dep, gflags_dep],
+    dependencies: [arrow_test_dep_no_main, simdjson_dep, gflags_dep],
 )
 
 arrow_c_data_integration_lib = library(

@@ -1,3 +1,4 @@
+# Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
@@ -23,7 +24,8 @@ module ArrowFormat
                    type,
                    nullable: true,
                    metadata: nil)
-      @name = name
+      name = name.to_s if name.is_a?(Symbol)
+      @name = name.to_str
       @type = type
       @nullable = nullable
       @metadata = metadata

@@ -1021,6 +1021,16 @@ TEST(TestCompareKernel, DispatchBest) {
     CheckDispatchBest(name, {binary(), fixed_size_binary(2)}, {binary(), binary()});
     CheckDispatchBest(name, {fixed_size_binary(4), fixed_size_binary(2)},
                       {fixed_size_binary(4), fixed_size_binary(2)});
+    CheckDispatchBest(name, {utf8(), utf8_view()}, {utf8(), utf8_view()});
+    CheckDispatchBest(name, {utf8_view(), utf8()}, {utf8_view(), utf8()});
+    CheckDispatchBest(name, {large_utf8(), utf8_view()}, {large_utf8(), utf8_view()});
+    CheckDispatchBest(name, {utf8_view(), large_utf8()}, {utf8_view(), large_utf8()});
+    CheckDispatchBest(name, {binary(), binary_view()}, {binary(), binary_view()});
+    CheckDispatchBest(name, {binary_view(), binary()}, {binary_view(), binary()});
+    CheckDispatchBest(name, {large_binary(), binary_view()},
+                      {large_binary(), binary_view()});
+    CheckDispatchBest(name, {binary_view(), large_binary()},
+                      {binary_view(), large_binary()});
 
     CheckDispatchBest(name, {decimal128(3, 2), decimal128(6, 3)},
                       {decimal128(4, 3), decimal128(6, 3)});
@@ -1197,7 +1207,14 @@ TEST_F(TestStringCompareKernel, RandomCompareArrayArray) {
 }
 
 TEST(TestBinaryViewCompareKernel, ArrayArray) {
-  const auto cases = std::vector<std::shared_ptr<DataType>>{binary_view(), utf8_view()};
+  const auto cases =
+      std::vector<std::pair<std::shared_ptr<DataType>, std::shared_ptr<DataType>>>{
+          {binary_view(), binary_view()},  {utf8_view(), utf8_view()},
+          {utf8(), utf8_view()},           {utf8_view(), utf8()},
+          {large_utf8(), utf8_view()},     {utf8_view(), large_utf8()},
+          {binary(), binary_view()},       {binary_view(), binary()},
+          {large_binary(), binary_view()}, {binary_view(), large_binary()},
+      };
   const auto expected = std::vector<std::pair<std::string, std::string>>{
       {"equal", "[true, false, false, false, false, false, null]"},
       {"not_equal", "[false, true, true, true, true, true, null]"},
@@ -1206,18 +1223,19 @@ TEST(TestBinaryViewCompareKernel, ArrayArray) {
       {"less", "[false, true, true, true, true, false, null]"},
       {"less_equal", "[true, true, true, true, true, false, null]"}};
 
-  for (const auto& ty : cases) {
-    auto lhs =
-        ArrayFromJSON(ty, R"(["", "abc", "abcdefghijkl", "abcdefghijklm", "prefix_same_A",
+  for (const auto& [lhs_type, rhs_type] : cases) {
+    auto lhs = ArrayFromJSON(
+        lhs_type, R"(["", "abc", "abcdefghijkl", "abcdefghijklm", "prefix_same_A",
                 "samepref_size", null])");
     auto rhs = ArrayFromJSON(
-        ty, R"(["", "abd", "abcdefghijklm", "abcdefghijklz", "prefix_same_B",
+        rhs_type, R"(["", "abd", "abcdefghijklm", "abcdefghijklz", "prefix_same_B",
                 "samepref", null])");
 
-    CheckScalarBinary("equal", ArrayFromJSON(ty, R"([])"), ArrayFromJSON(ty, R"([])"),
+    CheckScalarBinary("equal", ArrayFromJSON(lhs_type, R"([])"),
+                      ArrayFromJSON(rhs_type, R"([])"),
                       ArrayFromJSON(boolean(), R"([])"));
-    CheckScalarBinary("equal", ArrayFromJSON(ty, R"([null])"),
-                      ArrayFromJSON(ty, R"([null])"),
+    CheckScalarBinary("equal", ArrayFromJSON(lhs_type, R"([null])"),
+                      ArrayFromJSON(rhs_type, R"([null])"),
                       ArrayFromJSON(boolean(), R"([null])"));
     for (const auto& function_and_expected : expected) {
       CheckScalarBinary(function_and_expected.first, lhs, rhs,
@@ -1227,10 +1245,19 @@ TEST(TestBinaryViewCompareKernel, ArrayArray) {
 }
 
 TEST(TestBinaryViewCompareKernel, ArrayScalar) {
-  for (const auto& ty : {binary_view(), utf8_view()}) {
-    auto arr = ArrayFromJSON(ty, R"(["", "abc", "abcdefghijklmnop", null])");
-    auto scalar = ScalarFromJSON(ty, R"("abc")");
-    auto null_scalar = ScalarFromJSON(ty, "null");
+  const auto cases =
+      std::vector<std::pair<std::shared_ptr<DataType>, std::shared_ptr<DataType>>>{
+          {binary_view(), binary_view()},  {utf8_view(), utf8_view()},
+          {utf8(), utf8_view()},           {utf8_view(), utf8()},
+          {large_utf8(), utf8_view()},     {utf8_view(), large_utf8()},
+          {binary(), binary_view()},       {binary_view(), binary()},
+          {large_binary(), binary_view()}, {binary_view(), large_binary()},
+      };
+
+  for (const auto& [arr_type, scalar_type] : cases) {
+    auto arr = ArrayFromJSON(arr_type, R"(["", "abc", "abcdefghijklmnop", null])");
+    auto scalar = ScalarFromJSON(scalar_type, R"("abc")");
+    auto null_scalar = ScalarFromJSON(scalar_type, "null");
 
     CheckScalarBinary("equal", arr, scalar,
                       ArrayFromJSON(boolean(), R"([false, true, false, null])"));
@@ -1243,6 +1270,25 @@ TEST(TestBinaryViewCompareKernel, ArrayScalar) {
     CheckScalarBinary("equal", arr, null_scalar,
                       ArrayFromJSON(boolean(), R"([null, null, null, null])"));
   }
+}
+
+TEST(TestBinaryViewCompareKernel, Sliced) {
+  auto str_arr = ArrayFromJSON(utf8(), R"(["a", "b", null, "d"])");
+  auto view_arr = ArrayFromJSON(utf8_view(), R"(["a", "x", "c", null])");
+  CheckScalarBinary("equal", str_arr->Slice(1, 2), view_arr->Slice(1, 2),
+                    ArrayFromJSON(boolean(), "[false, null]"));
+  CheckScalarBinary("equal", view_arr->Slice(1, 2), str_arr->Slice(1, 2),
+                    ArrayFromJSON(boolean(), "[false, null]"));
+}
+
+TEST(TestBinaryViewCompareKernel, Dictionary) {
+  auto dict_str =
+      ArrayFromJSON(dictionary(int32(), utf8()), R"(["apple", "banana", null])");
+  auto plain_view = ArrayFromJSON(utf8_view(), R"(["apple", "cherry", "banana"])");
+  CheckScalarBinary("equal", dict_str, plain_view,
+                    ArrayFromJSON(boolean(), "[true, false, null]"));
+  CheckScalarBinary("equal", plain_view, dict_str,
+                    ArrayFromJSON(boolean(), "[true, false, null]"));
 }
 
 template <typename T>

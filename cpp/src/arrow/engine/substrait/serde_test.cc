@@ -1552,6 +1552,35 @@ TEST(Substrait, InvalidMinimumVersion) {
   ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
 }
 
+TEST(Substrait, InvalidEmptyExtensionDeclaration) {
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+    "relations": [{
+      "rel": {
+        "read": {
+          "base_schema": {
+            "names": ["A"],
+            "struct": {
+              "types": [{
+                "i32": {}
+              }]
+            }
+          },
+          "named_table": {
+            "names": ["x"]
+          }
+        }
+      }
+    }],
+    "extensionUris": [],
+    "extensions": [
+      {}
+    ]
+  })"));
+
+  ASSERT_RAISES(Invalid, DeserializePlans(*buf, [] { return kNullConsumer; }));
+}
+
 TEST(Substrait, JoinPlanBasic) {
   std::string substrait_json = R"({
   "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
@@ -3116,6 +3145,74 @@ TEST(SubstraitRoundTrip, ReadRelWithEmit) {
   ValidateNumProjectNodes(1, buf, conversion_options);
   CheckRoundTripResult(std::move(expected_table), buf,
                        /*include_columns=*/{}, conversion_options);
+}
+
+void CheckInvalidEmitIndex(const std::string& rel_json) {
+  std::string substrait_json = R"({
+  "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+  "relations": [{
+    "rel": )" + rel_json + R"(
+  }]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider =
+      AlwaysProvideSameTable(TableFromJSON(dummy_schema, {"[[1, 2, 3]]"}));
+  std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
+  ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
+  ExtensionSet ext_set(ext_id_reg);
+  EXPECT_THAT(
+      DeserializePlans(
+          *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set, conversion_options),
+      Raises(StatusCode::Invalid, HasSubstr("Out of bounds emit index")));
+}
+
+TEST(Substrait, ReadRelWithOutOfBoundsEmit) {
+  for (const char* mapping : {"[0, 3]", "[-1, 1]"}) {
+    ARROW_SCOPED_TRACE("outputMapping: ", mapping);
+    CheckInvalidEmitIndex(R"({
+      "read": {
+        "common": {"emit": {"outputMapping": )" +
+                          std::string(mapping) + R"(}},
+        "base_schema": {
+          "names": ["A", "B", "C"],
+          "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]}
+        },
+        "namedTable": {"names": ["A"]}
+      }
+    })");
+  }
+}
+
+TEST(Substrait, ProjectRelWithOutOfBoundsEmit) {
+  // The project emits the 3 input fields plus 1 expression, so 4 is out of range
+  for (const char* mapping : {"[0, 4]", "[-1, 3]"}) {
+    ARROW_SCOPED_TRACE("outputMapping: ", mapping);
+    CheckInvalidEmitIndex(R"({
+      "project": {
+        "common": {"emit": {"outputMapping": )" +
+                          std::string(mapping) + R"(}},
+        "expressions": [
+          {"selection": {"directReference": {"structField": {"field": 0}},
+                         "rootReference": {}}}
+        ],
+        "input": {
+          "read": {
+            "base_schema": {
+              "names": ["A", "B", "C"],
+              "struct": {"types": [{"i32": {}}, {"i32": {}}, {"i32": {}}]}
+            },
+            "namedTable": {"names": ["A"]}
+          }
+        }
+      }
+    })");
+  }
 }
 
 TEST(SubstraitRoundTrip, FilterRelWithEmit) {
@@ -5554,8 +5651,6 @@ TEST(Substrait, SortAndFetch) {
 }
 
 TEST(Substrait, MixedSort) {
-  // Substrait allows two sort keys with differing direction but Acero
-  // does not.  We should detect this and reject it.
   std::string substrait_json = R"({
   "version": {
     "major_number": 9999,
@@ -5650,10 +5745,19 @@ TEST(Substrait, MixedSort) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  ASSERT_THAT(
-      DeserializePlan(*buf, /*registry=*/nullptr, /*ext_set_out=*/nullptr,
-                      conversion_options),
-      Raises(StatusCode::NotImplemented, testing::HasSubstr("mixed null placement")));
+  ASSERT_OK_AND_ASSIGN(
+      auto plan_info, DeserializePlan(*buf, /*registry=*/nullptr, /*ext_set_out=*/nullptr,
+                                      conversion_options));
+  auto& order_by_options =
+      checked_cast<const acero::OrderByNodeOptions&>(*plan_info.root.declaration.options);
+
+  EXPECT_THAT(
+      order_by_options.ordering.sort_keys(),
+      ElementsAre(
+          arrow::compute::SortKey{FieldPath({0}), arrow::compute::SortOrder::Ascending,
+                                  arrow::compute::NullPlacement::AtStart},
+          arrow::compute::SortKey{FieldPath({1}), arrow::compute::SortOrder::Ascending,
+                                  arrow::compute::NullPlacement::AtEnd}));
 }
 
 TEST(Substrait, PlanWithExtension) {
@@ -6339,6 +6443,78 @@ TEST(Substrait, ExtendedExpressionInvalidPlans) {
 
   ASSERT_THAT(DeserializeExpressions(*buf),
               Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));
+}
+
+TEST(Substrait, StringMatchExpressionSerialization) {
+  std::shared_ptr<Schema> test_schema = schema({field("cat", utf8())});
+  for (const auto& fn_name : {"starts_with", "ends_with", "match_substring"}) {
+    for (bool ignore_case : {false, true}) {
+      CheckExpressionRoundTrip(
+          *test_schema, compute::call(fn_name, {compute::field_ref(0)},
+                                      compute::MatchSubstringOptions("al", ignore_case)));
+    }
+  }
+
+  // Substrait only accepts string input and UTF-8 patterns
+  auto serialize = [](const std::shared_ptr<DataType>& type,
+                      std::string pattern) -> Result<std::shared_ptr<Buffer>> {
+    Schema schema({field("s", type)});
+    ExtensionSet ext_set;
+    ARROW_ASSIGN_OR_RAISE(
+        compute::Expression bound,
+        compute::call("starts_with", {compute::field_ref(0)},
+                      compute::MatchSubstringOptions(std::move(pattern)))
+            .Bind(schema));
+    return SerializeExpression(bound, &ext_set);
+  };
+  ASSERT_THAT(serialize(binary(), "al"),
+              Raises(StatusCode::NotImplemented, HasSubstr("on string input")));
+  ASSERT_THAT(serialize(large_utf8(), "al"),
+              Raises(StatusCode::NotImplemented, HasSubstr("on string input")));
+  ASSERT_THAT(serialize(utf8(), "\xff"),
+              Raises(StatusCode::NotImplemented, HasSubstr("valid UTF-8 pattern")));
+}
+
+TEST(Substrait, StringMatchExpressionDeserialization) {
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(
+      uint32_t anchor,
+      ext_set.EncodeFunction({kSubstraitStringFunctionsUri, "starts_with"}));
+  // A starts_with call on field 0 with the given pattern argument and options
+  auto deserialize = [&](std::string_view pattern_arg,
+                         std::string_view options) -> Result<compute::Expression> {
+    std::string json = R"({"scalarFunction":{"functionReference":)" +
+                       std::to_string(anchor) +
+                       R"(,"outputType":{"bool":{}},"arguments":[
+        {"value":{"selection":{"directReference":{"structField":{"field":0}},
+                               "rootReference":{}}}},
+        {"value":)" + std::string(pattern_arg) +
+                       R"(}],"options":)" + std::string(options) + "}}";
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buf,
+                          internal::SubstraitFromJSON("Expression", json));
+    return DeserializeExpression(*buf, ext_set);
+  };
+  constexpr std::string_view kLiteral = R"({"literal":{"string":"al"}})";
+
+  // No case_sensitivity option means case sensitive
+  ASSERT_OK_AND_ASSIGN(compute::Expression no_option, deserialize(kLiteral, "[]"));
+  ASSERT_EQ(compute::call("starts_with", {compute::field_ref(0)},
+                          compute::MatchSubstringOptions("al")),
+            no_option);
+
+  // CASE_INSENSITIVE_ASCII has no Arrow equivalent
+  ASSERT_THAT(
+      deserialize(
+          kLiteral,
+          R"([{"name":"case_sensitivity","preference":["CASE_INSENSITIVE_ASCII"]}])"),
+      Raises(StatusCode::NotImplemented, HasSubstr("the only supported options are")));
+
+  // The pattern has to be a literal because the Arrow kernel takes it as an option
+  ASSERT_THAT(
+      deserialize(R"({"selection":{"directReference":{"structField":{"field":0}},
+                                   "rootReference":{}}})",
+                  "[]"),
+      Raises(StatusCode::NotImplemented, HasSubstr("substring argument to be a")));
 }
 
 }  // namespace engine

@@ -142,6 +142,18 @@ a :class:`ConvertOptions` instance and pass it to :func:`read_csv`:
    col1: [[1,2,3]]
    col2: [["a","b","c"]]
 
+Quoted CSV values are still subject to type inference. To preserve formatting
+such as leading zeros, set the column type explicitly to ``string``:
+
+.. code-block:: python
+
+   >>> import io
+   >>> source = io.BytesIO(b'code\n"001"\n"002"\n')
+   >>> options = csv.ConvertOptions(column_types={'code': pa.string()})
+   >>> table = csv.read_csv(source, convert_options=options)
+   >>> table['code'].to_pylist()
+   ['001', '002']
+
 .. note::
    To assign a column as ``duration``, the CSV values must be numeric strings
    that match the expected unit (e.g. ``60000`` for 60 seconds when

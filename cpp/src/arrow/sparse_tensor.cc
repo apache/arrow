@@ -26,6 +26,7 @@
 #include "arrow/compare.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
 
@@ -296,6 +297,21 @@ std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOInde
 // SparseCSXIndex
 
 namespace internal {
+
+Result<int64_t> ComputeSparseCSXIndptrLength(SparseMatrixCompressedAxis compressed_axis,
+                                             const std::vector<int64_t>& shape) {
+  if (shape.size() != 2) {
+    return Status::Invalid("Invalid shape length for a sparse matrix");
+  }
+  const int64_t compressed_axis_size =
+      compressed_axis == SparseMatrixCompressedAxis::ROW ? shape[0] : shape[1];
+  const auto indptr_length =
+      AddWithOverflow<int64_t>({compressed_axis_size, static_cast<int64_t>(1)});
+  if (!indptr_length.has_value()) {
+    return Status::Invalid("shape is inconsistent to the size of indptr buffer");
+  }
+  return indptr_length.value();
+}
 
 Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
                               const std::shared_ptr<DataType>& indices_type,

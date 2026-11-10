@@ -403,6 +403,16 @@ TEST(StringViewArray, Validate) {
                                   }),
               Ok());
 
+  // Variadic buffer slots, when present, must contain real buffers.
+  EXPECT_THAT(MakeBinaryViewArray({nullptr},
+                                  {
+                                      util::ToInlineBinaryView("hello"),
+                                      util::ToInlineBinaryView("world"),
+                                  }),
+              Raises(StatusCode::Invalid,
+                     ::testing::HasSubstr("null variadic buffer at buffer index #2 "
+                                          "(variadic buffer index #0)")));
+
   // non-inline views are expected to reference only buffers managed by the array
   EXPECT_THAT(
       MakeBinaryViewArray(
@@ -934,6 +944,29 @@ TEST_F(TestChunkedBinaryBuilder, LargeElementCount) {
     const auto& chunk = checked_cast<const BinaryArray&>(*boxed_chunk);
     ASSERT_EQ(chunk.value_offset(0), chunk.value_offset(chunk.length()));
   }
+}
+
+TEST(TestBinaryBuilder, LARGE_MEMORY_TEST(AppendOverflow)) {
+  const std::string value(static_cast<size_t>(1) << 31, 'x');
+
+  BinaryBuilder builder;
+  ASSERT_RAISES(CapacityError, builder.Append(std::string_view(value)));
+  ASSERT_OK(builder.Append("x"));
+  ASSERT_RAISES(CapacityError, builder.ExtendCurrent(std::string_view(value)));
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(1, array->length());
+}
+
+TEST_F(TestChunkedBinaryBuilder, LARGE_MEMORY_TEST(AppendOverflow)) {
+  Init(100);
+  const std::string value(static_cast<size_t>(1) << 31, 'x');
+
+  ASSERT_RAISES(CapacityError, builder_->Append(std::string_view(value)));
+  ArrayVector chunks;
+  ASSERT_OK(builder_->Finish(&chunks));
+  ASSERT_EQ(1, chunks.size());
+  ASSERT_EQ(0, chunks[0]->length());
 }
 
 TEST(TestChunkedStringBuilder, BasicOperation) {

@@ -76,7 +76,9 @@ end
 desc "Run tests"
 task :test do
   cd(base_dir) do
-    ruby("test/run-test.rb")
+    args = []
+    args << "-v" if ENV["RUNNER_DEBUG"]
+    ruby("test/run-test.rb", *args)
   end
 end
 

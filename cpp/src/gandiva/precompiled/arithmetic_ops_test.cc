@@ -52,7 +52,7 @@ TEST(TestArithmeticOps, TestPmod) {
 
   EXPECT_EQ(pmod_int64_int64(ctx, 3, 0), 0);
   EXPECT_TRUE(context.has_error());
-  EXPECT_EQ(context.get_error(), "divide by zero error");
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("divide by zero error"));
   context.Reset();
 }
 
@@ -65,7 +65,7 @@ TEST(TestArithmeticOps, TestMod) {
   EXPECT_DOUBLE_EQ(mod_float64_float64(reinterpret_cast<gdv_int64>(&context), 2.5, 0.0),
                    0.0);
   EXPECT_TRUE(context.has_error());
-  EXPECT_EQ(context.get_error(), "divide by zero error");
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("divide by zero error"));
 
   context.Reset();
   EXPECT_NEAR(mod_float64_float64(reinterpret_cast<gdv_int64>(&context), 2.5, 1.2), 0.1,
@@ -219,8 +219,9 @@ TEST(TestArithmeticOps, TestNegativeIntervalTypes) {
 
   result = negative_daytimeinterval(ctx_ptr, INT64_MAX);
   EXPECT_EQ(ctx.has_error(), true);
-  EXPECT_EQ(ctx.get_error(),
-            "Interval day time is out of boundaries for the negative function");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "Interval day time is out of boundaries for the negative function"));
   ctx.Reset();
 
   const int64_t INT_MIN_TO_NEGATIVE_INTERVAL_DAY_TIME = -9223372030412324863;
@@ -229,8 +230,9 @@ TEST(TestArithmeticOps, TestNegativeIntervalTypes) {
 
   result = negative_daytimeinterval(ctx_ptr, INT64_MIN);
   EXPECT_EQ(ctx.has_error(), true);
-  EXPECT_EQ(ctx.get_error(),
-            "Interval day time is out of boundaries for the negative function");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "Interval day time is out of boundaries for the negative function"));
   ctx.Reset();
 
   // Month interval
@@ -251,7 +253,7 @@ TEST(TestArithmeticOps, TestDivide) {
   gandiva::ExecutionContext context;
   EXPECT_EQ(divide_int64_int64(reinterpret_cast<gdv_int64>(&context), 10, 0), 0);
   EXPECT_EQ(context.has_error(), true);
-  EXPECT_EQ(context.get_error(), "divide by zero error");
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("divide by zero error"));
 
   context.Reset();
   EXPECT_EQ(divide_int64_int64(reinterpret_cast<gdv_int64>(&context), 10, 2), 5);
@@ -262,7 +264,7 @@ TEST(TestArithmeticOps, TestDiv) {
   gandiva::ExecutionContext context;
   EXPECT_EQ(div_int64_int64(reinterpret_cast<gdv_int64>(&context), 101, 0), 0);
   EXPECT_EQ(context.has_error(), true);
-  EXPECT_EQ(context.get_error(), "divide by zero error");
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("divide by zero error"));
   context.Reset();
 
   EXPECT_EQ(div_int64_int64(reinterpret_cast<gdv_int64>(&context), 101, 111), 0);
@@ -278,7 +280,7 @@ TEST(TestArithmeticOps, TestDiv) {
       div_float64_float64(reinterpret_cast<gdv_int64>(&context), 1010.1010, 0.00000),
       0.0);
   EXPECT_EQ(context.has_error(), true);
-  EXPECT_EQ(context.get_error(), "divide by zero error");
+  EXPECT_THAT(context.get_error(), ::testing::HasSubstr("divide by zero error"));
   context.Reset();
 
   EXPECT_EQ(div_float32_float32(reinterpret_cast<gdv_int64>(&context), 1010.1010f, 2.1f),

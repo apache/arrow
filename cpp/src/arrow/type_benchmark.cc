@@ -170,6 +170,20 @@ static void SchemaEqualsWithMetadata(
   state.SetItemsProcessed(state.iterations() * 2);
 }
 
+static void SchemaConstruct(benchmark::State& state,  // NOLINT non-const reference
+                            bool duplicate_names) {
+  const int num_fields = static_cast<int>(state.range(0));
+  FieldVector fields(num_fields);
+  for (int i = 0; i < num_fields; ++i) {
+    fields[i] = field(duplicate_names ? "f" : "f" + std::to_string(i), int32());
+  }
+
+  for (auto _ : state) {
+    benchmark::DoNotOptimize(::arrow::schema(fields));
+  }
+  state.SetItemsProcessed(state.iterations() * num_fields);
+}
+
 // ------------------------------------------------------------------------
 // Micro-benchmark various error reporting schemes
 
@@ -541,6 +555,14 @@ BENCHMARK(TypeEqualsComplex);
 BENCHMARK(TypeEqualsWithMetadata);
 BENCHMARK(SchemaEquals);
 BENCHMARK(SchemaEqualsWithMetadata);
+BENCHMARK_CAPTURE(SchemaConstruct, distinct_names, /*duplicate_names=*/false)
+    ->Arg(100)
+    ->Arg(1000)
+    ->Arg(10000);
+BENCHMARK_CAPTURE(SchemaConstruct, duplicate_names, /*duplicate_names=*/true)
+    ->Arg(100)
+    ->Arg(1000)
+    ->Arg(10000);
 
 BENCHMARK(ErrorSchemeNoError);
 BENCHMARK(ErrorSchemeBool);

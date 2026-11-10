@@ -172,18 +172,26 @@ filled with missings.}
 
 \item{skip}{Number of lines to skip before reading data.}
 
-\item{convert_options}{see \link[=csv_convert_options]{CSV conversion options}}
+\item{convert_options}{see \link[=csv_convert_options]{CSV conversion options}.
+If given, this overrides any conversion options provided in other arguments
+(e.g. \code{na}, \code{col_types}, \code{timestamp_parsers}, etc.).}
 
 \item{read_options}{see \link[=csv_read_options]{CSV reading options}}
 
-\item{timestamp_parsers}{User-defined timestamp parsers. If more than one
-parser is specified, the CSV conversion logic will try parsing values
-starting from the beginning of this vector. Possible values are:
+\item{timestamp_parsers}{User-defined timestamp parsers, tried in order
+when inferring column types and when converting columns of type
+\code{\link[=timestamp]{timestamp()}}. Possible values are:
 \itemize{
 \item \code{NULL}: the default, which uses the ISO-8601 parser
 \item a character vector of \link[base:strptime]{strptime} parse strings
-\item a list of \link{TimestampParser} objects
-}}
+\item a list of \link{TimestampParser} objects and/or parse strings
+}
+
+Supplying parsers replaces the default ISO-8601 parser rather than adding
+to it. If none of the parsers match a value during type inference, the
+column is read as a string without error; to get an error instead, specify
+the column as a timestamp in \code{col_types}. These parsers are not used for
+date columns.}
 
 \item{quoted_na}{Should missing values inside quotes be treated as missing
 values (the default) or strings. (Note that this is different from the

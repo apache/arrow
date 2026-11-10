@@ -724,6 +724,27 @@ def test_metadata_equals():
         original_metadata.equals(None)
 
 
+def test_parquet_metadata_equals_none(tempdir):
+    table = pa.table({"a": [1, 2, 3]})
+    path = tempdir / "metadata_equals_none.parquet"
+    pq.write_table(table, path)
+
+    metadata = pq.read_metadata(path)
+    row_group = metadata.row_group(0)
+    column_chunk = row_group.column(0)
+    objects = [
+        column_chunk.statistics,
+        column_chunk,
+        row_group,
+        metadata.schema,
+        metadata.schema[0],
+    ]
+
+    for obj in objects:
+        with pytest.raises(TypeError):
+            obj.equals(None)
+
+
 @pytest.mark.parametrize("t1,t2,expected_error", (
     ({'col1': range(10)}, {'col1': range(10)}, None),
     ({'col1': range(10)}, {'col2': range(10)},
@@ -871,3 +892,25 @@ def test_read_schema_uuid_extension_type(tmp_path):
 
     schema_disabled = pq.read_schema(file_path_str, arrow_extensions_enabled=False)
     assert schema_disabled.field("ext").type == pa.binary(16)
+
+
+def test_geospatial_types(parquet_test_datadir):
+    metadata = pq.read_metadata(
+        parquet_test_datadir / "geospatial" / "crs-default.parquet"
+    )
+    column_schema = metadata.schema.column(1)
+    assert column_schema.name == "geometry"
+    assert column_schema.logical_type.type == "GEOMETRY"
+
+    col_chunk = metadata.row_group(0).column(1)
+    assert col_chunk.is_geo_stats_set
+    assert isinstance(col_chunk.geo_statistics, pa._parquet.GeoStatistics)
+    assert isinstance(col_chunk.geo_statistics.geospatial_types, list)
+    assert isinstance(col_chunk.geo_statistics.xmin, float)
+
+    metadata = pq.read_metadata(
+        parquet_test_datadir / "geospatial" / "crs-geography.parquet"
+    )
+    column_schema = metadata.schema.column(1)
+    assert column_schema.name == "geography"
+    assert column_schema.logical_type.type == "GEOGRAPHY"

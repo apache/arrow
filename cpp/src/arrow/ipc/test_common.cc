@@ -1164,6 +1164,35 @@ Status MakeDictExtension(std::shared_ptr<RecordBatch>* out) {
 
 namespace {
 
+Status MakeUnionExtension(const std::shared_ptr<DataType>& type,
+                          std::shared_ptr<RecordBatch>* out) {
+  auto storage_type = checked_cast<const ExtensionType&>(*type).storage_type();
+
+  auto f0 = field("f0", type);
+  auto f1 = field("f1", type, /*nullable=*/false);
+  auto schema = ::arrow::schema({f0, f1});
+
+  auto a0 = ExtensionType::WrapArray(
+      type, ArrayFromJSON(storage_type, R"([[0, 1.5], [1, null]])"));
+  auto a1 = ExtensionType::WrapArray(
+      type, ArrayFromJSON(storage_type, R"([[0, 1.5], [1, "abc"]])"));
+
+  *out = RecordBatch::Make(schema, a1->length(), {a0, a1});
+  return Status::OK();
+}
+
+}  // namespace
+
+Status MakeDenseUnionExtension(std::shared_ptr<RecordBatch>* out) {
+  return MakeUnionExtension(dense_union_extension_type(), out);
+}
+
+Status MakeSparseUnionExtension(std::shared_ptr<RecordBatch>* out) {
+  return MakeUnionExtension(sparse_union_extension_type(), out);
+}
+
+namespace {
+
 template <typename CValueType, typename SeedType, typename DistributionType>
 void FillRandomData(CValueType* data, size_t n, CValueType min, CValueType max,
                     SeedType seed) {

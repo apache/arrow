@@ -106,6 +106,14 @@ class TestMemoryPoolBase : public ::testing::Test {
       pool->Free(data512, 10, 512);
     }
   }
+
+  void TestReleaseUnused() {
+    auto pool = memory_pool();
+    const int64_t nbytes = pool->bytes_allocated();
+    pool->ReleaseUnused();
+    // Unfortunately there's not much that we can assert here
+    ASSERT_EQ(nbytes, pool->bytes_allocated());
+  }
 };
 
 }  // namespace arrow

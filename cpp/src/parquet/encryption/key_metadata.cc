@@ -15,14 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/json/object_parser.h"
-#include "arrow/json/object_writer.h"
+#include <string_view>
+
+#include "arrow/util/simdjson_internal.h"
 
 #include "parquet/encryption/key_metadata.h"
 #include "parquet/exception.h"
 
-using ::arrow::json::internal::ObjectParser;
-using ::arrow::json::internal::ObjectWriter;
+using ::arrow::internal::JsonObjectParser;
+using ::arrow::internal::JsonWriter;
 
 namespace parquet::encryption {
 
@@ -36,7 +37,7 @@ KeyMetadata::KeyMetadata(const KeyMaterial& key_material)
     : is_internal_storage_(true), key_material_or_reference_(key_material) {}
 
 KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
-  ObjectParser json_parser;
+  JsonObjectParser json_parser;
   ::arrow::Status status = json_parser.Parse(key_metadata);
   if (!status.ok()) {
     throw ParquetException("Failed to parse key metadata " + key_metadata);
@@ -59,8 +60,7 @@ KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
 
   if (is_internal_storage) {
     // 3.1 "key material" is stored internally, inside "key metadata" - parse it
-    KeyMaterial key_material = KeyMaterial::Parse(&json_parser);
-    return KeyMetadata(key_material);
+    return KeyMetadata(KeyMaterial::Parse(key_metadata));
   } else {
     // 3.2 "key material" is stored externally. "key metadata" keeps a reference to it
     std::string key_reference;
@@ -73,15 +73,19 @@ KeyMetadata KeyMetadata::Parse(const std::string& key_metadata) {
 // directly
 std::string KeyMetadata::CreateSerializedForExternalMaterial(
     const std::string& key_reference) {
-  ObjectWriter json_writer;
+  JsonWriter json_writer;
 
-  json_writer.SetString(KeyMaterial::kKeyMaterialTypeField,
-                        KeyMaterial::kKeyMaterialType1);
-  json_writer.SetBool(kKeyMaterialInternalStorageField, false);
+  json_writer.StartObject();
 
-  json_writer.SetString(kKeyReferenceField, key_reference);
+  json_writer.StringField(KeyMaterial::kKeyMaterialTypeField,
+                          KeyMaterial::kKeyMaterialType1);
+  json_writer.BoolField(kKeyMaterialInternalStorageField, false);
+  json_writer.StringField(kKeyReferenceField, key_reference);
 
-  return json_writer.Serialize();
+  json_writer.EndObject();
+
+  PARQUET_ASSIGN_OR_THROW(std::string_view json, json_writer.GetString());
+  return std::string(json);
 }
 
 }  // namespace parquet::encryption

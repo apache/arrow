@@ -1065,4 +1065,67 @@ TEST(SpliceWord, SpliceWord) {
             0xfedc456789abcdef);
 }
 
+TEST(BitUtil, CopyBits) {
+  // Copy bits [start, end[ from src into dst, keeping dst's other bits.
+  using bit_util::CopyBitsInInteger;
+
+  // Empty range: result equals dst.
+  ASSERT_EQ(CopyBitsInInteger<uint8_t>(
+                {.src = 0b11111111, .dst = 0b00010010, .start = 3, .end = 3}),
+            0b00010010);
+  // dst = 0101 0101, src = 1010 1010  ->  0101 1010
+  ASSERT_EQ(CopyBitsInInteger<uint8_t>(
+                {.src = 0b10101010, .dst = 0b01010101, .start = 0, .end = 4}),
+            0b01011010);
+  // Copy a middle span [2, 5[ of all-ones into an all-zeros dst.
+  ASSERT_EQ(CopyBitsInInteger<uint8_t>(
+                {.src = 0b11111111, .dst = 0b00000000, .start = 2, .end = 5}),
+            0b00011100);
+  // Copy a middle span [2, 5[ of all-zeros into an all-ones dst.
+  ASSERT_EQ(CopyBitsInInteger<uint8_t>(
+                {.src = 0b00000000, .dst = 0b11111111, .start = 2, .end = 5}),
+            0b11100011);
+  // Full-word copy returns src unchanged.
+  ASSERT_EQ(CopyBitsInInteger<uint8_t>(
+                {.src = 0b10101011, .dst = 0b00010010, .start = 0, .end = 8}),
+            0b10101011);
+  // uint16_t partial range [4, 12[: dst keeps its bits outside, src fills inside.
+  ASSERT_EQ(
+      CopyBitsInInteger<uint16_t>(
+          {.src = 0b1010101010101010, .dst = 0b0101010101010101, .start = 4, .end = 12}),
+      0b0101101010100101);
+  // uint64_t
+  ASSERT_EQ(CopyBitsInInteger<uint64_t>({
+                .src = 0x0123456789abcdef,
+                .dst = 0xfedcba9876543210,
+                .start = 0,
+                .end = 64,
+            }),
+            0x0123456789abcdef);
+  // constexpr-evaluable.
+  static_assert(CopyBitsInInteger<uint8_t>(
+                    {.src = 0b10101010, .dst = 0b01010101, .start = 0, .end = 4}) ==
+                0b01011010);
+}
+
+TEST(BitUtil, BitWidth) {
+  EXPECT_EQ(bit_util::BitWidth(uint8_t{0}), 0);
+  EXPECT_EQ(bit_util::BitWidth(uint8_t{1}), 1);
+  EXPECT_EQ(bit_util::BitWidth(uint32_t{1} << 20), 21);
+  EXPECT_EQ(bit_util::BitWidth((uint32_t{1} << 20) - 1), 20);
+  EXPECT_EQ(bit_util::BitWidth(std::numeric_limits<uint64_t>::max()), 64);
+  // constexpr-evaluable.
+  static_assert(bit_util::BitWidth(uint16_t{0x0100}) == 9);
+}
+
+TEST(BitUtil, HasSingleBit) {
+  EXPECT_FALSE(bit_util::HasSingleBit(uint8_t{0}));
+  EXPECT_TRUE(bit_util::HasSingleBit(uint8_t{1}));
+  EXPECT_TRUE(bit_util::HasSingleBit(uint32_t{1} << 20));
+  EXPECT_FALSE(bit_util::HasSingleBit((uint32_t{1} << 20) + 1));
+  EXPECT_FALSE(bit_util::HasSingleBit(std::numeric_limits<uint64_t>::max()));
+  // constexpr-evaluable.
+  static_assert(bit_util::HasSingleBit(uint16_t{0x0100}));
+}
+
 }  // namespace arrow

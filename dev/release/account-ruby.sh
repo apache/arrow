@@ -33,6 +33,6 @@ account=$1
 
 pushd "${SOURCE_DIR}/../../ruby"
 for gem in red-*; do
-  gem owner ${gem} -a ${account}
+  gem owner "${gem}" -a "${account}"
 done
 popd

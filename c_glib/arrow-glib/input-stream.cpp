@@ -285,7 +285,9 @@ garrow_input_stream_read_tensor(GArrowInputStream *input_stream, GError **error)
 {
   auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
 
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   auto arrow_tensor = arrow::ipc::ReadTensor(arrow_input_stream.get());
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   if (garrow::check(error, arrow_tensor, "[input-stream][read-tensor]")) {
     return garrow_tensor_new_raw(&(arrow_tensor.ValueOrDie()));
   } else {
