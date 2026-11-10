@@ -377,27 +377,9 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
             indices = _codes_to_indices(
                 values.codes, mask, index_type, memory_pool)
-            try:
-                dictionary = array(
-                    values.categories, type=value_type,
-                    from_pandas=True, memory_pool=memory_pool)
-            except TypeError:
-                # TODO when removing the deprecation warning, this whole
-                # try/except can be removed (to bubble the TypeError of
-                # the first array(..) call)
-                if value_type is not None:
-                    warnings.warn(
-                        "The dtype of the 'categories' of the passed "
-                        f"categorical values ({values.categories.dtype}) does not match the "
-                        f"specified type ({value_type}). For now ignoring the specified "
-                        "type, but in the future this mismatch will raise a "
-                        "TypeError",
-                        FutureWarning, stacklevel=2)
-                    dictionary = array(
-                        values.categories, from_pandas=True,
-                        memory_pool=memory_pool)
-                else:
-                    raise
+            dictionary = array(
+                values.categories, type=value_type,
+                from_pandas=True, memory_pool=memory_pool)
 
             return DictionaryArray.from_arrays(
                 indices, dictionary, ordered=values.ordered, safe=safe)
@@ -1122,6 +1104,19 @@ cdef PandasOptions _convert_pandas_options(dict options):
             + f"Received '{maps_as_pydicts}'."
         )
     return result
+
+
+def _compute_binary_op(func_name, left, right):
+    """
+    Helper for arithmetic/bitwise dunder methods.
+
+    Only use for ops that can't raise ArrowTypeError as it
+    subclasses TypeError, so will get swallowed.
+    """
+    try:
+        return _pc().call_function(func_name, [left, right])
+    except TypeError:
+        return NotImplemented
 
 
 cdef class Array(_PandasConvertible):
@@ -2445,15 +2440,15 @@ cdef class Array(_PandasConvertible):
 
     def __add__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('add_checked', [self, other])
+        return _compute_binary_op('add_checked', self, other)
 
     def __truediv__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('divide_checked', [self, other])
+        return _compute_binary_op('divide_checked', self, other)
 
     def __mul__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('multiply_checked', [self, other])
+        return _compute_binary_op('multiply_checked', self, other)
 
     def __neg__(self):
         self._assert_cpu()
@@ -2461,31 +2456,31 @@ cdef class Array(_PandasConvertible):
 
     def __pow__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('power_checked', [self, other])
+        return _compute_binary_op('power_checked', self, other)
 
     def __sub__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('subtract_checked', [self, other])
+        return _compute_binary_op('subtract_checked', self, other)
 
     def __and__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_and', [self, other])
+        return _compute_binary_op('bit_wise_and', self, other)
 
     def __or__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_or', [self, other])
+        return _compute_binary_op('bit_wise_or', self, other)
 
     def __xor__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_xor', [self, other])
+        return _compute_binary_op('bit_wise_xor', self, other)
 
     def __lshift__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('shift_left_checked', [self, other])
+        return _compute_binary_op('shift_left_checked', self, other)
 
     def __rshift__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('shift_right_checked', [self, other])
+        return _compute_binary_op('shift_right_checked', self, other)
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
@@ -2774,7 +2769,7 @@ cdef class FixedSizeBinaryArray(Array):
     Concrete class for Arrow arrays of a fixed-size binary data type.
     """
 
-cdef class Decima32Array(FixedSizeBinaryArray):
+cdef class Decimal32Array(FixedSizeBinaryArray):
     """
     Concrete class for Arrow arrays of decimal32 data type.
     """
@@ -4027,24 +4022,6 @@ cdef class UnionArray(Array):
     """
     Concrete class for Arrow arrays of a Union data type.
     """
-
-    def child(self, int pos):
-        """
-        DEPRECATED, use field() instead.
-
-        Parameters
-        ----------
-        pos : int
-            The physical index of the union child field (not its type code).
-
-        Returns
-        -------
-        field : pyarrow.Field
-            The given child field.
-        """
-        import warnings
-        warnings.warn("child is deprecated, use field", FutureWarning)
-        return self.field(pos)
 
     def field(self, int pos):
         """
@@ -5398,16 +5375,16 @@ cdef object get_array_class_from_type(
         return _array_classes[data_type.id()]
 
 
-cdef object get_values(object obj, bint* is_series):
+cdef object get_values(object obj, bint* is_pandas_object):
     if pandas_api.is_series(obj) or pandas_api.is_index(obj):
         result = pandas_api.get_values(obj)
-        is_series[0] = True
+        is_pandas_object[0] = True
     elif isinstance(obj, np.ndarray):
         result = obj
-        is_series[0] = False
+        is_pandas_object[0] = False
     else:
-        result = pandas_api.series(obj, copy=False).values
-        is_series[0] = False
+        result = pandas_api.get_values(pandas_api.series(obj, copy=False))
+        is_pandas_object[0] = False
 
     return result
 

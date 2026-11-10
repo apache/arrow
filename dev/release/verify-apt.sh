@@ -140,7 +140,24 @@ echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow C++"
+
+# 27.1.0-dev20261025 -> 27
+# 27.1.0 -> 27
+major_version=$(echo ${VERSION} | cut -d. -f1)
+# 27.1.0-dev20261025 -> 1
+# 27.1.0 -> 1
+minor_version=$(echo ${VERSION} | cut -d. -f2)
+# 27.1.0 -> 2701
+so_version=$((major_version * 100 + minor_version))
+
 mkdir -p build
+${APT_INSTALL} libarrow${so_version}=${package_version}
+libarrow_so="/usr/lib/$(uname -m)-linux-gnu/libarrow.so.${so_version}"
+# All dependencies must be installed.
+ldd "${libarrow_so}"
+if ldd "${libarrow_so}" | grep --fixed-strings 'not found'; then
+  exit 1
+fi
 ${APT_INSTALL} libarrow-dev=${package_version}
 required_packages=()
 required_packages+=(cmake)
@@ -258,9 +275,7 @@ elif [ -f /etc/apt/sources.list.d/apache-arrow.sources.bak ]; then
   fi
 fi
 
-# 22.0.0.dev54 -> 22
-# 22.0.0 -> 22
-current_major_version=${package_version%%.*}
+current_major_version=${major_version}
 # 22 -> 21
 previous_major_version=$[current_major_version -1]
 previous_so_version="${previous_major_version}00"
@@ -284,6 +299,7 @@ ${APT_INSTALL} --allow-downgrades \
   libarrow-dev=${previous_package_version} \
   libarrow-glib${previous_so_version}=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
+  libarrow-s3-${previous_so_version}=${previous_package_version} \
   libgandiva${previous_so_version}=${previous_package_version} \
   libgandiva-dev=${previous_package_version} \
   libgandiva-glib${previous_so_version}=${previous_package_version} \
@@ -312,7 +328,8 @@ ${APT_INSTALL} --allow-downgrades \
   libarrow-flight-sql-glib${previous_so_version}=${previous_package_version} \
   libarrow-flight-sql-glib-dev=${previous_package_version} \
   libarrow-glib${previous_so_version}=${previous_package_version} \
-  libarrow-glib-dev=${previous_package_version}
+  libarrow-glib-dev=${previous_package_version} \
+  libarrow-s3-${previous_so_version}=${previous_package_version}
 echo "::endgroup::"
 
 echo "::group::Downgrade Apache Arrow Dataset"
@@ -332,6 +349,7 @@ ${APT_INSTALL} --allow-downgrades \
   libarrow-dev=${previous_package_version} \
   libarrow-glib${previous_so_version}=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
+  libarrow-s3-${previous_so_version}=${previous_package_version} \
   libparquet${previous_so_version}=${previous_package_version} \
   libparquet-dev=${previous_package_version} \
   libparquet-glib${previous_so_version}=${previous_package_version} \

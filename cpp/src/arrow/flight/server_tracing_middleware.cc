@@ -95,7 +95,7 @@ class TracingServerMiddleware::Impl {
       : scope_(std::move(scope)), span_(std::move(span)) {}
   void CallCompleted(const Status& status) {
     if (!status.ok()) {
-      auto grpc_status = transport::grpc::ToGrpcStatus(status, /*ctx=*/nullptr);
+      auto grpc_status = transport::grpc::ToGrpcStatus(status);
       span_->SetStatus(otel::trace::StatusCode::kError, status.ToString());
       span_->SetAttribute(SemanticConventions::kRpcGrpcStatusCode,
                           static_cast<int32_t>(grpc_status.error_code()));

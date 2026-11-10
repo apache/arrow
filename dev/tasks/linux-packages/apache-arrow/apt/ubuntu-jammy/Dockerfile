@@ -59,7 +59,9 @@ RUN \
     libsnappy-dev \
     libssl-dev \
     libthrift-dev \
+    liburiparser-dev \
     libutf8proc-dev \
+    libxml2-dev \
     libxxhash-dev \
     libzstd-dev \
     llvm-dev \

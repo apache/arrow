@@ -763,12 +763,14 @@ def test_key_rotation_reads_kms_url_from_file(reusable_tempdir, data_table,
         rotation_config, path, read_kms_url=read_kms_url)
 
     if read_kms_url:
-        # The empty config provided is used to wrap new keys,
-        # and the config from the file was used to unwrap the original keys.
-        assert created_configs == [("", ""), (KMS_INSTANCE_ID, KMS_INSTANCE_URL)]
+        # Defaults are used to wrap new keys, and the config from the file
+        # is used to unwrap the original keys.
+        assert created_configs == [
+            ("DEFAULT", "DEFAULT"), (KMS_INSTANCE_ID, KMS_INSTANCE_URL)]
     else:
         # The default URL is used when unwrapping the original keys.
-        assert created_configs == [("", ""), (KMS_INSTANCE_ID, "DEFAULT")]
+        assert created_configs == [
+            ("DEFAULT", "DEFAULT"), (KMS_INSTANCE_ID, "DEFAULT")]
 
     # New key material always uses the provided KMS connection configuration
     rotated_keys = read_external_keys_to_dict(path)

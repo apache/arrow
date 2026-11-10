@@ -121,6 +121,5 @@ Status FuzzCsvReader(const uint8_t* data, int64_t size) {
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   auto status = arrow::csv::FuzzCsvReader(data, static_cast<int64_t>(size));
-  arrow::internal::LogFuzzStatus(status, data, size);
-  return 0;
+  return arrow::internal::LogFuzzStatus(status, data, size);
 }

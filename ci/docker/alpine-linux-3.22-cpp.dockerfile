@@ -65,6 +65,7 @@ RUN apk add \
         sqlite-dev \
         thrift-dev \
         tzdata \
+        uriparser-dev \
         utf8proc-dev \
         zlib-dev \
         zstd-dev && \

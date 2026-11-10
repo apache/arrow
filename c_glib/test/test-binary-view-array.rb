@@ -16,6 +16,8 @@
 # under the License.
 
 class TestBinaryViewArray < Test::Unit::TestCase
+  include Helper::Buildable
+
   def test_new
     short_binary_data = "test"
     short_view_buffer_space = 12
@@ -36,5 +38,16 @@ class TestBinaryViewArray < Test::Unit::TestCase
       binary_view_array.validate_full
     end
     assert_equal(short_binary_data, binary_view_array.get_value(0).to_s)
+  end
+
+  def test_value
+    # TODO: Implement Arrow::BinaryViewArrayBuilder and use it
+    data = "\x00\x01\x02" * 10
+    value =
+      build_binary_array([data]).
+        cast(Arrow::BinaryViewDataType.new).
+        get_value(0)
+    GC.start
+    assert_equal(data, value.to_s)
   end
 end

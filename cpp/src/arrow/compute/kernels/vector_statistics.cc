@@ -26,6 +26,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
@@ -55,8 +56,7 @@ Status ValidateOptions(const WinsorizeOptions& options) {
 
 using WinsorizeState = internal::OptionsWrapper<WinsorizeOptions>;
 
-// We have a first unused template parameter for compatibility with GenerateNumeric.
-template <typename Unused, typename Type>
+template <typename Type>
 struct Winsorize {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using CType = typename TypeTraits<Type>::CType;
@@ -71,6 +71,7 @@ struct Winsorize {
       // Only nulls and NaNs => return input as-is
       out_data->null_count = data->null_count.load();
       out_data->length = data->length;
+      out_data->offset = data->offset;
       out_data->buffers = data->buffers;
       return Status::OK();
     }
@@ -127,7 +128,9 @@ struct Winsorize {
     DCHECK_EQ(out->buffers.size(), data.buffers.size());
     out->null_count = data.null_count.load();
     out->length = data.length;
-    out->buffers[0] = data.buffers[0];
+    out->offset = 0;
+    ARROW_ASSIGN_OR_RAISE(out->buffers[0],
+                          GetOrCopyNullBitmapBuffer(data, ctx->memory_pool()));
     ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->Allocate(out->length * sizeof(CType)));
     // Avoid leaving uninitialized memory under null entries
     std::memset(out->buffers[1]->mutable_data(), 0, out->length * sizeof(CType));
@@ -153,10 +156,10 @@ struct Winsorize {
   }
 };
 
-template <typename Unused, typename Type>
+template <typename Type>
 struct WinsorizeChunked {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-    return Winsorize<Unused, Type>::ExecChunked(ctx, batch, out);
+    return Winsorize<Type>::ExecChunked(ctx, batch, out);
   }
 };
 
@@ -194,14 +197,14 @@ void RegisterVectorStatistics(FunctionRegistry* registry) {
 
   for (const auto& ty : NumericTypes()) {
     base.signature = KernelSignature::Make({ty->id()}, &ResolveWinsorizeOutput);
-    base.exec = GenerateNumeric<Winsorize, /*Unused*/ void>(ty->id());
-    base.exec_chunked = GenerateNumeric<WinsorizeChunked, /*Unused*/ void>(ty->id());
+    base.exec = GenerateNumeric<Winsorize>(ty->id());
+    base.exec_chunked = GenerateNumeric<WinsorizeChunked>(ty->id());
     DCHECK_OK(winsorize->AddKernel(base));
   }
   for (auto type_id : DecimalTypeIds()) {
     base.signature = KernelSignature::Make({type_id}, &ResolveWinsorizeOutput);
-    base.exec = GenerateDecimal<Winsorize, /*Unused*/ void>(type_id);
-    base.exec_chunked = GenerateDecimal<WinsorizeChunked, /*Unused*/ void>(type_id);
+    base.exec = GenerateDecimal<Winsorize>(type_id);
+    base.exec_chunked = GenerateDecimal<WinsorizeChunked>(type_id);
     DCHECK_OK(winsorize->AddKernel(base));
   }
   DCHECK_OK(registry->AddFunction(std::move(winsorize)));

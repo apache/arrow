@@ -22,7 +22,7 @@ arrow_install_all_headers("arrow/compute/row")
 
 if(ARROW_BUILD_BENCHMARKS AND ARROW_COMPUTE)
   add_arrow_benchmark(grouper_benchmark PREFIX "arrow-compute")
-  if(ARROW_BUILD_STATIC)
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
     target_link_libraries(arrow-compute-grouper-benchmark PUBLIC arrow_compute_static)
   else()
     target_link_libraries(arrow-compute-grouper-benchmark PUBLIC arrow_compute_shared)

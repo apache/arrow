@@ -34,7 +34,7 @@ on:
 
   schedule:
     #Crossbow packaging runs at 0 8 * * *
-    - cron: '0 14 * * *'
+    - cron: '0 18 * * *'
 
 permissions:
   contents: read

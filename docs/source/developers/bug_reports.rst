@@ -244,11 +244,11 @@ Limit on concurrent pull requests
 
 Due to the increase in pull requests opened by AI bots, and in order to keep
 the review queue manageable, contributors without the required access to the
-repository may have at most **3 pull requests open at the same time**.
-The required access is either write access (committers) or triage (collaborators).
-A pull request opened beyond that limit is automatically closed by a GitHub
-Actions workflow, with a comment explaining why. Once one of your other pull
-requests has been merged or closed, you can reopen it.
+repository may have at most **3 pull requests open at the same time**,
+including draft pull requests. The required access is either write access
+(committers) or triage (collaborators). GitHub does not allow opening a pull
+request beyond that limit. Once one of your other pull requests has been
+merged or closed, you can open a new one.
 
 .. _issue-assignment:
 

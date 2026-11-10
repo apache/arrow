@@ -42,7 +42,7 @@ Table into an R \code{tibble}.
 \item \code{\link[dplyr:inner_join]{inner_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:left_join]{left_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:mutate]{mutate()}}
-\item \code{\link[dplyr:pull]{pull()}}: the \code{name} argument is not supported; returns an R vector by default but this behavior is deprecated and will return an Arrow \link{ChunkedArray} in a future release. Provide \code{as_vector = TRUE/FALSE} to control this behavior, or set \code{options(arrow.pull_as_vector)} globally.
+\item \code{\link[dplyr:pull]{pull()}}: the \code{name} argument is not supported; returns an R vector by default. Provide \code{as_vector = FALSE} to return an Arrow \link{ChunkedArray} instead, or set \code{options(arrow.pull_as_vector = FALSE)} globally.
 \item \code{\link[dplyr:relocate]{relocate()}}
 \item \code{\link[dplyr:rename]{rename()}}
 \item \code{\link[dplyr:rename_with]{rename_with()}}
@@ -72,7 +72,7 @@ can assume that the function works in Acero just as it does in R.
 Functions can be called either as \code{pkg::fun()} or just \code{fun()}, i.e. both
 \code{str_sub()} and \code{stringr::str_sub()} work.
 
-In addition to these functions, you can call any of Arrow's 254 compute
+In addition to these functions, you can call any of Arrow's 283 compute
 functions directly. Arrow has many functions that don't map to an existing R
 function. In other cases where there is an R function mapping, you can still
 call the Arrow function directly if you don't want the adaptations that the R

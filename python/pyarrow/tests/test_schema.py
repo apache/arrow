@@ -27,6 +27,7 @@ except ImportError:
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
+from pyarrow.tests.test_pandas import _fully_loaded_dataframe_example
 
 
 def test_schema_constructor_errors():
@@ -208,6 +209,7 @@ def test_from_numpy_dtype():
         (np.dtype('timedelta64[ms]'), pa.duration('ms')),
         (np.dtype('timedelta64[us]'), pa.duration('us')),
         (np.dtype('timedelta64[ns]'), pa.duration('ns')),
+        (np.dtypes.StringDType(), pa.string()),
     ]
 
     for dt, pt in cases:
@@ -398,12 +400,8 @@ foo: list<item: int8>
 
     assert sch[0].name == 'foo'
     assert sch[0].type == fields[0].type
-    with pytest.warns(FutureWarning):
-        assert sch.field_by_name('bar') == fields[1]
-    with pytest.warns(FutureWarning):
-        assert sch.field_by_name('xxx') is None
-    with pytest.warns((UserWarning, FutureWarning)):
-        assert sch.field_by_name('foo') is None
+    assert not hasattr(sch, 'field_by_name')
+    assert not hasattr(sch, 'add_metadata')
 
     # Schema::GetFieldIndex
     assert sch.get_field_index('foo') == -1
@@ -717,6 +715,14 @@ def test_schema_from_pandas():
         schema = pa.Schema.from_pandas(df)
         expected = pa.Table.from_pandas(df).schema
         assert schema == expected
+
+
+@pytest.mark.pandas
+def test_schema_from_pandas_all_types():
+    df = _fully_loaded_dataframe_example()
+    schema = pa.Schema.from_pandas(df)
+    expected = pa.Table.from_pandas(df).schema
+    assert schema == expected
 
 
 def test_schema_sizeof():

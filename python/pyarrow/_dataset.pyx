@@ -2758,8 +2758,8 @@ cdef class DirectoryPartitioning(KeyValuePartitioning):
         every value which may be taken by the corresponding column or an
         error will be raised in parsing.
     segment_encoding : str, default "uri"
-        After splitting paths into segments, decode the segments. Valid
-        values are "uri" (URI-decode segments) and "none" (leave as-is).
+        Method to use to encode and decode path segments. Valid values are
+        "uri" (URI-encode and decode segments) and "none" (leave as-is).
 
     Returns
     -------
@@ -3037,8 +3037,8 @@ cdef class FilenamePartitioning(KeyValuePartitioning):
         every value which may be taken by the corresponding column or an
         error will be raised in parsing.
     segment_encoding : str, default "uri"
-        After splitting paths into segments, decode the segments. Valid
-        values are "uri" (URI-decode segments) and "none" (leave as-is).
+        Method to use to encode and decode path segments. Valid values are
+        "uri" (URI-encode and decode segments) and "none" (leave as-is).
 
     Returns
     -------
