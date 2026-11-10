@@ -75,12 +75,12 @@ def nulls(
     size: int,
     type: Any | None = None,
     memory_pool: MemoryPool | None = None,
-) -> ArrayLike: ...
+) -> Array: ...
 def repeat(
     value: Any,
     size: int,
     memory_pool: MemoryPool | None = None,
-) -> ArrayLike: ...
+) -> Array: ...
 def infer_type(
     values: Sequence[Any] | np.ndarray,
     mask: Mask | None = None,

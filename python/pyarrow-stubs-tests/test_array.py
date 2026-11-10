@@ -59,6 +59,8 @@ def test_array() -> None:
     check(assert_type(arr.to_tensor(allow_nulls=True), pa.Tensor), pa.Tensor)
     check(assert_type(pa.concat_arrays([arr, arr]), pa.Array),
           pa.Int64Array)
+    check(assert_type(pa.nulls(2, pa.int8()), pa.Array), pa.Int8Array)
+    check(assert_type(pa.repeat("a", 2), pa.Array), pa.StringArray)
     check(assert_type(pa.Array.from_pandas([1, 2], None, "int64"),
                       pa.Array),
           pa.Int64Array)
