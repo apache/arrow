@@ -30,6 +30,7 @@
 #include <google/cloud/storage/well_known_parameters.h>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/gcs_visibility.h"
 
 namespace arrow {
 namespace fs {
@@ -44,28 +45,28 @@ struct GcsCredentialsHolder {
   std::shared_ptr<google::cloud::Credentials> credentials;
 };
 
-ARROW_EXPORT Status ToArrowStatus(const google::cloud::Status& s);
+ARROW_GCS_EXPORT Status ToArrowStatus(const google::cloud::Status& s);
 
-ARROW_EXPORT int ErrnoFromStatus(const google::cloud::Status& s);
+ARROW_GCS_EXPORT int ErrnoFromStatus(const google::cloud::Status& s);
 
-ARROW_EXPORT Result<google::cloud::storage::EncryptionKey> ToEncryptionKey(
+ARROW_GCS_EXPORT Result<google::cloud::storage::EncryptionKey> ToEncryptionKey(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-ARROW_EXPORT Result<google::cloud::storage::PredefinedAcl> ToPredefinedAcl(
+ARROW_GCS_EXPORT Result<google::cloud::storage::PredefinedAcl> ToPredefinedAcl(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-ARROW_EXPORT Result<google::cloud::storage::KmsKeyName> ToKmsKeyName(
+ARROW_GCS_EXPORT Result<google::cloud::storage::KmsKeyName> ToKmsKeyName(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-ARROW_EXPORT Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata(
+ARROW_GCS_EXPORT Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-ARROW_EXPORT Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
+ARROW_GCS_EXPORT Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
     const google::cloud::storage::ObjectMetadata& m);
 
-ARROW_EXPORT std::int64_t Depth(std::string_view path);
+ARROW_GCS_EXPORT std::int64_t Depth(std::string_view path);
 
-ARROW_EXPORT google::cloud::Options AsGoogleCloudOptions(const GcsOptions& options);
+ARROW_GCS_EXPORT google::cloud::Options AsGoogleCloudOptions(const GcsOptions& options);
 
 }  // namespace internal
 }  // namespace fs

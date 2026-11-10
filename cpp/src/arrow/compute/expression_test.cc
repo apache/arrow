@@ -612,6 +612,67 @@ TEST(Expression, BindNestedFieldRef) {
                                                                field("b", int64())}))})));
 }
 
+TEST(Expression, NullableFieldRef) {
+  auto input_schema = schema({field("r", int32(), false), field("n", int32(), true)});
+  for (int i = 0; i < input_schema->num_fields(); ++i) {
+    for (const auto& ref : {FieldRef(input_schema->field(i)->name()), FieldRef(i)}) {
+      SCOPED_TRACE(input_schema->field(i)->ToString());
+      SCOPED_TRACE(ref.ToString());
+      auto expr = field_ref(ref);
+      EXPECT_TRUE(expr.nullable());
+
+      ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*input_schema));
+      EXPECT_EQ(bound.nullable(), input_schema->field(i)->nullable());
+      EXPECT_TRUE(expr.nullable());
+
+      ASSERT_OK_AND_ASSIGN(auto bound_to_type,
+                           expr.Bind(struct_(input_schema->fields())));
+      EXPECT_EQ(bound_to_type.nullable(), bound.nullable());
+    }
+  }
+}
+
+TEST(Expression, NullableConservativeFallback) {
+  auto input_schema = schema({field("r", int32(), false), field("n", int32(), true)});
+  EXPECT_TRUE(Expression{}.nullable());
+  for (const auto& expr : {literal(1), literal(std::make_shared<Int32Scalar>()),
+                           add(field_ref("r"), literal(1)), is_valid(field_ref("n"))}) {
+    SCOPED_TRACE(expr.ToString());
+    EXPECT_TRUE(expr.nullable());
+    ASSERT_OK_AND_ASSIGN(auto bound, expr.Bind(*input_schema));
+    EXPECT_TRUE(bound.IsBound());
+    EXPECT_TRUE(bound.nullable());
+  }
+}
+
+TEST(Expression, NullableNestedFieldRef) {
+  for (bool parent_nullable : {false, true}) {
+    for (bool child_nullable : {false, true}) {
+      auto input_schema = schema(
+          {field("a", struct_({field("b", int32(), child_nullable)}), parent_nullable)});
+      for (const auto& ref : {FieldRef("a", "b"), FieldRef(FieldPath({0, 0}))}) {
+        SCOPED_TRACE(input_schema->ToString());
+        SCOPED_TRACE(ref.ToString());
+        ASSERT_OK_AND_ASSIGN(auto bound, field_ref(ref).Bind(*input_schema));
+        EXPECT_TRUE(bound.nullable());
+      }
+    }
+  }
+}
+
+TEST(Expression, NullableRebind) {
+  auto required_schema = schema({field("a", int32(), false)});
+  auto optional_schema = schema({field("a", int32(), true)});
+  ASSERT_OK_AND_ASSIGN(auto required, field_ref("a").Bind(*required_schema));
+  ASSERT_OK_AND_ASSIGN(auto optional, required.Bind(*optional_schema));
+  EXPECT_FALSE(required.nullable());
+  EXPECT_TRUE(optional.nullable());
+
+  ASSERT_OK_AND_ASSIGN(auto rebound_required, optional.Bind(*required_schema));
+  EXPECT_FALSE(rebound_required.nullable());
+  EXPECT_TRUE(optional.nullable());
+}
+
 TEST(Expression, BindCall) {
   auto expr = add(field_ref("i32"), field_ref("i32_req"));
   EXPECT_FALSE(expr.IsBound());
@@ -1000,6 +1061,58 @@ TEST(Expression, ExecuteCoalesceOnMixedDecimalTypes) {
                        ExecuteScalarExpression(expr, input_schema, Datum(input)));
 
   AssertDatumsEqual(actual, ArrayFromJSON(decimal128(4, 3), R"(["1.230", "2.345"])"));
+}
+
+TEST(Expression, CoalesceDictionaryTypes) {
+  auto check = [](const ArrayVector& arguments,
+                  const std::shared_ptr<DataType>& output_type,
+                  const std::shared_ptr<Array>& expected) {
+    FieldVector fields;
+    std::vector<Expression> args, expected_args;
+    for (size_t i = 0; i < arguments.size(); ++i) {
+      auto name = "arg" + std::to_string(i);
+      fields.push_back(field(name, arguments[i]->type()));
+      args.push_back(field_ref(name));
+      expected_args.push_back(arguments[i]->type()->Equals(output_type)
+                                  ? args.back()
+                                  : cast(args.back(), output_type));
+    }
+    Schema input_schema(fields);
+    Expression bound;
+    ExpectBindsTo(call("coalesce", args), call("coalesce", expected_args), &bound,
+                  input_schema);
+    ASSERT_NE(bound.type(), nullptr);
+    EXPECT_TRUE(bound.type()->Equals(output_type));
+    ASSERT_OK_AND_ASSIGN(auto input, StructArray::Make(arguments, fields));
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         ExecuteScalarExpression(bound, input_schema, Datum(input)));
+    ASSERT_OK(actual.make_array()->ValidateFull());
+    // Also check logical values when the result stays dictionary-encoded.
+    ASSERT_OK_AND_ASSIGN(actual, Cast(actual, expected->type()));
+    AssertDatumsEqual(actual, expected);
+  };
+
+  auto type = dictionary(int8(), int32());
+  auto left = DictArrayFromJSON(type, "[0, null, 1, null, null]", "[10, 30]");
+  auto right = DictArrayFromJSON(type, "[null, 0, 1, null, null]", "[20, 40]");
+  auto third = DictArrayFromJSON(type, "[null, null, null, 0, null]", "[50]");
+  auto expected = ArrayFromJSON(int32(), "[10, 20, 30, null, null]");
+  check({left}, type, ArrayFromJSON(int32(), "[10, null, 30, null, null]"));
+  check({left, right}, type, expected);
+  check({left, right, third}, type, ArrayFromJSON(int32(), "[10, 20, 30, 50, null]"));
+
+  for (const auto& other : {dictionary(int16(), int32()), dictionary(int8(), int64()),
+                            dictionary(int8(), int32(), /*ordered=*/true)}) {
+    auto output_type = checked_cast<const DictionaryType&>(*other).value_type();
+    auto mixed_right = DictArrayFromJSON(other, "[null, 0, 1, null, null]", "[20, 40]");
+    check({left, mixed_right}, output_type,
+          ArrayFromJSON(output_type, "[10, 20, 30, null, null]"));
+    check({mixed_right, left}, output_type,
+          ArrayFromJSON(output_type, "[10, 20, 40, null, null]"));
+    auto mixed_third = DictArrayFromJSON(other, "[null, null, null, 0, null]", "[50]");
+    check({left, right, mixed_third}, output_type,
+          ArrayFromJSON(output_type, "[10, 20, 30, 50, null]"));
+  }
 }
 
 TEST(Expression, BindNestedCall) {
@@ -1399,6 +1512,29 @@ TEST(Expression, RemoveNamedRefs) {
                       call("add", {literal(4), field_ref(2)}));
   auto nested_schema = Schema({field("a", struct_({field("b", int32())}))});
   ExpectRemovesRefsTo(field_ref({"a", "b"}), field_ref({0, 0}), nested_schema);
+}
+
+TEST(Expression, NullableRemoveNamedRefs) {
+  ASSERT_OK_AND_ASSIGN(auto bound, field_ref("i32_req").Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto without_named_refs, RemoveNamedRefs(bound));
+  EXPECT_TRUE(without_named_refs.IsBound());
+  EXPECT_TRUE(without_named_refs.field_ref()->IsFieldPath());
+  EXPECT_FALSE(without_named_refs.nullable());
+  EXPECT_FALSE(bound.nullable());
+
+  ASSERT_OK_AND_ASSIGN(auto bound_call,
+                       add(field_ref("i32_req"), literal(1)).Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto without_named_refs_call, RemoveNamedRefs(bound_call));
+  EXPECT_TRUE(without_named_refs_call.IsBound());
+  EXPECT_TRUE(without_named_refs_call.nullable());
+  const auto* call = without_named_refs_call.call();
+  ASSERT_NE(call, nullptr);
+  ASSERT_EQ(call->arguments.size(), 2);
+  const auto& field_arg = call->arguments[0];
+  EXPECT_TRUE(field_arg.IsBound());
+  ASSERT_NE(field_arg.field_ref(), nullptr);
+  EXPECT_TRUE(field_arg.field_ref()->IsFieldPath());
+  EXPECT_FALSE(field_arg.nullable());
 }
 
 TEST(Expression, ExtractKnownFieldValues) {

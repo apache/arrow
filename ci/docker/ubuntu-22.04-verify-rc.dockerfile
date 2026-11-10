@@ -30,7 +30,7 @@ RUN INSTALL_PYTHON=0 /setup-ubuntu.sh && \
 # conda-forge (without activating Conda env) for non-Conda verify-rc job
 ARG python=3.12
 COPY ci/scripts/install_conda.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_conda.sh miniforge3 26.1.1-3 /opt/conda && \
+RUN /arrow/ci/scripts/install_conda.sh miniforge3 latest /opt/conda && \
     /opt/conda/bin/mamba create -y -p /opt/python python=${python} && \
     rm -rf \
         /etc/profile.d/conda.sh \

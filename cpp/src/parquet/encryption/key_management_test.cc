@@ -566,9 +566,9 @@ TEST_F(TestEncryptionKeyManagement, ReadKmsUrlFromFileDuringKeyRotation) {
 
   ASSERT_EQ(requests.size(), 2);
   // The first KMS creation request is for wrapping new keys.
-  // This uses the empty config provided.
-  EXPECT_EQ(requests[0].kms_instance_id, "");
-  EXPECT_EQ(requests[0].kms_instance_url, "");
+  // Empty values in the provided config are replaced with defaults.
+  EXPECT_EQ(requests[0].kms_instance_id, KmsClient::kKmsInstanceIdDefault);
+  EXPECT_EQ(requests[0].kms_instance_url, KmsClient::kKmsInstanceUrlDefault);
   // The KMS client used to unwrap the previous keys should be configured
   // with the instance ID and url provided at write time.
   EXPECT_EQ(requests[1].kms_instance_id, "123");
@@ -582,9 +582,9 @@ TEST_F(TestEncryptionKeyManagement, KeyRotationWithoutReadingKmsUrl) {
 
   ASSERT_EQ(requests.size(), 2);
   // The first KMS creation request is for wrapping new keys.
-  // This uses the empty config provided.
-  EXPECT_EQ(requests[0].kms_instance_id, "");
-  EXPECT_EQ(requests[0].kms_instance_url, "");
+  // Empty values in the provided config are replaced with defaults.
+  EXPECT_EQ(requests[0].kms_instance_id, KmsClient::kKmsInstanceIdDefault);
+  EXPECT_EQ(requests[0].kms_instance_url, KmsClient::kKmsInstanceUrlDefault);
   // When unwrapping the existing keys, the URL in the key material is
   // ignored and the default used.
   EXPECT_EQ(requests[1].kms_instance_id, "123");

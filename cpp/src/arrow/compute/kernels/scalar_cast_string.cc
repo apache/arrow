@@ -706,10 +706,10 @@ void AddNumberToStringCasts(CastFunction* func) {
                             NullHandling::COMPUTED_NO_PREALLOCATE));
 
   for (const std::shared_ptr<DataType>& in_ty : NumericTypes()) {
-    DCHECK_OK(
-        func->AddKernel(in_ty->id(), {in_ty}, out_ty,
-                        GenerateNumeric<NumericToStringCastFunctor, OutType>(*in_ty),
-                        NullHandling::COMPUTED_NO_PREALLOCATE));
+    DCHECK_OK(func->AddKernel(
+        in_ty->id(), {in_ty}, out_ty,
+        GenerateNumeric<NumericToStringCastFunctor, WithType0<OutType>>(*in_ty),
+        NullHandling::COMPUTED_NO_PREALLOCATE));
   }
 
   DCHECK_OK(func->AddKernel(Type::HALF_FLOAT, {float16()}, out_ty,
@@ -721,10 +721,10 @@ template <typename OutType>
 void AddDecimalToStringCasts(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
   for (const auto& in_tid : DecimalTypeIds()) {
-    DCHECK_OK(
-        func->AddKernel(in_tid, {in_tid}, out_ty,
-                        GenerateDecimal<DecimalToStringCastFunctor, OutType>(in_tid),
-                        NullHandling::COMPUTED_NO_PREALLOCATE));
+    DCHECK_OK(func->AddKernel(
+        in_tid, {in_tid}, out_ty,
+        GenerateDecimal<DecimalToStringCastFunctor, WithType0<OutType>>(in_tid),
+        NullHandling::COMPUTED_NO_PREALLOCATE));
   }
 }
 
@@ -733,10 +733,10 @@ void AddTemporalToStringCasts(CastFunction* func) {
   auto out_ty = TypeTraits<OutType>::type_singleton();
   for (const auto& types : {TemporalTypes(), DurationTypes()}) {
     for (const std::shared_ptr<DataType>& in_ty : types) {
-      DCHECK_OK(
-          func->AddKernel(in_ty->id(), {InputType(in_ty->id())}, out_ty,
-                          GenerateTemporal<TemporalToStringCastFunctor, OutType>(*in_ty),
-                          NullHandling::COMPUTED_NO_PREALLOCATE));
+      DCHECK_OK(func->AddKernel(
+          in_ty->id(), {InputType(in_ty->id())}, out_ty,
+          GenerateTemporal<TemporalToStringCastFunctor, WithType0<OutType>>(*in_ty),
+          NullHandling::COMPUTED_NO_PREALLOCATE));
     }
   }
 }

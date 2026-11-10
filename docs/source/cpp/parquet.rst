@@ -271,6 +271,13 @@ with ``data_page_version``. It's V1 by default; setting to V2 will allow more
 optimal compression (skipping compressing pages where there isn't a space
 benefit), but not all readers support this data page version.
 
+For V2 pages, use ``min_compression_savings`` to set how much space compression must
+save. Use a value from 0.0 to 1.0. For example, ``min_compression_savings(0.1)`` requires
+at least 10% savings. If the space savings for a page do not meet the threshold,
+it is not compressed. The default is ``0.01``, so compression must save at least 1%.
+Setting a value above this default with V1 or using a number outside the allowed
+range throws ``ParquetException``.
+
 Compression is off by default, but to get the most out of Parquet, you should
 also choose a compression codec. You can choose one for the whole file or
 choose one for individual columns. If you choose a mix, the file-level option
@@ -407,12 +414,18 @@ Encodings
 +--------------------------+----------+----------+---------+
 | DELTA_LENGTH_BYTE_ARRAY  | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
+| ALP                      | ✓        | ✓        | \(3)    |
++--------------------------+----------+----------+---------+
 
 * \(1) Only supported for encoding definition and repetition levels,
   and boolean values.
 
 * \(2) On the write path, RLE_DICTIONARY is only enabled if Parquet format version
   2.4 or greater is selected in :func:`WriterProperties::version`.
+
+* \(3) Only supported for FLOAT and DOUBLE values. ALP is a Preview feature in the
+  Parquet format, so other readers may not support it. It is never selected
+  automatically: a column uses ALP only where ``encoding()`` names it.
 
 Types
 -----

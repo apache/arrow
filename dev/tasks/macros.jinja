@@ -175,7 +175,7 @@ env:
         # Make sure there's only one
         sed -i '' -E -e 's@.git.git@.git@' ${formula}
         cat ${formula}
-        cp ${formula} $(brew --repository homebrew/core)/Formula/
+        cp ${formula} $(brew --repository homebrew/core)/Formula/a/
       done
 {% endmacro %}
 

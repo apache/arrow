@@ -244,6 +244,8 @@ reference:
     Functionality for computing values on Arrow data objects.
   contents:
   - acero
+  - add_filename
+  - cast
   - arrow-functions
   - arrow-verbs
   - arrow-dplyr

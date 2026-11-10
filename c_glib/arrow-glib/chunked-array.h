@@ -65,6 +65,10 @@ GARROW_AVAILABLE_IN_ALL
 GArrowArray *
 garrow_chunked_array_get_chunk(GArrowChunkedArray *chunked_array, guint i);
 
+GARROW_AVAILABLE_IN_27_0
+GArrowArray *
+garrow_chunked_array_peek_chunk(GArrowChunkedArray *chunked_array, guint i);
+
 GARROW_AVAILABLE_IN_ALL
 GList *
 garrow_chunked_array_get_chunks(GArrowChunkedArray *chunked_array);

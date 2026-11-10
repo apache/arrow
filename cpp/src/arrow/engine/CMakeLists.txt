@@ -74,7 +74,7 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_substrait_static PUBLIC ARROW_ENGINE_STATIC)
 endif()
 
-set(ARROW_SUBSTRAIT_TEST_LINK_LIBS ${ARROW_SUBSTRAIT_LINK_lIBS} ${ARROW_TEST_LINK_LIBS})
+set(ARROW_SUBSTRAIT_TEST_LINK_LIBS ${ARROW_TEST_LINK_LIBS})
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   list(APPEND ARROW_SUBSTRAIT_TEST_LINK_LIBS arrow_substrait_static)
 else()
@@ -90,7 +90,7 @@ add_arrow_test(substrait_test
                substrait/test_util.cc
                EXTRA_LINK_LIBS
                ${ARROW_SUBSTRAIT_TEST_LINK_LIBS}
-               arrow_compute_testing
+               arrow_compute_testing_main
                PREFIX
                "arrow-substrait"
                LABELS

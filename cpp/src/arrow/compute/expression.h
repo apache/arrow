@@ -115,8 +115,12 @@ class ARROW_EXPORT Expression {
 
   /// The type to which this expression will evaluate
   const DataType* type() const;
-  // XXX someday
-  // NullGeneralization::type nullable() const;
+
+  /// Whether this expression could evaluate to null.
+  /// Returns false only if the bound input guarantees a non-null result.
+  /// Currently, only bound top-level field references have inferred nullability.
+  /// Returns true for other expressions, including unbound expressions.
+  bool nullable() const;
 
   struct Parameter {
     FieldRef ref;
@@ -124,6 +128,7 @@ class ARROW_EXPORT Expression {
     // post-bind properties
     TypeHolder type;
     ::arrow::internal::SmallVector<int, 2> indices;
+    bool nullable = true;
   };
   const Parameter* parameter() const;
 

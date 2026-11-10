@@ -87,6 +87,45 @@ TEST_F(TestWinsorize, FloatingPoint) {
   }
 }
 
+TEST_F(TestWinsorize, SlicedInput) {
+  options_.lower_limit = 0.0;
+  options_.upper_limit = 1.0;
+  auto parent = ArrayFromJSON(float64(), "[1.1, 2.2, null, 4.4, null, 6.6, 7.7, 8.8]");
+  auto expected = ArrayFromJSON(float64(), "[null, 4.4, null, 6.6, 7.7]");
+  CheckWinsorize(parent->Slice(2, 5), expected);
+
+  options_.lower_limit = 0.25;
+  options_.upper_limit = 0.75;
+  auto dense = ArrayFromJSON(float64(), "[1.0, 2.0, 3.0, 44.0, 55.0, 66.0, 77.0]");
+  CheckWinsorize(dense->Slice(1, 5),
+                 ArrayFromJSON(float64(), "[3.0, 3.0, 44.0, 55.0, 55.0]"));
+}
+
+TEST_F(TestWinsorize, SlicedChunkedInput) {
+  options_.lower_limit = 0.0;
+  options_.upper_limit = 1.0;
+  auto parent = ArrayFromJSON(float64(), "[1.1, 2.2, null, 4.4, null, 6.6, 7.7, 8.8]");
+  auto chunked = std::make_shared<ChunkedArray>(
+      ArrayVector{parent->Slice(2, 3), parent->Slice(5, 3)});
+  auto expected = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(float64(), "[null, 4.4, null]"),
+      ArrayFromJSON(float64(), "[6.6, 7.7, 8.8]"),
+  });
+  CheckWinsorize(chunked, expected);
+}
+
+TEST_F(TestWinsorize, SlicedInputWithoutQuantiles) {
+  for (const auto* json_input :
+       {"[1, 2, null, null, null, 3]", "[1, 2, NaN, null, NaN, 3]",
+        "[1, 2, NaN, NaN, NaN, 3]"}) {
+    auto parent = ArrayFromJSON(float64(), json_input);
+    auto sliced = parent->Slice(2, 3);
+    CheckWinsorize(sliced, sliced);
+    auto chunked = std::make_shared<ChunkedArray>(ArrayVector{sliced});
+    CheckWinsorize(chunked, chunked);
+  }
+}
+
 TEST_F(TestWinsorize, Integral) {
   for (auto type : IntTypes()) {
     options_.lower_limit = 0.25;

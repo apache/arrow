@@ -21,6 +21,7 @@ install_headers(
         'azurefs.h',
         'filesystem.h',
         'filesystem_library.h',
+        'gcs_visibility.h',
         'gcsfs.h',
         'hdfs.h',
         'localfs.h',
