@@ -2732,7 +2732,8 @@ TEST(TestArrowReadWrite, GetRecordBatchReaderNoColumns) {
 // releasable, else Dataset.to_batches accumulates memory over the reader's life.
 TEST(TestArrowReadWrite, EvictPreBufferedDataBefore) {
   ArrowReaderProperties properties = default_arrow_reader_properties();
-  properties.set_pre_buffer(true);
+  // Control pre-buffering explicitly so row-group reads preserve the cache.
+  properties.set_pre_buffer(false);
   const int num_rows = 1024;
   const int row_group_size = 256;
   const int num_columns = 3;
@@ -2752,27 +2753,29 @@ TEST(TestArrowReadWrite, EvictPreBufferedDataBefore) {
   ASSERT_OK(builder.properties(properties)->Build(&reader));
   ASSERT_EQ(reader->num_row_groups(), static_cast<int>(row_groups.size()));
 
+  auto options = ::arrow::io::CacheOptions::LazyDefaults();
+  options.hole_size_limit = 0;
+  options.range_size_limit = 1;
   reader->parquet_reader()->PreBuffer(row_groups, column_indices,
-                                      ::arrow::io::IOContext(),
-                                      ::arrow::io::CacheOptions::LazyDefaults());
+                                      ::arrow::io::IOContext(), options);
   ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
 
   std::shared_ptr<Table> rg_table;
   ASSERT_OK(reader->ReadRowGroup(/*i=*/0, column_indices, &rg_table));
-  ASSERT_EQ(rg_table->num_rows(), row_group_size);
+  AssertTablesEqual(*table->Slice(0, row_group_size), *rg_table,
+                    /*same_chunk_layout=*/false);
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
 
-  // The lowest byte offset row group 1 needs: evicting before it frees row
-  // group 0's (separately coalesced) entries while leaving row group 1 intact.
-  ASSERT_OK_AND_ASSIGN(auto rg1_ranges,
-                       reader->parquet_reader()->GetReadRanges({1}, column_indices));
-  int64_t rg1_min = std::numeric_limits<int64_t>::max();
-  for (const auto& r : rg1_ranges) rg1_min = std::min(rg1_min, r.offset);
+  const int64_t rg1_min =
+      reader->parquet_reader()->metadata()->RowGroup(1)->file_offset();
 
   reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min);
   ASSERT_RAISES(Invalid,
                 reader->parquet_reader()->WhenBuffered({0}, column_indices).status());
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered({1, 2, 3}, column_indices).status());
   ASSERT_OK(reader->ReadRowGroup(/*i=*/1, column_indices, &rg_table));
-  ASSERT_EQ(rg_table->num_rows(), row_group_size);
+  AssertTablesEqual(*table->Slice(row_group_size, row_group_size), *rg_table,
+                    /*same_chunk_layout=*/false);
 
   reader->parquet_reader()->EvictPreBufferedDataBefore(
       std::numeric_limits<int64_t>::max());
@@ -2780,7 +2783,8 @@ TEST(TestArrowReadWrite, EvictPreBufferedDataBefore) {
                 reader->parquet_reader()->WhenBuffered({1}, column_indices).status());
   std::shared_ptr<ChunkedArray> reread_column;
   ASSERT_OK(reader->RowGroup(1)->Column(0)->Read(&reread_column));
-  ASSERT_EQ(reread_column->length(), row_group_size);
+  ::arrow::AssertChunkedEquivalent(
+      *table->column(0)->Slice(row_group_size, row_group_size), *reread_column);
 
   // Re-evicting the same window frees nothing more.
   reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min);
@@ -2841,16 +2845,9 @@ TEST(TestArrowReadWrite, EvictPreBufferedDataBeforeReleasesCrossRowGroupEntry) {
       reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
 }
 
-// GH-39808: when Dataset.to_batches-style iteration drives the async
-// RecordBatchGenerator, each row group's pre-buffered bytes should be
-// released as soon as the row group has been converted into record batches,
-// so the overall memory footprint is independent of how many row groups the
-// file contains.
 TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
   ArrowReaderProperties properties = default_arrow_reader_properties();
   properties.set_pre_buffer(true);
-  // Read one row group at a time so the test deterministically exercises the
-  // per-row-group eviction path.
   properties.set_batch_size(256);
 
   const int num_rows = 1024;
@@ -2887,6 +2884,11 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
   ASSERT_OK(retaining_reader->parquet_reader()->WhenBuffered({0}, {0}).status());
 
   properties.set_auto_evict_read_cache(true);
+  properties.set_batch_size(row_group_size / 2);
+  auto options = ::arrow::io::CacheOptions::Defaults();
+  options.hole_size_limit = 0;
+  options.range_size_limit = 1;
+  properties.set_cache_options(options);
 
   std::shared_ptr<FileReader> reader;
   {
@@ -2898,18 +2900,31 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
   }
   ASSERT_EQ(reader->num_row_groups(), num_rows / row_group_size);
 
-  // Drive the generator exactly as ScanBatchesAsync does.
   ASSERT_OK_AND_ASSIGN(
       auto batch_generator,
       reader->GetRecordBatchGenerator(reader, {0, 1, 2, 3}, {0, 1},
                                       /*cpu_executor=*/nullptr,
                                       /*rows_to_readahead=*/2 * row_group_size));
   std::vector<std::shared_ptr<::arrow::RecordBatch>> batches;
-  for (int i = 0; i < reader->num_row_groups(); ++i) {
+  for (int i = 0; i < 2 * reader->num_row_groups(); ++i) {
     auto fut = batch_generator();
     ASSERT_OK_AND_ASSIGN(auto batch, fut.result());
     ASSERT_NE(batch, nullptr);
+    ASSERT_EQ(batch->num_rows(), row_group_size / 2);
     batches.push_back(std::move(batch));
+    // Inspect before the queued batch can advance to the next row group.
+    if (i % 2 == 0) {
+      for (int row_group = 0; row_group <= i / 2; ++row_group) {
+        for (int column : {0, 1}) {
+          ASSERT_RAISES(
+              Invalid,
+              reader->parquet_reader()->WhenBuffered({row_group}, {column}).status());
+        }
+      }
+      for (int row_group = i / 2 + 1; row_group < reader->num_row_groups(); ++row_group) {
+        ASSERT_OK(reader->parquet_reader()->WhenBuffered({row_group}, {0, 1}).status());
+      }
+    }
   }
   // Generator is drained.
   auto fut_end = batch_generator();
@@ -2919,8 +2934,6 @@ TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
   ASSERT_OK_AND_ASSIGN(auto actual,
                        ::arrow::Table::FromRecordBatches(batches[0]->schema(), batches));
   AssertTablesEqual(*table, *actual, /*same_chunk_layout=*/false);
-  ASSERT_RAISES(Invalid,
-                reader->parquet_reader()->WhenBuffered({0, 1, 2, 3}, {0, 1}).status());
 }
 
 TEST(TestArrowReadWrite, GetRecordBatchGenerator) {

@@ -1218,7 +1218,10 @@ class RowGroupGenerator {
         evict_before_offsets_(std::move(evict_before_offsets)),
         rows_in_flight_(0),
         index_(0),
-        readahead_index_(0) {}
+        readahead_index_(0) {
+    DCHECK(evict_before_offsets_.empty() ||
+           evict_before_offsets_.size() == row_groups_.size() + 1);
+  }
 
   ::arrow::Future<RecordBatchGenerator> operator()() {
     if (index_ >= row_groups_.size()) {

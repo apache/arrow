@@ -23,6 +23,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <random>
 #include <string>
@@ -773,31 +774,37 @@ TEST(RangeReadCache, Basics) {
     ASSERT_OK(cache.Cache({{10, 4}, {14, 0}, {15, 4}}));
 
     ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({20, 2}));
-    AssertBufferEqual(*buf, "uv");
+    ASSERT_TRUE(buf);
+    AssertBufferEqual(**buf, "uv");
     ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 2}));
-    AssertBufferEqual(*buf, "bc");
+    ASSERT_TRUE(buf);
+    AssertBufferEqual(**buf, "bc");
     ASSERT_OK_AND_ASSIGN(buf, cache.Read({3, 2}));
-    AssertBufferEqual(*buf, "de");
+    ASSERT_TRUE(buf);
+    AssertBufferEqual(**buf, "de");
     ASSERT_OK_AND_ASSIGN(buf, cache.Read({8, 2}));
-    AssertBufferEqual(*buf, "ij");
+    ASSERT_TRUE(buf);
+    AssertBufferEqual(**buf, "ij");
     ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));
-    AssertBufferEqual(*buf, "klmn");
+    ASSERT_TRUE(buf);
+    AssertBufferEqual(**buf, "klmn");
     ASSERT_OK_AND_ASSIGN(buf, cache.Read({15, 4}));
-    AssertBufferEqual(*buf, "pqrs");
+    ASSERT_TRUE(buf);
+    AssertBufferEqual(**buf, "pqrs");
     ASSERT_FINISHES_OK(cache.WaitFor({{15, 1}, {16, 3}, {25, 0}, {1, 2}}));
     // Zero-sized
     ASSERT_OK_AND_ASSIGN(buf, cache.Read({14, 0}));
-    AssertBufferEqual(*buf, "");
+    ASSERT_TRUE(buf);
+    AssertBufferEqual(**buf, "");
     ASSERT_OK_AND_ASSIGN(buf, cache.Read({25, 0}));
-    AssertBufferEqual(*buf, "");
+    ASSERT_TRUE(buf);
+    AssertBufferEqual(**buf, "");
 
     // Non-cached ranges
-    ASSERT_RAISES(Invalid, cache.Read({20, 3}));
-    ASSERT_RAISES(Invalid, cache.Read({19, 3}));
-    ASSERT_RAISES(Invalid, cache.Read({0, 3}));
-    ASSERT_RAISES(Invalid, cache.Read({25, 2}));
-    ASSERT_OK_AND_ASSIGN(auto missing, cache.ReadIfCached({25, 2}));
-    ASSERT_FALSE(missing);
+    ASSERT_OK_AND_EQ(std::nullopt, cache.Read({20, 3}));
+    ASSERT_OK_AND_EQ(std::nullopt, cache.Read({19, 3}));
+    ASSERT_OK_AND_EQ(std::nullopt, cache.Read({0, 3}));
+    ASSERT_OK_AND_EQ(std::nullopt, cache.Read({25, 2}));
     ASSERT_FINISHES_AND_RAISES(Invalid, cache.WaitFor({{25, 2}}));
     ASSERT_FINISHES_AND_RAISES(Invalid, cache.WaitFor({{1, 2}, {25, 2}}));
 
@@ -807,12 +814,15 @@ TEST(RangeReadCache, Basics) {
   }
 }
 
-TEST(RangeReadCache, ReadIfCachedPropagatesErrors) {
+TEST(RangeReadCache, ReadPropagatesErrors) {
   auto file = std::make_shared<InvalidReadBufferReader>(Buffer::FromString("data"));
-  internal::ReadRangeCache cache(file, {}, CacheOptions::Defaults());
-
-  ASSERT_OK(cache.Cache({{0, 4}}));
-  ASSERT_RAISES(Invalid, cache.ReadIfCached({0, 4}));
+  for (bool lazy : {false, true}) {
+    auto options = CacheOptions::Defaults();
+    options.lazy = lazy;
+    internal::ReadRangeCache cache(file, {}, options);
+    ASSERT_OK(cache.Cache({{0, 4}}));
+    ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: read failed", cache.Read({0, 4}));
+  }
 }
 
 TEST(RangeReadCache, Concurrency) {
@@ -832,21 +842,24 @@ TEST(RangeReadCache, Concurrency) {
     {
       internal::ReadRangeCache cache(file, {}, options);
       ASSERT_OK(cache.Cache(ranges));
-      std::vector<Future<std::shared_ptr<Buffer>>> futures;
+      std::vector<Future<std::optional<std::shared_ptr<Buffer>>>> futures;
       for (const auto& range : ranges) {
         futures.push_back(
             cache.WaitFor({range}).Then([&cache, range]() { return cache.Read(range); }));
       }
       for (auto fut : futures) {
-        ASSERT_FINISHES_OK(fut);
+        ASSERT_OK_AND_ASSIGN(auto buffer, fut.result());
+        ASSERT_TRUE(buffer);
       }
     }
     {
       internal::ReadRangeCache cache(file, {}, options);
       ASSERT_OK(cache.Cache(ranges));
       ASSERT_OK(arrow::internal::ParallelFor(
-          static_cast<int>(ranges.size()),
-          [&](int index) { return cache.Read(ranges[index]).status(); }));
+          static_cast<int>(ranges.size()), [&](int index) -> Status {
+            ARROW_ASSIGN_OR_RAISE(auto buffer, cache.Read(ranges[index]));
+            return buffer ? Status::OK() : Status::Invalid("Expected cached range");
+          }));
     }
   }
 }
@@ -867,28 +880,32 @@ TEST(RangeReadCache, Lazy) {
   ASSERT_EQ(0, file->read_count());
 
   ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({20, 2}));
-  AssertBufferEqual(*buf, "uv");
+  ASSERT_TRUE(buf);
+  AssertBufferEqual(**buf, "uv");
   ASSERT_EQ(1, file->read_count());
 
   ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 4}));
-  AssertBufferEqual(*buf, "bcde");
+  ASSERT_TRUE(buf);
+  AssertBufferEqual(**buf, "bcde");
   ASSERT_EQ(2, file->read_count());
 
   // Requested ranges are still cached
   ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 4}));
+  ASSERT_TRUE(buf);
   ASSERT_EQ(2, file->read_count());
 
   // Non-cached ranges
-  ASSERT_RAISES(Invalid, cache.Read({20, 3}));
-  ASSERT_RAISES(Invalid, cache.Read({19, 3}));
-  ASSERT_RAISES(Invalid, cache.Read({0, 3}));
-  ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+  ASSERT_OK_AND_EQ(std::nullopt, cache.Read({20, 3}));
+  ASSERT_OK_AND_EQ(std::nullopt, cache.Read({19, 3}));
+  ASSERT_OK_AND_EQ(std::nullopt, cache.Read({0, 3}));
+  ASSERT_OK_AND_EQ(std::nullopt, cache.Read({25, 2}));
 
   // Can asynchronously kick off a read (though BufferReader::ReadAsync is synchronous so
   // it will increment the read count here)
   ASSERT_FINISHES_OK(cache.WaitFor({{10, 2}, {15, 4}}));
   ASSERT_EQ(3, file->read_count());
   ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 2}));
+  ASSERT_TRUE(buf);
   ASSERT_EQ(3, file->read_count());
 }
 
@@ -908,36 +925,41 @@ TEST(RangeReadCache, LazyWithPrefetching) {
   ASSERT_EQ(0, file->read_count());
 
   ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({8, 2}));
-  AssertBufferEqual(*buf, "ij");
+  ASSERT_TRUE(buf);
+  AssertBufferEqual(**buf, "ij");
   // Read {8, 2} and prefetch {20, 2}
   ASSERT_EQ(2, file->read_count());
 
   ASSERT_OK_AND_ASSIGN(buf, cache.Read({20, 2}));
-  AssertBufferEqual(*buf, "uv");
+  ASSERT_TRUE(buf);
+  AssertBufferEqual(**buf, "uv");
   // Read count remains 2 as the range {20, 2} has already been prefetched
   ASSERT_EQ(2, file->read_count());
 
   ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 1}));
-  AssertBufferEqual(*buf, "b");
+  ASSERT_TRUE(buf);
+  AssertBufferEqual(**buf, "b");
   // Read {1, 3} and prefetch {5, 2}
   ASSERT_EQ(4, file->read_count());
 
   ASSERT_OK_AND_ASSIGN(buf, cache.Read({3, 1}));
-  AssertBufferEqual(*buf, "d");
+  ASSERT_TRUE(buf);
+  AssertBufferEqual(**buf, "d");
   // Already prefetched
   ASSERT_EQ(4, file->read_count());
 
   // Requested ranges are still cached
   ASSERT_OK_AND_ASSIGN(buf, cache.Read({5, 1}));
-  AssertBufferEqual(*buf, "f");
+  ASSERT_TRUE(buf);
+  AssertBufferEqual(**buf, "f");
   // Already prefetched
   ASSERT_EQ(4, file->read_count());
 
   // Non-cached ranges
-  ASSERT_RAISES(Invalid, cache.Read({20, 3}));
-  ASSERT_RAISES(Invalid, cache.Read({19, 3}));
-  ASSERT_RAISES(Invalid, cache.Read({0, 3}));
-  ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+  ASSERT_OK_AND_EQ(std::nullopt, cache.Read({20, 3}));
+  ASSERT_OK_AND_EQ(std::nullopt, cache.Read({19, 3}));
+  ASSERT_OK_AND_EQ(std::nullopt, cache.Read({0, 3}));
+  ASSERT_OK_AND_EQ(std::nullopt, cache.Read({25, 2}));
 }
 
 TEST(RangeReadCache, EvictEntriesBefore) {
@@ -958,34 +980,89 @@ TEST(RangeReadCache, EvictEntriesBefore) {
     // Entries: [1,3), [10,14), [20,22).
     ASSERT_OK(cache.Cache({{1, 2}, {10, 4}, {20, 2}}));
     ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({10, 4}));
-    AssertBufferEqual(*buf, "klmn");
+    ASSERT_TRUE(buf);
+    AssertBufferEqual(**buf, "klmn");
 
     // An offset that splits no entry frees nothing.
     cache.EvictEntriesBefore(0);
     cache.EvictEntriesBefore(2);  // [1,3) extends past 2 -> retained
-    ASSERT_OK(cache.Read({1, 2}));
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 2}));
+    ASSERT_TRUE(buf);
 
     // end_offset == an entry's end frees exactly that entry ([1,3) ends at 3).
     cache.EvictEntriesBefore(3);
-    ASSERT_RAISES(Invalid, cache.Read({1, 2}));
+    ASSERT_OK_AND_EQ(std::nullopt, cache.Read({1, 2}));
     ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));  // others intact
-    AssertBufferEqual(*buf, "klmn");
+    ASSERT_TRUE(buf);
+    AssertBufferEqual(**buf, "klmn");
 
     // An offset inside an entry leaves it in place.
     cache.EvictEntriesBefore(12);  // [10,14) straddles 12
-    ASSERT_OK(cache.Read({10, 4}));
+    ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 4}));
+    ASSERT_TRUE(buf);
 
     // A wide offset frees every remaining entry in one call.
     cache.EvictEntriesBefore(100);
-    ASSERT_RAISES(Invalid, cache.Read({10, 4}));
-    ASSERT_RAISES(Invalid, cache.Read({20, 2}));
+    ASSERT_OK_AND_EQ(std::nullopt, cache.Read({10, 4}));
+    ASSERT_OK_AND_EQ(std::nullopt, cache.Read({20, 2}));
+    AssertBufferEqual(**buf, "klmn");
 
     // Empty cache is a safe no-op.
     cache.EvictEntriesBefore(100);
   }
 }
 
+TEST(RangeReadCache, EvictAndRecache) {
+  for (bool lazy : {false, true}) {
+    SCOPED_TRACE(lazy);
+    auto options = CacheOptions::Defaults();
+    options.hole_size_limit = 0;
+    options.range_size_limit = 1;
+    options.lazy = lazy;
+    options.prefetch_limit = 1;
+    auto file = std::make_shared<CountingBufferReader>(
+        Buffer::FromString("abcdefghijklmnopqrstuvwxyz"));
+    internal::ReadRangeCache cache(file, {}, options);
+    ASSERT_OK(cache.Cache({{1, 2}, {10, 2}, {20, 2}}));
+
+    cache.EvictEntriesBefore(3);
+    ASSERT_FINISHES_OK(cache.Wait());
+    const int64_t expected_reads = lazy ? 2 : 3;
+    ASSERT_EQ(file->read_count(), expected_reads);
+    ASSERT_OK_AND_EQ(std::nullopt, cache.Read({1, 2}));
+    ASSERT_FINISHES_AND_RAISES(Invalid, cache.WaitFor({{1, 2}}));
+
+    ASSERT_OK(cache.Cache({{1, 2}}));
+    ASSERT_FINISHES_OK(cache.WaitFor({{1, 2}}));
+    ASSERT_OK_AND_ASSIGN(auto buffer, cache.Read({1, 2}));
+    ASSERT_TRUE(buffer);
+    AssertBufferEqual(**buffer, "bc");
+    ASSERT_EQ(file->read_count(), expected_reads + 1);
+
+    cache.EvictEntriesBefore(12);
+    ASSERT_FINISHES_OK(cache.Wait());
+    ASSERT_OK_AND_EQ(std::nullopt, cache.Read({1, 2}));
+    ASSERT_OK_AND_EQ(std::nullopt, cache.Read({10, 2}));
+    ASSERT_OK_AND_ASSIGN(buffer, cache.Read({20, 2}));
+    ASSERT_TRUE(buffer);
+    AssertBufferEqual(**buffer, "uv");
+    ASSERT_EQ(file->read_count(), expected_reads + 1);
+
+    cache.EvictEntriesBefore(100);
+    ASSERT_FINISHES_OK(cache.Wait());
+    ASSERT_OK(cache.Cache({{5, 2}}));
+    ASSERT_FINISHES_OK(cache.Wait());
+    ASSERT_OK_AND_ASSIGN(buffer, cache.Read({5, 2}));
+    ASSERT_TRUE(buffer);
+    AssertBufferEqual(**buffer, "fg");
+    ASSERT_EQ(file->read_count(), expected_reads + 2);
+  }
+}
+
 TEST(RangeReadCache, ConcurrentReadAndEvict) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   // GH-39808: the Parquet dataset scanner calls EvictEntriesBefore from the
   // thread-pool continuation that runs after a row group is decoded, while
   // other threads may still be calling Read() for column chunks of other
@@ -1026,7 +1103,7 @@ TEST(RangeReadCache, ConcurrentReadAndEvict) {
       while (!stop.load(std::memory_order_relaxed)) {
         for (int i = kNumRanges / 2; i < kNumRanges; ++i) {
           auto result = cache.Read(ranges[i]);
-          if (!result.ok() || (*result)->size() != kRangeSize) {
+          if (!result.ok() || !*result || (**result)->size() != kRangeSize) {
             failures.fetch_add(1, std::memory_order_relaxed);
           }
         }
@@ -1057,7 +1134,8 @@ TEST(RangeReadCache, ConcurrentReadAndEvict) {
     // Every upper-half range is still readable after the torture loop.
     for (int i = kNumRanges / 2; i < kNumRanges; ++i) {
       ASSERT_OK_AND_ASSIGN(auto buf, cache.Read(ranges[i]));
-      ASSERT_EQ(kRangeSize, buf->size());
+      ASSERT_TRUE(buf);
+      ASSERT_EQ(kRangeSize, (*buf)->size());
     }
   }
 }
@@ -1081,12 +1159,13 @@ TEST(RangeReadCache, EvictEntriesBeforeSpanningEntry) {
   cache.EvictEntriesBefore(4);
   cache.EvictEntriesBefore(13);
   ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({10, 4}));
-  ASSERT_EQ(4, buf->size());
+  ASSERT_TRUE(buf);
+  ASSERT_EQ(4, (*buf)->size());
 
   // end_offset at/after the entry's end (14) frees it.
   cache.EvictEntriesBefore(14);
-  ASSERT_RAISES(Invalid, cache.Read({1, 3}));
-  ASSERT_RAISES(Invalid, cache.Read({10, 4}));
+  ASSERT_OK_AND_EQ(std::nullopt, cache.Read({1, 3}));
+  ASSERT_OK_AND_EQ(std::nullopt, cache.Read({10, 4}));
 }
 
 TEST(CacheOptions, Basics) {

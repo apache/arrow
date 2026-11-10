@@ -248,7 +248,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         ::arrow::bit_util::GetBit(prebuffered_column_chunks_bitmap_->data(), i)) {
       // PARQUET-1698: if read coalescing is enabled, read from pre-buffered
       // segments.
-      PARQUET_ASSIGN_OR_THROW(auto buffer, cached_source_->ReadIfCached(col_range));
+      PARQUET_ASSIGN_OR_THROW(auto buffer, cached_source_->Read(col_range));
       if (buffer) {
         stream = std::make_shared<::arrow::io::BufferReader>(*std::move(buffer));
       }
@@ -626,7 +626,8 @@ class SerializedFile : public ParquetFileReader::Contents {
   ReaderProperties properties_;
   std::shared_ptr<PageIndexReader> page_index_reader_;
   std::unique_ptr<BloomFilterReader> bloom_filter_reader_;
-
+  // Maps row group ordinal and prebuffer status of its column chunks in the form of a
+  // bitmap buffer.
   std::unordered_map<int, std::shared_ptr<Buffer>> prebuffered_column_chunks_;
 
   // \return The true length of the metadata in bytes

@@ -32,8 +32,10 @@
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
 #include "arrow/io/util_internal.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/executor_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -373,6 +375,82 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4),
                               fragment->CountRows(predicate, options));
   }
+}
+
+TEST_F(TestParquetFileFormat, ScanBatchesAsyncReleasesPreBufferedRowGroups) {
+  class CopyingBufferReader : public io::BufferReader {
+   public:
+    using io::BufferReader::BufferReader;
+
+    Future<std::shared_ptr<Buffer>> ReadAsync(const io::IOContext& ctx, int64_t position,
+                                              int64_t nbytes,
+                                              bool allow_short_read) override {
+      return io::BufferReader::ReadAsync(ctx, position, nbytes, allow_short_read)
+          .Then([pool = ctx.pool()](const std::shared_ptr<Buffer>& buffer) {
+            return buffer->CopySlice(0, buffer->size(), pool);
+          });
+    }
+  };
+
+  SetSchema({field("i32", int32())});
+  SetFilter(literal(true));
+  auto expected = RecordBatchFromJSON(opts_->dataset_schema,
+                                      "[[0], [1], [2], [3], [4], [5], [6], [7], "
+                                      "[8], [9], [10], [11], [12], [13], [14], [15]]");
+  constexpr int kNumRowGroups = 4;
+  constexpr int kRowGroupSize = 4;
+  RecordBatchVector row_groups;
+  for (int i = 0; i < kNumRowGroups; ++i) {
+    row_groups.push_back(expected->Slice(i * kRowGroupSize, kRowGroupSize));
+  }
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(std::move(row_groups)));
+  ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
+
+  // Copy source reads into a separate pool to track only cached compressed bytes.
+  ProxyMemoryPool read_pool(default_memory_pool());
+  MockExecutor executor;
+  auto input = std::make_shared<CopyingBufferReader>(buffer);
+  auto fragment = MakeFragment(FileSource(input, buffer->size()));
+  ASSERT_OK(
+      checked_pointer_cast<ParquetFileFragment>(fragment)->EnsureCompleteMetadata());
+
+  auto scan_options = std::make_shared<ParquetFragmentScanOptions>();
+  scan_options->arrow_reader_properties->set_pre_buffer(true);
+  scan_options->arrow_reader_properties->set_io_context(io::IOContext(&read_pool));
+  auto cache_options = io::CacheOptions::Defaults();
+  cache_options.hole_size_limit = 0;
+  cache_options.range_size_limit = 1;
+  scan_options->arrow_reader_properties->set_cache_options(cache_options);
+  opts_->fragment_scan_options = scan_options;
+  opts_->batch_size = kRowGroupSize / 2;
+  opts_->batch_readahead = 0;
+  opts_->use_threads = false;
+  opts_->cpu_executor = &executor;
+
+  ASSERT_OK_AND_ASSIGN(auto generator, fragment->ScanBatchesAsync(opts_));
+  int64_t cached_bytes = read_pool.bytes_allocated();
+  ASSERT_GT(cached_bytes, 0);
+  for (int i = 0; i < kNumRowGroups * 2; ++i) {
+    auto next = generator();
+    ASSERT_OK_AND_ASSIGN(auto batch, next.result());
+    ASSERT_NE(batch, nullptr);
+    AssertBatchesEqual(*expected->Slice(i * opts_->batch_size, opts_->batch_size),
+                       *batch);
+    // The concatenating generator's queued batch stays within this row group.
+    if (i % 2 == 0) {
+      const int64_t remaining_bytes = read_pool.bytes_allocated();
+      ASSERT_LT(remaining_bytes, cached_bytes);
+      if (i / 2 + 1 < kNumRowGroups) {
+        ASSERT_GT(remaining_bytes, 0);
+      } else {
+        ASSERT_EQ(remaining_bytes, 0);
+      }
+      cached_bytes = remaining_bytes;
+    }
+  }
+  auto end = generator();
+  ASSERT_OK_AND_ASSIGN(auto batch, end.result());
+  ASSERT_EQ(batch, nullptr);
 }
 
 TEST_F(TestParquetFileFormat, CachedMetadata) {

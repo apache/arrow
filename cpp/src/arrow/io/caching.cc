@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
-#include <deque>
 #include <iterator>
 #include <mutex>
 #include <optional>
@@ -154,7 +153,8 @@ struct ReadRangeCache::Impl {
   IOContext ctx;
   CacheOptions options;
 
-  std::deque<RangeCacheEntry> entries;  // GUARDED_BY(entry_mutex)
+  std::vector<RangeCacheEntry> entries;  // GUARDED_BY(entry_mutex)
+  size_t first_live = 0;                 // GUARDED_BY(entry_mutex)
   std::mutex entry_mutex;
 
   virtual ~Impl() = default;
@@ -185,16 +185,20 @@ struct ReadRangeCache::Impl {
     Status st;
     {
       std::unique_lock<std::mutex> guard(entry_mutex);
-      std::deque<RangeCacheEntry> merged;
-      std::merge(std::make_move_iterator(entries.begin()),
-                 std::make_move_iterator(entries.end()),
-                 std::make_move_iterator(new_entries.begin()),
-                 std::make_move_iterator(new_entries.end()), std::back_inserter(merged));
-      entries.swap(merged);
+      if (first_live == entries.size()) {
+        entries = std::move(new_entries);
+      } else {
+        std::vector<RangeCacheEntry> merged(entries.size() - first_live +
+                                            new_entries.size());
+        std::merge(std::make_move_iterator(entries.begin() + first_live),
+                   std::make_move_iterator(entries.end()),
+                   std::make_move_iterator(new_entries.begin()),
+                   std::make_move_iterator(new_entries.end()), merged.begin());
+        entries = std::move(merged);
+      }
+      first_live = 0;
     }
-    // Prefetch immediately, regardless of executor availability, if possible.
-    // Do this outside the lock: WillNeed() may block on an mmap advise / I/O
-    // hint and we don't want to serialize concurrent Reads on it.
+    // Prefetch immediately, regardless of executor availability, if possible
     st = file->WillNeed(ranges);
     // As this is optimisation only, I/O failures should not be treated as fatal
     if (st.IsIOError()) {
@@ -205,7 +209,7 @@ struct ReadRangeCache::Impl {
 
   // Read the given range from the cache, blocking if needed. Cannot read a
   // range that spans cache entries.
-  Result<std::optional<std::shared_ptr<Buffer>>> ReadIfCached(ReadRange range) {
+  Result<std::optional<std::shared_ptr<Buffer>>> Read(ReadRange range) {
     if (range.length == 0) {
       static const uint8_t byte = 0;
       return std::make_optional(std::make_shared<Buffer>(&byte, 0));
@@ -216,7 +220,7 @@ struct ReadRangeCache::Impl {
     {
       std::unique_lock<std::mutex> guard(entry_mutex);
       const auto it = std::lower_bound(
-          entries.begin(), entries.end(), range,
+          entries.begin() + first_live, entries.end(), range,
           [](const RangeCacheEntry& entry, const ReadRange& range) {
             return entry.range.offset + entry.range.length < range.offset + range.length;
           });
@@ -245,21 +249,13 @@ struct ReadRangeCache::Impl {
     return std::make_optional(SliceBuffer(std::move(buf), slice_offset, range.length));
   }
 
-  Result<std::shared_ptr<Buffer>> Read(ReadRange range) {
-    ARROW_ASSIGN_OR_RAISE(auto buffer, ReadIfCached(range));
-    if (!buffer) {
-      return Status::Invalid("ReadRangeCache did not find matching cache entry");
-    }
-    return std::move(*buffer);
-  }
-
   Future<> Wait() {
     std::vector<Future<>> futures;
     {
       std::unique_lock<std::mutex> guard(entry_mutex);
-      futures.reserve(entries.size());
-      for (auto& entry : entries) {
-        futures.emplace_back(MaybeRead(&entry));
+      futures.reserve(entries.size() - first_live);
+      for (auto it = entries.begin() + first_live; it != entries.end(); ++it) {
+        futures.emplace_back(MaybeRead(&*it));
       }
     }
     return AllComplete(futures);
@@ -269,11 +265,14 @@ struct ReadRangeCache::Impl {
   // before `end_offset` form a prefix. Keep a straddling entry.
   void EvictEntriesBefore(int64_t end_offset) {
     std::unique_lock<std::mutex> guard(entry_mutex);
-    const auto first_kept = std::find_if(
-        entries.cbegin(), entries.cend(), [end_offset](const RangeCacheEntry& entry) {
-          return entry.range.offset + entry.range.length > end_offset;
-        });
-    entries.erase(entries.cbegin(), first_kept);
+    while (first_live < entries.size()) {
+      auto& entry = entries[first_live];
+      if (entry.range.offset + entry.range.length > end_offset) {
+        break;
+      }
+      entry.future = {};
+      ++first_live;
+    }
   }
 
   // Return a Future that completes when the given ranges have been read.
@@ -287,7 +286,7 @@ struct ReadRangeCache::Impl {
       std::unique_lock<std::mutex> guard(entry_mutex);
       for (auto& range : ranges) {
         const auto it =
-            std::lower_bound(entries.begin(), entries.end(), range,
+            std::lower_bound(entries.begin() + first_live, entries.end(), range,
                              [](const RangeCacheEntry& entry, const ReadRange& range) {
                                return entry.range.offset + entry.range.length <
                                       range.offset + range.length;
@@ -346,13 +345,8 @@ Status ReadRangeCache::Cache(std::vector<ReadRange> ranges) {
   return impl_->Cache(std::move(ranges));
 }
 
-Result<std::shared_ptr<Buffer>> ReadRangeCache::Read(ReadRange range) {
+Result<std::optional<std::shared_ptr<Buffer>>> ReadRangeCache::Read(ReadRange range) {
   return impl_->Read(range);
-}
-
-Result<std::optional<std::shared_ptr<Buffer>>> ReadRangeCache::ReadIfCached(
-    ReadRange range) {
-  return impl_->ReadIfCached(range);
 }
 
 Future<> ReadRangeCache::Wait() { return impl_->Wait(); }

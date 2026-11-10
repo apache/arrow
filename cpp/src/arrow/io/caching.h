@@ -134,13 +134,10 @@ class ARROW_EXPORT ReadRangeCache {
   /// nor with previously cached ranges.  Otherwise, behaviour will be undefined.
   Status Cache(std::vector<ReadRange> ranges);
 
-  /// \brief Read a range previously given to Cache().
-  Result<std::shared_ptr<Buffer>> Read(ReadRange range);
-
   /// \brief Read a range if it is still cached.
   ///
   /// A cache miss returns an empty optional. I/O errors are propagated.
-  Result<std::optional<std::shared_ptr<Buffer>>> ReadIfCached(ReadRange range);
+  Result<std::optional<std::shared_ptr<Buffer>>> Read(ReadRange range);
 
   /// \brief Wait until all ranges added so far have been cached.
   Future<> Wait();
