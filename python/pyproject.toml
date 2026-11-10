@@ -112,7 +112,6 @@ version_scheme = 'guess-next-dev'
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
 fallback_version = '27.0.0a0'
 
-# TODO: Enable type checking once stubs are merged
 [tool.mypy]
 # mypy can't find a "-stubs" package on mypy_path, but it maps pyarrow-stubs/
 # to the pyarrow module when checking it. Pass pyarrow-stubs as well when
@@ -133,7 +132,6 @@ follow_imports = "skip"
 module = ["fsspec", "sparse"]
 ignore_missing_imports = true
 
-# TODO: Enable type checking once stubs are merged
 [tool.pyright]
 pythonPlatform = "All"
 pythonVersion = "3.11"
@@ -148,10 +146,11 @@ executionEnvironments = [
     # dependency. mypy reports the other imports that can't be resolved.
     { root = ".", reportMissingImports = false },
 ]
-# In editable install, pyright finds the stubs but compiled modules (e.g. pyarrow.lib)
+# Don't warn about imports that resolve to a stub without a Python source:
+# pyarrow._stubs_typing only exists as a stub, and compiled modules such as
+# pyarrow._compute have no source that pyright can read.
 reportMissingModuleSource = false
 
-# TODO: Enable type checking once stubs are merged
 [tool.ty.analysis]
 # Modules that will be annotated in later PRs (GH-32609), and the optional
 # sparse dependency, which has no type hints. Treat them as Any.

@@ -68,6 +68,9 @@ jobs:
         run: |
           pre-commit run --all-files --color=always --show-diff-on-failure
       - name: Run pre-commit for type stubs
+        env:
+          # The previous step already ran the ruff hooks.
+          SKIP: ruff-check,ruff-format
         run: |
           pre-commit run --hook-stage manual python-stubs --all-files --color=always --show-diff-on-failure
 

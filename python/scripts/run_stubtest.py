@@ -27,6 +27,7 @@ known mismatches are listed in pyarrow-stubs-tests/stubtest_allowlist.txt.
 Pass --generate-allowlist to print the entries for the current mismatches.
 """
 
+import contextlib
 import os
 import sys
 import tempfile
@@ -51,11 +52,13 @@ def main(argv):
             name += f".{stub.stem}"
         sys.modules[name] = pyarrow.lib
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # mypy doesn't look for "-stubs" packages on MYPYPATH, so give it the
-        # stubs under the name of the package.
+    # mypy doesn't look for "-stubs" packages in its search path, so give it
+    # the stubs under the name of the package. Run it from the directory with
+    # the stubs: mypy searches the working directory too, so in python/ it
+    # would read the sources of the modules without stubs, e.g. pyarrow/fs.py,
+    # and stubtest would check them as if they were stubs.
+    with tempfile.TemporaryDirectory() as tmpdir, contextlib.chdir(tmpdir):
         os.symlink(STUBS_DIR, Path(tmpdir) / "pyarrow")
-        os.environ["MYPYPATH"] = tmpdir
         options = stubtest.parse_options([
             "pyarrow",
             "--ignore-missing-stub",

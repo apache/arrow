@@ -40,9 +40,6 @@ pyarrow\.__lib\.table\.NarySelector
 pyarrow\.__lib\.table\.NullarySelector
 pyarrow\.__lib\.table\.UnarySelector
 
-# pyarrow.fs has no stub yet, so mypy reads its source.
-pyarrow\.fs\.FSSpecHandler
-
 # Stubs to fix (GH-32609).
 pyarrow\.__lib\.array\.Bool8Array\.from_numpy
 pyarrow\.__lib\.array\.Bool8Array\.from_storage
