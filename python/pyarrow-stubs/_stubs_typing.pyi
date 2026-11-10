@@ -34,7 +34,7 @@ TimeUnit: TypeAlias = Literal["s", "ms", "us", "ns"]
 
 Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | Array | ChunkedArray
 Indices: TypeAlias = (
-    Sequence[int | None] | NDArray[np.integer[Any]] | lib.IntegerArray | ChunkedArray
+    Sequence[int | None] | NDArray[np.integer[Any]] | Array | ChunkedArray
 )
 
 class SupportsArrowStream(Protocol):
