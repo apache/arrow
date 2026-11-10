@@ -32,7 +32,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from pyarrow import lib
-from pyarrow.lib import ChunkedArray
+from pyarrow.lib import Array, ChunkedArray
 
 ArrayLike: TypeAlias = Any
 ScalarLike: TypeAlias = Any
@@ -70,9 +70,7 @@ PyScalar: TypeAlias = (
 )
 NumpyScalar: TypeAlias = np.generic[Any]
 
-Mask: TypeAlias = (
-    Sequence[bool | None] | NDArray[np.bool_] | lib.BooleanArray | ChunkedArray
-)
+Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | Array | ChunkedArray
 Indices: TypeAlias = (
     Sequence[int | None] | NDArray[np.integer[Any]] | lib.IntegerArray | ChunkedArray
 )

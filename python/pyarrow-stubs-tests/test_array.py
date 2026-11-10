@@ -67,6 +67,9 @@ def test_array() -> None:
     # Arrays of any type can diff()
     check(assert_type(arr.diff(other), str), str)
 
+    bool_mask = cast(pa.BooleanArray, pa.array([True, False, True]))
+    check(assert_type(arr.filter(bool_mask), pa.Int64Array), pa.Int64Array)
+
     if TYPE_CHECKING_INVALID_USAGE:
         pa.array([1, 2], mask=[True, None])  # type: ignore[list-item]
         # TODO: when scalars get stubs
@@ -83,6 +86,10 @@ def test_array_numpy() -> None:
     offsets = np.array([0, 1, 2], dtype="int32")
     check(assert_type(pa.ListArray.from_arrays(offsets, [1, 2]), pa.ListArray),
           pa.ListArray)
+
+    np_mask = np.array([True, False])
+    check(assert_type(arr.filter(np_mask), pa.Int64Array), pa.Int64Array)
+
     if TYPE_CHECKING_INVALID_USAGE:
         dtype = pa.dictionary(pa.int8(), pa.string())
         strs = np.array(["a"])
