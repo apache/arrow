@@ -75,6 +75,7 @@ RUN apt-get update -y -q && \
         git \
         libbenchmark-dev \
         libboost-filesystem-dev \
+        libboost-locale-dev \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
