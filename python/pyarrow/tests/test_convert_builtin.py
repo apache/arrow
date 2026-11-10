@@ -165,7 +165,7 @@ def test_object_with_getitem():
     # https://github.com/apache/arrow/issues/34944
     # considered as sequence because of __getitem__, but has no length
     with pytest.raises(TypeError, match="has no len()"):
-        pa.array(ObjectWithOnlyGetitem())  # type: ignore[arg-type]
+        pa.array(ObjectWithOnlyGetitem())  # pyright: ignore[reportArgumentType]
 
 
 def _as_list(xs):
@@ -2131,8 +2131,8 @@ def test_map_from_dicts():
     assert arr.to_pylist() == expected
 
     # With omitted values
-    data[1] = None  # type: ignore[call-overload]
-    expected[1] = None  # type: ignore[call-overload]
+    data[1] = None  # pyright: ignore[reportArgumentType, reportCallIssue]
+    expected[1] = None  # pyright: ignore[reportArgumentType, reportCallIssue]
 
     arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
 
@@ -2540,9 +2540,9 @@ def test_array_from_pylist_offset_overflow():
         pa.timestamp('us')
     ),
     (
-        [pa.MonthDayNano([1, -1, -10100])],  # type: ignore[call-arg, arg-type]
+        [pa.MonthDayNano([1, -1, -10100])],
         [pa.scalar(
-            pa.MonthDayNano([1, -1, -10100])  # type: ignore[call-arg, arg-type]
+            pa.MonthDayNano([1, -1, -10100])
         )],
         pa.month_day_nano_interval()
     ),

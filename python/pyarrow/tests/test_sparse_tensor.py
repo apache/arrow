@@ -483,7 +483,7 @@ def test_pydata_sparse_sparse_coo_tensor_roundtrip(dtype_str, arrow_type):
     shape = (4, 6)
     dim_names = ("x", "y")
 
-    sparse_array = sparse.COO(  # type: ignore[reportOptionalMemberAccess]
+    sparse_array = sparse.COO(  # pyright: ignore[reportOptionalMemberAccess]
         data=data, coords=coords, shape=shape)
     sparse_tensor = pa.SparseCOOTensor.from_pydata_sparse(sparse_array,
                                                           dim_names=dim_names)

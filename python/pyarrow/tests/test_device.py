@@ -67,7 +67,7 @@ def test_copy_to():
         assert buffer.address != buffer_orig.address
 
     with pytest.raises(TypeError, match="Argument 'destination' has incorrect type"):
-        arr.copy_to(mm.device.device_type)  # type: ignore[arg-type]
+        arr.copy_to(mm.device.device_type)
 
     with pytest.raises(TypeError, match="Argument 'destination' has incorrect type"):
-        batch.copy_to(mm.device.device_type)  # type: ignore[arg-type]
+        batch.copy_to(mm.device.device_type)  # pyright: ignore[reportArgumentType]

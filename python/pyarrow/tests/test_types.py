@@ -475,7 +475,7 @@ def test_convert_custom_tzinfo_objects_to_string():
         def tzname(self, dt):
             return None
 
-        def utcoffset(self, dt):  # type: ignore[override]
+        def utcoffset(self, dt):
             return "one hour"
 
     class BuggyTimezone3(datetime.tzinfo):
@@ -483,7 +483,7 @@ def test_convert_custom_tzinfo_objects_to_string():
         Wrong timezone name type
         """
 
-        def tzname(self, dt):  # type: ignore[override]
+        def tzname(self, dt):
             return 240
 
         def utcoffset(self, dt):
@@ -752,10 +752,10 @@ def test_struct_type():
 
     # Neither integer nor string
     with pytest.raises(TypeError):
-        ty[None]  # type: ignore[reportArgumentType]
+        ty[None]  # pyright: ignore[reportArgumentType]
 
     with pytest.raises(TypeError):
-        ty.field(None)  # type: ignore[reportArgumentType]
+        ty.field(None)  # pyright: ignore[reportArgumentType]
 
     for a, b in zip(ty, fields):
         assert a == b
@@ -882,7 +882,7 @@ def test_dictionary_type():
 
     # invalid index type raises
     with pytest.raises(TypeError):
-        pa.dictionary(pa.string(), pa.int64())  # type: ignore[reportArgumentType]
+        pa.dictionary(pa.string(), pa.int64())  # pyright: ignore[reportArgumentType]
 
 
 def test_dictionary_ordered_equals():
@@ -971,7 +971,7 @@ def test_run_end_encoded_type():
         pa.run_end_encoded(None, pa.utf8())
 
     with pytest.raises(ValueError):
-        pa.run_end_encoded(pa.int8(), pa.utf8())  # type: ignore[reportArgumentType]
+        pa.run_end_encoded(pa.int8(), pa.utf8())  # pyright: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize('t,check_func', [
@@ -1149,11 +1149,11 @@ def test_key_value_metadata():
     assert m1 != {'a': 'A', 'b': 'C'}
 
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata({'a': 1})  # type: ignore[reportArgumentType]
+        pa.KeyValueMetadata({'a': 1})  # pyright: ignore[reportArgumentType]
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata({1: 'a'})  # type: ignore[reportArgumentType]
+        pa.KeyValueMetadata({1: 'a'})  # pyright: ignore[reportArgumentType]
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata(a=1)  # type: ignore[reportArgumentType]
+        pa.KeyValueMetadata(a=1)  # pyright: ignore[reportArgumentType]
 
     expected = [(b'a', b'A'), (b'b', b'B')]
     result = [(k, v) for k, v in m3.items()]

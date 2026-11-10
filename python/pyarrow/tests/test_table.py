@@ -812,7 +812,7 @@ def test_recordbatch_get_field():
         batch.field('d')
 
     with pytest.raises(TypeError):
-        batch.field(None)  # type: ignore[arg-type]
+        batch.field(None)  # pyright: ignore[reportArgumentType]
 
     with pytest.raises(IndexError):
         batch.field(4)
@@ -833,7 +833,7 @@ def test_recordbatch_select_column():
         batch.column('d')
 
     with pytest.raises(TypeError):
-        batch.column(None)  # type: ignore[arg-type]
+        batch.column(None)  # pyright: ignore[reportArgumentType]
 
     with pytest.raises(IndexError):
         batch.column(4)
@@ -1227,7 +1227,7 @@ def test_recordbatch_to_tensor_null():
 
     result = batch.to_tensor(null_to_nan=True, row_major=False)
     x = np.column_stack([arr1, arr2]).astype(
-        np.float64, order="F")  # type: ignore[no-matching-overload]
+        np.float64, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1262,7 +1262,7 @@ def test_recordbatch_to_tensor_null():
 
     result = batch.to_tensor(null_to_nan=True, row_major=False)
     x = np.column_stack([arr1, arr2]).astype(
-        np.float32, order="F")  # type: ignore[no-matching-overload]
+        np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1711,7 +1711,7 @@ def test_table_get_field():
         table.field('d')
 
     with pytest.raises(TypeError):
-        table.field(None)  # type: ignore[arg-type]
+        table.field(None)  # pyright: ignore[reportArgumentType]
 
     with pytest.raises(IndexError):
         table.field(4)
@@ -1732,7 +1732,7 @@ def test_table_select_column():
         table.column('d')
 
     with pytest.raises(TypeError):
-        table.column(None)  # type: ignore[arg-type]
+        table.column(None)  # pyright: ignore[reportArgumentType]
 
     with pytest.raises(IndexError):
         table.column(4)
@@ -2129,13 +2129,14 @@ def test_concat_tables_invalid_option():
     t = pa.Table.from_arrays([list(range(10))], names=('a',))
 
     with pytest.raises(ValueError, match="Invalid promote_options: invalid"):
-        pa.concat_tables([t, t], promote_options="invalid")  # type: ignore[arg-type]
+        pa.concat_tables(
+            [t, t], promote_options="invalid")  # pyright: ignore[reportArgumentType]
 
 
 def test_concat_tables_none_table():
     # ARROW-11997
     with pytest.raises(AttributeError):
-        pa.concat_tables([None])  # type: ignore[arg-type]
+        pa.concat_tables([None])  # pyright: ignore[reportArgumentType]
 
 
 @pytest.mark.pandas
@@ -2267,7 +2268,7 @@ def test_concat_batches_different_schema():
 def test_concat_batches_none_batches():
     # ARROW-11997
     with pytest.raises(AttributeError):
-        pa.concat_batches([None])  # type: ignore[arg-type]
+        pa.concat_batches([None])  # pyright: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize(
@@ -2418,7 +2419,7 @@ def test_from_arrays_schema(data, klass):
     # with different and incompatible schema
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.timestamp('s'))])
     with pytest.raises((NotImplementedError, TypeError)):
-        pa.Table.from_pydict(data, schema=schema)  # type: ignore[arg-type]
+        pa.Table.from_pydict(data, schema=schema)  # pyright: ignore[reportArgumentType]
 
     # Cannot pass both schema and metadata / names
     with pytest.raises(ValueError):
@@ -2523,7 +2524,7 @@ def test_table_from_pydict_arrow_arrays(data, klass):
     # with different and incompatible schema
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.timestamp('s'))])
     with pytest.raises((NotImplementedError, TypeError)):
-        pa.Table.from_pydict(data, schema=schema)  # type: ignore[arg-type]
+        pa.Table.from_pydict(data, schema=schema)
 
 
 @pytest.mark.parametrize('data, klass', [
@@ -2540,7 +2541,7 @@ def test_table_from_pydict_schema(data, klass):
     schema = pa.schema([('strs', pa.utf8()), ('floats', pa.float64()),
                         ('ints', pa.int64())])
     with pytest.raises(KeyError, match='ints'):
-        pa.Table.from_pydict(data, schema=schema)  # type: ignore[arg-type]
+        pa.Table.from_pydict(data, schema=schema)
 
     # data has columns not present in schema -> ignored
     schema = pa.schema([('strs', pa.utf8())])
@@ -2744,10 +2745,10 @@ def test_table_factory_function_args_pandas():
 
 def test_factory_functions_invalid_input():
     with pytest.raises(TypeError, match="Expected pandas DataFrame, python"):
-        pa.table("invalid input")  # type: ignore[arg-type]
+        pa.table("invalid input")  # pyright: ignore[reportArgumentType]
 
     with pytest.raises(TypeError, match="Expected pandas DataFrame"):
-        pa.record_batch("invalid input")  # type: ignore[arg-type]
+        pa.record_batch("invalid input")  # pyright: ignore[reportArgumentType]
 
 
 def test_table_repr_to_string():
@@ -3814,7 +3815,7 @@ def test_chunked_array_non_cpu(cuda_context, cpu_chunked_array, cuda_chunked_arr
 
     # equals() test
     with pytest.raises(NotImplementedError):
-        cuda_chunked_array == cuda_chunked_array  # type: ignore[reportUnusedExpression]
+        _ = cuda_chunked_array == cuda_chunked_array
 
     # to_pandas() test
     with pytest.raises(NotImplementedError):
@@ -4071,7 +4072,7 @@ def test_recordbatch_non_cpu(cuda_context, cpu_recordbatch, cuda_recordbatch,
 
     # __dataframe__() test
     with pytest.raises(NotImplementedError):
-        from_dataframe(cuda_recordbatch.__dataframe__())  # type: ignore[misc]
+        from_dataframe(cuda_recordbatch.__dataframe__())
 
 
 def verify_cuda_table(table, expected_schema):
@@ -4270,7 +4271,7 @@ def test_table_non_cpu(cuda_context, cpu_table, cuda_table,
 
     # __dataframe__() test
     with pytest.raises(NotImplementedError):
-        from_dataframe(cuda_table.__dataframe__())  # type: ignore[misc]
+        from_dataframe(cuda_table.__dataframe__())
 
     # __reduce__() test
     with pytest.raises(NotImplementedError):
