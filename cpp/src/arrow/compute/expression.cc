@@ -1161,6 +1161,15 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
 
 namespace {
 
+// A strict comparison weakened to an inclusive one. A nondecreasing conversion which
+// may map distinct values to the same value only preserves inclusive comparisons:
+// `x > b` implies `f(x) >= f(b)`, but not `f(x) > f(b)`.
+Comparison::type WeakenStrictComparison(Comparison::type cmp) {
+  if (cmp == Comparison::GREATER) return Comparison::GREATER_EQUAL;
+  if (cmp == Comparison::LESS) return Comparison::LESS_EQUAL;
+  return cmp;
+}
+
 // The order preserving casts wrapping an Expression, outermost first, and the
 // wrapped Expression. See Comparison::StripOrderPreservingCasts.
 struct OrderPreservingCasts {
@@ -1211,10 +1220,7 @@ struct OrderPreservingCasts {
   // between the wrapped Expression and the bound: strict bounds are weakened to
   // inclusive ones unless the casts are injective.
   Comparison::type ApplyToComparison(Comparison::type cmp) const {
-    if (injective) return cmp;
-    if (cmp == Comparison::GREATER) return Comparison::GREATER_EQUAL;
-    if (cmp == Comparison::LESS) return Comparison::LESS_EQUAL;
-    return cmp;
+    return injective ? cmp : WeakenStrictComparison(cmp);
   }
 };
 
@@ -1337,9 +1343,14 @@ struct Inequality {
   /// goes through this, so that they agree on what a guarantee says:
   ///
   /// - A bound of another type than the target's is brought into the target's type
-  ///   exactly: "safe" casts between floating point types or to decimals may still
-  ///   round, so the cast must round trip, and the types must be ordered alike (see
-  ///   HaveSameOrder).
+  ///   with a safe cast, provided the types are ordered alike (see HaveSameOrder).
+  ///   Such a bound arises when a column is read as another type than it is stored
+  ///   as: its statistics bound the stored values and the same cast is applied to
+  ///   the data. A safe cast is nondecreasing but may round (between floating point
+  ///   types), so unless the bound round trips, strict comparisons are weakened to
+  ///   inclusive ones. This also holds if the guarantee is read as comparing the
+  ///   target with the bound in their common type: no value of the target's type
+  ///   lies strictly between the bound and its rounding.
   /// - The bound is then put through the casts the target goes through. Each cast is
   ///   nondecreasing, so `x <= b` implies `cast(x) <= cast(b)` even if `cast(b)`
   ///   rounds, and no exactness is needed.
@@ -1354,6 +1365,7 @@ struct Inequality {
     if (!value->is_valid) return std::nullopt;
 
     ExecContext exec_context;
+    Comparison::type restated_cmp = cmp;
     const auto& target_type = casts.inner->type();
     if (!value->type->Equals(*target_type)) {
       if (!HaveSameOrder(*value->type, *target_type)) return std::nullopt;
@@ -1363,13 +1375,13 @@ struct Inequality {
       auto maybe_round_trip =
           Cast(*maybe_cast, value->type, CastOptions::Safe(), &exec_context);
       if (!maybe_round_trip.ok() || !maybe_round_trip->scalar()->Equals(*value)) {
-        return std::nullopt;
+        restated_cmp = WeakenStrictComparison(restated_cmp);
       }
       value = maybe_cast->scalar();
     }
     auto cast_value = casts.ApplyToBound(std::move(value), &exec_context);
     if (!cast_value.ok()) return std::nullopt;
-    return std::make_pair(casts.ApplyToComparison(cmp), *std::move(cast_value));
+    return std::make_pair(casts.ApplyToComparison(restated_cmp), *std::move(cast_value));
   }
 
   /// The given expression simplifies to `value` if the inequality
@@ -1631,15 +1643,15 @@ internal::ArgumentRange ResolveRange(const std::vector<Inequality>& inequalities
     const bool inclusive = cmp & Comparison::EQUAL;
     // Unless the comparison admits values below the bound, it is a lower bound;
     // likewise for values above the bound. Equality is both.
-    if (!(cmp & Comparison::LESS) && is_tighter(bound, inclusive, range.lower,
-                                                range.lower_inclusive,
-                                                Comparison::GREATER)) {
+    if (!(cmp & Comparison::LESS) &&
+        is_tighter(bound, inclusive, range.lower, range.lower_inclusive,
+                   Comparison::GREATER)) {
       range.lower = bound;
       range.lower_inclusive = inclusive;
     }
-    if (!(cmp & Comparison::GREATER) && is_tighter(bound, inclusive, range.upper,
-                                                   range.upper_inclusive,
-                                                   Comparison::LESS)) {
+    if (!(cmp & Comparison::GREATER) &&
+        is_tighter(bound, inclusive, range.upper, range.upper_inclusive,
+                   Comparison::LESS)) {
       range.upper = bound;
       range.upper_inclusive = inclusive;
     }
@@ -1670,8 +1682,8 @@ Result<Expression> SimplifyWithRanges(const FieldRanges& ranges, Expression expr
   const auto* evaluator =
       dynamic_cast<const internal::RangeEvaluator*>(call->kernel_state.get());
   if (evaluator && call->arguments.size() == 1 && !is_small_is_in) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto evaluation, evaluator->EvaluateOverRange(ResolveRange(*inequalities, casts)));
+    ARROW_ASSIGN_OR_RAISE(auto evaluation, evaluator->EvaluateOverRange(
+                                               ResolveRange(*inequalities, casts)));
     switch (evaluation) {
       case internal::RangeEvaluation::kUnknown:
         return expr;

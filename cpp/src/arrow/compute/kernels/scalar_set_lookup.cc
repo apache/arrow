@@ -125,8 +125,9 @@ struct SetLookupStateBase : public KernelState, public RangeEvaluator {
     int64_t end = sorted->length();
     if (range.lower) {
       // The first value not less than (or, for an exclusive bound, greater than) it
-      auto index = search(range.lower, range.lower_inclusive ? SearchSortedOptions::Left
-                                                             : SearchSortedOptions::Right);
+      auto index =
+          search(range.lower, range.lower_inclusive ? SearchSortedOptions::Left
+                                                    : SearchSortedOptions::Right);
       if (!index) return RangeEvaluation::kUnknown;
       begin = *index;
     }
@@ -198,8 +199,8 @@ struct SetLookupStateBase : public KernelState, public RangeEvaluator {
     if (value_set.is_array()) {
       values = value_set.make_array();
     } else {
-      ARROW_ASSIGN_OR_RAISE(values, Concatenate(value_set.chunked_array()->chunks(),
-                                                ctx->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(
+          values, Concatenate(value_set.chunked_array()->chunks(), ctx->memory_pool()));
     }
     if (values->length() > kIsInMaxSortedValueSet) {
       ARROW_ASSIGN_OR_RAISE(auto bounds, ValueSetBounds(values, ctx));

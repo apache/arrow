@@ -2110,11 +2110,30 @@ TEST(Expression, SimplifyWithBoundOfAnotherType) {
     Simplify{is_in("[5, 9]")}.WithGuarantee(range).Expect(is_in("[9]"));
   }
 
-  // ... while those which do not are ignored rather than rounded
+  // ... while those which a safe cast rejects are ignored
   auto inexact_range =
       and_(greater_equal(i64, literal(9.5)), less_equal(i64, literal(10.5)));
-  Simplify{equal(i64, literal<int64_t>(5))}.WithGuarantee(inexact_range).ExpectUnchanged();
+  Simplify{equal(i64, literal<int64_t>(5))}
+      .WithGuarantee(inexact_range)
+      .ExpectUnchanged();
   Simplify{is_in("[5, 9]")}.WithGuarantee(inexact_range).ExpectUnchanged();
+
+  // Bounds which a safe cast rounds (the statistics of a float64 column read as
+  // float32, say) are used rounded, and then only bound inclusively: 0.2 rounds up
+  // to 0.2f, which a stored 0.2 is read as.
+  auto f32 = field_ref("f32");
+  auto rounded_range =
+      and_(greater_equal(f32, literal(0.1)), less_equal(f32, literal(0.2)));
+  Simplify{greater(f32, literal(5.0F))}.WithGuarantee(rounded_range).Expect(false);
+  Simplify{less(f32, literal(0.05F))}.WithGuarantee(rounded_range).Expect(false);
+  Simplify{equal(f32, literal(0.2F))}.WithGuarantee(rounded_range).ExpectUnchanged();
+  Simplify{greater(f32, literal(0.2F))}.WithGuarantee(rounded_range).Expect(false);
+  Simplify{equal(f32, literal(0.2F))}
+      .WithGuarantee(less(f32, literal(0.2)))
+      .ExpectUnchanged();
+  Simplify{equal(f32, literal(0.1F))}
+      .WithGuarantee(greater(f32, literal(0.1)))
+      .ExpectUnchanged();
 
   // ... as are bounds of a type which is ordered differently, even though they cast
   // exactly: "10" <= x <= "9" admits "5"
@@ -2463,8 +2482,8 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
       {f64, float64(), range,
        and_(greater(f64, literal(50.0)), less_equal(f64, literal(51.0))), kUnchanged},
       // A double bound which does not round trip through the float32 value set type
-      // is ignored rather than rounded: 0.1 rounds up to 0.1f, which would wrongly
-      // exclude the member 0.1f (0.1f > 0.1 holds in double).
+      // is rounded and only bounds inclusively: 0.1 rounds up to 0.1f, and a strict
+      // bound would wrongly exclude the member 0.1f (0.1f > 0.1 holds in double).
       {f32, float32(), concat_json("[0.1]", range),
        and_(greater(f32, literal(0.1)), less(f32, literal(0.5))), kUnchanged},
       {f32, float32(), concat_json("[0.7]", range), less(f32, literal(0.7)), kUnchanged},
@@ -2559,10 +2578,9 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
       .ExpectUnchanged();
   Simplify{huge}.WithGuarantee(greater_equal(i32, literal(170000))).ExpectUnchanged();
   // ... unless they contain NaN, which the smallest and largest value ignore
-  auto huge_nan =
-      call("is_in", {f64},
-           SetLookupOptions{ArrayFromJSON(
-               float64(), concat_json("[NaN]", make_range_json(1, 140000)))});
+  auto huge_nan = call("is_in", {f64},
+                       SetLookupOptions{ArrayFromJSON(
+                           float64(), concat_json("[NaN]", make_range_json(1, 140000)))});
   Simplify{huge_nan}.WithGuarantee(less(f64, literal(0.5))).ExpectUnchanged();
   Simplify{huge_nan}.WithGuarantee(greater(f64, literal(140000.5))).ExpectUnchanged();
 
