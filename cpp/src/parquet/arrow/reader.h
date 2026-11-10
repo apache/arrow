@@ -149,7 +149,7 @@ class PARQUET_EXPORT FileReader {
   /// 2 foo3
   ///
   /// i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
-  virtual ::arrow::Status ReadColumn(int i,
+  virtual ::arrow::Status ReadColumn(int field_index,
                                      std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
   /// \brief Return a RecordBatchReader of all row groups and columns.

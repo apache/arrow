@@ -64,6 +64,17 @@ namespace {
 
 constexpr char kDefaultBackendEnvVar[] = "ARROW_DEFAULT_MEMORY_POOL";
 constexpr char kDebugMemoryEnvVar[] = "ARROW_DEBUG_MEMORY_POOL";
+constexpr int64_t kMaxBufferCapacity = std::numeric_limits<int64_t>::max() - 63;
+
+Status ValidateBufferCapacity(int64_t capacity, const char* operation) {
+  if (ARROW_PREDICT_FALSE(capacity < 0)) {
+    return Status::Invalid(operation, ": negative capacity: ", capacity);
+  }
+  if (ARROW_PREDICT_FALSE(capacity > kMaxBufferCapacity)) {
+    return Status::OutOfMemory(operation, ": capacity too large: ", capacity);
+  }
+  return Status::OK();
+}
 
 enum class MemoryPoolBackend : uint8_t { System, Jemalloc, Mimalloc };
 
@@ -915,9 +926,7 @@ class PoolBuffer final : public ResizableBuffer {
   }
 
   Status Reserve(const int64_t capacity) override {
-    if (capacity < 0) {
-      return Status::Invalid("Negative buffer capacity: ", capacity);
-    }
+    RETURN_NOT_OK(ValidateBufferCapacity(capacity, "Reserve"));
     uint8_t* ptr = mutable_data();
     if (!ptr || capacity > capacity_) {
       ARROW_ASSIGN_OR_RAISE(int64_t new_capacity, RoundCapacity(capacity));
@@ -933,9 +942,7 @@ class PoolBuffer final : public ResizableBuffer {
   }
 
   Status Resize(const int64_t new_size, bool shrink_to_fit = true) override {
-    if (ARROW_PREDICT_FALSE(new_size < 0)) {
-      return Status::Invalid("Negative buffer resize: ", new_size);
-    }
+    RETURN_NOT_OK(ValidateBufferCapacity(new_size, "Resize"));
     uint8_t* ptr = mutable_data();
     if (ptr && shrink_to_fit && new_size <= size_) {
       // Buffer is non-null and is not growing, so shrink to the requested size without
@@ -979,9 +986,7 @@ class PoolBuffer final : public ResizableBuffer {
 
  private:
   static Result<int64_t> RoundCapacity(int64_t capacity) {
-    if (capacity > std::numeric_limits<int64_t>::max() - 63) {
-      return Status::OutOfMemory("capacity too large");
-    }
+    DCHECK_LE(capacity, kMaxBufferCapacity);
     return bit_util::RoundUpToMultipleOf64(capacity);
   }
 

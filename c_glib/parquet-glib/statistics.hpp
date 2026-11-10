@@ -21,9 +21,11 @@
 
 #include <parquet/statistics.h>
 
+#include <parquet-glib/metadata.h>
 #include <parquet-glib/statistics.h>
 
 GParquetStatistics *
-gparquet_statistics_new_raw(std::shared_ptr<parquet::Statistics> *parquet_statistics);
+gparquet_statistics_new_raw(std::shared_ptr<parquet::Statistics> *parquet_statistics,
+                            GParquetColumnChunkMetadata *metadata);
 std::shared_ptr<parquet::Statistics>
 gparquet_statistics_get_raw(GParquetStatistics *statistics);

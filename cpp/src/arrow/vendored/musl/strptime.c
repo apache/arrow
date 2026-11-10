@@ -23,6 +23,25 @@
 
 #ifdef HAVE_LANGINFO
 #include <langinfo.h>
+#else
+// C-locale replacement for nl_langinfo(), restricted to the items used below.
+// The values are those of the POSIX locale (LC_TIME in POSIX.1, chapter 7),
+// as in musl's own C locale (c_time in src/locale/langinfo.c), and in the
+// same order, which the symbolic_range loop relies on: full names directly
+// follow the abbreviated ones.
+enum { ABDAY_1 = 0, DAY_1 = 7, ABMON_1 = 14, MON_1 = 26, AM_STR = 38, PM_STR = 39,
+	D_T_FMT = 40, D_FMT = 41, T_FMT = 42, T_FMT_AMPM = 43 };
+static const char *arrow_c_langinfo[] = {
+	"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat",
+	"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+	"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+	"Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+	"January", "February", "March", "April", "May", "June",
+	"July", "August", "September", "October", "November", "December",
+	"AM", "PM",
+	"%a %b %e %T %Y", "%m/%d/%y", "%H:%M:%S", "%I:%M:%S %p"};
+#define nl_langinfo(x) arrow_c_langinfo[x]
+#define HAVE_LANGINFO 1
 #endif
 
 #define strptime arrow_strptime
@@ -193,7 +212,7 @@ char *strptime(const char *__restrict s, const char *__restrict f, struct tm *__
 			*dest = 0;
 			for (i=1; i<=min+range && isdigit(*s); i*=10)
 				*dest = *dest * 10 + *s++ - '0';
-			if (*dest - min >= range) return 0;
+			if ((unsigned)(*dest - min) >= (unsigned)range) return 0;
 			*dest -= adj;
 			switch((char *)dest - (char *)tm) {
 			case offsetof(struct tm, tm_yday):

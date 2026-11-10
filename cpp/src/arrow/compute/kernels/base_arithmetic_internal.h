@@ -34,6 +34,7 @@ namespace arrow {
 
 using internal::AddWithOverflow;
 using internal::DivideWithOverflow;
+using internal::ModuloWithOverflow;
 using internal::MultiplyWithOverflow;
 using internal::NegateWithOverflow;
 using internal::SubtractWithOverflow;
@@ -467,6 +468,80 @@ struct FloatingDivideChecked {
   }
   // TODO: Add decimal
 };
+
+enum class RemainderMode { kTruncated, kFloored };
+
+// Truncated: sign follows the dividend (C/C++ '%').
+// Floored: sign follows the divisor (Python '%').
+template <RemainderMode Mode, typename T>
+T FinishRemainder(T rem, T divisor) {
+  if constexpr (Mode == RemainderMode::kTruncated) {
+    return rem;
+  } else {
+    if constexpr (std::is_floating_point_v<T>) {
+      if (rem == 0) {
+        // Zero takes the sign of the divisor
+        return std::copysign(rem, divisor);
+      }
+    }
+    if constexpr (!std::is_unsigned_v<T>) {
+      const T zero{};
+      if ((rem > zero && divisor < zero) || (rem < zero && divisor > zero)) {
+        rem += divisor;
+      }
+    }
+    return rem;
+  }
+}
+
+template <RemainderMode Mode, bool Checked>
+struct RemainderImpl {
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                          Status* st) {
+    static_assert(std::is_same_v<T, Arg0> && std::is_same_v<T, Arg1>);
+    if constexpr (Checked) {
+      if (ARROW_PREDICT_FALSE(right == 0)) {
+        *st = Status::Invalid("divide by zero");
+        return T{};
+      }
+    }
+    return FinishRemainder<Mode, T>(std::fmod(left, right), right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    static_assert(std::is_same_v<T, Arg0> && std::is_same_v<T, Arg1>);
+    T result{};
+    if (ARROW_PREDICT_FALSE(ModuloWithOverflow(left, right, &result))) {
+      if (right == 0) {
+        *st = Status::Invalid("divide by zero");
+      } else if constexpr (Checked) {
+        *st = Status::Invalid("overflow");
+      }
+      // INT_MIN % -1 is 0 when unchecked
+      return T{};
+    }
+    return FinishRemainder<Mode, T>(result, right);
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
+                                         Status* st) {
+    static_assert(std::is_same_v<T, Arg0> && std::is_same_v<T, Arg1>);
+    if (ARROW_PREDICT_FALSE(right == T{})) {
+      *st = Status::Invalid("divide by zero");
+      return T{};
+    }
+    return FinishRemainder<Mode, T>(left % right, right);
+  }
+};
+
+using Remainder = RemainderImpl<RemainderMode::kTruncated, /*Checked=*/false>;
+using RemainderChecked = RemainderImpl<RemainderMode::kTruncated, /*Checked=*/true>;
+using Modulo = RemainderImpl<RemainderMode::kFloored, /*Checked=*/false>;
+using ModuloChecked = RemainderImpl<RemainderMode::kFloored, /*Checked=*/true>;
 
 struct Negate {
   template <typename T, typename Arg>

@@ -30,9 +30,9 @@ py -0p
 
 %PYTHON_CMD% -m sysconfig || exit /B 1
 
-@REM Setup MSVC environment
-
-call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+@REM Setup MSVC environment. Find the Visual Studio Path first.
+for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VS_INSTALL_PATH=%%i"
+call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /B 1
 @echo on
 
 echo "=== CCACHE Stats before build ==="

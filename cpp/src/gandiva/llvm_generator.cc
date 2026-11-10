@@ -64,8 +64,9 @@ LLVMGenerator::GetCache() {
   return shared_cache;
 }
 
-Status LLVMGenerator::SetLLVMObjectCache(GandivaObjectCache& object_cache) {
-  return engine_->SetLLVMObjectCache(object_cache);
+Status LLVMGenerator::SetLLVMObjectCache(
+    const std::shared_ptr<llvm::MemoryBuffer>& prev_cached_obj) {
+  return engine_->SetLLVMObjectCache(prev_cached_obj);
 }
 
 Status LLVMGenerator::Add(const ExpressionPtr expr, const FieldDescriptorPtr output) {

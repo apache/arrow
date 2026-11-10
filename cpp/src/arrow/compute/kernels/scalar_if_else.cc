@@ -1303,7 +1303,7 @@ void AddPrimitiveIfElseKernels(const std::shared_ptr<ScalarFunction>& scalar_fun
                                const std::vector<std::shared_ptr<DataType>>& types) {
   for (auto&& type : types) {
     auto exec =
-        internal::GenerateTypeAgnosticPrimitive<ResolveIfElseExec, ArrayKernelExec,
+        internal::GenerateTypeAgnosticPrimitive<ResolveIfElseExec,
                                                 /*AllocateMem=*/std::false_type>(*type);
     // cond array needs to be boolean always
     std::shared_ptr<KernelSignature> sig;
@@ -2816,7 +2816,8 @@ void AddNestedCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_func
   AddNestedCoalesceKernel<StructType>(scalar_function);
   AddNestedCoalesceKernel<DenseUnionType>(scalar_function);
   AddNestedCoalesceKernel<SparseUnionType>(scalar_function);
-  AddNestedCoalesceKernel<DictionaryType>(scalar_function);
+  AddCoalesceKernel(scalar_function, Type::DICTIONARY,
+                    CoalesceFunctor<DictionaryType>::Exec, AllTypesAreIdentical());
 }
 
 void AddChooseKernel(const std::shared_ptr<ScalarFunction>& scalar_function,

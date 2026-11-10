@@ -27,13 +27,22 @@ standardized serialized form (such as a IPC stream), as opposed to an
 implementation-specific native representation (such as ``arrow::Array`` in C++).
 
 .. important::
-   Implementation-specific concerns, such as bad API usage, are out of scope
-   for this document. Please refer to the implementation's own documentation.
+   1. Implementation-specific concerns, such as bad API usage, are out of scope
+      for this document.
+
+   2. Each implementation has its own considerations on what constitutes a
+      security vulnerability (to be reported privately) vs. a regular bug
+      (to be reported through regular channels).
+
+   Please refer to the relevant implementation's own documentation.
 
 .. seealso::
 
    Arrow C++ :ref:`cpp-security`
-      Security model for Arrow C++ APIs
+      Security model for Arrow C++
+
+   Arrow Rust `Safety and Security <https://docs.rs/arrow/latest/arrow/#security>`__
+      Security model for Arrow Rust
 
 
 Who should read this

@@ -101,8 +101,6 @@ arrow_components = {
             'io/caching.cc',
             'io/compressed.cc',
             'io/file.cc',
-            'io/hdfs.cc',
-            'io/hdfs_internal.cc',
             'io/interfaces.cc',
             'io/memory.cc',
             'io/slow.cc',
@@ -126,21 +124,6 @@ arrow_components = {
             'vendored/double-conversion/string-to-double.cc',
             'vendored/double-conversion/strtod.cc',
             'vendored/musl/strptime.c',
-            'vendored/uriparser/UriCommon.c',
-            'vendored/uriparser/UriCompare.c',
-            'vendored/uriparser/UriEscape.c',
-            'vendored/uriparser/UriFile.c',
-            'vendored/uriparser/UriIp4.c',
-            'vendored/uriparser/UriIp4Base.c',
-            'vendored/uriparser/UriMemory.c',
-            'vendored/uriparser/UriNormalize.c',
-            'vendored/uriparser/UriNormalizeBase.c',
-            'vendored/uriparser/UriParse.c',
-            'vendored/uriparser/UriParseBase.c',
-            'vendored/uriparser/UriQuery.c',
-            'vendored/uriparser/UriRecompose.c',
-            'vendored/uriparser/UriResolve.c',
-            'vendored/uriparser/UriShorten.c',
         ],
     },
     'arrow_base': {
@@ -182,6 +165,10 @@ arrow_components = {
 
 arrow_util_srcs = [
     'util/align_util.cc',
+    'util/alp/alp_metadata.cc',
+    'util/alp/alp_compression.cc',
+    'util/alp/alp_sampler.cc',
+    'util/alp/alp_codec.cc',
     'util/async_util.cc',
     'util/atfork_internal.cc',
     'util/basic_decimal.cc',
@@ -238,7 +225,35 @@ arrow_util_srcs = [
     'util/value_parsing.cc',
 ]
 
-arrow_util_deps = [threads_dep]
+uriparser_dep = dependency(
+    'liburiparser',
+    'uriparser',
+    version: '>=0.9.6',
+    allow_fallback: false,
+    required: false,
+)
+
+if not uriparser_dep.found()
+    cmake = import('cmake')
+    uriparser_opts = cmake.subproject_options()
+
+    uriparser_opts.add_cmake_defines(
+        {
+            'BUILD_SHARED_LIBS': 'OFF',
+            # Required to link the static subproject into libarrow.so.
+            'CMAKE_POSITION_INDEPENDENT_CODE': 'ON',
+            'URIPARSER_BUILD_DOCS': 'OFF',
+            'URIPARSER_BUILD_TESTS': 'OFF',
+            'URIPARSER_BUILD_TOOLS': 'OFF',
+            'URIPARSER_BUILD_WCHAR_T': 'OFF',
+        },
+    )
+
+    uriparser_proj = cmake.subproject('uriparser', options: uriparser_opts)
+    uriparser_dep = uriparser_proj.dependency('uriparser')
+endif
+
+arrow_util_deps = [threads_dep, uriparser_dep]
 
 if needs_simdjson
     arrow_util_srcs += ['util/simdjson_internal.cc']
@@ -484,7 +499,10 @@ disable Arrow gcs support with -Dgcs=disabled.
     endif
 
     if needs_hdfs
-        arrow_filesystem_srcs += ['filesystem/hdfs.cc']
+        arrow_filesystem_srcs += [
+            'filesystem/hdfs.cc',
+            'filesystem/hdfs_internal.cc',
+        ]
     endif
 
     if needs_s3

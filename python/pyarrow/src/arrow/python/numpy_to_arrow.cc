@@ -27,6 +27,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -295,6 +296,9 @@ class NumPyConverter {
   template <typename T>
   Status VisitString(T* builder);
 
+  template <typename T>
+  Status VisitStringDType(T* builder);
+
   Status TypeNotImplemented(std::string type_name) {
     return Status::NotImplemented("NumPyConverter doesn't implement <", type_name,
                                   "> conversion. ");
@@ -340,6 +344,11 @@ Status NumPyConverter::Convert() {
 
   if (type_ == nullptr) {
     return Status::Invalid("Must pass data type for non-object arrays");
+  }
+
+  if (dtype_->type_num == NPY_VSTRING && !is_string_or_string_view(type_->id())) {
+    return Status::TypeError("Expected an Arrow string type for NumPy StringDType, got ",
+                             type_->ToString());
   }
 
   // Visit the type to perform conversion
@@ -697,8 +706,65 @@ Status AppendUTF32(const char* data, int64_t itemsize, int byteorder, T* builder
 
 }  // namespace
 
+namespace {
+
+std::string_view ToStringView(const npy_static_string& value) {
+  return value.buf == nullptr ? std::string_view()
+                              : std::string_view(value.buf, value.size);
+}
+
+}  // namespace
+
+template <typename T>
+Status NumPyConverter::VisitStringDType(T* builder) {
+  auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(dtype_);
+  // Use the na_object itself when na_object is a string
+  const bool null_is_missing = descr->na_object != nullptr && !descr->has_string_na;
+  const std::string_view null_string = ToStringView(descr->default_string);
+
+  const char* data = PyArray_BYTES(arr_);
+  Ndarray1DIndexer<uint8_t> mask_values;
+  if (mask_ != nullptr) {
+    mask_values = Ndarray1DIndexer<uint8_t>(mask_);
+  }
+
+  // Acquiring the allocator lock, so do not acquire the GIL or lock other
+  // mutexes below or risk deadlocks
+  auto* allocator = NpyString_acquire_allocator(descr);
+  std::unique_ptr<npy_string_allocator, decltype(&NpyString_release_allocator)>
+      allocator_guard(allocator, &NpyString_release_allocator);
+
+  npy_static_string value = {0, nullptr};
+  for (int64_t i = 0; i < length_; ++i, data += stride_) {
+    if (mask_ != nullptr && mask_values[i]) {
+      RETURN_NOT_OK(builder->AppendNull());
+      continue;
+    }
+    const auto* packed = reinterpret_cast<const npy_packed_static_string*>(data);
+    const int is_null = NpyString_load(allocator, packed, &value);
+    if (is_null == -1) {
+      return Status::Invalid("Failed to load NumPy StringDType value");
+    }
+    if (is_null) {
+      if (null_is_missing) {
+        RETURN_NOT_OK(builder->AppendNull());
+      } else {
+        RETURN_NOT_OK(builder->Append(null_string));
+      }
+      continue;
+    }
+    RETURN_NOT_OK(builder->Append(ToStringView(value)));
+  }
+  return Status::OK();
+}
+
 template <typename T>
 Status NumPyConverter::VisitString(T* builder) {
+  if (dtype_->type_num == NPY_VSTRING) {
+    // Acquires a lock, so must stay ahead of the gil_lock below
+    return VisitStringDType(builder);
+  }
+
   auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
 
   char numpy_byteorder = dtype_->byteorder;

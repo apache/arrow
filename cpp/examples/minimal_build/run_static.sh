@@ -18,12 +18,12 @@
 
 set -e
 
-: ${ARROW_DIR:=/arrow}
-: ${EXAMPLE_DIR:=/io}
-: ${ARROW_BUILD_DIR:=/build/arrow}
-: ${EXAMPLE_BUILD_DIR:=/build/example}
+: "${ARROW_DIR:=/arrow}"
+: "${EXAMPLE_DIR:=/io}"
+: "${ARROW_BUILD_DIR:=/build/arrow}"
+: "${EXAMPLE_BUILD_DIR:=/build/example}"
 
-: ${ARROW_DEPENDENCY_SOURCE:=BUNDLED}
+: "${ARROW_DEPENDENCY_SOURCE:=BUNDLED}"
 
 echo
 echo "=="
@@ -31,21 +31,25 @@ echo "== Building Arrow C++ library"
 echo "=="
 echo
 
-mkdir -p $ARROW_BUILD_DIR
-pushd $ARROW_BUILD_DIR
+mkdir -p "$ARROW_BUILD_DIR"
+pushd "$ARROW_BUILD_DIR"
 
 NPROC=$(nproc)
 
-cmake $ARROW_DIR/cpp \
+# Convert the space-separated CMake options into a Bash array.
+# This avoids ShellCheck SC2086 and preserves argument boundaries.
+read -r -a ARROW_CMAKE_OPTIONS_ARRAY <<< "$ARROW_CMAKE_OPTIONS"
+
+cmake "$ARROW_DIR"/cpp \
     -DARROW_BUILD_SHARED=OFF \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_CSV=ON \
-    -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE} \
+    -DARROW_DEPENDENCY_SOURCE="${ARROW_DEPENDENCY_SOURCE}" \
     -DARROW_DEPENDENCY_USE_SHARED=OFF \
     -Dxsimd_SOURCE=BUNDLED \
-    $ARROW_CMAKE_OPTIONS
+    "${ARROW_CMAKE_OPTIONS_ARRAY[@]}"
 
-make -j$NPROC
+make -j"$NPROC"
 make install
 
 popd
@@ -57,11 +61,11 @@ echo "== Building example project using Arrow C++ library"
 echo "=="
 echo
 
-rm -rf $EXAMPLE_BUILD_DIR
-mkdir -p $EXAMPLE_BUILD_DIR
-pushd $EXAMPLE_BUILD_DIR
+rm -rf "$EXAMPLE_BUILD_DIR"
+mkdir -p "$EXAMPLE_BUILD_DIR"
+pushd "$EXAMPLE_BUILD_DIR"
 
-cmake $EXAMPLE_DIR -DARROW_LINK_SHARED=OFF
+cmake "$EXAMPLE_DIR" -DARROW_LINK_SHARED=OFF
 make
 
 popd
@@ -73,9 +77,9 @@ echo "== Running example project"
 echo "=="
 echo
 
-pushd $EXAMPLE_DIR
+pushd "$EXAMPLE_DIR"
 
-$EXAMPLE_BUILD_DIR/arrow-example
+"${EXAMPLE_BUILD_DIR}/arrow-example"
 
 echo
 echo "=="
@@ -84,13 +88,17 @@ echo "== Building example project using Arrow C++ library"
 echo "=="
 echo
 
-rm -rf $EXAMPLE_BUILD_DIR
-mkdir -p $EXAMPLE_BUILD_DIR
+read -ra ARROW_BUILD_FLAGS <<< "$(
+  PKG_CONFIG_PATH="$ARROW_BUILD_DIR/lib/pkgconfig" \
+    pkg-config --cflags --libs --static arrow
+)"
+
+rm -rf "$EXAMPLE_BUILD_DIR"
+mkdir -p "$EXAMPLE_BUILD_DIR"
 ${CXX:-c++} -std=c++20 \
-  -o $EXAMPLE_BUILD_DIR/arrow-example \
-  $EXAMPLE_DIR/example.cc \
-  $(PKG_CONFIG_PATH=$ARROW_BUILD_DIR/lib/pkgconfig \
-     pkg-config --cflags --libs --static arrow)
+  -o "${EXAMPLE_BUILD_DIR}/arrow-example" \
+  "${EXAMPLE_DIR}/example.cc" \
+  "${ARROW_BUILD_FLAGS[@]}"
 
 popd
 
@@ -101,6 +109,6 @@ echo "== Running example project"
 echo "=="
 echo
 
-pushd $EXAMPLE_DIR
+pushd "$EXAMPLE_DIR"
 
-$EXAMPLE_BUILD_DIR/arrow-example
+"${EXAMPLE_BUILD_DIR}/arrow-example"

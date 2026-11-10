@@ -31,7 +31,7 @@ class ConnectionInfoTest : public T {};
 
 class ConnectionInfoMockTest : public FlightSQLODBCMockTestBase {};
 class ConnectionInfoRemoteTest : public FlightSQLODBCRemoteTestBase {};
-using TestTypes = ::testing::Types<ConnectionInfoMockTest, FlightSQLODBCRemoteTestBase>;
+using TestTypes = ::testing::Types<ConnectionInfoMockTest, ConnectionInfoRemoteTest>;
 TYPED_TEST_SUITE(ConnectionInfoTest, TestTypes);
 
 template <typename T>
@@ -709,6 +709,20 @@ TEST_F(ConnectionInfoMockTest, TestSQLGetInfoCreateTable) {
   GetInfo(this->conn, SQL_CREATE_TABLE, &value);
 
   EXPECT_EQ(static_cast<SQLUINTEGER>(1), value);
+}
+
+TEST_F(ConnectionInfoRemoteTest, TestSQLGetInfoCreateSchema) {
+  SQLUINTEGER value;
+  GetInfo(this->conn, SQL_CREATE_SCHEMA, &value);
+
+  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
+}
+
+TEST_F(ConnectionInfoRemoteTest, TestSQLGetInfoCreateTable) {
+  SQLUINTEGER value;
+  GetInfo(this->conn, SQL_CREATE_TABLE, &value);
+
+  EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCreateTranslation) {

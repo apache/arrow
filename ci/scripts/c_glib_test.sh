@@ -40,7 +40,16 @@ run_test_args=()
 if [ -n "${RUNNER_DEBUG}" ]; then
   run_test_args+=(-v)
 fi
-ruby test/run-test.rb "${run_test_args[@]}"
+if [[ "$(uname -s)" == "Linux" ]]; then
+  env \
+    ARROW_DEBUG_MEMORY_POOL=none \
+    ARROW_DEFAULT_MEMORY_POOL=system \
+    ASAN_OPTIONS="detect_leaks=0:use_sigaltstack=0" \
+    LD_PRELOAD="$(gcc -print-file-name=libasan.so) libstdc++.so.6" \
+    ruby test/run-test.rb "${run_test_args[@]}"
+else
+  ruby test/run-test.rb "${run_test_args[@]}"
+fi
 
 if [[ "$(uname -s)" == "Linux" ]]; then
   # TODO(kszucs): on osx it fails to load 'lgi.corelgilua51' despite that lgi

@@ -58,8 +58,11 @@ class GANDIVA_EXPORT LLVMGenerator {
   static std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>>
   GetCache();
 
-  /// \brief Set LLVM ObjectCache.
-  Status SetLLVMObjectCache(GandivaObjectCache& object_cache);
+  /// \brief Pre-load the engine with an already-compiled object for the current
+  /// module, if the caller's own cache lookup found one. See the equivalent Engine
+  /// method for why this takes the lookup result directly instead of re-querying
+  /// the cache.
+  Status SetLLVMObjectCache(const std::shared_ptr<llvm::MemoryBuffer>& prev_cached_obj);
 
   /// \brief Build the code for the expression trees for default mode with a LLVM
   /// ObjectCache. Each element in the vector represents an expression tree
