@@ -15,19 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: AI Disclosure
+name: AI disclosure enforcement
 
 on:
-  pull_request_target:
+  workflow_run:
+    workflows:
+      - PR trigger
     types:
-      - opened
-      - edited
-      - reopened
-      - ready_for_review
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.repository }}-${{ github.event.number }}
-  cancel-in-progress: true
+      - completed
 
 permissions:
   contents: write
@@ -35,21 +30,25 @@ permissions:
   issues: write
 
 jobs:
-  check:
-    name: Check
+  enforce:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+
     steps:
-      # Always run the script from main, never from the PR head.
-      - uses: actions/checkout@v7
+      # Check out trusted code from the default branch, not the PR branch.
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          repository: ${{ github.repository }}
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-
       - name: Check AI disclosure
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/ai_disclosure/check.js`);
-            await script({github, context, core});
+            const checkDisclosure = require(
+              "./.github/workflows/dev_pr/ai-check.js"
+            );
+
+            await checkDisclosure({github, context, core});
