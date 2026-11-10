@@ -2069,6 +2069,17 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
   Simplify{is_in("[10, 11]")}.WithGuarantee(nullable_range).Expect(false);
   Simplify{is_in("[0, 3, 11]")}.WithGuarantee(nullable_range).Expect(is_in("[3]"));
 
+  // Statistics cannot bound NaN, which is_in matches, so a small value set
+  // containing NaN is not filtered either
+  auto f64 = field_ref("f64");
+  auto f64_range = and_(greater_equal(f64, literal(0.0)), less_equal(f64, literal(10.0)));
+  auto is_in_f64 = [&](std::string json_array) {
+    return call("is_in", {f64}, SetLookupOptions{ArrayFromJSON(float64(), json_array)});
+  };
+  Simplify{is_in_f64("[20.0, 30.0]")}.WithGuarantee(f64_range).Expect(false);
+  Simplify{is_in_f64("[NaN]")}.WithGuarantee(f64_range).ExpectUnchanged();
+  Simplify{is_in_f64("[NaN, 5.0, 20.0]")}.WithGuarantee(f64_range).ExpectUnchanged();
+
   // Bounds are not inferred for a field other than the one which may be null
   Simplify{greater(i32, literal(10))}
       .WithGuarantee(or_(range, is_null(u32)))
@@ -2452,6 +2463,17 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
        and_(greater_equal(binary, binary_literal("10")),
             less_equal(binary, binary_literal("2"))),
        kUnchanged},
+      // Likewise for a bound of a type which is ordered differently from the field's
+      // (the statistics of a string column read as int64, say), even though it casts
+      // exactly to the field type: "10" <= x <= "9" admits "5".
+      {i64, int64(), concat_json("[5]", make_range_json(1000, 1059)),
+       and_(greater_equal(i64, literal("10")), less_equal(i64, literal("9"))),
+       kUnchanged},
+      {str, utf8(), concat_json("[\"10\"]", strings),
+       and_(greater_equal(str, literal(9)), less_equal(str, literal(10))), kUnchanged},
+      // ... whereas bounds of another numeric type are converted
+      {i64, int64(), concat_json("[5]", make_range_json(1000, 1059)),
+       and_(greater_equal(i64, literal(9.0)), less_equal(i64, literal(10.0))), kFalse},
       // Dictionaries are not searchable
       {field_ref("dict_i32"), int32(), range,
        greater(field_ref("dict_i32"), literal(100)), kUnchanged},

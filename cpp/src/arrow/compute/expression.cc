@@ -1218,6 +1218,22 @@ struct OrderPreservingCasts {
   }
 };
 
+// Whether values of the two types are ordered alike, so that a guarantee bound of
+// one type which casts exactly to the other bounds the same values there. This does
+// not hold across families: "10" <= "9" as strings, but both cast exactly to
+// integers (and back), for which 10 > 9.
+bool HaveSameOrder(const DataType& left, const DataType& right) {
+  if (left.id() == right.id()) return true;
+  auto family = [](Type::type id) {
+    if (is_integer(id) || is_floating(id) || is_decimal(id)) return 1;
+    if (is_base_binary_like(id)) return 2;
+    if (id == Type::DATE32 || id == Type::DATE64 || id == Type::TIMESTAMP) return 3;
+    return 0;
+  };
+  const int left_family = family(left.id());
+  return left_family != 0 && left_family == family(right.id());
+}
+
 // An Expression which evaluates to `value` where `target` is valid and to null where
 // it is null: true_unless_null(target) or invert(true_unless_null(target)).
 //
@@ -1312,11 +1328,14 @@ struct Inequality {
   /// This inequality restated for the target wrapped in `casts`: through casts
   /// which are not injective `x > b` only implies `cast(x) >= cast(b)`, so the
   /// comparison is weakened and the bound is put through the casts (`b` may round
-  /// to a value the expression compares with). Nullopt if the bound cannot be cast.
+  /// to a value the expression compares with). Nullopt if the bound cannot be cast,
+  /// or if it is of a type which is ordered differently from the target's (see
+  /// HaveSameOrder), in which case casting it would not bound the cast target.
   std::optional<std::pair<Comparison::type, Datum>> ThroughCasts(
       const OrderPreservingCasts& casts) const {
     Comparison::type cast_cmp = casts.ApplyToComparison(cmp);
     if (casts.injective) return std::make_pair(cast_cmp, bound);
+    if (!HaveSameOrder(*bound.type(), *casts.inner->type())) return std::nullopt;
     ExecContext exec_context;
     auto cast_bound = casts.ApplyToBound(bound.scalar(), &exec_context);
     if (!cast_bound.ok()) return std::nullopt;
@@ -1366,6 +1385,17 @@ struct Inequality {
     auto through_casts = guarantee.ThroughCasts(casts);
     if (!through_casts) return std::nullopt;
     const auto& [cmp, bound] = *through_casts;
+
+    // Statistics based guarantees cannot bound NaN (a row group's minimum and
+    // maximum ignore it) whereas `is_in` matches NaN with NaN, so a NaN in the
+    // value set must not be filtered out. Leave such value sets alone, as
+    // SimplifyIsInWithInequalities does.
+    const auto value_set_type_id = options->value_set.type()->id();
+    if (value_set_type_id == Type::FLOAT || value_set_type_id == Type::DOUBLE) {
+      ARROW_ASSIGN_OR_RAISE(Datum is_nan, IsNan(options->value_set));
+      ARROW_ASSIGN_OR_RAISE(Datum any_nan, Any(is_nan));
+      if (any_nan.scalar_as<BooleanScalar>().value) return std::nullopt;
+    }
 
     FilterOptions::NullSelectionBehavior null_selection{};
     switch (options->GetNullMatchingBehavior()) {
@@ -1605,7 +1635,10 @@ Result<Expression> SimplifyIsInWithInequalities(
       // The guarantee compares the field with a bound of another type (in the
       // promoted type). Bring the bound into the field's type exactly: "safe"
       // casts between floating point types or to decimals may still round, so
-      // require the cast to round trip.
+      // require the cast to round trip. A bound of a type which is ordered
+      // differently (a string bound on a field read as an integer, say) says
+      // nothing about the field's order even if it round trips.
+      if (!HaveSameOrder(*bound->type, *lhs->type())) continue;
       auto maybe_cast =
           Cast(Datum(bound), lhs->type(), CastOptions::Safe(), &exec_context);
       if (!maybe_cast.ok()) continue;
