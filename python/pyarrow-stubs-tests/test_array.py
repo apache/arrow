@@ -44,6 +44,8 @@ def test_array() -> None:
     check(assert_type(arr.slice(1), pa.Int64Array), pa.Int64Array)
     check(assert_type(arr.fill_null(0), pa.Int64Array), pa.Int64Array)
     check(assert_type(arr.drop_null(), pa.Int64Array), pa.Int64Array)
+    indices: pa.Array = pa.array([1, 0])
+    check(assert_type(arr.take(indices), pa.Int64Array), pa.Int64Array)
 
     check(assert_type(arr.is_null(), pa.BooleanArray), pa.BooleanArray)
     check(assert_type(arr.cast(pa.float64()), pa.Array), pa.DoubleArray)
@@ -57,7 +59,7 @@ def test_array() -> None:
     check(assert_type(arr.to_tensor(allow_nulls=True), pa.Tensor), pa.Tensor)
     check(assert_type(pa.concat_arrays([arr, arr]), pa.Array),
           pa.Int64Array)
-    check(assert_type(pa.Array.from_pandas([1, 2], None, pa.int64()),
+    check(assert_type(pa.Array.from_pandas([1, 2], None, "int64"),
                       pa.Array),
           pa.Int64Array)
 
