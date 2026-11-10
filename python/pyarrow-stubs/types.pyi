@@ -25,8 +25,6 @@ if sys.version_info >= (3, 13):
 else:
     from typing_extensions import TypeIs
 
-import pyarrow.lib as lib
-
 from pyarrow.__lib.types import (
     DataType,
     Decimal32Type,
@@ -155,63 +153,6 @@ def is_primitive(t: DataType) -> bool: ...
 def is_boolean_value(obj: Any) -> bool: ...
 def is_integer_value(obj: Any) -> bool: ...
 def is_float_value(obj: Any) -> bool: ...
-
-__all__ = [
-    "lib",
-    "is_binary",
-    "is_binary_view",
-    "is_boolean",
-    "is_date",
-    "is_date32",
-    "is_date64",
-    "is_decimal",
-    "is_decimal128",
-    "is_decimal256",
-    "is_decimal32",
-    "is_decimal64",
-    "is_dictionary",
-    "is_duration",
-    "is_fixed_size_binary",
-    "is_fixed_size_list",
-    "is_float16",
-    "is_float32",
-    "is_float64",
-    "is_floating",
-    "is_int16",
-    "is_int32",
-    "is_int64",
-    "is_int8",
-    "is_integer",
-    "is_interval",
-    "is_large_binary",
-    "is_large_list",
-    "is_large_list_view",
-    "is_large_string",
-    "is_large_unicode",
-    "is_list",
-    "is_list_view",
-    "is_map",
-    "is_nested",
-    "is_null",
-    "is_primitive",
-    "is_run_end_encoded",
-    "is_signed_integer",
-    "is_string",
-    "is_string_view",
-    "is_struct",
-    "is_temporal",
-    "is_time",
-    "is_time32",
-    "is_time64",
-    "is_timestamp",
-    "is_uint16",
-    "is_uint32",
-    "is_uint64",
-    "is_uint8",
-    "is_unicode",
-    "is_union",
-    "is_unsigned_integer",
-]
 
 class TypesEnum(IntEnum):
     NA = 0

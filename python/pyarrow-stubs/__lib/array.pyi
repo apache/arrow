@@ -45,7 +45,7 @@ from pyarrow.lib import (
     Tensor,
     _Weakrefable,
 )
-from typing_extensions import CapsuleType, deprecated
+from typing_extensions import CapsuleType
 import builtins
 
 from .scalar import Int64Scalar, Scalar
@@ -53,7 +53,7 @@ from .device import DeviceAllocationType
 from .types import BaseExtensionType, DataType, Field, StructType
 
 def array(
-    values: Iterable[Any]
+    obj: Iterable[Any]
     | SupportsArrowArray
     | SupportsArrowDeviceArray
     | SupportsPyArrowArray,
@@ -302,9 +302,8 @@ class BaseListArray(Array):
     def value_lengths(self) -> Int32Array | Int64Array: ...
 
 class ListArray(BaseListArray):
-    @classmethod
+    @staticmethod
     def from_arrays(
-        cls,
         offsets: Int32Array | list[int] | list[int | None] | np.ndarray,
         values: Array | list[Any],
         type: DataType | None = None,
@@ -318,9 +317,8 @@ class ListArray(BaseListArray):
     def value_lengths(self) -> Int32Array: ...
 
 class LargeListArray(BaseListArray):
-    @classmethod
+    @staticmethod
     def from_arrays(
-        cls,
         offsets: Int64Array | list[int] | list[int | None] | np.ndarray,
         values: Array | list[Any],
         type: DataType | None = None,
@@ -334,9 +332,8 @@ class LargeListArray(BaseListArray):
     def value_lengths(self) -> Int64Array: ...
 
 class ListViewArray(BaseListArray):
-    @classmethod
+    @staticmethod
     def from_arrays(
-        cls,
         offsets: Int32Array | list[int] | list[int | None] | np.ndarray,
         sizes: Int32Array | list[int] | list[int | None] | np.ndarray,
         values: Array | list[Any],
@@ -353,9 +350,8 @@ class ListViewArray(BaseListArray):
     def value_lengths(self) -> Int32Array: ...
 
 class LargeListViewArray(BaseListArray):
-    @classmethod
+    @staticmethod
     def from_arrays(
-        cls,
         offsets: Int64Array | list[int] | list[int | None] | np.ndarray,
         sizes: Int64Array | list[int] | list[int | None] | np.ndarray,
         values: Array | list[Any],
@@ -372,9 +368,8 @@ class LargeListViewArray(BaseListArray):
     def value_lengths(self) -> Int64Array: ...
 
 class FixedSizeListArray(BaseListArray):
-    @classmethod
+    @staticmethod
     def from_arrays(
-        cls,
         values: Array | list[Any],
         list_size: int | None = None,
         type: DataType | None = None,
@@ -400,8 +395,6 @@ class MapArray(ListArray):
     def items(self) -> Array: ...
 
 class UnionArray(Array):
-    @deprecated("Use fields() instead")
-    def child(self, pos: int) -> Field: ...
     def field(self, pos: int) -> Array: ...
     @property
     def type_codes(self) -> Int8Array: ...
@@ -538,10 +531,10 @@ class UuidArray(ExtensionArray): ...
 
 class FixedShapeTensorArray(ExtensionArray):
     def to_numpy_ndarray(self) -> np.ndarray: ...
-    @classmethod
+    @staticmethod
     def from_numpy_ndarray(
-        cls, obj: np.ndarray, dim_names: list[str] | tuple[str, ...] | None = None
-    ) -> Self: ...
+        obj: np.ndarray, dim_names: list[str] | tuple[str, ...] | None = None
+    ) -> FixedShapeTensorArray: ...
 
 class OpaqueArray(ExtensionArray): ...
 
@@ -549,10 +542,10 @@ class Bool8Array(ExtensionArray):
     def to_numpy(
         self, zero_copy_only: bool = ..., writable: bool = ...
     ) -> np.ndarray: ...
-    @classmethod
-    def from_storage(cls, storage: Int8Array) -> Self: ...  # type: ignore[override]
-    @classmethod
-    def from_numpy(cls, obj: np.ndarray) -> Self: ...
+    @staticmethod
+    def from_storage(storage: Int8Array) -> Bool8Array: ...  # type: ignore[override]
+    @staticmethod
+    def from_numpy(obj: np.ndarray) -> Bool8Array: ...
 
 def concat_arrays(
     arrays: Iterable[Array], memory_pool: MemoryPool | None = None

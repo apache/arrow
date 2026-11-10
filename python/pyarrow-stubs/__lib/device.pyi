@@ -19,21 +19,21 @@ import enum
 
 from pyarrow.lib import _Weakrefable
 
-class DeviceAllocationType(enum.Enum):
-    CPU = enum.auto()
-    CUDA = enum.auto()
-    CUDA_HOST = enum.auto()
-    OPENCL = enum.auto()
-    VULKAN = enum.auto()
-    METAL = enum.auto()
-    VPI = enum.auto()
-    ROCM = enum.auto()
-    ROCM_HOST = enum.auto()
-    EXT_DEV = enum.auto()
-    CUDA_MANAGED = enum.auto()
-    ONEAPI = enum.auto()
-    WEBGPU = enum.auto()
-    HEXAGON = enum.auto()
+class DeviceAllocationType(enum.IntEnum):
+    CPU = 1
+    CUDA = 2
+    CUDA_HOST = 3
+    OPENCL = 4
+    VULKAN = 7
+    METAL = 8
+    VPI = 9
+    ROCM = 10
+    ROCM_HOST = 11
+    EXT_DEV = 12
+    CUDA_MANAGED = 13
+    ONEAPI = 14
+    WEBGPU = 15
+    HEXAGON = 16
 
 class Device(_Weakrefable):
     @property

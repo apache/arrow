@@ -19,7 +19,7 @@ from typing import Self, TypeAlias
 
 from collections.abc import Iterable, Iterator, Sequence, Mapping
 from typing import Any, ClassVar, Literal
-from typing_extensions import CapsuleType, deprecated
+from typing_extensions import CapsuleType
 import builtins
 
 import numpy as np
@@ -59,7 +59,7 @@ from .scalar import Int64Scalar, Scalar
 from .tensor import Tensor
 from .types import DataType
 
-ArrayOrChunkedArray: TypeAlias = Array | ChunkedArray
+_ArrayOrChunkedArray: TypeAlias = Array | ChunkedArray
 
 _Aggregation: TypeAlias = Literal[
     "all",
@@ -113,8 +113,8 @@ _AggregationPrefixed: TypeAlias = Literal[
     "hash_tdigest",
     "hash_variance",
 ]
-Aggregation: TypeAlias = _Aggregation | _AggregationPrefixed | str
-AggregateOptions: TypeAlias = (
+_AggregationName: TypeAlias = _Aggregation | _AggregationPrefixed | str
+_AggregateOptions: TypeAlias = (
     ScalarAggregateOptions
     | CountOptions
     | TDigestOptions
@@ -122,7 +122,7 @@ AggregateOptions: TypeAlias = (
     | FunctionOptions
 )
 
-ChunkedArrayConstructorInput: TypeAlias = (
+_ChunkedArrayConstructorInput: TypeAlias = (
     Iterable[
         Iterable[Any]
         | SupportsArrowArray
@@ -134,14 +134,12 @@ ChunkedArrayConstructorInput: TypeAlias = (
     | SupportsArrowStream
 )
 
-UnarySelector: TypeAlias = str
-NullarySelector: TypeAlias = tuple[()]
-NarySelector: TypeAlias = list[str] | tuple[str, ...]
-ColumnSelector: TypeAlias = UnarySelector | NullarySelector | NarySelector
+_UnarySelector: TypeAlias = str
+_NullarySelector: TypeAlias = tuple[()]
+_NarySelector: TypeAlias = list[str] | tuple[str, ...]
+_ColumnSelector: TypeAlias = _UnarySelector | _NullarySelector | _NarySelector
 
 class ChunkedArray(_PandasConvertible):
-    @property
-    def data(self) -> Self: ...
     @property
     def type(self) -> DataType: ...
     def length(self) -> int: ...
@@ -157,8 +155,6 @@ class ChunkedArray(_PandasConvertible):
         skip_new_lines: bool = False,
         element_size_limit: int = 100,
     ) -> str: ...
-    @deprecated("Use 'to_string' instead")
-    def format(self, **kwargs: Any) -> str: ...
     def validate(self, *, full: bool = False) -> None: ...
     @property
     def null_count(self) -> int: ...
@@ -236,7 +232,7 @@ class ChunkedArray(_PandasConvertible):
     def is_cpu(self) -> bool: ...
 
 def chunked_array(
-    arrays: ChunkedArrayConstructorInput,
+    arrays: _ChunkedArrayConstructorInput,
     type: DataType | str | None = None,
 ) -> ChunkedArray: ...
 
@@ -247,9 +243,9 @@ class _Tabular(_PandasConvertible):
     def __dataframe__(
         self, nan_as_null: bool = False, allow_copy: bool = True
     ) -> _PyArrowDataFrame: ...
-    def __getitem__(self, key: int | str | slice) -> ArrayOrChunkedArray | Self: ...
+    def __getitem__(self, key: int | str | slice) -> _ArrayOrChunkedArray | Self: ...
     def __len__(self) -> int: ...
-    def column(self, i: int | str) -> ArrayOrChunkedArray: ...
+    def column(self, i: int | str) -> _ArrayOrChunkedArray: ...
     @property
     def column_names(self) -> list[str]: ...
     @property
@@ -261,7 +257,7 @@ class _Tabular(_PandasConvertible):
         cls,
         mapping: Mapping[
             Any,
-            ArrayOrChunkedArray
+            _ArrayOrChunkedArray
             | Iterable[Any]
             | SupportsArrowArray
             | SupportsArrowDeviceArray,
@@ -276,7 +272,7 @@ class _Tabular(_PandasConvertible):
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
-    def itercolumns(self) -> Iterator[ArrayOrChunkedArray]: ...
+    def itercolumns(self) -> Iterator[_ArrayOrChunkedArray]: ...
     @property
     def num_columns(self) -> int: ...
     @property
@@ -308,10 +304,13 @@ class _Tabular(_PandasConvertible):
     def remove_column(self, i: int) -> Self: ...
     def drop_columns(self, columns: str | list[str]) -> Self: ...
     def add_column(
-        self, i: int, field_: str | Field, column: ArrayOrChunkedArray | list[list[Any]]
+        self,
+        i: int,
+        field_: str | Field,
+        column: _ArrayOrChunkedArray | list[list[Any]],
     ) -> Self: ...
     def append_column(
-        self, field_: str | Field, column: ArrayOrChunkedArray | list[list[Any]]
+        self, field_: str | Field, column: _ArrayOrChunkedArray | list[list[Any]]
     ) -> Self: ...
 
 class RecordBatch(_Tabular):
@@ -335,10 +334,10 @@ class RecordBatch(_Tabular):
     def get_total_buffer_size(self) -> int: ...
     def __sizeof__(self) -> int: ...
     def add_column(
-        self, i: int, field_: str | Field, column: ArrayOrChunkedArray | list[Any]
+        self, i: int, field_: str | Field, column: _ArrayOrChunkedArray | list[Any]
     ) -> RecordBatch: ...
     def append_column(
-        self, field_: str | Field, column: ArrayOrChunkedArray | list[Any]
+        self, field_: str | Field, column: _ArrayOrChunkedArray | list[Any]
     ) -> RecordBatch: ...
     def remove_column(self, i: int) -> RecordBatch: ...
     def set_column(
@@ -415,7 +414,7 @@ class RecordBatch(_Tabular):
     def is_cpu(self) -> bool: ...
     def copy_to(self, destination: MemoryManager | Device) -> RecordBatch: ...
 
-JoinType: TypeAlias = Literal[
+_JoinType: TypeAlias = Literal[
     "left semi",
     "right semi",
     "left anti",
@@ -505,19 +504,19 @@ class Table(_Tabular):
         self,
         i: int,
         field_: str | Field,
-        column: ChunkedArray | ChunkedArrayConstructorInput,
+        column: ChunkedArray | _ChunkedArrayConstructorInput,
     ) -> Table: ...
     def append_column(
         self,
         field_: str | Field,
-        column: ChunkedArray | ChunkedArrayConstructorInput,
+        column: ChunkedArray | _ChunkedArrayConstructorInput,
     ) -> Table: ...
     def remove_column(self, i: int) -> Table: ...
     def set_column(
         self,
         i: int,
         field_: str | Field,
-        column: ChunkedArray | ChunkedArrayConstructorInput,
+        column: ChunkedArray | _ChunkedArrayConstructorInput,
     ) -> Table: ...
     def rename_columns(self, names: list[str] | dict[str, str]) -> Table: ...
     def drop(self, columns: str | list[str]) -> Table: ...
@@ -529,7 +528,7 @@ class Table(_Tabular):
         right_table: Table,
         keys: str | list[str],
         right_keys: str | list[str] | None = None,
-        join_type: JoinType = "left outer",
+        join_type: _JoinType = "left outer",
         left_suffix: str | None = None,
         right_suffix: str | None = None,
         coalesce_keys: bool = True,
@@ -578,7 +577,6 @@ def concat_tables(
     tables: Iterable[Table],
     memory_pool: MemoryPool | None = None,
     promote_options: Literal["none", "default", "permissive"] = "none",
-    **kwargs: Any,
 ) -> Table: ...
 
 class TableGroupBy:
@@ -590,8 +588,8 @@ class TableGroupBy:
     def aggregate(
         self,
         aggregations: Iterable[
-            tuple[ColumnSelector, Aggregation]
-            | tuple[ColumnSelector, Aggregation, AggregateOptions | None]
+            tuple[_ColumnSelector, _AggregationName]
+            | tuple[_ColumnSelector, _AggregationName, _AggregateOptions | None]
         ],
     ) -> Table: ...
 

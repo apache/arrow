@@ -28,34 +28,3 @@ pyarrow\.__lib\.[a-z]+\.__all__
 
 # The __init__ of Cython extension types takes (*args, **kwargs) at runtime.
 pyarrow\.__lib\.[a-z]+\.[A-Za-z_]+\.__init__
-
-# Type aliases that are only defined in the stubs.
-pyarrow\.__lib\.table\.AggregateOptions
-pyarrow\.__lib\.table\.Aggregation
-pyarrow\.__lib\.table\.ArrayOrChunkedArray
-pyarrow\.__lib\.table\.ChunkedArrayConstructorInput
-pyarrow\.__lib\.table\.ColumnSelector
-pyarrow\.__lib\.table\.JoinType
-pyarrow\.__lib\.table\.NarySelector
-pyarrow\.__lib\.table\.NullarySelector
-pyarrow\.__lib\.table\.UnarySelector
-
-# Stubs to fix (GH-32609).
-pyarrow\.__lib\.array\.Bool8Array\.from_numpy
-pyarrow\.__lib\.array\.Bool8Array\.from_storage
-pyarrow\.__lib\.array\.FixedShapeTensorArray\.from_numpy_ndarray
-pyarrow\.__lib\.array\.FixedSizeListArray\.from_arrays
-pyarrow\.__lib\.array\.LargeListArray\.from_arrays
-pyarrow\.__lib\.array\.LargeListViewArray\.from_arrays
-pyarrow\.__lib\.array\.ListArray\.from_arrays
-pyarrow\.__lib\.array\.ListViewArray\.from_arrays
-pyarrow\.__lib\.array\.UnionArray\.child
-pyarrow\.__lib\.array\.array
-pyarrow\.__lib\.device\.DeviceAllocationType\.[A-Z_]+
-pyarrow\.__lib\.device\.DeviceAllocationType\.__format__
-pyarrow\.__lib\.table\.ChunkedArray\.data
-pyarrow\.__lib\.table\.ChunkedArray\.format
-pyarrow\.__lib\.table\.concat_tables
-pyarrow\.__lib\.types\.Schema\.__getitem__
-pyarrow\.__lib\.types\.Schema\.field_by_name
-pyarrow\.types\.__all__
