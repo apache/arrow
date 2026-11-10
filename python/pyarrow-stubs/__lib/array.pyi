@@ -475,7 +475,7 @@ class DictionaryArray(Array):
     ) -> DictionaryArray: ...
     @staticmethod
     def from_arrays(
-        indices: Indices | Sequence[int | None],
+        indices: Indices,
         dictionary: Array | np.ndarray | pd.Series | list[Any],
         mask: np.ndarray | pd.Series | BooleanArray | None = None,
         ordered: bool = False,
