@@ -17,6 +17,7 @@
 # mypy: warn-unused-ignores
 
 from collections.abc import Hashable
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -25,7 +26,7 @@ from typing_extensions import CapsuleType
 
 import pyarrow as pa
 
-from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
+from _check import assert_type, check
 
 DENSE = np.array([[1, 0, 2], [0, 3, 0]])
 
@@ -97,6 +98,6 @@ def test_sparse_scipy() -> None:
 
 def test_invalid_usage() -> None:
     tensor = pa.Tensor.from_numpy(DENSE)
-    if TYPE_CHECKING_INVALID_USAGE:
+    if TYPE_CHECKING:
         pa.Tensor.from_numpy(DENSE, dim_names=[1, 2])  # type: ignore[list-item]
         _: Hashable = tensor  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # noqa: E501

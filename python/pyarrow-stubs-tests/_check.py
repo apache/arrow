@@ -26,18 +26,15 @@ pyright and ty) and is a no-op at runtime. ``check`` runs under pytest and
 verifies that the value really is an instance of the given class, so the
 stubs can't drift away from what pyarrow actually returns.
 
-Code that type checkers should *reject* goes under
-``if TYPE_CHECKING_INVALID_USAGE:`` with a ``# type: ignore[<mypy code>]``
-comment. The block never runs, and mypy and pyright are configured to
-report unused ignores in these tests, so the test fails if the usage stops
-being an error.
+Code that type checkers should *reject* goes under ``if TYPE_CHECKING:``
+with a ``# type: ignore[<mypy code>]`` comment. The block never runs, and
+mypy and pyright are configured to report unused ignores in these tests, so
+the test fails if the usage stops being an error.
 """
 
-from typing import Any, Final, TYPE_CHECKING, TypeVar, assert_type
+from typing import Any, TypeVar, assert_type
 
-__all__ = ["TYPE_CHECKING_INVALID_USAGE", "assert_type", "check"]
-
-TYPE_CHECKING_INVALID_USAGE: Final = TYPE_CHECKING
+__all__ = ["assert_type", "check"]
 
 _T = TypeVar("_T")
 

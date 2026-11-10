@@ -15,15 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections.abc import Hashable
 from types import MappingProxyType
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import pytest
 from typing_extensions import CapsuleType
 
 import pyarrow as pa
 
-from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
+from _check import assert_type, check
 
 
 class _PyArrowArrayProvider:
@@ -203,19 +204,21 @@ def test_invalid_usage() -> None:
     streams = [_ArrowStreamProvider()]
     columns = {"a": pa.array([1])}.values()  # dict as non-sequence example
 
-    if TYPE_CHECKING_INVALID_USAGE:
+    if TYPE_CHECKING:
         table.column(1.5)  # type: ignore[arg-type]
         table.slice("0")  # type: ignore[arg-type]
         pa.Table.from_arrays(columns, names=["a"])  # type: ignore[arg-type]
         # Stream providers are accepted as the whole input, not individual chunks
         pa.chunked_array(streams)  # type: ignore[arg-type]
         table.add_column(0, "b", streams)  # type: ignore[arg-type]
+        # Tables define __eq__ but not __hash__, hence unhashable at runtime
+        _: Hashable = table  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # noqa: E501
 
 
 def test_record_batch_invalid_usage() -> None:
     arr = pa.array([1])
     chunked = pa.chunked_array([[{"a": 1}]])
-    if TYPE_CHECKING_INVALID_USAGE:
+    if TYPE_CHECKING:
         # Tuples are failing at runtime. Recheck after the fix of GH-55418
         pa.RecordBatch.from_arrays((arr,), names=["a"])  # type: ignore[arg-type]
         pa.RecordBatch.from_struct_array(chunked)  # type: ignore[arg-type]

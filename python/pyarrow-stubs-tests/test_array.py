@@ -16,7 +16,7 @@
 # under the License.
 
 from collections.abc import Hashable
-from typing import Any, cast
+from typing import Any, cast, TYPE_CHECKING
 
 import pytest
 from typing_extensions import CapsuleType
@@ -24,7 +24,7 @@ from typing_extensions import CapsuleType
 import pyarrow as pa
 from pyarrow._compute import CastOptions
 
-from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
+from _check import assert_type, check
 
 
 def test_array() -> None:
@@ -72,7 +72,7 @@ def test_array() -> None:
     bool_mask = cast(pa.BooleanArray, pa.array([True, False, True]))
     check(assert_type(arr.filter(bool_mask), pa.Int64Array), pa.Int64Array)
 
-    if TYPE_CHECKING_INVALID_USAGE:
+    if TYPE_CHECKING:
         pa.array([1, 2], mask=[True, None])  # type: ignore[list-item]
         # TODO: when scalars get stubs
         # pa.array([1, 2], mask=pa.chunked_array([[True, False]]))
@@ -92,7 +92,7 @@ def test_array_numpy() -> None:
     np_mask = np.array([True, False])
     check(assert_type(arr.filter(np_mask), pa.Int64Array), pa.Int64Array)
 
-    if TYPE_CHECKING_INVALID_USAGE:
+    if TYPE_CHECKING:
         dtype = pa.dictionary(pa.int8(), pa.string())
         strs = np.array(["a"])
         pa.DictionaryArray.from_buffers(dtype, 1, [], strs)  # type: ignore[arg-type]
@@ -192,6 +192,11 @@ def test_run_end_encoded_array() -> None:
     )
     check(assert_type(ree.values, pa.Array), pa.StringArray)
 
+    rebuilt = pa.RunEndEncodedArray.from_buffers(
+        ree.type, len(ree), [None], children=[ree.run_ends, ree.values]
+    )
+    check(assert_type(rebuilt, pa.RunEndEncodedArray), pa.RunEndEncodedArray)
+
 
 def test_chunked_array() -> None:
     chunked = pa.chunked_array([[1, 2], [3]])
@@ -213,7 +218,7 @@ def test_chunked_array() -> None:
 
 def test_invalid_usage() -> None:
     arr = cast(pa.Int64Array, pa.array([1, 2]))
-    if TYPE_CHECKING_INVALID_USAGE:
+    if TYPE_CHECKING:
         arr.cast(1)  # type: ignore[arg-type]
         arr.slice("1")  # type: ignore[arg-type]
         arr.equals(object())  # type: ignore[arg-type]
@@ -234,9 +239,12 @@ def test_buffer_constructors_invalid_usage() -> None:
     children: list[pa.Array] = [pa.array([1])]
     strings = cast(pa.StringArray, pa.array(["a"]))
     off, data = cast(list[pa.Buffer], strings.buffers()[1:])
-    if TYPE_CHECKING_INVALID_USAGE:
+    if TYPE_CHECKING:
         # Only lists are accepted for children and type codes
         pa.UnionArray.from_sparse(types, tuple(children))  # type: ignore[arg-type]
         pa.UnionArray.from_sparse(types, children, None,
                                   types)  # type: ignore[arg-type]
         pa.StringArray.from_buffers(1, off, data, None, None)  # type: ignore[arg-type]
+        # Fields are passed as `fields`, `names` only takes strings
+        pa.StructArray.from_arrays(
+            children, names=[pa.field("a", pa.int64())])  # type: ignore[list-item]

@@ -17,3 +17,4 @@ types-requests==2.33.0.20261006
 # Annotated dependencies of the type stub tests, usually installed already.
 numpy
 pytest
+typing_extensions>=4.12.0

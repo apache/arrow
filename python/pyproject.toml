@@ -62,8 +62,7 @@ test = [
     'hypothesis',
     'cffi',
     'pytz',
-    'pandas',
-    'typing_extensions>=4.12.0',
+    'pandas'
 ]
 
 [tool.numpydoc_validation]

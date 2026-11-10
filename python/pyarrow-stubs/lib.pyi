@@ -39,9 +39,6 @@ class MonthDayNano(tuple):
     days: int
     nanoseconds: int
 
-    def __new__(
-        cls,
-        sequence: tuple[int, int, int] | list[int] = ...,
-    ) -> Self: ...
+    def __new__(cls, sequence: tuple[int, int, int] | list[int]) -> Self: ...
 
 def __getattr__(name: str) -> Any: ...

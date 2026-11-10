@@ -107,8 +107,9 @@ Type Checking
 PyArrow provides type stubs (``*.pyi`` files) for static type checking. These
 stubs are located in the ``pyarrow-stubs/`` directory, which is laid out as a
 :pep:`561` stub-only package for ``pyarrow``, so type checkers and IDEs pick
-it up from the ``arrow/python`` directory. The stubs are automatically included
-in the distributed wheel packages.
+it up from the ``arrow/python`` directory. The stubs aren't included in the
+distributed wheel packages until they are complete (see
+`GH-49831 <https://github.com/apache/arrow/issues/49831>`_).
 
 Running Type Checkers
 ---------------------
@@ -125,8 +126,8 @@ uv). This also lints and formats the stubs with ruff:
    $ pre-commit run --hook-stage manual python-stubs --all-files
 
 The type checkers only run on request, while ruff also runs on commit. The
-Lint CI job runs all of them as well. CI also runs the type checkers, the type stub tests and stubtest (see
-below) against the PyArrow it builds, with
+Lint CI job runs all of them as well. CI also runs the type checkers, the type
+stub tests and stubtest (see below) against the PyArrow it builds, with
 ``ci/scripts/python_test_type_annotations.sh``.
 
 To run a type checker directly instead, install the pinned type checkers and
@@ -223,16 +224,18 @@ verifies statically, with a runtime ``isinstance`` check:
 
 .. code-block:: python
 
+   from typing import TYPE_CHECKING
+
    import pyarrow as pa
 
-   from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
+   from _check import assert_type, check
 
    def test_list_type() -> None:
        lst = pa.list_(pa.int32())
        check(assert_type(lst, pa.ListType), pa.ListType)
        check(assert_type(lst.value_type, pa.DataType), pa.DataType)
 
-       if TYPE_CHECKING_INVALID_USAGE:
+       if TYPE_CHECKING:
            pa.list_(1)  # type: ignore[call-overload]
 
 The type checkers check these files as part of the regular runs above, and
@@ -244,11 +247,11 @@ with what PyArrow actually returns:
    $ cd arrow/python
    $ pytest pyarrow-stubs-tests
 
-Code under ``if TYPE_CHECKING_INVALID_USAGE:`` is never executed. It should
-fail type checking, which is asserted with a ``# type: ignore[<mypy code>]``
-comment: unused ignores are reported as errors in these tests, so the test
-fails once the usage is no longer rejected. ty doesn't honor mypy error codes,
-so it doesn't check invalid usage.
+Code under ``if TYPE_CHECKING:`` is never executed. It holds the usage that
+should fail type checking, which is asserted with a
+``# type: ignore[<mypy code>]`` comment: unused ignores are reported as errors
+in these tests, so the test fails once the usage is no longer rejected. ty
+doesn't honor mypy error codes, so it doesn't check invalid usage.
 
 Doctest
 =======

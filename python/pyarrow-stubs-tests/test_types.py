@@ -16,7 +16,7 @@
 # under the License.
 
 from collections.abc import Hashable, Iterator
-from typing import Literal
+from typing import Literal, TYPE_CHECKING
 
 from typing_extensions import CapsuleType
 
@@ -31,7 +31,7 @@ from pyarrow._stubs_typing import (
 )
 import pyarrow.types as types
 
-from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
+from _check import assert_type, check
 
 
 def _erase(t: pa.DataType) -> pa.DataType:
@@ -206,9 +206,10 @@ def test_import_from_c_capsule() -> None:
 
 
 def test_invalid_usage() -> None:
-    if TYPE_CHECKING_INVALID_USAGE:
+    if TYPE_CHECKING:
         # A Field needs a type unless it's created from an Arrow C schema.
         pa.field("a")  # type: ignore[call-overload]
         pa.list_(1)  # type: ignore[call-overload]
         pa.decimal128("10")  # type: ignore[arg-type]
+        pa.MonthDayNano()  # type: ignore[call-arg]  # ty: ignore[missing-argument]
         _: Hashable = pa.KeyValueMetadata({b"a": b"1"})  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # noqa: E501
