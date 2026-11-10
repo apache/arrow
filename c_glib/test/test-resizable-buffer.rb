@@ -29,4 +29,24 @@ class TestResizableBuffer < Test::Unit::TestCase
     @buffer.reserve(1)
     assert_equal(64, @buffer.capacity)
   end
+
+  def test_data
+    data = "Hello" * 10
+    @buffer.resize(data.bytesize)
+    @buffer.set_data(0, data)
+    buffer_data = @buffer.data
+    @buffer = nil
+    GC.start
+    assert_equal(data, buffer_data.to_s)
+  end
+
+  def test_mutable_data
+    data = "Hello" * 10
+    @buffer.resize(data.bytesize)
+    @buffer.set_data(0, data)
+    buffer_data = @buffer.mutable_data
+    @buffer = nil
+    GC.start
+    assert_equal(data, buffer_data.to_s)
+  end
 end

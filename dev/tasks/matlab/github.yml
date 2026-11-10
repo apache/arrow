@@ -67,11 +67,13 @@ jobs:
   macos:
     name:  {{ '${{ matrix.platform.architecture}}' }}  macOS {{ '${{ matrix.platform.macos-version }}' }} MATLAB
     runs-on: macos-{{ '${{ matrix.platform.macos-version }}' }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
     strategy:
       matrix:
         platform:
-            - { architecture: "AMD64", macos-version: "15-intel", architecture-suffix: "x64"}
-            - { architecture: "ARM64", macos-version: "14", architecture-suffix: "arm64"}
+            - { architecture: "AMD64", macos-version: "26-intel", architecture-suffix: "x64"}
+            - { architecture: "ARM64", macos-version: "26", architecture-suffix: "arm64"}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Install ninja-build
@@ -111,12 +113,16 @@ jobs:
         shell: bash
         run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
       {{ macros.github_configure_aws_credentials()|indent }}
+      - name: Find Visual Studio
+        shell: pwsh
+        run: |
+          "VS_INSTALL_PATH=$(vswhere -latest -property installationPath)" >> $env:GITHUB_ENV
       - name: Build MATLAB Interface
         shell: cmd
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
           bash -c "arrow/ci/scripts/matlab_build.sh $(pwd)/arrow"
       - name: Compress into single artifact
         shell: bash

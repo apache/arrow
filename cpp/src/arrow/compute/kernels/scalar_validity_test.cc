@@ -202,10 +202,50 @@ TEST(TestValidityKernels, IsValidIsNullNullType) {
                    ArrayFromJSON(boolean(), "[false, false, false, false, false]"));
 }
 
+TEST(TestValidityKernels, IsValidIsNullDictionaryOfNullType) {
+  // The dictionary has no validity bitmap
+  auto arr = DictArrayFromJSON(dictionary(int8(), null()), "[0, null, 0]", "[null]");
+  CheckScalarUnary("is_null", arr, ArrayFromJSON(boolean(), "[true, true, true]"));
+  CheckScalarUnary("is_valid", arr, ArrayFromJSON(boolean(), "[false, false, false]"));
+}
+
 TEST(TestValidityKernels, IsNullSetsZeroNullCount) {
   auto arr = ArrayFromJSON(int32(), "[1, 2, 3, 4, null]");
   ASSERT_OK_AND_ASSIGN(Datum out, IsNull(arr));
   ASSERT_EQ(out.array()->null_count, 0);
+}
+
+TEST(TestValidityKernels, IsNullDictionaryNanIsNull) {
+  NullOptions default_options;
+  NullOptions nan_is_null_options(/*nan_is_null=*/true);
+
+  for (const auto& value_type : {float16(), float32(), float64()}) {
+    SCOPED_TRACE(value_type->ToString());
+    auto dict_ty = dictionary(int32(), value_type);
+    auto arr =
+        DictArrayFromJSON(dict_ty, "[0, 1, 2, 3, null, 1]", "[1.5, NaN, -0.0, null]");
+
+    // Null dictionary values and null indices are always null.
+    CheckScalarUnary(
+        "is_null", arr,
+        ArrayFromJSON(boolean(), "[false, false, false, true, true, false]"));
+    CheckScalarUnary("is_null", arr,
+                     ArrayFromJSON(boolean(), "[false, false, false, true, true, false]"),
+                     &default_options);
+    CheckScalarUnary("is_null", arr,
+                     ArrayFromJSON(boolean(), "[false, true, false, true, true, true]"),
+                     &nan_is_null_options);
+
+    auto no_null_indices =
+        DictArrayFromJSON(dict_ty, "[3, 1, 0, 2]", "[1.5, NaN, -0.0, null]");
+    CheckScalarUnary("is_null", no_null_indices,
+                     ArrayFromJSON(boolean(), "[true, true, false, false]"),
+                     &nan_is_null_options);
+
+    auto empty = DictArrayFromJSON(dict_ty, "[]", "[]");
+    CheckScalarUnary("is_null", empty, ArrayFromJSON(boolean(), "[]"),
+                     &nan_is_null_options);
+  }
 }
 
 template <typename ArrowType>

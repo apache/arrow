@@ -92,6 +92,35 @@ class TestChunkedArray < Test::Unit::TestCase
     assert_equal(2, chunked_array.get_chunk(0).length)
   end
 
+  def test_chunk_out_of_index
+    chunks = [
+      build_boolean_array([true, false]),
+      build_boolean_array([false]),
+    ]
+    chunked_array = Arrow::ChunkedArray.new(chunks)
+    assert_nil(chunked_array.get_chunk(2))
+  end
+
+  def test_peek_chunk
+    chunks = [
+      build_boolean_array([true, false]),
+      build_boolean_array([false]),
+    ]
+    chunked_array = build_uncached_chunked_array(chunks)
+    assert_nil(chunked_array.peek_chunk(0))
+    chunk = chunked_array.get_chunk(0)
+    assert_equal([
+                   chunk.object_id,
+                   nil,
+                   nil,
+                 ],
+                 [
+                   chunked_array.peek_chunk(0).object_id,
+                   chunked_array.peek_chunk(1),
+                   chunked_array.peek_chunk(2),
+                 ])
+  end
+
   def test_chunks
     chunks = [
       build_boolean_array([true, false]),
@@ -100,6 +129,26 @@ class TestChunkedArray < Test::Unit::TestCase
     chunked_array = Arrow::ChunkedArray.new(chunks)
     assert_equal([2, 1],
                  chunked_array.chunks.collect(&:length))
+  end
+
+  def test_chunks_new
+    chunks = [
+      build_boolean_array([true, false]),
+      build_boolean_array([false]),
+    ]
+    chunked_array = Arrow::ChunkedArray.new(chunks)
+    assert_equal(chunks.collect(&:object_id),
+                 chunked_array.chunks.collect(&:object_id))
+  end
+
+  def test_chunks_cache
+    chunks = [
+      build_boolean_array([true, false]),
+      build_boolean_array([false]),
+    ]
+    chunked_array = build_uncached_chunked_array(chunks)
+    assert_equal(chunked_array.chunks.collect(&:object_id),
+                 chunked_array.chunks.collect(&:object_id))
   end
 
   def test_slice
@@ -154,5 +203,13 @@ class TestChunkedArray < Test::Unit::TestCase
     c_abi_array_stream = original_chunked_array.export
     assert_equal(original_chunked_array,
                  Arrow::ChunkedArray.import(c_abi_array_stream))
+  end
+
+  private
+  def build_uncached_chunked_array(chunks)
+    field = Arrow::Field.new("value", chunks[0].value_data_type)
+    schema = Arrow::Schema.new([field])
+    table = Arrow::Table.new(schema, [Arrow::ChunkedArray.new(chunks)])
+    table.get_column_data(0)
   end
 end

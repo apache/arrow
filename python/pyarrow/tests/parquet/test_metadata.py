@@ -730,6 +730,27 @@ def test_metadata_equals():
         original_metadata.equals(None)
 
 
+def test_parquet_metadata_equals_none(tempdir):
+    table = pa.table({"a": [1, 2, 3]})
+    path = tempdir / "metadata_equals_none.parquet"
+    pq.write_table(table, path)
+
+    metadata = pq.read_metadata(path)
+    row_group = metadata.row_group(0)
+    column_chunk = row_group.column(0)
+    objects = [
+        column_chunk.statistics,
+        column_chunk,
+        row_group,
+        metadata.schema,
+        metadata.schema[0],
+    ]
+
+    for obj in objects:
+        with pytest.raises(TypeError):
+            obj.equals(None)
+
+
 @pytest.mark.parametrize("t1,t2,expected_error", (
     ({'col1': range(10)}, {'col1': range(10)}, None),
     ({'col1': range(10)}, {'col2': range(10)},

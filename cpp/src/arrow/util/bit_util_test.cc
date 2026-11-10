@@ -1108,4 +1108,24 @@ TEST(BitUtil, CopyBits) {
                 0b01011010);
 }
 
+TEST(BitUtil, BitWidth) {
+  EXPECT_EQ(bit_util::BitWidth(uint8_t{0}), 0);
+  EXPECT_EQ(bit_util::BitWidth(uint8_t{1}), 1);
+  EXPECT_EQ(bit_util::BitWidth(uint32_t{1} << 20), 21);
+  EXPECT_EQ(bit_util::BitWidth((uint32_t{1} << 20) - 1), 20);
+  EXPECT_EQ(bit_util::BitWidth(std::numeric_limits<uint64_t>::max()), 64);
+  // constexpr-evaluable.
+  static_assert(bit_util::BitWidth(uint16_t{0x0100}) == 9);
+}
+
+TEST(BitUtil, HasSingleBit) {
+  EXPECT_FALSE(bit_util::HasSingleBit(uint8_t{0}));
+  EXPECT_TRUE(bit_util::HasSingleBit(uint8_t{1}));
+  EXPECT_TRUE(bit_util::HasSingleBit(uint32_t{1} << 20));
+  EXPECT_FALSE(bit_util::HasSingleBit((uint32_t{1} << 20) + 1));
+  EXPECT_FALSE(bit_util::HasSingleBit(std::numeric_limits<uint64_t>::max()));
+  // constexpr-evaluable.
+  static_assert(bit_util::HasSingleBit(uint16_t{0x0100}));
+}
+
 }  // namespace arrow

@@ -148,7 +148,7 @@ class Downloader:
     def _curl_version(self):
         cmd = ["curl", "--version"]
         out = subprocess.run(cmd, capture_output=True, check=True).stdout
-        match = re.search(r"curl (\d+)\.(\d+)\.(\d+) ", out.decode())
+        match = re.search(r"curl (\d+)\.(\d+)\.(\d+)(-rc\d+)? ", out.decode())
         return (int(match.group(1)), int(match.group(2)), int(match.group(3)))
 
 

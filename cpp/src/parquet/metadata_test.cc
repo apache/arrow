@@ -17,9 +17,13 @@
 
 #include "parquet/metadata.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cstring>
+
 #include "arrow/util/key_value_metadata.h"
+#include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/schema.h"
@@ -343,6 +347,23 @@ void AssertColumnChunkMinMax(const FileMetaData& metadata,
 }
 
 }  // namespace
+
+TEST(Metadata, UnknownCompressionCodecThrows) {
+  format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();
+  auto metadata = ParseMetadata(SerializeMetadata(thrift_metadata));
+
+  auto& column_chunk = thrift_metadata.row_groups.at(0).columns.at(0);
+  const int32_t raw_codec = 8;
+  static_assert(sizeof(column_chunk.meta_data.codec) == sizeof(raw_codec));
+  std::memcpy(&column_chunk.meta_data.codec, &raw_codec, sizeof(raw_codec));
+
+  auto column = ColumnChunkMetaData::Make(&column_chunk, metadata->schema()->Column(0));
+
+  EXPECT_THROW_THAT([&]() { column->compression(); }, ParquetException,
+                    ::testing::Property(
+                        &ParquetException::what,
+                        ::testing::HasSubstr("Unsupported compression codec value: 8")));
+}
 
 TEST(Metadata, UnknownColumnOrderIgnoresMinMax) {
   format::FileMetaData thrift_metadata = SingleInt32MetadataWithStats();

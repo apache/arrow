@@ -28,7 +28,7 @@ project(pyarrow)
 # which in turn meant that Py_GIL_DISABLED was not set.
 set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
 
-set(PYARROW_VERSION "26.0.0-SNAPSHOT")
+set(PYARROW_VERSION "27.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Generate SO version and full SO version
@@ -736,6 +736,18 @@ if(PYARROW_BUILD_GCS)
   if(NOT ARROW_GCS)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_GCS=ON")
   endif()
+  find_package(ArrowGcs REQUIRED)
+  if(ARROW_BUILD_SHARED)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_GCS_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_GCS_IMPORT_LIB})
+      endif()
+    endif()
+    set(GCS_LINK_LIBS ArrowGcs::arrow_gcs_shared)
+  else()
+    set(GCS_LINK_LIBS ArrowGcs::arrow_gcs_static)
+  endif()
   list(APPEND CYTHON_EXTENSIONS _gcsfs)
 endif()
 
@@ -1050,6 +1062,10 @@ if(PYARROW_BUILD_PARQUET)
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
     target_link_libraries(_parquet_encryption PRIVATE arrow_python_parquet_encryption)
   endif()
+endif()
+
+if(PYARROW_BUILD_GCS)
+  target_link_libraries(_gcsfs PRIVATE ${GCS_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_S3)
