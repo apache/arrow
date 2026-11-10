@@ -21,8 +21,6 @@
 
 # arrow 26.0.1
 
-# arrow 26.0.0
-
 ## Breaking changes
 
 - The `.data.frame` argument to `map_batches()`, deprecated since 9.0.0, has
