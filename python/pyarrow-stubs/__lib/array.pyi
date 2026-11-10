@@ -15,20 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import builtins
 from collections.abc import Collection, Iterable, Iterator, Sequence
-
 from typing import Any, ClassVar, Self, SupportsIndex
 
 import numpy as np
 import pandas as pd
-
 from numpy.typing import NDArray
 from pyarrow._compute import CastOptions
 from pyarrow._stubs_typing import (
     ArrayLike,
     Indices,
-    Mask,
     MapsAsPydicts,
+    Mask,
     NullEncoding,
     NullPlacement,
     NullSelectionBehavior,
@@ -38,19 +37,21 @@ from pyarrow._stubs_typing import (
     SupportsPyArrowArray,
 )
 from pyarrow.lib import (
+    BaseExtensionType,
     Buffer,
+    DataType,
     Device,
+    DeviceAllocationType,
+    Field,
+    Int64Scalar,
     MemoryManager,
     MemoryPool,
+    Scalar,
+    StructType,
     Tensor,
     _Weakrefable,
 )
 from typing_extensions import CapsuleType
-import builtins
-
-from .scalar import Int64Scalar, Scalar
-from .device import DeviceAllocationType
-from .types import BaseExtensionType, DataType, Field, StructType
 
 def array(
     obj: Iterable[Any]

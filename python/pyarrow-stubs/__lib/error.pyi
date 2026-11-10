@@ -16,7 +16,6 @@
 # under the License.
 
 from types import TracebackType
-
 from typing import Self
 
 class ArrowException(Exception): ...

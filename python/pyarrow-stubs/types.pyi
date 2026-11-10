@@ -17,7 +17,6 @@
 
 import sys
 from enum import IntEnum
-
 from typing import Any, TypeAlias, TypeGuard
 
 if sys.version_info >= (3, 13):
@@ -25,29 +24,6 @@ if sys.version_info >= (3, 13):
 else:
     from typing_extensions import TypeIs
 
-from pyarrow.__lib.types import (
-    DataType,
-    Decimal32Type,
-    Decimal64Type,
-    Decimal128Type,
-    Decimal256Type,
-    DenseUnionType,
-    DictionaryType,
-    DurationType,
-    FixedSizeBinaryType,
-    FixedSizeListType,
-    LargeListType,
-    LargeListViewType,
-    ListType,
-    ListViewType,
-    MapType,
-    RunEndEncodedType,
-    SparseUnionType,
-    StructType,
-    Time32Type,
-    Time64Type,
-    TimestampType,
-)
 from pyarrow._stubs_typing import (
     BinaryType,
     BinaryViewType,
@@ -72,6 +48,29 @@ from pyarrow._stubs_typing import (
     UInt16Type,
     UInt32Type,
     UInt64Type,
+)
+from pyarrow.lib import (
+    DataType,
+    Decimal32Type,
+    Decimal64Type,
+    Decimal128Type,
+    Decimal256Type,
+    DenseUnionType,
+    DictionaryType,
+    DurationType,
+    FixedSizeBinaryType,
+    FixedSizeListType,
+    LargeListType,
+    LargeListViewType,
+    ListType,
+    ListViewType,
+    MapType,
+    RunEndEncodedType,
+    SparseUnionType,
+    StructType,
+    Time32Type,
+    Time64Type,
+    TimestampType,
 )
 
 _SignedInteger: TypeAlias = Int8Type | Int16Type | Int32Type | Int64Type

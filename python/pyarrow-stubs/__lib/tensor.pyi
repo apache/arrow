@@ -15,14 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import ClassVar
-from typing_extensions import CapsuleType
-
 from collections.abc import Iterable, Sequence
-import numpy as np
+from typing import ClassVar
 
-from pyarrow.lib import _Weakrefable
-from .types import DataType
+import numpy as np
+from pyarrow.lib import DataType, _Weakrefable
 from scipy.sparse import (
     coo_array,
     coo_matrix,
@@ -32,6 +29,7 @@ from scipy.sparse import (
     csr_matrix,
 )
 from sparse import COO
+from typing_extensions import CapsuleType
 
 class Tensor(_Weakrefable):
     @staticmethod

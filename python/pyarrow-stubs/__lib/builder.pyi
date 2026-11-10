@@ -17,9 +17,12 @@
 
 from collections.abc import Iterable
 
-from pyarrow.lib import MemoryPool, _Weakrefable
-
-from .array import StringArray, StringViewArray
+from pyarrow.lib import (
+    MemoryPool,
+    StringArray,
+    StringViewArray,
+    _Weakrefable,
+)
 
 class StringBuilder(_Weakrefable):
     def __init__(self, memory_pool: MemoryPool | None = None) -> None: ...

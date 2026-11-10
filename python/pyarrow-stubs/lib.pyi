@@ -21,7 +21,6 @@
 
 from typing import Any, Self, final
 
-from pyarrow.__lib.types import *  # noqa: F401,F403
 from pyarrow.__lib.array import *  # noqa: F401,F403
 from pyarrow.__lib.builder import *  # noqa: F401,F403
 from pyarrow.__lib.config import *  # noqa: F401,F403
@@ -32,6 +31,7 @@ from pyarrow.__lib.memory import *  # noqa: F401,F403
 from pyarrow.__lib.scalar import *  # noqa: F401,F403
 from pyarrow.__lib.table import *  # noqa: F401,F403
 from pyarrow.__lib.tensor import *  # noqa: F401,F403
+from pyarrow.__lib.types import *  # noqa: F401,F403
 
 @final
 class MonthDayNano(tuple):

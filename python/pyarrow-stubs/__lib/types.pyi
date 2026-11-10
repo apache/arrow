@@ -20,8 +20,6 @@ from typing import Any, ClassVar, Literal, Self, TypeAlias, overload
 
 import numpy as np
 import pandas as pd
-from typing_extensions import CapsuleType
-
 from pyarrow._stubs_typing import (
     BinaryType,
     BinaryViewType,
@@ -31,10 +29,10 @@ from pyarrow._stubs_typing import (
     Float16Type,
     Float32Type,
     Float64Type,
+    Int8Type,
     Int16Type,
     Int32Type,
     Int64Type,
-    Int8Type,
     IntegerType,
     LargeBinaryType,
     LargeStringType,
@@ -44,10 +42,10 @@ from pyarrow._stubs_typing import (
     StringViewType,
     SupportsArrowSchema,
     TimeUnit,
+    UInt8Type,
     UInt16Type,
     UInt32Type,
     UInt64Type,
-    UInt8Type,
 )
 from pyarrow.lib import (
     Array,
@@ -58,6 +56,7 @@ from pyarrow.lib import (
     MemoryPool,
     Table,
 )
+from typing_extensions import CapsuleType
 
 class _Weakrefable: ...
 class _Metadata(_Weakrefable): ...

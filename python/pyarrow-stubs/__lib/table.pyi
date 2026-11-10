@@ -15,16 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from typing import Self, TypeAlias
-
-from collections.abc import Iterable, Iterator, Sequence, Mapping
-from typing import Any, ClassVar, Literal
-from typing_extensions import CapsuleType
 import builtins
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from typing import Any, ClassVar, Literal, Self, TypeAlias
 
 import numpy as np
 import pandas as pd
-
 from numpy.typing import NDArray
 from pyarrow._compute import (
     CastOptions,
@@ -36,8 +32,8 @@ from pyarrow._compute import (
 )
 from pyarrow._stubs_typing import (
     Indices,
-    Mask,
     MapsAsPydicts,
+    Mask,
     NullEncoding,
     NullPlacement,
     NullSelectionBehavior,
@@ -47,17 +43,27 @@ from pyarrow._stubs_typing import (
     SupportsArrowStream,
     SupportsPyArrowArray,
 )
+from pyarrow.lib import (
+    Array,
+    Buffer,
+    DataType,
+    Device,
+    DeviceAllocationType,
+    Field,
+    Int64Scalar,
+    MemoryManager,
+    MemoryPool,
+    RecordBatchReader,
+    Scalar,
+    Schema,
+    StructArray,
+    Tensor,
+    _PandasConvertible,
+)
+from typing_extensions import CapsuleType
+
 from pyarrow.compute import Expression
 from pyarrow.interchange.dataframe import _PyArrowDataFrame
-from pyarrow.lib import Device, Field, MemoryManager, MemoryPool, Schema
-
-from .array import Array, StructArray, _PandasConvertible
-from .device import DeviceAllocationType
-from .io import Buffer
-from .ipc import RecordBatchReader
-from .scalar import Int64Scalar, Scalar
-from .tensor import Tensor
-from .types import DataType
 
 _ArrayOrChunkedArray: TypeAlias = Array | ChunkedArray
 

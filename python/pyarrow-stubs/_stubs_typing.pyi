@@ -19,11 +19,10 @@ from collections.abc import Sequence
 from typing import Any, Literal, Protocol, TypeAlias
 
 import numpy as np
-
 from numpy.typing import NDArray
+from pyarrow.lib import Array, ChunkedArray
 
 from pyarrow import lib
-from pyarrow.lib import Array, ChunkedArray
 
 ArrayLike: TypeAlias = Any
 Order: TypeAlias = Literal["ascending", "descending"]
