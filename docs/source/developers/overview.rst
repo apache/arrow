@@ -133,8 +133,7 @@ in the end. To make the review process smooth for everyone, try to
 
 When tests are passing and the pull request has been approved by the interested
 parties, a `committer <https://arrow.apache.org/committers/>`_
-will merge the pull request. This is done with a
-**command-line utility that does a squash merge**.
+will merge the pull request. This is done with a **squash merge**.
 
 .. dropdown:: Details on squash merge
   :animate: fade-in-slide-down
@@ -147,9 +146,9 @@ will merge the pull request. This is done with a
   cherry-pick individual patches onto a maintenance branch.
 
   Your pull request will appear in the GitHub interface to have been "merged".
-  In the commit message of that commit, the merge tool adds the pull request
-  description, a link back to the pull request, and attribution to the contributor
-  and any co-authors.
+  The commit message of that commit has the pull request description, a link
+  back to the pull request, and attribution to the contributor and any
+  co-authors.
 
 .. _ai-generated-code:
 

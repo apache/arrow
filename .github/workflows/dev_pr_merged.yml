@@ -1,0 +1,110 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Dev PR merged
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+
+jobs:
+  resolve:
+    name: Resolve
+    if: github.repository == 'apache/arrow'
+    runs-on: ubuntu-latest
+    steps:
+      # A pushed commit that isn't the merge commit of a pull request
+      # is ignored.
+      - name: Resolve issue
+        env:
+          COMMIT: ${{ github.sha }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          pull_request=$(
+            gh api "repos/${GH_REPO}/commits/${COMMIT}/pulls" \
+              --jq "map(select(.merge_commit_sha == \"${COMMIT}\"))[0] // empty")
+          if [ -z "${pull_request}" ]; then
+            echo "${COMMIT} isn't the merge commit of a pull request."
+            exit 0
+          fi
+          title=$(jq -r .title <<< "${pull_request}")
+          if [[ ! "${title}" =~ ^GH-([0-9]+) ]]; then
+            echo "No GitHub issue in the title: ${title}"
+            exit 0
+          fi
+          issue_number=${BASH_REMATCH[1]}
+          issue_path="repos/${GH_REPO}/issues/${issue_number}"
+          issue=$(gh api "${issue_path}")
+          if [ "$(jq 'has("pull_request")' <<< "${issue}")" = "true" ]; then
+            echo "#${issue_number} is a pull request, not an issue."
+            exit 0
+          fi
+
+          # Assign the issue to the pull request author if it isn't
+          # assigned to anyone. GitHub ignores this silently if the
+          # author can't be assigned.
+          if [ "$(jq '.assignees | length' <<< "${issue}")" -eq 0 ]; then
+            author=$(jq -r .user.login <<< "${pull_request}")
+            gh api "${issue_path}/assignees" -f "assignees[]=${author}" > /dev/null
+          fi
+
+          # Use the milestone of the pull request. If the pull request
+          # doesn't have a milestone, keep the milestone of the issue.
+          # If the issue doesn't have a milestone either, use the next
+          # major release that doesn't have a maintenance branch yet
+          # like dev/merge_arrow_pr.py does.
+          milestone=$(jq -r '.milestone.number // empty' <<< "${pull_request}")
+          if [ -z "${milestone}" ] && \
+               [ "$(jq '.milestone' <<< "${issue}")" = "null" ]; then
+            maintenance_versions=$(
+              gh api --paginate "repos/${GH_REPO}/git/matching-refs/heads/maint-" \
+                --jq '.[].ref | ltrimstr("refs/heads/maint-")')
+            major_versions=$(
+              gh api --paginate "repos/${GH_REPO}/milestones?per_page=100" \
+                --jq '.[] | select(.title | test("^[0-9]+\\.0\\.0$")) | "\(.title):\(.number)"' |
+                sort -V)
+            for major_version in ${major_versions}; do
+              if ! grep -qxF "${major_version%:*}" <<< "${maintenance_versions}"; then
+                milestone=${major_version#*:}
+                break
+              fi
+            done
+          fi
+          if [ -n "${milestone}" ]; then
+            gh api -X PATCH "${issue_path}" -F "milestone=${milestone}" > /dev/null
+          fi
+
+          # Close the issue and comment which pull request resolved it
+          # after that. The merge script may have done them already.
+          if [ "$(jq -r .state <<< "${issue}")" != "closed" ]; then
+            gh issue close "${issue_number}"
+          fi
+          comment="Issue resolved by pull request $(jq -r .number <<< "${pull_request}")"
+          comments=$(gh api --paginate "${issue_path}/comments" --jq '.[].body')
+          if ! grep -qxF "${comment}" <<< "${comments}"; then
+            gh issue comment "${issue_number}" \
+              --body "${comment}"$'\n'"$(jq -r .html_url <<< "${pull_request}")"
+          fi

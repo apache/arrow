@@ -105,7 +105,7 @@ assigned.
     archery release curate <version>
 
 Ensure a major version milestone for a follow up release is created on GitHub. This will
-automatically be used by our merge script as the new version for issues closed when
+automatically be used on merging pull requests as the new version for issues closed when
 the maintenance branch is created.
 
 Patch Releases
@@ -621,11 +621,30 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # You can run the script with BUMP_TAG=0 and BUMP_PUSH=0
-      # this will avoid default pushing to main and pushing the tag
-      # but you will require to push manually after reviewing the commits.
-      # dev/release/post-10-bump-versions.sh 10.0.0 11.0.0
-      dev/release/post-10-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
+      # BUMP_PUSH=0 BUMP_TAG=0 dev/release/post-10-bump-versions.sh 10.0.0 11.0.0
+      BUMP_PUSH=0 BUMP_TAG=0 dev/release/post-10-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
+
+   ``BUMP_PUSH=0`` and ``BUMP_TAG=0`` are needed because we can't push
+   to ``main`` directly: ``main`` requires the "PR Title" status check.
+   The script only creates the commits in your local ``main``. You need
+   to push them to a branch, create a pull request from the branch with
+   a ``MINOR: [Release] Update versions for NEXT_X.NEXT_Y.NEXT_Z-SNAPSHOT``
+   title and merge it:
+
+   .. code-block:: Bash
+
+      git push origin main:bump-versions-X.Y.Z
+
+   After the pull request is merged, reset your local ``main``. For a
+   major release, you also need to tag the merged commit:
+
+   .. code-block:: Bash
+
+      git fetch upstream
+      git reset --hard upstream/main
+      # Only for a major release. Use the merged commit of the pull request.
+      git tag apache-arrow-NEXT_X.NEXT_Y.NEXT_Z.dev <merged commit>
+      git push upstream apache-arrow-NEXT_X.NEXT_Y.NEXT_Z.dev
 
 .. dropdown:: Update docs
    :animate: fade-in-slide-down
