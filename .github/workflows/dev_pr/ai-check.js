@@ -124,24 +124,6 @@ async function createDisclosureComment(
   });
 }
 
-/**
- * Converts the pull request to Draft unless it is already a draft.
- */
-async function convertToDraft(github, pullRequest) {
-  if (pullRequest.draft) return;
-
-  await github.graphql(
-    `mutation($id: ID!) {
-      convertPullRequestToDraft(input: {pullRequestId: $id}) {
-        pullRequest {
-          id
-        }
-      }
-    }`,
-    {id: pullRequest.node_id}
-  );
-}
-
 module.exports = async ({github, context, core}) => {
   const run = context.payload.workflow_run;
   const head = run.head_repository;
@@ -212,8 +194,17 @@ module.exports = async ({github, context, core}) => {
         pull_number: pr.number,
         state: "closed"
       });
-    } else {
-      await convertToDraft(github, pr);
+    } else if (!pr.draft) {
+      await github.graphql(
+        `mutation($id: ID!) {
+          convertPullRequestToDraft(input: {pullRequestId: $id}) {
+            pullRequest {
+              id
+            }
+          }
+        }`,
+        {id: pr.node_id}
+      );
     }
   }
 };
