@@ -29,7 +29,16 @@ github:
 
   protected_branches:
     # protect main against force push
-    main: {}
+    main:
+      required_status_checks:
+        # Don't require branches to be up to date before merging.
+        strict: false
+        # The title check ("verifyTitles") of the Boring Cyborg app
+        # in .github/boring-cyborg.yml. The merge button is disabled
+        # while the pull request title doesn't start with "GH-XXX"
+        # or "MINOR: ".
+        contexts:
+          - PR Title
 
   collaborators:
     - alinaliBQ
