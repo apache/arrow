@@ -471,7 +471,7 @@ using FieldsLoaderFunction = std::function<Status(const void*, io::RandomAccessF
 /// \param[in] file the seekable file interface to read from
 /// \param[in] fields_loader the function for loading subset of fields from the given file
 /// \return the message read
-
+ARROW_DEPRECATED("Deprecated in 27.0.0. Pass body_length explicitly.")
 ARROW_EXPORT
 Result<std::unique_ptr<Message>> ReadMessage(
     const int64_t offset, const int32_t metadata_length, io::RandomAccessFile* file,
@@ -490,13 +490,14 @@ Result<std::unique_ptr<Message>> ReadMessage(
 /// \param[in] metadata_length the total number of bytes to read from file
 /// \param[in] body_length the number of bytes for the message body
 /// \param[in] file the seekable file interface to read from
+/// \param[in] pool the memory pool to allocate memory from
+/// \param[in] fields_loader the function for loading subset of fields from the given file
 /// \return the message read
-
 ARROW_EXPORT
-Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
-                                             const int32_t metadata_length,
-                                             const int64_t body_length,
-                                             io::RandomAccessFile* file);
+Result<std::unique_ptr<Message>> ReadMessage(
+    const int64_t offset, const int32_t metadata_length, const int64_t body_length,
+    io::RandomAccessFile* file, MemoryPool* pool = default_memory_pool(),
+    const FieldsLoaderFunction& fields_loader = {});
 
 /// \brief Read encapsulated IPC message from cached buffers
 ///
