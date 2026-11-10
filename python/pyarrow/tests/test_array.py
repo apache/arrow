@@ -4557,6 +4557,7 @@ def test_swapped_byte_order_fails(numpy_native_dtype):
         pa.StructArray.from_arrays([np_arr], names=['a'])
 
 
+@pytest.mark.numpy
 def test_non_cpu_array():
     cuda = pytest.importorskip("pyarrow.cuda", exc_type=ImportError)
     ctx = cuda.Context(0)
