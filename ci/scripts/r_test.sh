@@ -141,11 +141,17 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     args <- c(args, paste0('--install-args=\"', install_args, '\"'))
   }
 
+  # Without network access, some R CMD check steps (e.g. filtering undeclared
+  # '::' imports in tests against CRAN, resolving Rd xrefs) produce spurious
+  # warnings, so only fail on errors when offline.
+  offline <- identical(tolower(Sys.getenv('ARROW_R_TEST_OFFLINE')), 'true')
+  error_on <- if (offline) 'error' else 'warning'
+
   message('Running rcmdcheck with:\n')
   print(build_args)
   print(args)
 
-  rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = 'warning', check_dir = 'check', timeout = 3600)"
+  rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = error_on, check_dir = 'check', timeout = 3600)"
 echo "$SCRIPT" | "${R_BIN}" --no-save
 
 if [ "${ARROW_R_TEST_OFFLINE:-false}" = "true" ]; then
