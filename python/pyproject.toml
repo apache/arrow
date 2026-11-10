@@ -122,12 +122,6 @@ files = ["pyarrow-stubs", "pyarrow-stubs-tests"]
 # usage is rejected, so an ignore that is no longer needed is an error there.
 warn_unused_ignores = true
 
-# The stubs ignore errors that depend on the installed packages, e.g. the
-# imports of optional dependencies.
-[[tool.mypy.overrides]]
-module = ["pyarrow.*"]
-warn_unused_ignores = false
-
 # Modules that will be annotated in later PRs (GH-32609). Treat them as Any
 # rather than type checking their sources.
 [[tool.mypy.overrides]]
@@ -170,13 +164,6 @@ replace-imports-with-any = [
 
 [tool.ty.src]
 include = ["pyarrow-stubs", "pyarrow-stubs-tests"]
-
-# numpy, pandas and scipy are optional dependencies. A `ty: ignore` comment on
-# their imports would be reported as unused whenever they are installed.
-[[tool.ty.overrides]]
-include = ["pyarrow-stubs/**"]
-[tool.ty.overrides.rules]
-import-not-found = "ignore"
 
 # ty doesn't honor `# type: ignore[<mypy code>]` comments, so disable the
 # rules that those comments suppress for mypy.

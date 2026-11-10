@@ -22,10 +22,10 @@ from typing import Any, ClassVar, Literal
 from typing_extensions import CapsuleType, deprecated
 import builtins
 
-import numpy as np  # type: ignore[import-not-found]
-import pandas as pd  # type: ignore[import-not-found,import-untyped]
+import numpy as np
+import pandas as pd
 
-from numpy.typing import NDArray  # type: ignore[import-not-found]
+from numpy.typing import NDArray
 from pyarrow._compute import (
     CastOptions,
     CountOptions,

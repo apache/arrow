@@ -19,8 +19,8 @@ from collections.abc import Collection, Iterable, Iterator, Sequence
 
 from typing import Any, ClassVar, Self, SupportsIndex
 
-import numpy as np  # type: ignore[import-not-found]
-import pandas as pd  # type: ignore[import-not-found,import-untyped]
+import numpy as np
+import pandas as pd
 
 from pyarrow._compute import CastOptions
 from pyarrow._stubs_typing import (

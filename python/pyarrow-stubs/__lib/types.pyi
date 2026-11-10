@@ -18,8 +18,8 @@
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, ClassVar, Literal, TypeAlias, overload
 
-import numpy as np  # type: ignore[import-not-found]
-import pandas as pd  # type: ignore[import-not-found,import-untyped]
+import numpy as np
+import pandas as pd
 from typing_extensions import CapsuleType, Self, deprecated
 
 from pyarrow._stubs_typing import (
