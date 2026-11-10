@@ -646,6 +646,9 @@ build_libarrow <- function(src_dir, dst_dir) {
     # Add the *_SOURCE_URL env vars
     env_var_list <- set_thirdparty_urls(env_var_list)
   }
+  # Some thirdparty dependencies are required even for a minimal build, so they
+  # can't be turned off like the ones above.
+  env_var_list <- with_vendored_dependencies(env_var_list)
   env_vars <- env_vars_as_string(env_var_list)
 
   lg("arrow %s", ifelse(quietly, "", paste("with", env_vars)), .indent = "****")
@@ -867,6 +870,39 @@ set_thirdparty_urls <- function(env_var_list) {
   env_var_list <- replace(env_var_list, deps_df$env_varname, deps_df$full_filenames)
   if (!quietly) {
     env_var_list <- replace(env_var_list, "ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
+  }
+  env_var_list
+}
+
+# libarrow requires some thirdparty dependencies, even for a minimal build.
+# The libarrow build uses them from the system if they are available and
+# otherwise builds them from source, downloading from ARROW_*_URL. To make sure
+# that works without network access, `make sync-cpp` saves their source
+# tarballs into vendored_dependency_dir and we point ARROW_*_URL at them here.
+# This does not change whether the system versions are used.
+with_vendored_dependencies <- function(env_var_list) {
+  if (!dir.exists(vendored_dependency_dir)) {
+    # e.g. building from a git checkout without `make sync-cpp`
+    if (!quietly) {
+      lg("No vendored dependencies found, they will be built with CMake if needed", .indent = "****")
+    }
+    return(env_var_list)
+  }
+  deps_df <- get_component_names()
+  for (env_varname in vendored_dependencies) {
+    if (!is.null(env_var_list[[env_varname]]) || !env_is(env_varname, "")) {
+      # Respect the user's (or set_thirdparty_urls()'s) choice
+      next
+    }
+    filename <- deps_df$filename[deps_df$env_varname == env_varname]
+    tarball <- file.path(vendored_dependency_dir, filename)
+    if (length(tarball) != 1 || !file.exists(tarball)) {
+      if (!quietly) {
+        lg("Vendored source for %s not found, it will be downloaded if needed", env_varname, .indent = "****")
+      }
+      next
+    }
+    env_var_list <- replace(env_var_list, env_varname, normalizePath(tarball))
   }
   env_var_list
 }
@@ -1103,6 +1139,12 @@ if (download_libarrow_ok && !is_release && !test_mode) {
 # If you change this path, you also need to edit
 # `create_package_with_all_dependencies()` in install-arrow.R
 thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
+
+# Source tarballs of dependencies that libarrow requires even for a minimal build.
+# These are always shipped in the package (see `with_vendored_dependencies()`).
+# If you change this path or list, you also need to edit tools/vendor_dependencies.sh
+vendored_dependency_dir <- "tools/vendored"
+vendored_dependencies <- c("ARROW_URIPARSER_URL", "ARROW_XSIMD_URL")
 
 arrow_versioned <- paste0("arrow-", VERSION)
 # configure.win uses a different libarrow dir and the zip is already nested
