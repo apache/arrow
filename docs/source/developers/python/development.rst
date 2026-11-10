@@ -117,8 +117,8 @@ We support multiple type checkers. Their configurations are in
 ``pyproject.toml``.
 
 The easiest way to run all of them is with ``pre-commit``, which installs
-the same versions of the type checkers and stub packages for everyone. This
-also lints and formats the stubs with ruff:
+the type checkers and stub packages pinned in ``requirements-stubs.txt`` (with
+uv). This also lints and formats the stubs with ruff:
 
 .. code-block::
 
@@ -212,7 +212,10 @@ process and will be included when users install PyArrow, enabling type checking
 in downstream projects and for users' IDEs.
 
 Note: ``py.typed`` marker file in the ``pyarrow/`` directory indicates to type
-checkers that PyArrow supports type checking according to :pep:`561`.
+checkers that PyArrow supports type checking according to :pep:`561`. The
+``py.typed`` file in ``pyarrow-stubs/`` marks the stubs as partial, so type
+checkers use the PyArrow sources for the modules without stubs yet. Remove
+``partial`` from it once the stubs are complete.
 
 Testing Type Stubs
 ------------------
