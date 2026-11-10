@@ -22,6 +22,11 @@ from typing import Any, ClassVar, Literal, Self, TypeAlias
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
+
+# Placeholders (Any) until ipc.pyi and scalar.pyi are annotated; mypy
+# rejects them as types when imported through pyarrow.lib.
+from pyarrow.__lib.ipc import RecordBatchReader
+from pyarrow.__lib.scalar import Int64Scalar, Scalar
 from pyarrow._compute import (
     CastOptions,
     CountOptions,
@@ -50,11 +55,8 @@ from pyarrow.lib import (
     Device,
     DeviceAllocationType,
     Field,
-    Int64Scalar,
     MemoryManager,
     MemoryPool,
-    RecordBatchReader,
-    Scalar,
     Schema,
     StructArray,
     Tensor,

@@ -22,6 +22,10 @@ from typing import Any, ClassVar, Self, SupportsIndex
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
+
+# Placeholders (Any) until scalar.pyi is annotated; mypy rejects them as
+# types when imported through pyarrow.lib.
+from pyarrow.__lib.scalar import Int64Scalar, Scalar
 from pyarrow._compute import CastOptions
 from pyarrow._stubs_typing import (
     ArrayLike,
@@ -43,10 +47,8 @@ from pyarrow.lib import (
     Device,
     DeviceAllocationType,
     Field,
-    Int64Scalar,
     MemoryManager,
     MemoryPool,
-    Scalar,
     StructType,
     Tensor,
     _Weakrefable,
