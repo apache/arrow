@@ -7,7 +7,8 @@ fsspec==2026.9.0
 mypy==2.4.0
 pandas-stubs==3.0.5.260914
 pyright==1.1.414
-scipy-stubs==1.17.1.5
+# The scipy extra installs the matching scipy, which the type stub tests import.
+scipy-stubs[scipy]==1.17.1.5
 ty==0.0.99
 types-cffi==2.1.0.20260827
 types-psutil==7.2.2.20260906

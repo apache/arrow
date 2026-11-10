@@ -17,19 +17,15 @@
 # mypy: warn-unused-ignores
 
 from collections.abc import Hashable
-from typing import TYPE_CHECKING
 
 import numpy as np
-import pytest
 
+from scipy.sparse import coo_array, csc_array, csr_array
 from typing_extensions import CapsuleType
 
 import pyarrow as pa
 
 from _check import TYPE_CHECKING_INVALID_USAGE, assert_type, check
-
-if TYPE_CHECKING:
-    from scipy.sparse import coo_array, csc_array, csr_array  # noqa: F401
 
 DENSE = np.array([[1, 0, 2], [0, 3, 0]])
 
@@ -89,16 +85,14 @@ def test_sparse_from_numpy() -> None:
 
 
 def test_sparse_scipy() -> None:
-    sparse = pytest.importorskip("scipy.sparse")
+    coo = pa.SparseCOOTensor.from_scipy(coo_array(DENSE))
+    check(assert_type(coo.to_scipy(), coo_array), coo_array)
 
-    coo = pa.SparseCOOTensor.from_scipy(sparse.coo_array(DENSE))
-    check(assert_type(coo.to_scipy(), "coo_array"), sparse.coo_array)
+    csr = pa.SparseCSRMatrix.from_scipy(csr_array(DENSE))
+    check(assert_type(csr.to_scipy(), csr_array), csr_array)
 
-    csr = pa.SparseCSRMatrix.from_scipy(sparse.csr_array(DENSE))
-    check(assert_type(csr.to_scipy(), "csr_array"), sparse.csr_array)
-
-    csc = pa.SparseCSCMatrix.from_scipy(sparse.csc_array(DENSE))
-    check(assert_type(csc.to_scipy(), "csc_array"), sparse.csc_array)
+    csc = pa.SparseCSCMatrix.from_scipy(csc_array(DENSE))
+    check(assert_type(csc.to_scipy(), csc_array), csc_array)
 
 
 def test_invalid_usage() -> None:
