@@ -493,9 +493,9 @@ appropriately. Mixed decimal and floating-point arguments will cast all
 arguments to floating-point, while mixed decimal and integer arguments will
 cast all arguments to decimals.
 Mixed time resolution temporal inputs will be cast to finest input resolution.
-A duration multiplied or divided by a float64 is computed in float64, then rounded
-to the nearest integer (ties to even); NaN, overflow and division by zero are
-errors in all variants.
+A duration multiplied or divided by a float64 is computed in float64, then
+truncated toward zero (like numpy); NaN, overflow and division by zero are errors
+in all variants.
 
 +-------------------+--------+-------------------------+-------------------------------+-------+
 | Function name     | Arity  | Input types             | Output type                   | Notes |

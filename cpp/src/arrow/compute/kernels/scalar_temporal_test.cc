@@ -1750,7 +1750,7 @@ TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalMultiplyDivideDurationByFloat) {
-  // Ties are rounded to even, slots with a null are not computed, -2^63 is in range
+  // Results are truncated, slots with a null are not computed, -2^63 is in range
   for (auto u : TimeUnit::values()) {
     auto durations =
         ArrayFromJSON(duration(u), "[10, 5, 7, -5, 2, null, 1, -4611686018427387904]");
@@ -1759,13 +1759,13 @@ TEST_F(ScalarTemporalTest, TestTemporalMultiplyDivideDurationByFloat) {
           op, durations,
           ArrayFromJSON(float64(), "[2.5, 1.5, 1.5, 1.5, 0.4, NaN, null, 2]"),
           ArrayFromJSON(duration(u),
-                        "[25, 8, 10, -8, 1, null, null, -9223372036854775808]"));
+                        "[25, 7, 10, -7, 0, null, null, -9223372036854775808]"));
     }
     for (auto op : {"divide", "divide_checked"}) {
       CheckScalarBinary(
           op, durations, ArrayFromJSON(float64(), "[0.5, 2, 2, 2, 3, 0, null, 0.5]"),
           ArrayFromJSON(duration(u),
-                        "[20, 2, 4, -2, 1, null, null, -9223372036854775808]"));
+                        "[20, 2, 3, -2, 0, null, null, -9223372036854775808]"));
     }
   }
   // NaN and out of range results, and division by zero, are errors in all variants

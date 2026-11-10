@@ -1126,22 +1126,21 @@ void AddArithmeticFunctionDurationTime(std::shared_ptr<ScalarFunction> func) {
                             std::move(exec_4)));
 }
 
-// Apply Op in double precision and round to the nearest integer, with ties to even
-// like the round kernel. NaN and out of range results are errors.
+// Apply Op in double precision and truncate toward zero, like numpy.
+// NaN and out of range results are errors.
 template <typename Op>
 struct DurationByFloat {
   template <typename T, typename Arg0, typename Arg1>
   static T Call(KernelContext* ctx, Arg0 left, Arg1 right, Status* st) {
     double value = Op::template Call<double, double, double>(
         ctx, static_cast<double>(left), static_cast<double>(right), st);
-    double rounded = std::round(value);
-    if (std::abs(rounded - value) == 0.5) rounded = std::round(value * 0.5) * 2;
+    double truncated = std::trunc(value);
     // The int64 range is [-2^63, 2^63); the comparison is false for NaN
-    if (ARROW_PREDICT_FALSE(!(rounded >= -0x1p63 && rounded < 0x1p63))) {
-      *st = Status::Invalid(std::isnan(rounded) ? "result is NaN" : "overflow");
+    if (ARROW_PREDICT_FALSE(!(truncated >= -0x1p63 && truncated < 0x1p63))) {
+      *st = Status::Invalid(std::isnan(truncated) ? "result is NaN" : "overflow");
       return 0;
     }
-    return static_cast<T>(rounded);
+    return static_cast<T>(truncated);
   }
 };
 
