@@ -193,7 +193,7 @@ def test_run_end_encoded_array() -> None:
     check(assert_type(ree.values, pa.Array), pa.StringArray)
 
     rebuilt = pa.RunEndEncodedArray.from_buffers(
-        ree.type, len(ree), [None], children=[ree.run_ends, ree.values]
+        ree.type, len(ree), [None], children=(ree.run_ends, ree.values)
     )
     check(assert_type(rebuilt, pa.RunEndEncodedArray), pa.RunEndEncodedArray)
 
@@ -247,4 +247,4 @@ def test_buffer_constructors_invalid_usage() -> None:
         pa.StringArray.from_buffers(1, off, data, None, None)  # type: ignore[arg-type]
         # Fields are passed as `fields`, `names` only takes strings
         pa.StructArray.from_arrays(
-            children, names=[pa.field("a", pa.int64())])  # type: ignore[list-item]
+            children, names=[pa.field("a", pa.int64())])
