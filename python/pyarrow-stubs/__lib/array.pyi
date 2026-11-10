@@ -149,7 +149,7 @@ class Array(_PandasConvertible):
     def from_pandas(
         obj: pd.Series | np.ndarray | ArrayLike,
         mask: Mask | None = None,
-        type: DataType | None = None,
+        type: DataType | str | None = None,
         safe: bool = True,
         memory_pool: MemoryPool | None = None,
     ) -> Array: ...
