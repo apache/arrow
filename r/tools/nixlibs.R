@@ -884,7 +884,7 @@ with_vendored_dependencies <- function(env_var_list) {
   if (!dir.exists(vendored_dependency_dir)) {
     # e.g. building from a git checkout without `make sync-cpp`
     if (!quietly) {
-      lg("No vendored dependencies found, they will be downloaded if needed", .indent = "****")
+      lg("No vendored dependencies found, they will be built with CMake if needed", .indent = "****")
     }
     return(env_var_list)
   }
