@@ -177,7 +177,7 @@ arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
 Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
     const Configuration& conf) {
   llvm::orc::JITTargetMachineBuilder jtmb(
-      (NormalizeDarwinTriple(llvm::Triple(llvm::sys::getDefaultTargetTriple())));
+      (NormalizeDarwinTriple(llvm::Triple(llvm::sys::getDefaultTargetTriple()))));
   jtmb.setRelocationModel(llvm::Reloc::PIC_);
   if (conf.target_host_cpu()) {
     jtmb.setCPU(cpu_name.str());
