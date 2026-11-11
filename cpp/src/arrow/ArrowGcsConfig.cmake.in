@@ -51,7 +51,7 @@ if(TARGET ArrowGcs::arrow_gcs_static
          Arrow::arrow_bundled_dependencies)
   endif()
   if(NOT WIN32)
-    list(APPEND arrow_gcs_bundled_dependencies_link_libs OpenSSL::Crypto)
+    list(APPEND arrow_gcs_bundled_dependencies_link_libs OpenSSL::SSL OpenSSL::Crypto)
   endif()
   target_link_libraries(ArrowGcs::arrow_gcs_bundled_dependencies
                         INTERFACE ${arrow_gcs_bundled_dependencies_link_libs})
