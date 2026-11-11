@@ -46,7 +46,7 @@ class ARROW_EXPORT AlpSampler {
 
  private:
   /// Adds one sampling chunk. Only the first
-  /// AlpSamplingOptions::kSampleWindowSize elements are examined.
+  /// AlpSamplingConstants::kSampleWindowSize elements are examined.
   void AddSampleChunk(std::span<const T> input);
 
   /// Stride between sampled chunks.

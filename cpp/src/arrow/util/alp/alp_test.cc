@@ -775,7 +775,7 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationDecimalData) {
 }
 
 TYPED_TEST(AlpSamplerTest, SamplingWindowSize) {
-  constexpr int64_t kChunkSize = AlpSamplingOptions::kChunkSize;
+  constexpr int64_t kChunkSize = AlpSamplingConstants::kChunkSize;
   const std::vector<TypeParam> nan_chunk(kChunkSize,
                                          std::numeric_limits<TypeParam>::quiet_NaN());
   const std::vector<TypeParam> decimal_chunk(kChunkSize, static_cast<TypeParam>(1.25));
