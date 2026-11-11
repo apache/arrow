@@ -53,6 +53,13 @@ class _ArrowStreamProvider:
         return pa.chunked_array([[1, 2]]).__arrow_c_stream__(requested_schema)
 
 
+class _ObjectStreamProvider:
+    # Guarding return type
+    # Polars annotates public __arrow_c_stream__ return with -> object
+    def __arrow_c_stream__(self, requested_schema: CapsuleType | None = None) -> object:
+        return pa.table({"a": [1, 2]}).__arrow_c_stream__(requested_schema)
+
+
 def test_table() -> None:
     table = pa.table({"a": [1, 2], "b": ["x", "y"]})
     check(assert_type(table, pa.Table), pa.Table)
@@ -121,6 +128,13 @@ def test_table_from_arrays_protocols() -> None:
     check(assert_type(pa.Table.from_arrays([_ArrowDeviceArrayProvider()], names=["a"]),
                       pa.Table),
           pa.Table)
+
+
+def test_table_accepts_object_return_in_protocols() -> None:
+    # The Supports* Protocols in _stubs_typing.pyi must stay wide (Any returns).
+    check(assert_type(pa.table(_ObjectStreamProvider()), pa.Table), pa.Table)
+    check(assert_type(pa.chunked_array(_ObjectStreamProvider()),
+          pa.ChunkedArray), pa.ChunkedArray)
 
 
 def test_table_from_arrays_numpy() -> None:
