@@ -76,6 +76,13 @@ static NativeFunction GetTestFunctionWithContext() {
   return multiply_by_two_formula;
 }
 
+static NativeFunction GetTestFunctionWithArenaScratch() {
+  NativeFunction scratch_length("scratch_length", {}, {arrow::utf8()}, arrow::int32(),
+                                ResultNullableType::kResultNullIfNull,
+                                "scratch_length_utf8", NativeFunction::kNeedsContext);
+  return scratch_length;
+}
+
 static std::shared_ptr<Configuration> BuildConfigurationWithRegistry(
     std::shared_ptr<FunctionRegistry> registry,
     const std::function<arrow::Status(std::shared_ptr<FunctionRegistry>)>&
@@ -146,6 +153,18 @@ static const char* multiply_by_two_formula(int64_t ctx, const char* value,
   memcpy(out, result.c_str(), *out_len);
   return out;
 }
+
+// copies the value into arena scratch memory and returns its length, so it allocates
+// from the arena without returning a string
+static int32_t scratch_length(int64_t ctx, const char* value, int32_t value_len) {
+  auto scratch = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(ctx, value_len));
+  if (scratch == nullptr) {
+    gdv_fn_context_set_error_msg(ctx, "Could not allocate scratch memory");
+    return 0;
+  }
+  memcpy(scratch, value, value_len);
+  return value_len;
+}
 }
 
 std::shared_ptr<Configuration> TestConfigWithCFunction(
@@ -170,6 +189,14 @@ std::shared_ptr<Configuration> TestConfigWithContextFunction(
   return BuildConfigurationWithRegistry(std::move(registry), [](auto reg) {
     return reg->Register(GetTestFunctionWithContext(),
                          reinterpret_cast<void*>(multiply_by_two_formula));
+  });
+}
+
+std::shared_ptr<Configuration> TestConfigWithArenaScratchFunction(
+    std::shared_ptr<FunctionRegistry> registry) {
+  return BuildConfigurationWithRegistry(std::move(registry), [](auto reg) {
+    return reg->Register(GetTestFunctionWithArenaScratch(),
+                         reinterpret_cast<void*>(scratch_length));
   });
 }
 }  // namespace gandiva
