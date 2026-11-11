@@ -56,7 +56,7 @@ static_assert(sizeof(AlpFormatConstants::PositionType) == 2);
 
 // Sampling and parameter-search tuning
 
-struct AlpSamplingOptions {
+struct AlpSamplingConstants {
   /// Input elements per sampling chunk.
   static constexpr int64_t kChunkSize = 4096;
 
@@ -166,12 +166,12 @@ struct AlpTypedConstants<float> {
   static constexpr float kEncodingLowerLimit = -2147483392.0f;
 
   /// Returns 10^power.
-  static float GetExponent(uint8_t power) {
+  static float GetPowerOfTen(uint8_t power) {
     return AlpPowerOfTen::Float(static_cast<int8_t>(power));
   }
 
   /// Returns 10^(-power).
-  static float GetFactor(uint8_t power) {
+  static float GetInversePowerOfTen(uint8_t power) {
     return AlpPowerOfTen::Float(static_cast<int8_t>(-static_cast<int8_t>(power)));
   }
 
@@ -194,12 +194,12 @@ struct AlpTypedConstants<double> {
   static constexpr double kEncodingLowerLimit = -9223372036854773760.0;
 
   /// Returns 10^power.
-  static double GetExponent(uint8_t power) {
+  static double GetPowerOfTen(uint8_t power) {
     return AlpPowerOfTen::Double(static_cast<int8_t>(power));
   }
 
   /// Returns 10^(-power).
-  static double GetFactor(uint8_t power) {
+  static double GetInversePowerOfTen(uint8_t power) {
     return AlpPowerOfTen::Double(static_cast<int8_t>(-static_cast<int8_t>(power)));
   }
 

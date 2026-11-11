@@ -67,10 +67,10 @@ class AlpInlines {
   };
 
   static Multipliers GetMultipliers(const AlpExponentAndFactor exponent_and_factor) {
-    return {Constants::GetExponent(exponent_and_factor.exponent),
-            Constants::GetFactor(exponent_and_factor.factor),
-            Constants::GetExponent(exponent_and_factor.factor),
-            Constants::GetFactor(exponent_and_factor.exponent)};
+    return {Constants::GetPowerOfTen(exponent_and_factor.exponent),
+            Constants::GetInversePowerOfTen(exponent_and_factor.factor),
+            Constants::GetPowerOfTen(exponent_and_factor.factor),
+            Constants::GetInversePowerOfTen(exponent_and_factor.exponent)};
   }
 
   // Returns true when the scaled value cannot be encoded.
@@ -298,7 +298,7 @@ AlpEncodingPreset AlpCompression<T>::MakePreset(
             CompareAlpCombinations);
 
   const uint8_t num_combinations_to_keep =
-      std::min(AlpSamplingOptions::kMaxCombinations,
+      std::min(AlpSamplingConstants::kMaxCombinations,
                static_cast<uint8_t>(best_k_combinations.size()));
   std::vector<AlpExponentAndFactor> combinations;
   combinations.reserve(num_combinations_to_keep);
@@ -325,10 +325,10 @@ AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
 
   // The sample is capped at 256 values. Keep it on the stack to avoid a heap
   // allocation for every vector parameter search.
-  std::array<T, AlpSamplingOptions::kSamplesPerChunk> sample_storage;
+  std::array<T, AlpSamplingConstants::kSamplesPerChunk> sample_storage;
   const int32_t idx_increments = std::max<int32_t>(
       1, static_cast<int32_t>(std::ceil(static_cast<double>(inputs.size()) /
-                                        AlpSamplingOptions::kSamplesPerChunk)));
+                                        AlpSamplingConstants::kSamplesPerChunk)));
   size_t sample_count = 0;
   for (size_t i = 0; i < inputs.size(); i += idx_increments) {
     sample_storage[sample_count++] = inputs[i];
@@ -353,7 +353,7 @@ AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
     if (estimated_compression_size >= best_total_bits) {
       worse_total_bits_counter += 1;
       // Early exit strategy.
-      if (worse_total_bits_counter == AlpSamplingOptions::kEarlyExitThreshold) {
+      if (worse_total_bits_counter == AlpSamplingConstants::kEarlyExitThreshold) {
         break;
       }
       continue;
