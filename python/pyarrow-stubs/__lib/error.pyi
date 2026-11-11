@@ -38,6 +38,7 @@ class StopToken: ...
 
 def enable_signal_handlers(enable: bool) -> None: ...
 
+# TODO: remove when https://github.com/apache/arrow/issues/55500 is merged
 have_signal_refcycle: bool
 
 class SignalStopHandler:
