@@ -23,13 +23,13 @@ from typing_extensions import CapsuleType
 
 import pyarrow as pa
 from pyarrow._compute import CastOptions
+from pyarrow.lib import asarray
 
 from _check import assert_type, check
 
 
 def test_array() -> None:
-    # pa.array() isn't annotated with a specific return type yet, so tell
-    # the type checker which class to expect.
+    # pa.array() return type is Array. Tell the type checker which subclass to expect.
     arr = check(cast(pa.Int64Array, pa.array([1, 2, None])), pa.Int64Array)
 
     check(assert_type(arr.type, pa.DataType), pa.DataType)
@@ -59,6 +59,10 @@ def test_array() -> None:
     check(assert_type(arr.to_tensor(allow_nulls=True), pa.Tensor), pa.Tensor)
     check(assert_type(pa.concat_arrays([arr, arr]), pa.Array),
           pa.Int64Array)
+    check(assert_type(pa.array([1, 2]), pa.Array), pa.Int64Array)
+    check(assert_type(asarray([1, 2]), pa.Array), pa.Int64Array)
+    check(assert_type(asarray(pa.chunked_array([arr])), pa.ChunkedArray),
+          pa.ChunkedArray)
     check(assert_type(pa.nulls(2, pa.int8()), pa.Array), pa.Int8Array)
     check(assert_type(pa.repeat("a", 2), pa.Array), pa.StringArray)
     check(assert_type(pa.Array.from_pandas([1, 2], None, "int64"),

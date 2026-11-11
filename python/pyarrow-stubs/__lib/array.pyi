@@ -17,7 +17,7 @@
 
 import builtins
 from collections.abc import Collection, Iterable, Iterator, Sequence
-from typing import Any, ClassVar, Self, SupportsIndex
+from typing import Any, ClassVar, Self, SupportsIndex, overload
 
 import numpy as np
 import pandas as pd
@@ -43,6 +43,7 @@ from pyarrow._stubs_typing import (
 from pyarrow.lib import (
     BaseExtensionType,
     Buffer,
+    ChunkedArray,
     DataType,
     Device,
     DeviceAllocationType,
@@ -55,6 +56,9 @@ from pyarrow.lib import (
 )
 from typing_extensions import CapsuleType
 
+# Return type Array, as most callers get that.
+# At runtime it returns ChunkedArray only for binary overflow or when
+# __arrow_array__ returns 2+ chunks (GH-55499)
 def array(
     obj: Iterable[Any]
     | SupportsArrowArray
@@ -66,11 +70,16 @@ def array(
     from_pandas: bool | None = None,
     safe: bool = True,
     memory_pool: MemoryPool | None = None,
-) -> ArrayLike: ...
+) -> Array: ...
+@overload
+def asarray(  # type: ignore[overload-overlap]
+    values: ChunkedArray, type: Any | None = None
+) -> ChunkedArray: ...
+@overload
 def asarray(
     values: Iterable[Any] | SupportsArrowArray | SupportsArrowDeviceArray,
     type: Any | None = None,
-) -> ArrayLike: ...
+) -> Array: ...
 def nulls(
     size: int,
     type: Any | None = None,
