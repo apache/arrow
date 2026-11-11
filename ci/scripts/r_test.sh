@@ -158,6 +158,26 @@ if [ "${ARROW_R_TEST_OFFLINE:-false}" = "true" ]; then
   cp /etc/resolv.conf{.bak,}
 fi
 
+if [ -n "${ARROW_R_EXPECTED_FEATURES:-}" ]; then
+  # The tests skip what the build doesn't support, so make sure the features
+  # we expect (e.g. from the vendored thirdparty sources) were actually built.
+  # ARROW_R_EXPECTED_FEATURES is a comma-separated list of
+  # names(arrow::arrow_info()$capabilities) and memory pool backends
+  # (e.g. mimalloc).
+  ${R_BIN} -s -e "
+    library(arrow, lib.loc = 'check/arrow.Rcheck')
+    info <- arrow_info()
+    print(info\$capabilities)
+    print(info\$memory_pool\$available_backends)
+    available <- c(names(which(info\$capabilities)), info\$memory_pool\$available_backends)
+    expected <- strsplit(Sys.getenv('ARROW_R_EXPECTED_FEATURES'), ',')[[1]]
+    missing <- setdiff(expected, available)
+    if (length(missing) > 0) {
+      stop('Expected features are not available: ', paste(missing, collapse = ', '))
+    }
+  "
+fi
+
 AFTER=$(ls -alh ~/)
 if [ "$NOT_CRAN" != "true" ] && [ "$BEFORE" != "$AFTER" ]; then
   # Ignore ~/.TinyTex/ and ~/R/ because it has many files.
