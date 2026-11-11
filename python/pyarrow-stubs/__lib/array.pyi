@@ -65,6 +65,8 @@ def array(
     | SupportsArrowDeviceArray
     | SupportsPyArrowArray,
     type: Any | None = None,
+    # TODO: when scalars are annotated, Array won't match Iterable[bool] anymore,
+    # so consider Array instead of BooleanArray for usability then
     mask: BooleanArray | Iterable[bool] | NDArray[np.bool_] | None = None,
     size: int | None = None,
     from_pandas: bool | None = None,
@@ -316,8 +318,8 @@ class BaseListArray(Array):
 class ListArray(BaseListArray):
     @staticmethod
     def from_arrays(
-        offsets: Int32Array | list[int] | list[int | None] | np.ndarray,
-        values: Array | list[Any],
+        offsets: Int32Array | Iterable[int | None] | np.ndarray,
+        values: Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
@@ -331,8 +333,8 @@ class ListArray(BaseListArray):
 class LargeListArray(BaseListArray):
     @staticmethod
     def from_arrays(
-        offsets: Int64Array | list[int] | list[int | None] | np.ndarray,
-        values: Array | list[Any],
+        offsets: Int64Array | Iterable[int | None] | np.ndarray,
+        values: Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
@@ -346,9 +348,9 @@ class LargeListArray(BaseListArray):
 class ListViewArray(BaseListArray):
     @staticmethod
     def from_arrays(
-        offsets: Int32Array | list[int] | list[int | None] | np.ndarray,
-        sizes: Int32Array | list[int] | list[int | None] | np.ndarray,
-        values: Array | list[Any],
+        offsets: Int32Array | Iterable[int | None] | np.ndarray,
+        sizes: Int32Array | Iterable[int | None] | np.ndarray,
+        values: Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
@@ -364,9 +366,9 @@ class ListViewArray(BaseListArray):
 class LargeListViewArray(BaseListArray):
     @staticmethod
     def from_arrays(
-        offsets: Int64Array | list[int] | list[int | None] | np.ndarray,
-        sizes: Int64Array | list[int] | list[int | None] | np.ndarray,
-        values: Array | list[Any],
+        offsets: Int64Array | Iterable[int | None] | np.ndarray,
+        sizes: Int64Array | Iterable[int | None] | np.ndarray,
+        values: Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,
@@ -382,7 +384,7 @@ class LargeListViewArray(BaseListArray):
 class FixedSizeListArray(BaseListArray):
     @staticmethod
     def from_arrays(
-        values: Array | list[Any],
+        values: Iterable[Any],
         list_size: int | None = None,
         type: DataType | None = None,
         mask: Mask | None = None,
@@ -394,9 +396,9 @@ class FixedSizeListArray(BaseListArray):
 class MapArray(ListArray):
     @staticmethod
     def from_arrays(  # type: ignore[override]
-        offsets: Int32Array | list[int] | list[int | None] | np.ndarray,
-        keys: Array | np.ndarray | list,
-        items: Array | np.ndarray | list,
+        offsets: Int32Array | Iterable[int | None] | np.ndarray,
+        keys: Iterable[Any],
+        items: Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
         mask: Mask | None = None,

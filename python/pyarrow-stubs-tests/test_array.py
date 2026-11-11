@@ -147,19 +147,21 @@ def test_list_arrays() -> None:
     check(assert_type(large.value_lengths(), pa.Int64Array), pa.Int64Array)
 
     list_type = pa.list_(pa.int64())
-    check(assert_type(pa.ListArray.from_arrays([0, 2], [1, 2], list_type),
+    # The inputs are passed to pa.array(), so any iterable works, e.g. tuples
+    # or iterators
+    check(assert_type(pa.ListArray.from_arrays(iter((0, 2)), iter((1, 2)), list_type),
                       pa.ListArray),
           pa.ListArray)
-    check(assert_type(pa.LargeListArray.from_arrays([0, 2], [1, 2]),
+    check(assert_type(pa.LargeListArray.from_arrays((0, 2), (1, 2)),
                       pa.LargeListArray),
           pa.LargeListArray)
-    check(assert_type(pa.ListViewArray.from_arrays([0], [2], [1, 2]),
+    check(assert_type(pa.ListViewArray.from_arrays((0,), (2,), (1, 2)),
                       pa.ListViewArray),
           pa.ListViewArray)
-    check(assert_type(pa.LargeListViewArray.from_arrays([0], [2], [1, 2]),
+    check(assert_type(pa.LargeListViewArray.from_arrays((0,), (2,), (1, 2)),
                       pa.LargeListViewArray),
           pa.LargeListViewArray)
-    check(assert_type(pa.FixedSizeListArray.from_arrays([1, 2], 2),
+    check(assert_type(pa.FixedSizeListArray.from_arrays((1, 2), 2),
                       pa.FixedSizeListArray),
           pa.FixedSizeListArray)
 
@@ -170,7 +172,7 @@ def test_list_arrays() -> None:
     check(assert_type(map_arr.values, pa.Array), pa.StructArray)
     check(assert_type(map_arr.keys, pa.Array), pa.Int64Array)
     map_type = pa.map_(pa.int64(), pa.string())
-    check(assert_type(pa.MapArray.from_arrays([0, 2], [1, 2], ["a", "b"], map_type),
+    check(assert_type(pa.MapArray.from_arrays((0, 2), (1, 2), ("a", "b"), map_type),
                       pa.MapArray),
           pa.ListArray)
 
