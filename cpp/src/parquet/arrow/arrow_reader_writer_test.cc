@@ -5330,7 +5330,8 @@ TEST_P(TestArrowWriteDictionary, NestedDictionaryParentNullStatistics) {
     ASSERT_EQ(page->type(), PageType::DATA_PAGE_V2);
     auto data_page_v2 = std::static_pointer_cast<DataPageV2>(page);
     EXPECT_EQ(data_page_v2->num_nulls(), 1);
-    EXPECT_EQ(data_page_v2->num_values(), 2);
+    EXPECT_EQ(data_page_v2->num_rows(), 3);
+    EXPECT_EQ(data_page_v2->num_values(), 3);
   }
 }
 
