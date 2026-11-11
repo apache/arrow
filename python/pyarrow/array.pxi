@@ -2553,9 +2553,8 @@ cdef wrap_array_output(PyObject* output):
     cdef object obj = PyObject_to_object(output)
 
     if isinstance(obj, dict):
-        return _pandas_api.categorical_type.from_codes(
-            obj['indices'], categories=obj['dictionary'], ordered=obj['ordered']
-        )
+        from pyarrow.pandas_compat import _reconstruct_categorical
+        return _reconstruct_categorical(obj, obj['indices'])
     else:
         return obj
 

@@ -1850,6 +1850,10 @@ class CategoricalWriter
     PyObject* pydict;
     RETURN_NOT_OK(ConvertArrayToPandas(this->options_, dict, nullptr, &pydict));
     dictionary_.reset(pydict);
+    if (dict_type.value_type()->id() == Type::TIMESTAMP) {
+      dictionary_timezone_ =
+          checked_cast<const TimestampType&>(*dict_type.value_type()).timezone();
+    }
     ordered_ = dict_type.ordered();
     return Status::OK();
   }
@@ -1880,6 +1884,14 @@ class CategoricalWriter
  protected:
   Status AddResultMetadata(PyObject* result) override {
     PyDict_SetItemString(result, "dictionary", dictionary_.obj());
+    if (!dictionary_timezone_.empty()) {
+      OwnedRef timezone(PyUnicode_FromStringAndSize(
+          dictionary_timezone_.data(),
+          static_cast<Py_ssize_t>(dictionary_timezone_.size())));
+      RETURN_IF_PYERROR();
+      PyDict_SetItemString(result, "dictionary_timezone", timezone.obj());
+      RETURN_IF_PYERROR();
+    }
     PyObject* py_ordered = ordered_ ? Py_True : Py_False;
     Py_INCREF(py_ordered);
     PyDict_SetItemString(result, "ordered", py_ordered);
@@ -1996,6 +2008,7 @@ class CategoricalWriter
   }
 
   OwnedRefNoGIL dictionary_;
+  std::string dictionary_timezone_;
   bool ordered_;
   bool needs_copy_;
 };
