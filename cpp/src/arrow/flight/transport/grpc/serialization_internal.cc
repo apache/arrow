@@ -201,7 +201,7 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
 // offsetof() below is used on types that are not standard-layout, which is
 // conditionally-supported. GCC, Clang and MSVC support it for types without
 // virtual base classes, as here.
-#ifndef _WIN32
+#if defined(__GNUC__) || defined(__clang__)
 #  pragma GCC diagnostic push
 #  pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
@@ -211,21 +211,35 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
 // SerializationTraits<T>::Deserialize(), which we control (see customize_grpc.h).
 // So instead of building the protobuf message, we give gRPC an empty, real
 // pb::FlightData that carries the Arrow struct, and the traits read the struct
-// from it. The message must be a real pb::FlightData: an Arrow struct cast to
-// pb::FlightData is not one, which is undefined behavior and which Clang CFI
-// (`-fsanitize=cfi-unrelated-cast`) rejects.
+// from it. The message must be a real pb::FlightData: Clang CFI
+// (`-fsanitize=cfi-unrelated-cast`) rejects casting an Arrow struct to one.
 
 namespace {
 
 struct FlightPayloadMessage {
+  explicit FlightPayloadMessage(const FlightPayload* payload) : payload(payload) {}
   pb::FlightData message;
   const FlightPayload* payload;
 };
 
 struct FlightDataMessage {
+  explicit FlightDataMessage(flight::internal::FlightData* data) : data(data) {}
   pb::FlightData message;
   flight::internal::FlightData* data;
 };
+
+template <typename Writer>
+arrow::Result<bool> WriteFlightPayload(const FlightPayload& payload, Writer* writer) {
+  RETURN_NOT_OK(payload.Validate());
+  FlightPayloadMessage message(&payload);
+  return writer->Write(message.message, ::grpc::WriteOptions());
+}
+
+template <typename Reader>
+bool ReadFlightData(Reader* reader, flight::internal::FlightData* data) {
+  FlightDataMessage message(data);
+  return reader->Read(&message.message);
+}
 
 }  // namespace
 
@@ -245,64 +259,44 @@ flight::internal::FlightData* FlightDataOfMessage(void* message) {
 arrow::Result<bool> WritePayload(
     const FlightPayload& payload,
     ::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* writer) {
-  RETURN_NOT_OK(payload.Validate());
-  FlightPayloadMessage message;
-  message.payload = &payload;
-  return writer->Write(message.message, ::grpc::WriteOptions());
+  return WriteFlightPayload(payload, writer);
 }
 
 arrow::Result<bool> WritePayload(
     const FlightPayload& payload,
     ::grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* writer) {
-  RETURN_NOT_OK(payload.Validate());
-  FlightPayloadMessage message;
-  message.payload = &payload;
-  return writer->Write(message.message, ::grpc::WriteOptions());
+  return WriteFlightPayload(payload, writer);
 }
 
 arrow::Result<bool> WritePayload(
     const FlightPayload& payload,
     ::grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* writer) {
-  RETURN_NOT_OK(payload.Validate());
-  FlightPayloadMessage message;
-  message.payload = &payload;
-  return writer->Write(message.message, ::grpc::WriteOptions());
+  return WriteFlightPayload(payload, writer);
 }
 
 arrow::Result<bool> WritePayload(const FlightPayload& payload,
                                  ::grpc::ServerWriter<pb::FlightData>* writer) {
-  RETURN_NOT_OK(payload.Validate());
-  FlightPayloadMessage message;
-  message.payload = &payload;
-  return writer->Write(message.message, ::grpc::WriteOptions());
+  return WriteFlightPayload(payload, writer);
 }
 
 bool ReadPayload(::grpc::ClientReader<pb::FlightData>* reader,
                  flight::internal::FlightData* data) {
-  FlightDataMessage message;
-  message.data = data;
-  return reader->Read(&message.message);
+  return ReadFlightData(reader, data);
 }
 
 bool ReadPayload(::grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>* reader,
                  flight::internal::FlightData* data) {
-  FlightDataMessage message;
-  message.data = data;
-  return reader->Read(&message.message);
+  return ReadFlightData(reader, data);
 }
 
 bool ReadPayload(::grpc::ServerReaderWriter<pb::PutResult, pb::FlightData>* reader,
                  flight::internal::FlightData* data) {
-  FlightDataMessage message;
-  message.data = data;
-  return reader->Read(&message.message);
+  return ReadFlightData(reader, data);
 }
 
 bool ReadPayload(::grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* reader,
                  flight::internal::FlightData* data) {
-  FlightDataMessage message;
-  message.data = data;
-  return reader->Read(&message.message);
+  return ReadFlightData(reader, data);
 }
 
 bool ReadPayload(::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* reader,
@@ -310,7 +304,7 @@ bool ReadPayload(::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* read
   return reader->Read(data);
 }
 
-#ifndef _WIN32
+#if defined(__GNUC__) || defined(__clang__)
 #  pragma GCC diagnostic pop
 #endif
 
