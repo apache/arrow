@@ -114,7 +114,10 @@ def test_import_from_c_capsule() -> None:
     arr = cast(pa.Int64Array, pa.array([1, 2]))
     capsules = arr.__arrow_c_array__()
     check(assert_type(capsules, tuple[CapsuleType, CapsuleType]), tuple)
-    imported = pa.BooleanArray._import_from_c_capsule(*capsules)
+
+    # Import methods are static and return whatever type the C schema
+    # holds, not the class they are called on
+    imported = pa.Array._import_from_c_capsule(*capsules)
     check(assert_type(imported, pa.Array), pa.Int64Array)
 
     check(assert_type(arr.__arrow_c_device_array__(),
