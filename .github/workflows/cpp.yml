@@ -242,6 +242,21 @@ jobs:
       - name: Install Dependencies
         run: |
           brew bundle --file=cpp/Brewfile
+      - name: Check Homebrew dependency source
+        run: |
+          cmake -S cpp -B "$RUNNER_TEMP/build-homebrew-dependencies" \
+            -DARROW_DEPENDENCY_SOURCE=BREW \
+            -DARROW_BUILD_TESTS=OFF \
+            -DARROW_BUILD_SHARED=OFF \
+            -DARROW_BUILD_STATIC=ON \
+            -DARROW_PARQUET=ON \
+            -DPARQUET_REQUIRE_ENCRYPTION=ON \
+            -DARROW_WITH_BZ2=ON \
+            -DARROW_WITH_BROTLI=ON \
+            -DARROW_WITH_LZ4=ON \
+            -DARROW_WITH_SNAPPY=ON \
+            -DARROW_WITH_ZLIB=ON \
+            -DARROW_WITH_ZSTD=ON
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
