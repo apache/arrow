@@ -550,6 +550,62 @@ TEST(TestRunEndEncodeDecodeNested, PreservesDictionaryIndexType) {
   AssertNestedRunEndEncodeDecode(input, "[2, 3, 4]", expected_values);
 }
 
+TEST(TestRunEndEncodeDecodeNested, DictionaryValues) {
+  auto dict_values = ArrayFromJSON(utf8(), R"(["alpha", "beta", "unused"])");
+
+  for (const auto& run_end_type : {int16(), int32(), int64()}) {
+    for (const auto& index_type : {int8(), uint8(), int64()}) {
+      ARROW_SCOPED_TRACE("run end type = ", *run_end_type, ", index type = ",
+                         *index_type);
+      auto dict_type = dictionary(index_type, utf8(), /*ordered=*/true);
+      ASSERT_OK_AND_ASSIGN(
+          auto values,
+          DictionaryArray::FromArrays(
+              dict_type, ArrayFromJSON(index_type, "[1, null, 0, 1]"), dict_values));
+      auto run_ends = ArrayFromJSON(run_end_type, "[2, 4, 5, 8]");
+      ASSERT_OK_AND_ASSIGN(auto encoded,
+                           RunEndEncodedArray::Make(8, run_ends, values));
+
+      auto expected_indices =
+          ArrayFromJSON(index_type, "[1, 1, null, null, 0, 1, 1, 1]");
+      ASSERT_OK_AND_ASSIGN(
+          auto expected,
+          DictionaryArray::FromArrays(dict_type, expected_indices, dict_values));
+      ASSERT_OK_AND_ASSIGN(Datum decoded_datum, RunEndDecode(encoded));
+      auto decoded = decoded_datum.make_array();
+      ASSERT_OK(decoded->ValidateFull());
+      ASSERT_ARRAYS_EQUAL(*decoded, *expected);
+      auto decoded_dict = std::static_pointer_cast<DictionaryArray>(decoded);
+      ASSERT_ARRAYS_EQUAL(*decoded_dict->indices(), *expected_indices);
+      ASSERT_ARRAYS_EQUAL(*decoded_dict->dictionary(), *dict_values);
+      ASSERT_EQ(decoded_dict->type()->id(), Type::DICTIONARY);
+      ASSERT_TRUE(decoded_dict->dict_type()->ordered());
+
+      // Test a slice inside runs, and decoding two chunks independently.
+      auto expected_slice = expected->Slice(1, 6);
+      ASSERT_OK_AND_ASSIGN(Datum slice_datum, RunEndDecode(encoded->Slice(1, 6)));
+      ASSERT_ARRAYS_EQUAL(*slice_datum.make_array(), *expected_slice);
+      auto chunked = std::make_shared<ChunkedArray>(
+          std::vector<std::shared_ptr<Array>>{encoded, encoded->Slice(1, 6)});
+      ASSERT_OK_AND_ASSIGN(Datum chunked_datum, RunEndDecode(chunked));
+      ASSERT_EQ(chunked_datum.chunked_array()->num_chunks(), 2);
+      ASSERT_ARRAYS_EQUAL(*chunked_datum.chunked_array()->chunk(0), *expected);
+      ASSERT_ARRAYS_EQUAL(*chunked_datum.chunked_array()->chunk(1), *expected_slice);
+
+      // An empty input still preserves the dictionary.
+      ASSERT_OK_AND_ASSIGN(
+          auto empty_values,
+          DictionaryArray::FromArrays(dict_type, ArrayFromJSON(index_type, "[]"),
+                                      dict_values));
+      ASSERT_OK_AND_ASSIGN(auto empty_encoded,
+                           RunEndEncodedArray::Make(
+                               0, ArrayFromJSON(run_end_type, "[]"), empty_values));
+      ASSERT_OK_AND_ASSIGN(Datum empty_decoded, RunEndDecode(empty_encoded));
+      ASSERT_ARRAYS_EQUAL(*empty_decoded.make_array(), *empty_values);
+    }
+  }
+}
+
 TEST(TestRunEndEncodeDecodeNested, DecodeWithOffsetInValuesArray) {
   auto value_type = list(int32());
   auto values = ArrayFromJSON(value_type, "[[9], [1], [2]]")->Slice(1);
