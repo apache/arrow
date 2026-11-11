@@ -163,13 +163,18 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
-    if (is_null) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto json_type, internal::ResolveSimdjsonResult(json_obj.type(),
+                                                        "Failed to determine JSON type"));
+    if (json_type == sj::json_type::null) {
       return AppendNull();
     }
-    int64_t int_value;
-    if (json_obj.get(int_value) == simdjson::SUCCESS) {
+    if (json_type == sj::json_type::number) {
+      ARROW_ASSIGN_OR_RAISE(auto int_value, internal::GetJsonAs<int64_t>(json_obj));
       return builder_->Append(int_value != 0);
+    }
+    if (json_type != sj::json_type::boolean) {
+      return Status::Invalid("Expected JSON boolean for type ", type_->ToString());
     }
     ARROW_ASSIGN_OR_RAISE(bool bool_value, internal::GetJsonAs<bool>(json_obj));
     return builder_->Append(bool_value);
@@ -420,18 +425,23 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
   }
 
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
-    if (is_null) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto json_type, internal::ResolveSimdjsonResult(json_obj.type(),
+                                                        "Failed to determine JSON type"));
+    if (json_type == sj::json_type::null) {
       return this->AppendNull();
     }
     int64_t value;
-    std::string_view view;
-    if (json_obj.get(view) == simdjson::SUCCESS) {
+    if (json_type == sj::json_type::string) {
+      ARROW_ASSIGN_OR_RAISE(auto view, internal::GetJsonAs<std::string_view>(json_obj));
       if (!ParseValue(*timestamp_type_, view.data(), view.size(), &value)) {
         return Status::Invalid("couldn't parse timestamp from ", view);
       }
-    } else {
+    } else if (json_type == sj::json_type::number) {
       RETURN_NOT_OK(ConvertNumber<Int64Type>(json_obj, *this->type_, &value));
+    } else {
+      return Status::Invalid("Expected JSON string or number for type ",
+                             type_->ToString());
     }
     return builder_->Append(value);
   }
@@ -745,12 +755,14 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
   // or an object mapping struct names to values (omitted struct members
   // are mapped to null).
   Status AppendValue(sj::value& json_obj) override {
-    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
-    if (is_null) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto json_type, internal::ResolveSimdjsonResult(json_obj.type(),
+                                                        "Failed to determine JSON type"));
+    if (json_type == sj::json_type::null) {
       return this->AppendNull();
     }
-    sj::array array;
-    if (json_obj.get(array) == simdjson::SUCCESS) {
+    if (json_type == sj::json_type::array) {
+      ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonAs<sj::array>(json_obj));
       auto expected_size = static_cast<size_t>(type_->num_fields());
       size_t size;
       if (array.count_elements().get(size) != simdjson::SUCCESS) {
@@ -769,6 +781,10 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
         ++i;
       }
       return builder_->Append();
+    }
+    if (json_type != sj::json_type::object) {
+      return Status::Invalid("Expected JSON array or object for type ",
+                             type_->ToString());
     }
     ARROW_ASSIGN_OR_RAISE(auto object, internal::GetJsonAs<sj::object>(json_obj));
     // Iterate the object fields in JSON order (the on-demand API is

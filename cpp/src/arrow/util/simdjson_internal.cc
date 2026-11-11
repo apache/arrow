@@ -515,13 +515,13 @@ const char* JsonTypeName(simdjson::ondemand::json_type type) {
 }
 
 Result<bool> IsJsonNull(simdjson::ondemand::value& value) {
-  bool is_null;
-  auto error_code = value.is_null().get(is_null);
+  simdjson::ondemand::json_type json_type;
+  auto error_code = value.type().get(json_type);
   if (error_code != simdjson::SUCCESS) {
-    return Status::Invalid("Error checking for JSON null: ",
+    return Status::Invalid("Error determining JSON type: ",
                            simdjson::error_message(error_code));
   }
-  return is_null;
+  return json_type == simdjson::ondemand::json_type::null;
 }
 
 Result<std::string> MinifyJson(std::string_view json) {

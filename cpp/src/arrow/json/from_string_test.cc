@@ -1211,6 +1211,22 @@ TEST(TestStructFromString, NestedStruct) {
   AssertArraysEqual(*expected, *actual);
 }
 
+TEST(TestStructFromString, NestedStructObjectNotation) {
+  auto type =
+      struct_({field("c1", struct_({field("c11", int32()),
+                                    field("c12", struct_({field("c121", int32())}))})),
+               field("c2", int64())});
+  constexpr auto json = R"([
+    [{"c11": null, "c12": {"c121": -1}}, 1],
+    [{"c11": 2, "c12": {"c121": null}}, 2]
+  ])";
+  ASSERT_OK_AND_ASSIGN(auto actual, ArrayFromJSONString(type, json));
+  ASSERT_OK(actual->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(
+      auto expected, ArrayFromJSONString(type, "[[[null, [-1]], 1], [[2, [null]], 2]]"));
+  AssertArraysEqual(*expected, *actual);
+}
+
 TEST(TestStructFromString, Errors) {
   auto field_a = field("a", int8());
   auto field_b = field("b", boolean());
