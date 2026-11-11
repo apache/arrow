@@ -858,6 +858,15 @@ TEST_F(TestFixedSizeBinaryKernels, BinarySlicePosPos) {
   SliceOptions options_step_neg{5, 0, -2};
   CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(3),
              R"(["fdb", "zbo"])", &options_step_neg);
+
+  constexpr auto min = std::numeric_limits<int64_t>::min();
+  constexpr auto max = std::numeric_limits<int64_t>::max();
+  SliceOptions options_max_step{1, max, max};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(1),
+             R"(["b", "o"])", &options_max_step);
+  SliceOptions options_min_step{max, 0, min};
+  CheckUnary("binary_slice", R"(["abcdef", "foobaz"])", fixed_size_binary(1),
+             R"(["f", "z"])", &options_min_step);
 }
 
 TEST_F(TestFixedSizeBinaryKernels, BinarySlicePosNeg) {
@@ -2714,6 +2723,15 @@ TYPED_TEST(TestBinaryKernels, SliceBytesPosPos) {
                    this->template MakeArray<std::string>({"abcdef", long_input}),
                    this->template MakeArray<std::string>({"b", std::string(60, 'x')}),
                    &options_default_stop_step);
+  SliceOptions options_max_step{/*start=*/1, /*stop=*/max, /*step=*/max};
+  this->CheckUnary("binary_slice", this->MakeArray({"", "a", "abc"}),
+                   this->MakeArray({"", "", "b"}), &options_max_step);
+  SliceOptions options_max_start_neg{/*start=*/max, /*stop=*/0, /*step=*/-1};
+  this->CheckUnary("binary_slice", this->MakeArray({"", "a", "abcdef"}),
+                   this->MakeArray({"", "", "fedcb"}), &options_max_start_neg);
+  options_max_start_neg.step = std::numeric_limits<int64_t>::min();
+  this->CheckUnary("binary_slice", this->MakeArray({"", "a", "abcdef"}),
+                   this->MakeArray({"", "", "f"}), &options_max_start_neg);
 
   SliceOptions options{2, 4};
   this->CheckUnary(
@@ -2765,8 +2783,7 @@ TYPED_TEST(TestBinaryKernels, SliceBytesNegNeg) {
   const std::string long_input(300, 'x');
   SliceOptions options_extreme_start{/*start=*/min, /*stop=*/-1};
   this->CheckUnary("binary_slice", this->template MakeArray<std::string>({"x"}),
-                   this->template MakeArray<std::string>({""}),
-                   &options_extreme_start);
+                   this->template MakeArray<std::string>({""}), &options_extreme_start);
 
   SliceOptions options_min{/*start=*/-1, /*stop=*/min};
   this->CheckUnary("binary_slice",
@@ -2777,6 +2794,9 @@ TYPED_TEST(TestBinaryKernels, SliceBytesNegNeg) {
                    this->template MakeArray<std::string>({"abcdef", long_input}),
                    this->template MakeArray<std::string>({"fa", std::string(60, 'x')}),
                    &options_min_step_neg);
+  SliceOptions options_reverse{/*start=*/-1, /*stop=*/min, /*step=*/-1};
+  this->CheckUnary("binary_slice", this->MakeArray({"abcdef"}),
+                   this->MakeArray({"fedcba"}), &options_reverse);
 
   SliceOptions options{-2, -1};
   this->CheckUnary(
@@ -2801,6 +2821,12 @@ TYPED_TEST(TestBinaryKernels, SliceBytesNegNeg) {
 }
 
 TYPED_TEST(TestBinaryKernels, SliceBytesNegPos) {
+  SliceOptions options_max_stop_neg{/*start=*/-1,
+                                    /*stop=*/std::numeric_limits<int64_t>::max(),
+                                    /*step=*/-1};
+  this->CheckUnary("binary_slice", this->MakeArray({"", "a", "abcdef"}),
+                   this->MakeArray({"", "", ""}), &options_max_stop_neg);
+
   SliceOptions options{-2, 4};
   this->CheckUnary(
       "binary_slice",
