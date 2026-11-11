@@ -202,6 +202,11 @@ def test_run_end_encoded_array() -> None:
     )
     check(assert_type(rebuilt, pa.RunEndEncodedArray), pa.RunEndEncodedArray)
 
+    rebuilt = pa.RunEndEncodedArray.from_buffers(
+        ree.type, len(ree), [], children=[ree.run_ends, ree.values]
+    )
+    check(assert_type(rebuilt, pa.RunEndEncodedArray), pa.RunEndEncodedArray)
+
 
 def test_chunked_array() -> None:
     chunked = pa.chunked_array([[1, 2], [3]])
@@ -244,7 +249,11 @@ def test_buffer_constructors_invalid_usage() -> None:
     children: list[pa.Array] = [pa.array([1])]
     strings = cast(pa.StringArray, pa.array(["a"]))
     off, data = cast(list[pa.Buffer], strings.buffers()[1:])
+    ree = pa.RunEndEncodedArray.from_arrays([2, 3], ["a", "b"])
     if TYPE_CHECKING:
+        pa.RunEndEncodedArray.from_buffers(
+            ree.type, len(ree), strings.buffers()[1:2],  # type: ignore[arg-type]
+            children=[ree.run_ends, ree.values])
         # Only lists are accepted for children and type codes
         pa.UnionArray.from_sparse(types, tuple(children))  # type: ignore[arg-type]
         pa.UnionArray.from_sparse(types, children, None,

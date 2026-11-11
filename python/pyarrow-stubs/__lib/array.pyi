@@ -511,10 +511,10 @@ class RunEndEncodedArray(Array):
     def from_buffers(  # type: ignore[override]
         type: DataType,
         length: int,
-        buffers: list[Buffer] | list[None],
+        buffers: Sequence[None],
         null_count: int = -1,
         offset: int = 0,
-        children: tuple[Array, Array] | list[list[int]] | None = None,
+        children: Sequence[Array | Iterable[Any]] | None = None,
     ) -> RunEndEncodedArray: ...
     @property
     def run_ends(self) -> Int16Array | Int32Array | Int64Array: ...
