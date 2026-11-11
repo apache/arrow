@@ -1,0 +1,69 @@
+The arrow R package is Copyright The Apache Software Foundation and is licensed
+under the Apache License, Version 2.0. The Arrow C++ library source copied into
+tools/cpp includes code from other projects; see tools/LICENSE.txt and
+tools/NOTICE.txt in the source package.
+
+To build the Arrow C++ library without network access, the source package also
+includes (trimmed) source tarballs of these thirdparty dependencies in
+tools/vendored. They are only used when the dependency isn't found on the
+system, and are statically linked into the package when used. Each tarball
+contains the dependency's full license text.
+
+Boost (headers used by Apache Thrift)
+  Copyright the Boost authors
+  Boost Software License 1.0
+
+bzip2
+  Copyright (C) 1996-2019 Julian R Seward
+  BSD-style license (see LICENSE in the tarball)
+
+LZ4 (lib/ only)
+  Copyright (c) 2011-2020, Yann Collet
+  BSD 2-Clause License
+
+mimalloc
+  Copyright (c) 2018-2025 Microsoft Corporation, Daan Leijen
+  MIT License
+
+RapidJSON
+  Copyright (C) 2015 THL A29 Limited, a Tencent company, and Milo Yip
+  MIT License (with code under the BSD and JSON licenses, see license.txt in
+  the tarball)
+
+RE2
+  Copyright (c) 2009 The RE2 Authors
+  BSD 3-Clause License
+
+simdjson
+  Copyright 2018-2025 The simdjson authors
+  Apache License 2.0 or MIT License
+
+Snappy
+  Copyright 2011, Google Inc.
+  BSD 3-Clause License
+
+Apache Thrift
+  Copyright (C) 2006-2019, The Apache Software Foundation
+  Apache License 2.0
+
+uriparser (library sources only)
+  Copyright (C) 2007, Weijia Song and Sebastian Pipping
+  BSD 3-Clause License
+
+utf8proc
+  Copyright (c) 2014-2021 Steven G. Johnson, Jiahao Chen, Tony Kelman,
+  Jonas Fonseca, and other contributors
+  Copyright (c) 2009, 2013 Public Software Group e. V., Berlin, Germany
+  MIT License, with Unicode data under the Unicode Data Files and Software
+  License
+
+xsimd
+  Copyright (c) 2016, Johan Mabille, Sylvain Corlay, Wolf Vollprecht and
+  Martin Renou
+  Copyright (c) 2016, QuantStack
+  Copyright (c) 2018, Serge Guelton
+  BSD 3-Clause License
+
+zlib
+  Copyright (C) 1995-2022 Jean-loup Gailly and Mark Adler
+  zlib License
