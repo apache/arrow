@@ -33,3 +33,4 @@ STYLE.md
 ^bootstrap.R$
 air.toml
 ^tools/vendored-downloads$
+^tools/trim$

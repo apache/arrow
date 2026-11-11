@@ -1085,7 +1085,63 @@ endif()
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu)
 
+# Use the bundled Boost source archive header-only, without Boost's
+# CMake build. This only provides the Boost libraries that Apache
+# Thrift needs. See ARROW_BOOST_FOR_THRIFT_ONLY.
+#
+# This is a macro to set variables in build_boost()'s PARENT_SCOPE.
+macro(build_boost_headers_for_thrift)
+  list(APPEND CMAKE_MESSAGE_INDENT "Boost: ")
+  message(STATUS "Using headers from source (only for Apache Thrift)")
+
+  fetchcontent_declare(boost
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${BOOST_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}"
+                       # This doesn't exist. So FetchContent only
+                       # extracts Boost and doesn't add Boost's CMake
+                       # project.
+                       SOURCE_SUBDIR "arrow-header-only")
+  prepare_fetchcontent()
+  fetchcontent_makeavailable(boost)
+
+  # Boost.Uuid (used by thrift/TUuid.h) and the Boost libraries it
+  # includes headers from. If you change this, check
+  # r/tools/trim/boost.sh too.
+  set(libraries
+      assert
+      config
+      throw_exception
+      type_traits
+      uuid)
+  set(boost_include_dirs)
+  foreach(library ${libraries})
+    set(include_dir "${boost_SOURCE_DIR}/libs/${library}/include")
+    if(NOT IS_DIRECTORY "${include_dir}")
+      message(FATAL_ERROR "Boost source archive doesn't have ${include_dir}")
+    endif()
+    list(APPEND boost_include_dirs "${include_dir}")
+  endforeach()
+  add_library(Boost::headers INTERFACE IMPORTED)
+  target_include_directories(Boost::headers INTERFACE ${boost_include_dirs})
+  target_compile_definitions(Boost::headers INTERFACE BOOST_ALL_NO_LIB)
+
+  set(Boost_INCLUDE_DIRS
+      ${boost_include_dirs}
+      PARENT_SCOPE)
+  set(BOOST_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endmacro()
+
 function(build_boost)
+  if(ARROW_BOOST_FOR_THRIFT_ONLY)
+    build_boost_headers_for_thrift()
+    return()
+  endif()
+
   list(APPEND CMAKE_MESSAGE_INDENT "Boost: ")
   message(STATUS "Building from source")
 
@@ -1319,6 +1375,30 @@ elseif(ARROW_GANDIVA
   set(ARROW_BOOST_REQUIRE_LIBRARY FALSE)
 else()
   set(ARROW_USE_BOOST FALSE)
+endif()
+
+# If Boost is only needed because Apache Thrift's headers use it, we
+# can avoid both Boost's and Apache Thrift's CMake builds: bundled
+# Boost is used header-only (see build_boost_headers_for_thrift()) and
+# bundled Apache Thrift is built from only the sources that Apache
+# Parquet needs (see build_thrift()). This is faster and lets packagers
+# (e.g. the R package, see r/tools/trim/boost.sh) ship a tiny subset of
+# the Boost source archive.
+#
+# Other configurations keep using Boost's and Apache Thrift's own CMake
+# builds. This is not used on Windows yet because the minimal Apache
+# Thrift build hasn't been tested there.
+if(ARROW_USE_BOOST
+   AND ARROW_WITH_THRIFT
+   AND NOT ARROW_BOOST_REQUIRE_LIBRARY
+   AND NOT ARROW_GANDIVA
+   AND NOT ARROW_TESTING
+   AND ARROW_USE_NATIVE_INT128
+   AND ARROW_ENABLE_THREADING
+   AND NOT WIN32)
+  set(ARROW_BOOST_FOR_THRIFT_ONLY TRUE)
+else()
+  set(ARROW_BOOST_FOR_THRIFT_ONLY FALSE)
 endif()
 
 if(ARROW_USE_BOOST)
@@ -1790,6 +1870,82 @@ endif()
 # ----------------------------------------------------------------------
 # Thrift
 
+# Build only the parts of the Apache Thrift C++ library that Apache
+# Parquet uses (TCompactProtocol and TMemoryBuffer), without Apache
+# Thrift's CMake build. Apache Thrift's CMake build requires Boost's
+# CMake package and builds many sources that need more of Boost
+# (e.g. Boost.Locale for TJSONProtocol). See ARROW_BOOST_FOR_THRIFT_ONLY.
+#
+# This is a macro to be used in build_thrift().
+macro(add_thrift_minimal_library)
+  fetchcontent_declare(thrift
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${THRIFT_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
+                       # Only extract. We don't use Apache Thrift's
+                       # CMake build.
+                       SOURCE_SUBDIR "arrow-no-cmake")
+  prepare_fetchcontent()
+  fetchcontent_makeavailable(thrift)
+
+  set(THRIFT_CPP_SOURCE_DIR "${thrift_SOURCE_DIR}/lib/cpp/src")
+  # If you update Apache Thrift, check whether Apache Parquet needs
+  # more sources (undefined symbols when linking libparquet users).
+  add_library(thrift STATIC
+              "${THRIFT_CPP_SOURCE_DIR}/thrift/TApplicationException.cpp"
+              "${THRIFT_CPP_SOURCE_DIR}/thrift/TOutput.cpp"
+              "${THRIFT_CPP_SOURCE_DIR}/thrift/TUuid.cpp"
+              "${THRIFT_CPP_SOURCE_DIR}/thrift/protocol/TProtocol.cpp"
+              "${THRIFT_CPP_SOURCE_DIR}/thrift/transport/TBufferTransports.cpp"
+              "${THRIFT_CPP_SOURCE_DIR}/thrift/transport/TTransportException.cpp")
+  set_target_properties(thrift PROPERTIES UNITY_BUILD OFF)
+  # Third-party code: don't fail on warnings.
+  target_compile_options(thrift PRIVATE $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wno-error>)
+  target_compile_definitions(thrift PUBLIC THRIFT_STATIC_DEFINE)
+  target_include_directories(thrift SYSTEM
+                             PUBLIC $<BUILD_LOCAL_INTERFACE:${thrift_BINARY_DIR}>
+                                    $<BUILD_LOCAL_INTERFACE:${THRIFT_CPP_SOURCE_DIR}>)
+  if(BOOST_VENDORED)
+    target_link_libraries(thrift PUBLIC $<BUILD_LOCAL_INTERFACE:Boost::headers>)
+  else()
+    target_link_libraries(thrift PUBLIC Boost::headers)
+  endif()
+  if(TARGET Threads::Threads)
+    target_link_libraries(thrift PUBLIC Threads::Threads)
+  endif()
+
+  # Generate thrift/config.h from Apache Thrift's template, like
+  # Apache Thrift's build/cmake/ConfigureChecks.cmake does, but only
+  # with the checks that matter for the sources above and the headers
+  # they (and Apache Parquet) include.
+  include(CheckCXXSourceCompiles)
+  include(CheckIncludeFileCXX)
+  include(CheckSymbolExists)
+  check_include_file_cxx(inttypes.h ARROW_THRIFT_HAVE_INTTYPES_H)
+  check_include_file_cxx(netinet/in.h ARROW_THRIFT_HAVE_NETINET_IN_H)
+  check_include_file_cxx(stdint.h ARROW_THRIFT_HAVE_STDINT_H)
+  check_include_file_cxx(sys/param.h ARROW_THRIFT_HAVE_SYS_PARAM_H)
+  check_symbol_exists(strerror_r "string.h" ARROW_THRIFT_HAVE_STRERROR_R)
+  # GNU strerror_r() returns char * instead of int.
+  check_cxx_source_compiles("#include <string.h>
+int main() { char b; char* a = strerror_r(0, &b, 0); static_cast<void>(a); }"
+                            ARROW_THRIFT_STRERROR_R_CHAR_P)
+  foreach(name
+          HAVE_INTTYPES_H
+          HAVE_NETINET_IN_H
+          HAVE_STDINT_H
+          HAVE_SYS_PARAM_H
+          HAVE_STRERROR_R
+          STRERROR_R_CHAR_P)
+    set(${name} ${ARROW_THRIFT_${name}})
+  endforeach()
+  set(PACKAGE_NAME "thrift")
+  set(PACKAGE_VERSION "${ARROW_THRIFT_BUILD_VERSION}")
+  set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
+  configure_file("${thrift_SOURCE_DIR}/build/cmake/config.h.in"
+                 "${thrift_BINARY_DIR}/thrift/config.h")
+endmacro()
+
 function(build_thrift)
   list(APPEND CMAKE_MESSAGE_INDENT "Thrift: ")
   message(STATUS "Building from source")
@@ -1797,66 +1953,70 @@ function(build_thrift)
   if(CMAKE_VERSION VERSION_LESS 3.26)
     message(FATAL_ERROR "Require CMake 3.26 or later for building bundled Apache Thrift")
   endif()
-  fetchcontent_declare(thrift
-                       ${FC_DECLARE_COMMON_OPTIONS}
-                       URL ${THRIFT_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
-
-  prepare_fetchcontent()
-  set(BUILD_COMPILER OFF)
-  set(BUILD_EXAMPLES OFF)
-  set(BUILD_TUTORIALS OFF)
-  set(CMAKE_UNITY_BUILD OFF)
-  set(WITH_AS3 OFF)
-  set(WITH_CPP ON)
-  set(WITH_C_GLIB OFF)
-  set(WITH_JAVA OFF)
-  set(WITH_JAVASCRIPT OFF)
-  set(WITH_LIBEVENT OFF)
-  if(MSVC)
-    if(ARROW_USE_STATIC_CRT)
-      set(WITH_MT ON)
-    else()
-      set(WITH_MT OFF)
-    endif()
-  endif()
-  set(WITH_NODEJS OFF)
-  set(WITH_OPENSSL OFF)
-  set(WITH_PYTHON OFF)
-  set(WITH_QT5 OFF)
-  set(WITH_ZLIB OFF)
-
-  # Apache Thrift may change CMAKE_DEBUG_POSTFIX. So we'll restore the
-  # original CMAKE_DEBUG_POSTFIX later.
-  set(CMAKE_DEBUG_POSTFIX_KEEP ${CMAKE_DEBUG_POSTFIX})
-
-  # Remove Apache Arrow's CMAKE_MODULE_PATH to ensure using Apache
-  # Thrift's cmake_modules/.
-  #
-  # We can remove this once https://github.com/apache/thrift/pull/3176
-  # is merged.
-  list(POP_FRONT CMAKE_MODULE_PATH)
-  fetchcontent_makeavailable(thrift)
-
-  # Apache Thrift may change CMAKE_DEBUG_POSTFIX. So we restore
-  # CMAKE_DEBUG_POSTFIX.
-  set(CMAKE_DEBUG_POSTFIX
-      ${CMAKE_DEBUG_POSTFIX_KEEP}
-      CACHE BOOL "" FORCE)
-
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${thrift_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-  endif()
-
-  target_include_directories(thrift
-                             INTERFACE $<BUILD_LOCAL_INTERFACE:${thrift_BINARY_DIR}>
-                                       $<BUILD_LOCAL_INTERFACE:${thrift_SOURCE_DIR}/lib/cpp/src>
-  )
-  if(BOOST_VENDORED)
-    target_link_libraries(thrift PUBLIC $<BUILD_LOCAL_INTERFACE:Boost::headers>)
-    target_link_libraries(thrift PRIVATE $<BUILD_LOCAL_INTERFACE:arrow::Boost::locale>)
+  if(ARROW_BOOST_FOR_THRIFT_ONLY)
+    add_thrift_minimal_library()
   else()
-    target_link_libraries(thrift INTERFACE Boost::headers)
+    fetchcontent_declare(thrift
+                         ${FC_DECLARE_COMMON_OPTIONS}
+                         URL ${THRIFT_SOURCE_URL}
+                         URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
+
+    prepare_fetchcontent()
+    set(BUILD_COMPILER OFF)
+    set(BUILD_EXAMPLES OFF)
+    set(BUILD_TUTORIALS OFF)
+    set(CMAKE_UNITY_BUILD OFF)
+    set(WITH_AS3 OFF)
+    set(WITH_CPP ON)
+    set(WITH_C_GLIB OFF)
+    set(WITH_JAVA OFF)
+    set(WITH_JAVASCRIPT OFF)
+    set(WITH_LIBEVENT OFF)
+    if(MSVC)
+      if(ARROW_USE_STATIC_CRT)
+        set(WITH_MT ON)
+      else()
+        set(WITH_MT OFF)
+      endif()
+    endif()
+    set(WITH_NODEJS OFF)
+    set(WITH_OPENSSL OFF)
+    set(WITH_PYTHON OFF)
+    set(WITH_QT5 OFF)
+    set(WITH_ZLIB OFF)
+
+    # Apache Thrift may change CMAKE_DEBUG_POSTFIX. So we'll restore the
+    # original CMAKE_DEBUG_POSTFIX later.
+    set(CMAKE_DEBUG_POSTFIX_KEEP ${CMAKE_DEBUG_POSTFIX})
+
+    # Remove Apache Arrow's CMAKE_MODULE_PATH to ensure using Apache
+    # Thrift's cmake_modules/.
+    #
+    # We can remove this once https://github.com/apache/thrift/pull/3176
+    # is merged.
+    list(POP_FRONT CMAKE_MODULE_PATH)
+    fetchcontent_makeavailable(thrift)
+
+    # Apache Thrift may change CMAKE_DEBUG_POSTFIX. So we restore
+    # CMAKE_DEBUG_POSTFIX.
+    set(CMAKE_DEBUG_POSTFIX
+        ${CMAKE_DEBUG_POSTFIX_KEEP}
+        CACHE BOOL "" FORCE)
+
+    if(CMAKE_VERSION VERSION_LESS 3.28)
+      set_property(DIRECTORY ${thrift_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+    endif()
+
+    target_include_directories(thrift
+                               INTERFACE $<BUILD_LOCAL_INTERFACE:${thrift_BINARY_DIR}>
+                                         $<BUILD_LOCAL_INTERFACE:${thrift_SOURCE_DIR}/lib/cpp/src>
+    )
+    if(BOOST_VENDORED)
+      target_link_libraries(thrift PUBLIC $<BUILD_LOCAL_INTERFACE:Boost::headers>)
+      target_link_libraries(thrift PRIVATE $<BUILD_LOCAL_INTERFACE:arrow::Boost::locale>)
+    else()
+      target_link_libraries(thrift INTERFACE Boost::headers)
+    endif()
   endif()
 
   add_library(thrift::thrift INTERFACE IMPORTED)
