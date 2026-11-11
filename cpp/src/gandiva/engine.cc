@@ -117,8 +117,43 @@
 
 namespace gandiva {
 
+// Oldest macOS release for each architecture. Used as a floor and as the fallback when
+// the Darwin kernel version is missing or can't be converted.
+constexpr unsigned kMinMacOSMajorArm64 = 11;  // first Apple Silicon release
+constexpr unsigned kMinMacOSMinorArm64 = 0;
+constexpr unsigned kMinMacOSMajorX86 = 10;
+constexpr unsigned kMinMacOSMinorX86 = 15;
+
 extern const unsigned char kPrecompiledBitcode[];
 extern const size_t kPrecompiledBitcodeSize;
+
+llvm::Triple NormalizeDarwinTriple(llvm::Triple triple) {
+  // LLVM's default host triple names the OS "darwin<kernel version>", but LLVM only
+  // enables macOS libcalls (e.g. __exp10 for llvm.exp10) for the "macosx" OS.
+  // clang's driver does this rewrite; the JIT does not, so do it here.
+  if (triple.getOS() != llvm::Triple::Darwin) {
+    return triple;
+  }
+
+  const llvm::VersionTuple min_version =
+      triple.isAArch64() ? llvm::VersionTuple(kMinMacOSMajorArm64, kMinMacOSMinorArm64)
+                         : llvm::VersionTuple(kMinMacOSMajorX86, kMinMacOSMinorX86);
+
+  // Only "at least macOS 10.9" matters for libcall selection, so an approximate
+  // kernel->macOS mapping is acceptable here.
+  llvm::VersionTuple version = min_version;
+  llvm::VersionTuple converted;
+  if (triple.getMacOSXVersion(converted) && converted >= min_version) {
+    version = converted;
+  }
+
+  // getMacOSXVersion() leaves the minor unset for darwin20+; print it as "11.0", not
+  // "11".
+  const unsigned minor = version.getMinor().value_or(0);
+  triple.setOSName("macosx" +
+                   llvm::VersionTuple(version.getMajor(), minor).getAsString());
+  return triple;
+}
 
 namespace {
 
@@ -142,7 +177,7 @@ arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
 Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
     const Configuration& conf) {
   llvm::orc::JITTargetMachineBuilder jtmb(
-      (llvm::Triple(llvm::sys::getDefaultTargetTriple())));
+      (NormalizeDarwinTriple(llvm::Triple(llvm::sys::getDefaultTargetTriple())));
   jtmb.setRelocationModel(llvm::Reloc::PIC_);
   if (conf.target_host_cpu()) {
     jtmb.setCPU(cpu_name.str());
