@@ -4452,6 +4452,10 @@ endif()
 if(ARROW_BUILD_STATIC)
   if(ARROW_GCS AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
     arrow_append_pc_system_library("libcurl" ARROW_GCS_CURL_PC "-lcurl" ARROW_GCS)
+    if(NOT WIN32)
+      arrow_append_pc_system_library("openssl" ARROW_GCS_OPENSSL_PC "-lssl -lcrypto"
+                                     ARROW_GCS)
+    endif()
   endif()
   if(ARROW_AZURE
      AND AZURE_SDK_VENDORED
