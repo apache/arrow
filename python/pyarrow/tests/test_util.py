@@ -15,19 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import gc
 import os
-import signal
 import shutil
 import sys
 import textwrap
-import weakref
 
 import pytest
 
-from pyarrow.util import (doc, _break_traceback_cycle_from_frame,
-                          download_tzdata_on_windows)
-from pyarrow.tests.util import disabled_gc
+from pyarrow.util import doc, download_tzdata_on_windows
 
 
 @doc(method="func_a", operation="A")
@@ -184,32 +179,6 @@ def test_escaping_in_docstring():
         """
     )
     assert func_f.__doc__ == docstr
-
-
-def exhibit_signal_refcycle():
-    # Put an object in the frame locals and return a weakref to it.
-    # If `signal.getsignal` has a bug where it creates a reference cycle
-    # keeping alive the current execution frames, `obj` will not be
-    # destroyed immediately when this function returns.
-    obj = set()
-    signal.getsignal(signal.SIGINT)
-    return weakref.ref(obj)
-
-
-def test_signal_refcycle():
-    # Test possible workaround for https://bugs.python.org/issue42248
-    with disabled_gc():
-        wr = exhibit_signal_refcycle()
-        if wr() is None:
-            pytest.skip(
-                "Python version does not have the bug we're testing for")
-
-    gc.collect()
-    with disabled_gc():
-        wr = exhibit_signal_refcycle()
-        assert wr() is not None
-        _break_traceback_cycle_from_frame(sys._getframe(0))
-        assert wr() is None
 
 
 @pytest.mark.skipif(sys.platform != "win32",
