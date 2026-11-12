@@ -223,6 +223,8 @@ from pyarrow.lib import (
     uuid as uuid,
 )
 
+from pyarrow import types as types
+
 # TODO(GH-48970): remove __getattr__ before release as this
 # will annotate non-existing attributes as Any.
 # https://github.com/apache/arrow/issues/48970

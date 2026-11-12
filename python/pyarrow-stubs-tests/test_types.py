@@ -29,7 +29,6 @@ from pyarrow._stubs_typing import (
     IntegerType,
     StringType,
 )
-import pyarrow.types as types
 
 from _check import assert_type, check
 
@@ -141,15 +140,15 @@ def test_key_value_metadata() -> None:
 
 def test_type_predicates_narrow() -> None:
     lst = _erase(pa.list_(pa.int32()))
-    assert types.is_list(lst)
+    assert pa.types.is_list(lst)
     check(assert_type(lst, pa.ListType), pa.ListType)
 
     ts = _erase(pa.timestamp("s"))
-    assert types.is_timestamp(ts)
+    assert pa.types.is_timestamp(ts)
     check(assert_type(ts, pa.TimestampType), pa.TimestampType)
 
     dec = _erase(pa.decimal64(5))
-    assert types.is_decimal(dec)
+    assert pa.types.is_decimal(dec)
     check(
         assert_type(
             dec,
@@ -161,8 +160,8 @@ def test_type_predicates_narrow() -> None:
     # Decimal types subclass FixedSizeBinaryType, but don't match it, so
     # they must not be narrowed away when the check fails.
     dec128 = _erase(pa.decimal128(5, 2))
-    if not types.is_fixed_size_binary(dec128):
-        assert types.is_decimal(dec128)
+    if not pa.types.is_fixed_size_binary(dec128):
+        assert pa.types.is_decimal(dec128)
         check(
             assert_type(
                 dec128,
@@ -176,7 +175,7 @@ def test_type_predicates_narrow() -> None:
 
     # Run-end encoded types are nested, so this doesn't narrow to Never.
     ree = pa.run_end_encoded(pa.int32(), pa.string())
-    assert types.is_nested(ree)
+    assert pa.types.is_nested(ree)
     check(assert_type(ree, pa.RunEndEncodedType), pa.RunEndEncodedType)
 
 
