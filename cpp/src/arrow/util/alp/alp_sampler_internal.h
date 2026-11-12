@@ -45,8 +45,8 @@ class ARROW_EXPORT AlpSampler {
   AlpEncodingPreset MakePreset() const;
 
  private:
-  /// Adds one sampling chunk. Only the first
-  /// AlpSamplingConstants::kSampleWindowSize elements are examined.
+  /// Adds one sampling chunk, taking samples only from its first
+  /// AlpSamplingConstants::kChunkSampleWindowSize values (or all if shorter).
   void AddSampleChunk(std::span<const T> input);
 
   /// Stride between sampled chunks.

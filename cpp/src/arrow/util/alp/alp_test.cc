@@ -790,7 +790,8 @@ TYPED_TEST(AlpSamplerTest, SamplingWindowSize) {
 
   // A sixteen-chunk window samples every other chunk, skipping decimal_chunk.
   // With only NaNs sampled, the preset falls back to identity.
-  AlpSampler<TypeParam> every_other_chunk(/*sampling_window_size=*/16 * kChunkSize);
+  AlpSampler<TypeParam> every_other_chunk(AlpSamplingConstants::kSampleChunksPerWindow *
+                                          2 * kChunkSize);
   every_other_chunk.AddSample(nan_chunk);
   every_other_chunk.AddSample(decimal_chunk);
   EXPECT_EQ(AlpEncodingPreset::MakeDefault().combinations,

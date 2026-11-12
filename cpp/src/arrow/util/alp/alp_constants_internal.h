@@ -60,8 +60,9 @@ struct AlpSamplingConstants {
   /// Input elements per sampling chunk.
   static constexpr int64_t kChunkSize = 4096;
 
-  /// Maximum prefix length examined in each sampled chunk.
-  static constexpr int64_t kSampleWindowSize = 1024;
+  /// Sample from the first 1024 values of each selected chunk (or all if shorter).
+  /// With 256 samples per full window, use offsets 0, 4, ..., 1020.
+  static constexpr int64_t kChunkSampleWindowSize = 1024;
 
   /// Samples collected per chunk.
   static constexpr int64_t kSamplesPerChunk = 256;

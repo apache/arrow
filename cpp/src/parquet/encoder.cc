@@ -1084,10 +1084,10 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     PARQUET_ASSIGN_OR_THROW(
         auto compressed_buffer,
         ::arrow::AllocateResizableBuffer(max_comp_size, this->memory_pool()));
-    PARQUET_ASSIGN_OR_THROW(const int64_t compressed_size,
-                            Codec::Encode(input, preset, alp_options_.vector_size,
-                                          {compressed_buffer->mutable_data(),
-                                           static_cast<size_t>(max_comp_size)}));
+    PARQUET_ASSIGN_OR_THROW(
+        const int64_t compressed_size,
+        Codec::Encode(input, preset, alp_options_.vector_size,
+                      compressed_buffer->template mutable_span_as<uint8_t>()));
     PARQUET_THROW_NOT_OK(compressed_buffer->Resize(compressed_size));
     sink_.Reset();
 
@@ -1103,23 +1103,19 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
-    if (num_values == 0) {
-      return;
-    }
     if (valid_bits != NULLPTR) {
       const int num_valid_values = static_cast<int>(::arrow::internal::CountSetBits(
           valid_bits, valid_bits_offset, static_cast<int64_t>(num_values)));
       if (num_valid_values == 0) {
         return;
       }
-      PARQUET_ASSIGN_OR_THROW(
-          auto buffer,
-          ::arrow::AllocateBuffer(num_valid_values * sizeof(T), this->memory_pool()));
-      T* data = buffer->template mutable_data_as<T>();
+      const int64_t num_bytes = num_valid_values * static_cast<int64_t>(sizeof(T));
+      PARQUET_THROW_NOT_OK(sink_.Reserve(num_bytes));
+      T* data = reinterpret_cast<T*>(sink_.mutable_data() + sink_.length());
       const int compacted_values = ::arrow::util::internal::SpacedCompress<T>(
           src, num_values, valid_bits, valid_bits_offset, data);
       ARROW_DCHECK_EQ(compacted_values, num_valid_values);
-      Put(data, compacted_values);
+      sink_.UnsafeAdvance(num_bytes);
     } else {
       Put(src, num_values);
     }
