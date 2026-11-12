@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <sstream>
 #include <variant>
 
@@ -159,7 +160,12 @@ class PageLevelDecoder {
   /// Return the number of values left to be decoded.
   int32_t remaining() const { return num_values_remaining_; }
 
+  std::span<const uint8_t> encoded_rle() const { return encoded_rle_; }
+  bool is_rle() const { return is_rle_; }
+
  private:
+  std::span<const uint8_t> encoded_rle_;
+  bool is_rle_ = false;
   std::variant<BitDecoder, RleDecoder> decoder_;
   /// Number of values remaining. The underlying decoder zero pads bit packed values
   /// up to a multiple of 8 so it cannot know the exact number of remaining values.
@@ -249,6 +255,8 @@ int32_t PageLevelDecoder<BitDec, RleDec>::SetDataV1(Encoding::type encoding,
       if (ARROW_PREDICT_FALSE(data_size < 0 || data_size > max_data_size - 4)) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
+      encoded_rle_ = {data + 4, static_cast<size_t>(data_size)};
+      is_rle_ = true;
       decoder_ = RleDec(/* data= */ data + 4, /* data_size= */ data_size, params);
       return 4 + data_size;
     }
@@ -262,6 +270,8 @@ int32_t PageLevelDecoder<BitDec, RleDec>::SetDataV1(Encoding::type encoding,
       if (ARROW_PREDICT_FALSE(data_size < 0 || data_size > max_data_size)) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
+      encoded_rle_ = {};
+      is_rle_ = false;
       decoder_ = BitDec(/* data= */ data, /* data_size= */ data_size, params);
       return data_size;
     }
@@ -279,6 +289,8 @@ void PageLevelDecoder<BitDec, RleDec>::SetDataV2(const uint8_t* data, int32_t da
   }
   num_values_remaining_ = params.value_count;
   max_level_ = params.max_level;
+  encoded_rle_ = {data, static_cast<size_t>(data_size)};
+  is_rle_ = true;
   decoder_ = RleDec(data, data_size, params);
 }
 
@@ -302,8 +314,8 @@ int32_t PageLevelDecoder<BitDec, RleDec>::Skip(int32_t batch_size) {
 }
 
 template <typename BitDec, typename RleDec>
-auto PageLevelDecoder<BitDec, RleDec>::CountUpTo(int16_t value,
-                                                 int32_t batch_size) -> CountUpToResult {
+auto PageLevelDecoder<BitDec, RleDec>::CountUpTo(int16_t value, int32_t batch_size)
+    -> CountUpToResult {
   const int32_t num_values = std::min(num_values_remaining_, batch_size);
   const auto result =
       std::visit([&](auto& dec) { return dec.CountUpTo(value, num_values); }, decoder_);

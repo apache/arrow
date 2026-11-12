@@ -37,6 +37,7 @@
 #include "arrow/util/macros.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
+#include "parquet/fixed_size_list_internal.h"
 #include "parquet/schema.h"
 #include "parquet/test_util.h"
 #include "parquet/types.h"
@@ -2002,6 +2003,286 @@ INSTANTIATE_TEST_SUITE_P(
              (info.param.allow_levels_optimization ? "LevelsOptimization"
                                                    : "NoLevelsOptimization");
     });
+
+namespace {
+
+void AppendLevelHeader(uint32_t value, std::vector<uint8_t>* bytes) {
+  do {
+    uint8_t byte = value & 127;
+    value >>= 7;
+    bytes->push_back(byte | (value ? 128 : 0));
+  } while (value);
+}
+
+std::vector<uint8_t> PackedFixedLevels(int32_t width, int32_t phase, int32_t count) {
+  std::vector<uint8_t> bytes;
+  AppendLevelHeader(((count + 7) / 8) * 2 + 1, &bytes);
+  for (int32_t i = 0; i < count; i += 8) {
+    uint8_t byte = 0;
+    for (int bit = 0; bit < 8; ++bit) {
+      if ((static_cast<int64_t>(phase) + i + bit) % width != 0) byte |= 1U << bit;
+    }
+    bytes.push_back(byte);
+  }
+  return bytes;
+}
+
+}  // namespace
+
+TEST(FixedSizeListLevels, PackedPhasesAndNearMisses) {
+  using Matcher = internal::FixedSizeListLevelMatcher;
+  for (int32_t width : {1, 3, 8, 9, 15, 16, 768}) {
+    for (int32_t phase : {0, width / 2, width - 1}) {
+      for (int32_t count : {1, 7, 8, 9, 63, 64, 65, 4097}) {
+        SCOPED_TRACE(::testing::Message() << width << "/" << phase << "/" << count);
+        auto bytes = PackedFixedLevels(width, phase, count);
+        ASSERT_TRUE(Matcher::Repetitions(bytes, count, width, phase));
+        // A final logical bit mismatch must be rejected; final padding is ignored.
+        bytes.back() ^= 1U << ((count - 1) % 8);
+        ASSERT_FALSE(Matcher::Repetitions(bytes, count, width, phase));
+        bytes.pop_back();
+        ASSERT_FALSE(Matcher::Repetitions(bytes, count, width, phase));
+      }
+    }
+  }
+}
+
+TEST(FixedSizeListLevels, RepeatedAndMixedRuns) {
+  using Matcher = internal::FixedSizeListLevelMatcher;
+  for (int32_t width : {1, 3, 8, 9, 15, 16, 768}) {
+    std::vector<uint8_t> bytes;
+    const int32_t packed = width * 8;
+    bytes = PackedFixedLevels(width, 0, packed);
+    for (int row = 0; row < 20; ++row) {
+      AppendLevelHeader(2, &bytes);
+      bytes.push_back(0);
+      if (width > 1) {
+        AppendLevelHeader(2 * (width - 1), &bytes);
+        bytes.push_back(1);
+      }
+    }
+    ASSERT_TRUE(Matcher::Repetitions(bytes, packed + 20 * width, width, 0));
+    ASSERT_FALSE(Matcher::Repetitions(bytes, packed + 20 * width - 1, width, 0));
+    bytes.back() = 2;
+    ASSERT_FALSE(Matcher::Repetitions(bytes, packed + 20 * width, width, 0));
+  }
+  for (const auto& bad : std::vector<std::vector<uint8_t>>{
+           {}, {0}, {1}, {128}, {255, 255, 255, 255, 255}, {2}, {3}, {2, 2}}) {
+    ASSERT_FALSE(Matcher::Repetitions(bad, 1, 3, 0));
+  }
+}
+
+// Extracted from parquet-java 1.16.0 files: required LIST<required INT32>,
+// 32 rows, widths 1/3/8/9/15/16/768, dictionary disabled, 4096-byte page target,
+// PARQUET_1_0 and PARQUET_2_0 writers. Duplicate streams are stored only once.
+// Keep the encoded bytes: regenerating these with the C++ encoder would lose
+// the independent writer's choices of packed/RLE run boundaries.
+TEST(FixedSizeListLevels, ParquetJavaStreams) {
+  struct Case {
+    int32_t width;
+    int32_t count;
+    std::vector<uint8_t> definitions;
+    std::vector<uint8_t> repetitions;
+  };
+  const std::vector<Case> cases = {
+      {1, 32, {64, 1}, {64, 0}},
+      {15, 480, {192, 7, 1}, {5, 254, 127, 28, 1, 5, 254, 127, 28, 1, 5, 254, 127, 28, 1,
+                              5, 254, 127, 28, 1, 5, 254, 127, 28, 1, 5, 254, 127, 28, 1,
+                              5, 254, 127, 28, 1, 5, 254, 127, 28, 1, 5, 254, 127, 28, 1,
+                              5, 254, 127, 28, 1, 5, 254, 127, 28, 1, 5, 254, 127, 28, 1,
+                              5, 254, 127, 28, 1, 5, 254, 127, 28, 1, 5, 254, 127, 28, 1,
+                              5, 254, 127, 28, 1}},
+      {16,
+       512,
+       {128, 8, 1},
+       {3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1,
+        3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1,
+        3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1,
+        3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1,
+        3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1,
+        3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1, 3, 254, 16, 1,
+        3, 254, 16, 1, 3, 254, 16, 1}},
+      {3,
+       96,
+       {192, 1, 1},
+       {25, 182, 109, 219, 182, 109, 219, 182, 109, 219, 182, 109, 219}},
+      {768, 7680, {128, 120, 1}, {3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+                                  3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+                                  3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+                                  3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+                                  3, 254, 240, 11, 1, 3, 254, 240, 11, 1}},
+      {768, 1536, {128, 24, 1}, {3, 254, 240, 11, 1, 3, 254, 240, 11, 1}},
+      {768,
+       24576,
+       {128, 128, 3, 1},
+       {3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+        3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+        3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+        3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+        3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+        3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+        3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1,
+        3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1, 3, 254, 240, 11, 1}},
+      {8, 256, {128, 4, 1}, {65,  254, 254, 254, 254, 254, 254, 254, 254, 254, 254,
+                             254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254,
+                             254, 254, 254, 254, 254, 254, 254, 254, 254, 254, 254}},
+      {9, 288, {192, 4, 1}, {17, 254, 253, 251, 247, 239, 223, 191, 127, 16, 1,
+                             17, 254, 253, 251, 247, 239, 223, 191, 127, 16, 1,
+                             17, 254, 253, 251, 247, 239, 223, 191, 127, 16, 1,
+                             17, 254, 253, 251, 247, 239, 223, 191, 127, 16, 1}},
+  };
+  for (const auto& c : cases) {
+    SCOPED_TRACE(::testing::Message() << c.width << "/" << c.count);
+    using Matcher = internal::FixedSizeListLevelMatcher;
+    ASSERT_TRUE(Matcher::AllPresent(c.definitions, 1, c.count));
+    ASSERT_TRUE(Matcher::Repetitions(c.repetitions, c.count, c.width, 0));
+    LevelDecoder decoder;
+    decoder.SetDataV2(static_cast<int32_t>(c.repetitions.size()), 1, c.count,
+                      c.repetitions.data());
+    std::vector<int16_t> levels(c.count);
+    ASSERT_EQ(decoder.Decode(c.count, levels.data()), c.count);
+    for (int i = 0; i < c.count; ++i) ASSERT_EQ(levels[i], i % c.width != 0);
+
+    // Exercise the real record reader with these independent writer streams,
+    // not only the recognition helper. Values are PLAIN little-endian int32s.
+    std::vector<uint8_t> bytes(c.repetitions);
+    bytes.insert(bytes.end(), c.definitions.begin(), c.definitions.end());
+    for (int32_t i = 0; i < c.count; ++i) {
+      for (int b = 0; b < 4; ++b) bytes.push_back((i >> (b * 8)) & 255);
+    }
+    auto buffer = ::arrow::Buffer::FromVector(std::move(bytes));
+    auto page = std::make_shared<DataPageV2>(
+        buffer, c.count, 0, c.count / c.width, Encoding::PLAIN,
+        static_cast<int32_t>(c.definitions.size()),
+        static_cast<int32_t>(c.repetitions.size()), buffer->size());
+    auto column = GroupNode::Make(
+        "p", Repetition::REQUIRED,
+        {GroupNode::Make(
+            "list", Repetition::REPEATED,
+            {PrimitiveNode::Make("element", Repetition::REQUIRED, Type::INT32)})});
+    SchemaDescriptor schema;
+    schema.Init(GroupNode::Make("root", Repetition::REQUIRED, {column}));
+    const auto* descr = schema.Column(0);
+    auto reader = internal::RecordReader::Make(
+        {.descr = descr, .leaf_info = ComputeLevelInfo(descr)});
+    ASSERT_TRUE(reader->SetFixedSizeList(c.width));
+    std::vector<std::shared_ptr<Page>> pages{page};
+    reader->SetPageReader(std::make_unique<test::MockPageReader>(pages));
+    int32_t value_offset = 0;
+    while (value_offset < c.count) {
+      const int64_t rows = reader->ReadRecords(3);
+      ASSERT_GT(rows, 0);
+      ASSERT_TRUE(reader->dense_fixed_size_list());
+      ASSERT_EQ(reader->values_written(), rows * c.width);
+      const auto* values = reinterpret_cast<const int32_t*>(reader->values());
+      for (int64_t i = 0; i < reader->values_written(); ++i) {
+        ASSERT_EQ(values[i], value_offset++);
+      }
+      reader->Reset();
+    }
+  }
+}
+
+TEST(FixedSizeListLevels, DefinitionGate) {
+  using Matcher = internal::FixedSizeListLevelMatcher;
+  for (int16_t level : {1, 2, 3, 256, 32767}) {
+    std::vector<uint8_t> bytes;
+    AppendLevelHeader(2 * 12345, &bytes);
+    bytes.push_back(level & 255);
+    if (level > 255) bytes.push_back(level >> 8);
+    ASSERT_TRUE(Matcher::AllPresent(bytes, level, 12345));
+    ASSERT_FALSE(Matcher::AllPresent(bytes, level, 12344));
+    bytes.back() ^= 1;
+    ASSERT_FALSE(Matcher::AllPresent(bytes, level, 12345));
+  }
+}
+
+TEST(FixedSizeListRecordReader, DifferentialPagesBatchesAndSkips) {
+  for (int32_t width : {1, 3, 8, 9, 15, 16, 768}) {
+    for (bool irregular : {false, true}) {
+      auto column = GroupNode::Make(
+          "p", Repetition::OPTIONAL,
+          {GroupNode::Make(
+              "list", Repetition::REPEATED,
+              {PrimitiveNode::Make("element", Repetition::OPTIONAL, Type::INT32)})});
+      SchemaDescriptor schema;
+      schema.Init(GroupNode::Make("root", Repetition::REQUIRED, {column}));
+      const auto* descr = schema.Column(0);
+      std::vector<int16_t> defs, reps;
+      for (int row = 0; row < 100; ++row) {
+        const int length = irregular && row == 30 ? width + 1 : width;
+        for (int i = 0; i < length; ++i) {
+          reps.push_back(i == 0 ? 0 : 1);
+          defs.push_back(irregular && row == 60 ? 2 : 3);
+        }
+      }
+      std::vector<std::shared_ptr<Page>> pages;
+      // Split both inside records and exactly at record boundaries.
+      size_t start = 0;
+      for (int page = 0; start < defs.size(); ++page) {
+        const size_t length = std::min<size_t>(
+            defs.size() - start, page % 2 == 0 ? 12 * width : 7 * width + 1);
+        std::vector<int16_t> d(defs.begin() + start, defs.begin() + start + length);
+        std::vector<int16_t> r(reps.begin() + start, reps.begin() + start + length);
+        std::vector<int32_t> values;
+        for (size_t i = 0; i < length; ++i) {
+          if (d[i] == 3) values.push_back(static_cast<int32_t>(start + i));
+        }
+        pages.push_back(
+            test::MakeDataPage<Int32Type>(descr, values, static_cast<int>(length),
+                                          Encoding::PLAIN, nullptr, 0, d, 3, r, 1));
+        start += length;
+      }
+      for (bool skip : {false, true}) {
+        auto generic = internal::RecordReader::Make(
+            {.descr = descr, .leaf_info = ComputeLevelInfo(descr)});
+        auto fast = internal::RecordReader::Make(
+            {.descr = descr, .leaf_info = ComputeLevelInfo(descr)});
+        ASSERT_TRUE(fast->SetFixedSizeList(width));
+        generic->SetPageReader(std::make_unique<test::MockPageReader>(pages));
+        fast->SetPageReader(std::make_unique<test::MockPageReader>(pages));
+        for (int step = 0; step < 35; ++step) {
+          SCOPED_TRACE(::testing::Message()
+                       << width << "/" << irregular << "/" << skip << "/" << step);
+          if (skip && step % 3 == 1) {
+            ASSERT_EQ(generic->SkipRecords(2), fast->SkipRecords(2));
+          } else {
+            ASSERT_EQ(generic->ReadRecords(4), fast->ReadRecords(4));
+            if (step == 0) ASSERT_TRUE(fast->dense_fixed_size_list());
+            ASSERT_EQ(generic->values_written(), fast->values_written());
+            ASSERT_EQ(generic->null_count(), fast->null_count());
+            const auto* expected = reinterpret_cast<const int32_t*>(generic->values());
+            const auto* actual = reinterpret_cast<const int32_t*>(fast->values());
+            // Nullable leaf slots have unspecified values; compare present slots.
+            auto expected_valid = generic->ReleaseIsValid();
+            auto actual_valid = fast->ReleaseIsValid();
+            for (int64_t i = 0; i < generic->values_written(); ++i) {
+              const bool present =
+                  !expected_valid || ::arrow::bit_util::GetBit(expected_valid->data(), i);
+              ASSERT_EQ(present, !actual_valid ||
+                                     ::arrow::bit_util::GetBit(actual_valid->data(), i));
+              if (present) {
+                ASSERT_EQ(expected[i], actual[i]);
+              }
+            }
+            ASSERT_EQ(generic->levels_position(), fast->levels_position());
+            const int64_t count = generic->levels_position();
+            ASSERT_EQ(
+                std::vector<int16_t>(generic->def_levels(),
+                                     generic->def_levels() + count),
+                std::vector<int16_t>(fast->def_levels(), fast->def_levels() + count));
+            ASSERT_EQ(
+                std::vector<int16_t>(generic->rep_levels(),
+                                     generic->rep_levels() + count),
+                std::vector<int16_t>(fast->rep_levels(), fast->rep_levels() + count));
+          }
+          generic->Reset();
+          fast->Reset();
+        }
+      }
+    }
+  }
+}
 
 }  // namespace test
 }  // namespace parquet

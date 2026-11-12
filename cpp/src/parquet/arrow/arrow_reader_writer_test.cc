@@ -3572,6 +3572,92 @@ TEST(ArrowReadWrite, EmptyListView) {
   ASSERT_EQ(0, list_view.value_sizes()->size());
 }
 
+TEST(ArrowReadWrite, FixedSizeListFastPathPagesAndBatches) {
+  for (int width : {1, 3, 8, 9, 15, 16, 768}) {
+    for (auto version : {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+      for (bool dictionary : {false, true}) {
+        for (bool nullable : {false, true}) {
+          SCOPED_TRACE(::testing::Message() << width << "/" << int(version) << "/"
+                                            << dictionary << "/" << nullable);
+          ::arrow::Int32Builder values;
+          for (int i = 0; i < width * 97; ++i) ASSERT_OK(values.Append(i));
+          ASSERT_OK_AND_ASSIGN(auto child, values.Finish());
+          auto type = ::arrow::fixed_size_list(
+              ::arrow::field("item", ::arrow::int32(), nullable), width);
+          ASSERT_OK_AND_ASSIGN(auto array,
+                               ::arrow::FixedSizeListArray::FromArrays(child, type));
+          auto table = Table::Make(
+              ::arrow::schema({::arrow::field("root", type, nullable)}), {array});
+          auto wp = WriterProperties::Builder()
+                        .data_page_version(version)
+                        ->data_pagesize(256)
+                        ->write_batch_size(7)
+                        ->compression(Compression::ZSTD)
+                        ->build();
+          if (!dictionary)
+            wp = WriterProperties::Builder(*wp).disable_dictionary()->build();
+          auto ap = ArrowWriterProperties::Builder().store_schema()->build();
+          auto sink = CreateOutputStream();
+          ASSERT_OK(WriteTable(*table, default_memory_pool(), sink, 31, wp, ap));
+          ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+          for (int batch_size : {1, 7, 32, 1024}) {
+            ArrowReaderProperties rp;
+            rp.set_batch_size(batch_size);
+            FileReaderBuilder builder;
+            ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+            ASSERT_OK_AND_ASSIGN(auto reader, builder.properties(rp)->Build());
+            ASSERT_OK_AND_ASSIGN(auto batches, reader->GetRecordBatchReader());
+            ASSERT_OK_AND_ASSIGN(auto actual,
+                                 Table::FromRecordBatchReader(batches.get()));
+            ASSERT_OK(actual->ValidateFull());
+            ASSERT_TRUE(table->Equals(*actual));
+          }
+        }
+      }
+    }
+  }
+}
+
+TEST(ArrowReadWrite, FixedSizeListFastPathMixedNullPages) {
+  auto type = ::arrow::fixed_size_list(::arrow::int32(), 3);
+  std::string json = "[";
+  for (int row = 0; row < 200; ++row) {
+    if (row) json += ",";
+    if (row == 60)
+      json += "null";
+    else if (row == 120)
+      json += "[1,null,3]";
+    else
+      json += "[1,2,3]";
+  }
+  json += "]";
+  auto array = ::arrow::ArrayFromJSON(type, json);
+  auto table = Table::Make(::arrow::schema({::arrow::field("root", type)}), {array});
+  for (auto version : {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    auto wp = WriterProperties::Builder()
+                  .data_page_version(version)
+                  ->disable_dictionary()
+                  ->data_pagesize(128)
+                  ->write_batch_size(7)
+                  ->build();
+    auto ap = ArrowWriterProperties::Builder().store_schema()->build();
+    auto sink = CreateOutputStream();
+    ASSERT_OK(WriteTable(*table, default_memory_pool(), sink, 200, wp, ap));
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+    for (int batch_size : {1, 13, 200}) {
+      ArrowReaderProperties rp;
+      rp.set_batch_size(batch_size);
+      FileReaderBuilder builder;
+      ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+      ASSERT_OK_AND_ASSIGN(auto reader, builder.properties(rp)->Build());
+      ASSERT_OK_AND_ASSIGN(auto batches, reader->GetRecordBatchReader());
+      ASSERT_OK_AND_ASSIGN(auto actual, Table::FromRecordBatchReader(batches.get()));
+      ASSERT_OK(actual->ValidateFull());
+      ASSERT_TRUE(table->Equals(*actual));
+    }
+  }
+}
+
 struct FixedSizeListTestCase {
   std::shared_ptr<DataType> type;
   std::string json;

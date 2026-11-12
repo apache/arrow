@@ -336,6 +336,11 @@ class PARQUET_EXPORT RecordReader {
   /// \return number of records read
   virtual int64_t ReadRecords(int64_t num_records) = 0;
 
+  // Internal Arrow list-reader contract. Ordinary record-reader callers retain
+  // fully materialized levels unless they explicitly configure a known width.
+  virtual bool SetFixedSizeList(int32_t /*width*/) { return false; }
+  virtual bool dense_fixed_size_list() const { return false; }
+
   /// \brief Attempt to skip indicated number of records from column chunk.
   /// Note that for repeated fields, a record may have more than one value
   /// and all of them are skipped.

@@ -47,6 +47,7 @@
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
+#include "parquet/fixed_size_list_internal.h"
 #include "parquet/level_conversion.h"
 #include "parquet/level_decoder_internal.h"
 #include "parquet/properties.h"
@@ -918,6 +919,20 @@ class LevelSinkBuffer : public DataSinkBuffer<int16_t> {
     return LevelSinkBuffer(AllocateBuffer(pool));
   }
 
+  void AppendFixed(int64_t count, int16_t max_level, int32_t width, bool repetitions) {
+    Base::ReadFromCallback(
+        [&]() {
+          auto* out = Base::write_start();
+          if (repetitions) {
+            for (int64_t i = 0; i < count; ++i) out[i] = i % width != 0;
+          } else {
+            std::fill_n(out, count, max_level);
+          }
+          return count;
+        },
+        count);
+  }
+
   /// Decode levels into the sink buffer.
   void Decode(auto& decoder, int32_t batch_size) {
     const auto decoded = Base::ReadFromCallback(
@@ -962,6 +977,15 @@ class ValiditySinkBuffer : private DataSinkBuffer<uint8_t, BytesCounterForBits> 
   /// Create a stateful sink with an allocated buffer
   static ValiditySinkBuffer MakeAllocated(MemoryPool* pool) {
     return ValiditySinkBuffer(AllocateBuffer(pool));
+  }
+
+  void AppendPresent(int32_t count) {
+    Base::ReadFromCallback(
+        [&]() {
+          ::arrow::bit_util::SetBitsTo(data(), values_count(), count, true);
+          return count;
+        },
+        count);
   }
 
   struct ReadResult {
@@ -1172,6 +1196,9 @@ class ColumnChunkReader {
     return rep_levels_decoder_.Decode(levels, batch_size);
   }
 
+  int64_t page_number() const { return page_number_; }
+  int32_t page_value_count() const { return num_buffered_values_; }
+
   // Available values in the current data page, value includes repeated values and nulls.
   int32_t available_values_current_page() const {
     const int32_t out = num_buffered_values_ - num_decoded_values_;
@@ -1223,6 +1250,7 @@ class ColumnChunkReader {
   // than levels, and this tells you how many encoded levels there are in that
   // case.
   int32_t num_buffered_values_ = 0;
+  int64_t page_number_ = 0;
   // The number of values from the current data page that have been decoded
   // into memory or skipped over.
   int32_t num_decoded_values_ = 0;
@@ -1365,6 +1393,7 @@ void ColumnChunkReader<Traits>::InitializeDataPage(std::shared_ptr<DP> page) {
     // Some compiler do not support `static_assert(false, ...)` in a discarded branch
     static_assert(!std::is_same_v<DP, DP>, "Unknown data page type");
   }
+  ++page_number_;
   num_buffered_values_ = page->num_values();
   num_decoded_values_ = 0;
   InitializeDataDecoder(*page, byte_size);
@@ -1745,13 +1774,21 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
     }
   }
 
-  int16_t* def_levels() const final { return def_levels_.data(); }
+  int16_t* def_levels() const final {
+    const_cast<TypedRecordReader*>(this)->MaterializeFixedLevels();
+    return def_levels_.data();
+  }
 
-  int16_t* rep_levels() const final { return rep_levels_.data(); }
+  int16_t* rep_levels() const final {
+    const_cast<TypedRecordReader*>(this)->MaterializeFixedLevels();
+    return rep_levels_.data();
+  }
 
-  int64_t levels_position() const final { return levels_position_; }
+  int64_t levels_position() const final { return levels_position_ + fixed_levels_; }
 
-  int64_t levels_written() const final { return def_levels_.values_count(); }
+  int64_t levels_written() const final {
+    return def_levels_.values_count() + fixed_levels_;
+  }
 
   int64_t null_count() const final { return null_count_; }
 
@@ -1773,6 +1810,19 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   }
 
   int64_t ReadRecords(int64_t num_records) override;
+
+  bool SetFixedSizeList(int32_t width) override {
+    if constexpr (!std::is_same_v<DType, Int32Type> &&
+                  !std::is_same_v<DType, Int64Type> &&
+                  !std::is_same_v<DType, FloatType> && !std::is_same_v<DType, DoubleType>)
+      return false;
+    if (width <= 0 || this->max_rep_level() != 1 || read_dictionary()) return false;
+    fixed_width_ = width;
+    return true;
+  }
+  bool dense_fixed_size_list() const override {
+    return fixed_width_ > 0 && !generic_batch_ && fixed_phase_ == 0;
+  }
 
   // Skip records that we have in our buffer. This function is only for
   // non-repeated fields.
@@ -1800,8 +1850,8 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   // We may outwardly have the appearance of having exhausted a column chunk
   // when in fact we are in the middle of processing the last batch
   bool has_buffered_levels() const {
-    ARROW_DCHECK_LE(levels_position_, levels_written());
-    return levels_position_ < levels_written();
+    ARROW_DCHECK_LE(levels_position_, def_levels_.values_count());
+    return levels_position_ < def_levels_.values_count();
   }
 
   std::shared_ptr<ResizableBuffer> ReleaseValues() override {
@@ -1864,6 +1914,52 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   auto value_sink() const -> const ValueSink& { return value_sink_; }
 
  private:
+  // Fast batches retain only a count of predictable levels. Materialize them
+  // lazily if a caller needs levels or a later page needs generic reconstruction.
+  void MaterializeFixedLevels() {
+    if (fixed_levels_ == 0) return;
+    def_levels_.AppendFixed(fixed_levels_, this->max_def_level(), fixed_width_, false);
+    rep_levels_.AppendFixed(fixed_levels_, this->max_def_level(), fixed_width_, true);
+    levels_position_ += fixed_levels_;
+    fixed_levels_ = 0;
+  }
+  void UseGeneric() {
+    MaterializeFixedLevels();
+    generic_batch_ = true;
+    fixed_page_ = -1;
+    fixed_phase_ = 0;
+    // Fast reads leave the level decoders untouched. Synchronize once before
+    // the generic path starts decoding the unconsumed suffix of this page.
+    const int32_t consumed =
+        this->page_value_count() - this->available_values_current_page();
+    const int32_t behind =
+        this->def_levels_decoder_.remaining() - this->available_values_current_page();
+    if (consumed > 0 && behind > 0) {
+      CheckNumberDecoded(this->def_levels_decoder_.Skip(behind), behind);
+      CheckNumberDecoded(this->rep_levels_decoder_.Skip(behind), behind);
+    }
+  }
+  bool MatchFixedPage() {
+    if (fixed_page_ == this->page_number()) return true;
+    if (this->available_values_current_page() != this->page_value_count()) return false;
+    const auto& def = this->def_levels_decoder_;
+    const auto& rep = this->rep_levels_decoder_;
+    using Matcher = internal::FixedSizeListLevelMatcher;
+    if (!def.is_rle() || !rep.is_rle() ||
+        !Matcher::AllPresent(def.encoded_rle(), this->max_def_level(),
+                             this->page_value_count()) ||
+        !Matcher::Repetitions(rep.encoded_rle(), this->page_value_count(), fixed_width_,
+                              fixed_phase_))
+      return false;
+    fixed_page_ = this->page_number();
+    return true;
+  }
+
+  int32_t fixed_width_ = 0;
+  int32_t fixed_phase_ = 0;
+  int64_t fixed_levels_ = 0;
+  int64_t fixed_page_ = -1;
+  bool generic_batch_ = false;
   ValueSink value_sink_;
   /// \brief Each bit corresponds to one element in 'values_' and specifies if it
   /// is null or not null.
@@ -1919,6 +2015,42 @@ int64_t TypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
         at_record_start_ = true;
       }
       break;
+    }
+
+    if (fixed_width_ > 0 && !generic_batch_ && !has_buffered_levels()) {
+      if (MatchFixedPage()) {
+        // A completed row at a page end is only counted after the next page
+        // proves its first marker is zero (or EOF completes the last row).
+        if (!at_record_start_ && fixed_phase_ == 0) {
+          ++records_read;
+          at_record_start_ = true;
+          if (records_read == num_records) break;
+        }
+        const int64_t remaining_records = num_records - records_read;
+        int64_t target;
+        if (MultiplyWithOverflow(remaining_records, int64_t{fixed_width_}, &target)) {
+          throw ParquetException("Fixed-size list read size overflow");
+        }
+        const int32_t take =
+            narrow_min(target - fixed_phase_, this->available_values_current_page());
+        if (auto* dict = this->PopNewDictionary()) value_sink_.OnNewDictionary(*dict);
+        value_sink_.ReadValuesDense(*this->current_decoder_.get(), take);
+        valid_bits_.AppendPresent(take);
+        fixed_levels_ += take;
+        const int64_t progressed = static_cast<int64_t>(fixed_phase_) + take;
+        records_read += progressed / fixed_width_;
+        fixed_phase_ = static_cast<int32_t>(progressed % fixed_width_);
+        this->MarkValuesAsConsumed(take);
+        at_record_start_ = fixed_phase_ == 0;
+        if (at_record_start_ && this->available_values_current_page() == 0) {
+          --records_read;
+          at_record_start_ = false;
+        }
+        continue;
+      }
+      UseGeneric();
+    } else if (fixed_width_ > 0 && !generic_batch_) {
+      UseGeneric();
     }
 
     /// We perform multiple batch reads until we either exhaust the row group
@@ -2068,6 +2200,7 @@ void TypedRecordReader<DT, VS>::SkipValuesInPage(int64_t num_values) {
 template <typename DT, typename VS>
 int64_t TypedRecordReader<DT, VS>::SkipRecords(int64_t num_records) {
   if (num_records == 0) return 0;
+  if (fixed_width_ > 0) UseGeneric();
 
   // Top level required field. Number of records equals number of levels,
   // and there is no read-ahead for levels.
@@ -2153,13 +2286,17 @@ template <typename DT, typename VS>
 void TypedRecordReader<DT, VS>::Reserve(int64_t extra_values) {
   value_sink_.ReserveValues(extra_values);
   valid_bits_.ReserveValues(extra_values);  // potentially no-op if void
-  def_levels_.ReserveValues(extra_values);  // potentially no-op if void
-  rep_levels_.ReserveValues(extra_values);  // potentially no-op if void
+  if (fixed_width_ == 0 || generic_batch_) {
+    def_levels_.ReserveValues(extra_values);  // potentially no-op if void
+    rep_levels_.ReserveValues(extra_values);  // potentially no-op if void
+  }
 }
 
 template <typename DT, typename VS>
 void TypedRecordReader<DT, VS>::Reset() {
   null_count_ = 0;
+  fixed_levels_ = 0;
+  generic_batch_ = has_buffered_levels() || !at_record_start_;
   value_sink_.ResetValues();
   valid_bits_.ResetValues();  // potentially no-op if void
   // Must keep eagerly decoded levels
@@ -2171,6 +2308,8 @@ void TypedRecordReader<DT, VS>::Reset() {
 template <typename DT, typename VS>
 void TypedRecordReader<DT, VS>::SetPageReader(std::unique_ptr<PageReader> reader) {
   at_record_start_ = true;
+  fixed_phase_ = 0;
+  fixed_page_ = -1;
   Base::SetPageReader(std::move(reader));
 }
 
