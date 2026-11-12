@@ -15,9 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections.abc import Callable
 import os
 import subprocess
 import sys
+from types import ModuleType
 
 import pytest
 
@@ -292,30 +294,26 @@ def test_extension_type_constructor_errors(klass):
         klass()
 
 
-@pytest.mark.processes
-@pytest.mark.parametrize(("module", "call", "message"), [
+@pytest.mark.parametrize(("module", "construct", "message"), [
     pytest.param(
-        "acero", "ScanNodeOptions(None)", "Argument 'dataset'",
+        "acero", lambda mod: mod.ScanNodeOptions(None), "Argument 'dataset'",
         marks=[pytest.mark.acero, pytest.mark.dataset], id="scan"),
     pytest.param(
-        "acero", "ProjectNodeOptions([None])", "Expression must not be None",
-        marks=pytest.mark.acero, id="project"),
+        "acero", lambda mod: mod.ProjectNodeOptions([None]),
+        "Expression must not be None", marks=pytest.mark.acero, id="project"),
     pytest.param(
-        "parquet", "ParquetSchema(None)", "Argument 'container'",
+        "parquet", lambda mod: mod.ParquetSchema(None), "Argument 'container'",
         marks=pytest.mark.parquet, id="parquet-schema"),
     pytest.param(
-        "parquet", "ColumnSchema(None, 0)", "Argument 'schema'",
+        "parquet", lambda mod: mod.ColumnSchema(None, 0), "Argument 'schema'",
         marks=pytest.mark.parquet, id="column-schema"),
     pytest.param(
-        "fs", 'SubTreeFileSystem("", None)', "Argument 'base_fs'",
+        "fs", lambda mod: mod.SubTreeFileSystem("", None), "Argument 'base_fs'",
         id="subtree"),
 ])
 def test_required_arrow_objects_reject_none_without_crashing(
-    module: str, call: str, message: str
+    module: str, construct: Callable[[ModuleType], object], message: str
 ) -> None:
-    result = subprocess.run(
-        args=[sys.executable, "-c", f"import pyarrow.{module} as mod; mod.{call}"],
-        capture_output=True, text=True, timeout=30,
-    )
-    assert result.returncode == 1, result.stderr
-    assert f"TypeError: {message}" in result.stderr
+    mod = pytest.importorskip(f"pyarrow.{module}")
+    with pytest.raises(TypeError, match=message):
+        construct(mod)
