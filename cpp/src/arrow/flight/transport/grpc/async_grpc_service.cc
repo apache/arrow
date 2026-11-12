@@ -86,14 +86,11 @@ AsyncGenericFlightService::AsyncGenericFlightService(
 
 ::grpc::ServerGenericBidiReactor* AsyncGenericFlightService::CreateReactor(
     ::grpc::GenericCallbackServerContext* context) {
-  const std::string_view full_method = context->method();
-  const std::string_view method =
-      full_method.starts_with(kPrefix) ? full_method.substr(kPrefix.size()) : full_method;
-  const FlightMethod flight_method = MethodFromName(full_method);
+  const FlightMethod flight_method = MethodFromName(context->method());
   detail::AsyncCallContext flight_context(context);
 
   const auto prepare_status =
-      method == kHandshakeMethod
+      flight_method == FlightMethod::Handshake
           ? helper_->MakeCallContext(flight_method, context, &flight_context)
           : helper_->CheckAuth(flight_method, context, &flight_context);
   if (!prepare_status.ok()) {
