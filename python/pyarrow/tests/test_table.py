@@ -153,6 +153,10 @@ def test_chunked_array_array_copy_true_is_writable():
     result[0] = 99
     assert result.tolist() == [99, 2, 3]
 
+    result = data.__array__(dtype=np.dtype("float64"), copy=True)
+    assert result.dtype == "float64"
+    assert result.flags.writeable
+
 
 def test_chunked_array_mismatch_types():
     msg = "chunks must all be same type"
