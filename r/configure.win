@@ -89,7 +89,9 @@ function configure_binaries() {
   PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
   PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -lparquet -larrow_compute -larrow_s3 \
-            -larrow_gcs -larrow_gcs_bundled_dependencies -larrow \
+            -larrow_gcs \$(if \$(wildcard \
+              ${RWINLIB}/lib\$(subst gcc,,\$(COMPILED_BY))\$(R_ARCH)/libarrow_gcs_bundled_dependencies.a \
+              ${RWINLIB}/lib\$(R_ARCH)\$(CRT)/libarrow_gcs_bundled_dependencies.a),-larrow_gcs_bundled_dependencies) -larrow \
             -larrow_bundled_dependencies \
             -lutf8proc -lsnappy -lz -lzstd -llz4 -lbz2 -lole32 \
             ${MIMALLOC_LIBS} ${OPENSSL_LIBS} -lre2 ${AWS_LIBS} ${GCS_LIBS}" # ${AZURE_LIBS}
