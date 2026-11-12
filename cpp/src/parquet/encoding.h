@@ -44,7 +44,7 @@ struct PARQUET_EXPORT AlpOptions {
 
   /// Values per encoded vector. Must be a power of two in [8, 32768].
   int32_t vector_size{kDefaultVectorSize};
-  /// Target number of non-null input values examined before caching the preset.
+  /// Input window size used to space sampled chunks within each page.
   /// Must be positive.
   int64_t sampling_window_size{kDefaultSamplingWindowSize};
 
