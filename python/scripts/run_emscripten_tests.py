@@ -76,7 +76,7 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
                                 evt.data.print.forEach((x)=>{window.python_logs.push(x)});
                             }
                         }
-                        window.pyworker = new Worker("worker.js");
+                        window.pyworker = new Worker("worker.js", {type: "module"});
                         window.pyworker.onmessage = capturelogs;
                     </script>
                 </head>
@@ -90,8 +90,8 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
             self.copyfile(BytesIO(body), self.wfile)
         elif self.path.endswith("/worker.js"):
             body = b"""
-                importScripts("./pyodide.js");
-                onmessage = async function (e) {
+                import { loadPyodide } from "./pyodide.mjs";
+                self.onmessage = async function (e) {
                     const data = e.data;
                     if (!self.pyodide) {
                         self.pyodide = await loadPyodide();
