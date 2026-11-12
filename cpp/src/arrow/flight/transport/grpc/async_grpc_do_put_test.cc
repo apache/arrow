@@ -358,10 +358,15 @@ TEST(AsyncGrpcTest, DoPutCancelFromServerSideFinishesTheUpload) {
   auto& writer = *put->writer;
   ASSERT_OK(writer.WriteRecordBatch(*batch));
 
-  // Wait for the listener the virtual handed out, then cancel it from this
-  // (non-gRPC) thread: that is the mid-upload server-side abort.
+  // Wait for the upload to reach the listener the virtual handed out, then
+  // cancel it from this (non-gRPC) thread: that is the mid-upload server-side
+  // abort. The listener exists as soon as CreateDoPutListener() returns, but
+  // Cancel() only reaches the RPC once the transport is installed, which the
+  // first batch proves.
   auto listener = flight_server.WaitForListener(0);
   ASSERT_NE(listener, nullptr) << "the server never handed out a DoPut listener";
+  ASSERT_TRUE(WaitFor([&listener] { return listener->batches().size() >= 1; }))
+      << "the server never consumed the batch";
   listener->CancelWith(arrow::Status::Cancelled("server said stop"));
 
   // The client sees the cancellation on the surface that observes the RPC.
