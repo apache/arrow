@@ -123,27 +123,25 @@ class DoPutReactor : public AsyncReactorBase,
                           "Failed to wrap gRPC buffer: " + wrap_status.message()));
       return;
     }
-
+    // Deserialize once: the descriptor check and the decoder share the result.
+    auto data = arrow::flight::internal::DeserializeFlightData(arrow_buf);
+    if (!data.ok()) {
+      FinishUpload(data.status());
+      return;
+    }
     if (!read_descriptor_) {
       // The first message must carry the descriptor of the upload, exactly as
       // the sync transport requires.
       // Without this the listener never hears OnDescriptor and the upload is
       // acknowledged as if it were well formed.
       read_descriptor_ = true;
-      internal::FlightData data;
-      const ::grpc::Status deserialized = FlightDataDeserialize(&request_buf_, &data);
-      if (!deserialized.ok()) {
-        FinishUpload(
-            MakeFlightError(FlightStatusCode::Internal, deserialized.error_message()));
-        return;
-      }
-      if (!data.descriptor) {
+      if (!data->descriptor) {
         FinishUpload(Status::IOError("Descriptor missing on first message"));
         return;
       }
     }
 
-    Future<> decode_status = decoder_.Consume(std::move(arrow_buf));
+    Future<> decode_status = decoder_.Consume(std::move(*data));
     decode_status.AddCallback([this, token = hold()](arrow::Status status) {
       if (upload_ending_) {
         // The upload is ending (cancelled, or ended while the listener was
