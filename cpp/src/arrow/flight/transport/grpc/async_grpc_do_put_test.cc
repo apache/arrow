@@ -396,6 +396,82 @@ TEST(AsyncGrpcTest, DoPutCancelFromServerSideFinishesTheUpload) {
   ASSERT_EQ(listener->cancel_status().code(), arrow::StatusCode::Invalid);
 }
 
+/// A listener whose OnFinish() stays pending until the test releases it, the
+/// way an application committing the upload asynchronously does: the window in
+/// which an ending is reported but the RPC is not finished yet.
+class ParkedFinishListener final : public FinishRecordingListener {
+ public:
+  arrow::Future<> OnFinish(Status status) override {
+    static_cast<void>(FinishRecordingListener::OnFinish(std::move(status)));
+    std::lock_guard<std::mutex> lock(mutex_);
+    parked_ = arrow::Future<>::Make();
+    return parked_;
+  }
+
+  /// Complete the parked OnFinish() future, on the calling thread.
+  void ReleaseFinish() {
+    arrow::Future<> parked;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      parked = parked_;
+    }
+    if (parked.is_valid()) {
+      parked.MarkFinished();
+    }
+  }
+
+ private:
+  arrow::Future<> parked_;
+};
+
+TEST(AsyncGrpcTest, DoPutServerCancelEndsTheUploadWithItsOwnStatus) {
+  // A server-side Cancel() whose OnFinish() is still committing: what the
+  // client sends afterwards must not reach the listener, and the client ending
+  // the upload normally must not finish the RPC with OK ahead of the
+  // cancellation: the first ending decides the RPC's status.
+  RecordingUploadServer<ParkedFinishListener> flight_server;
+  FlightServerOptions options(LocalhostLocation());
+  ASSERT_OK(flight_server.Init(options));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
+
+  auto schema = OneColumnSchema();
+  auto batch = OneColumnBatch(schema);
+  ASSERT_OK_AND_ASSIGN(auto put,
+                       client->DoPut(FlightDescriptor::Path({"parked-finish"}), schema));
+  ASSERT_OK(put.writer->WriteRecordBatch(*batch));
+  auto listener = flight_server.WaitForListener(0);
+  ASSERT_NE(listener, nullptr) << "the server never handed out a DoPut listener";
+  ASSERT_TRUE(WaitFor([&listener] { return listener->batches().size() >= 1; }))
+      << "the server never consumed the first batch";
+
+  listener->CancelWith(arrow::Status::Cancelled("server said stop"));
+  ASSERT_OK(listener->cancel_status());
+  ASSERT_EQ(1, listener->finish_count()) << "Cancel() must report OnFinish() at once";
+
+  // Sent after OnFinish() was reported: must never reach the listener.
+  ARROW_UNUSED(put.writer->WriteRecordBatch(*batch));
+  // Keep OnFinish() pending long enough for the client's normal end of the
+  // upload to reach the server first.
+  std::thread release([&listener] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    listener->ReleaseFinish();
+  });
+  const Status close_status = put.writer->Close();
+  release.join();
+
+  EXPECT_EQ(close_status.code(), arrow::StatusCode::Cancelled)
+      << "the client's end of the upload won over the server's cancel: " << close_status;
+  EXPECT_NE(close_status.message().find("server said stop"), std::string::npos)
+      << close_status;
+  EXPECT_EQ(1, listener->batches().size())
+      << "a batch reached the listener after its OnFinish()";
+  EXPECT_EQ(1, listener->finish_count());
+
+  ASSERT_OK(client->Close());
+  ASSERT_OK(flight_server.Shutdown());
+  ASSERT_OK(flight_server.Wait());
+}
+
 /// A listener stuck inside OnNext(): the upload is parked in the application
 /// while the RPC underneath it dies.
 class HangingDoPutListener final : public FinishRecordingListener {

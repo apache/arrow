@@ -19,6 +19,7 @@
 
 #include "arrow/flight/transport/grpc/customize_grpc.h"
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -55,7 +56,7 @@ class DoPutReactor : public AsyncReactorBase,
 
   Future<> WriteMetadataAsync(const Buffer& app_metadata) override {
     std::lock_guard<std::mutex> lock(write_mutex());
-    if (finished()) {
+    if (finished() || upload_ending_) {
       return Future<>::MakeFinished(Status::Invalid(
           "the upload is over: WriteMetadataAsync() is only usable while the "
           "upload's RPC is running"));
@@ -78,6 +79,12 @@ class DoPutReactor : public AsyncReactorBase,
   }
 
   void OnReadDone(bool ok) override {
+    if (upload_ending_) {
+      // The upload is ending (its OnFinish() was reported or is being
+      // reported): nothing read from now on reaches the listener, and no
+      // further read is armed.
+      return;
+    }
     if (!ok) {
       // Decide under the lock, act outside it: FinishUpload() runs the
       // listener's OnFinish(), which is application code and may itself call
@@ -138,9 +145,9 @@ class DoPutReactor : public AsyncReactorBase,
 
     Future<> decode_status = decoder_.Consume(std::move(arrow_buf));
     decode_status.AddCallback([this, token = hold()](arrow::Status status) {
-      if (finished()) {
-        // The RPC is over (cancelled while the listener was working): the
-        // message is abandoned.
+      if (upload_ending_) {
+        // The upload is ending (cancelled, or ended while the listener was
+        // working): the message is abandoned and no further read is armed.
         return;
       }
       if (!status.ok()) {
@@ -148,9 +155,10 @@ class DoPutReactor : public AsyncReactorBase,
         return;
       }
       // Arm the next read through WriteIfLive(): this continuation runs on the
-      // decoder's thread, so a cancellation can finish the RPC right after the
-      // finished() check above. WriteIfLive re-checks under write_mutex_, which
-      // FinishOnce also holds, so the read is never started on a dead call.
+      // decoder's thread, so the RPC can be finished right after the check
+      // above. WriteIfLive re-checks under write_mutex_, which FinishOnce also
+      // holds, so the read is never started on a dead call (and OnReadDone
+      // drops what a read armed as the upload starts ending brings in).
       WriteIfLive([this] { StartRead(&request_buf_); });
     });
   }
@@ -199,15 +207,14 @@ class DoPutReactor : public AsyncReactorBase,
   }
 
   void TearDownOnCancel() override {
-    // The RPC is cancelled: report it to the listener but do not let a failing
-    // OnFinish replace the cancellation the client is seeing. The report is
-    // fire-and-forget here; keeping a reference alive for it is unnecessary as
-    // FinishOnce() below releases the reactor's hold and the callback only
-    // touches immutable state.
+    // The RPC is cancelled: settle the status the client sees first, then tell
+    // the listener unless another ending already did. OnFinish()'s future is
+    // ignored: a failing OnFinish must not replace the cancellation.
+    upload_ending_ = true;
     const auto status = Status::Cancelled("the client cancelled the upload");
+    FinishOnce(status);
     static_cast<void>(arrow::flight::internal::FlightDataListenerTransport::ReportFinish(
         listener_, status));
-    FinishOnce(status);
   }
 
   void OnDone() override {
@@ -225,6 +232,13 @@ class DoPutReactor : public AsyncReactorBase,
   }
 
   void FinishUpload(Status status) {
+    // Only the first ending reports to the listener and decides the RPC's
+    // status: a later one (the client's half-close racing a server-side
+    // Cancel()) must not finish the RPC with its own status while the first
+    // one's OnFinish() is still running.
+    if (upload_ending_.exchange(true)) {
+      return;
+    }
     // Chain the RPC's completion on the listener's OnFinish() future instead of
     // waiting for it: FinishOnce() must not run on a gRPC callback thread while
     // the application is still committing, and a listener that fails
@@ -245,6 +259,10 @@ class DoPutReactor : public AsyncReactorBase,
   AsyncFlightMessageDecoder decoder_;
   /// Whether the descriptor of the first message has been checked.
   bool read_descriptor_ = false;
+  /// Set by the first ending (FinishUpload() or the cancellation), before the
+  /// listener hears OnFinish(): from then on nothing more is read, handed to
+  /// the listener or written.
+  std::atomic<bool> upload_ending_{false};
   // The write side is serialized by AsyncReactorBase::write_mutex_, which
   // FinishOnce() also takes: WriteMetadataAsync() runs on the listener's thread
   // while OnReadDone()/OnWriteDone() run on gRPC callback threads, and this
