@@ -23,7 +23,6 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -1039,7 +1038,6 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   using T = typename DType::c_type;
   using ArrowType = typename EncodingTraits<DType>::ArrowType;
   using Codec = ::arrow::util::alp::AlpCodec<T>;
-  using EncodingPreset = ::arrow::util::alp::AlpEncodingPreset;
   using Sampler = ::arrow::util::alp::AlpSampler<T>;
   using TypedEncoder<DType>::Put;
 
@@ -1048,10 +1046,7 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
   explicit AlpEncoder(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
                       const AlpOptions& alp_options)
-      : EncoderImpl(descr, Encoding::ALP, pool),
-        sink_{pool},
-        alp_options_(alp_options),
-        sampler_(alp_options.sampling_window_size) {}
+      : EncoderImpl(descr, Encoding::ALP, pool), sink_{pool}, alp_options_(alp_options) {}
 
   // TODO(GH-48701): use a ratio estimate instead of reporting the raw buffer size
   int64_t EstimatedDataEncodedSize() override { return sink_.length(); }
@@ -1061,22 +1056,9 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     const std::span<const T> input{reinterpret_cast<const T*>(sink_.data()),
                                    static_cast<size_t>(num_elements)};
 
-    if (num_elements > 0 && !preset_.has_value()) {
-      sampler_.AddSample(input);
-      sampled_values_ += num_elements;
-      if (sampled_values_ >= alp_options_.sampling_window_size) {
-        preset_ = sampler_.MakePreset();
-      }
-    }
-
-    EncodingPreset page_preset;
-    if (!preset_.has_value()) {
-      // Use a page-specific sampler to avoid affecting the global preset.
-      Sampler page_sampler(alp_options_.sampling_window_size);
-      page_sampler.AddSample(input);
-      page_preset = page_sampler.MakePreset();
-    }
-    const auto& preset = preset_.has_value() ? *preset_ : page_preset;
+    Sampler sampler(alp_options_.sampling_window_size);
+    sampler.AddSample(input);
+    const auto preset = sampler.MakePreset();
 
     PARQUET_ASSIGN_OR_THROW(
         int64_t max_comp_size,
@@ -1135,11 +1117,6 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  private:
   ::arrow::BufferBuilder sink_;
   const AlpOptions alp_options_;
-  // Sampling state spans pages in one column chunk.
-  Sampler sampler_;
-  int64_t sampled_values_{0};
-  // Reuse the sampled exponent/factor pairs across pages.
-  std::optional<EncodingPreset> preset_;
 };
 
 // ----------------------------------------------------------------------
