@@ -49,13 +49,16 @@ ExchangeWriter::ExchangeWriter(ExchangeReactor* reactor) : reactor_(reactor) {}
 
 void ExchangeWriter::DetachReactor() {
   std::lock_guard<std::mutex> lock(mutex_);
-  reactor_.store(nullptr);
+  reactor_ = nullptr;
 }
 
 arrow::Future<> ExchangeWriter::BeginAsync(std::shared_ptr<Schema> schema) {
-  if (reactor_.load() == nullptr) {
-    return arrow::Future<>::MakeFinished(arrow::Status::Cancelled(
-        "the exchange is over: the client disconnected or cancelled"));
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (reactor_ == nullptr) {
+      return arrow::Future<>::MakeFinished(arrow::Status::Cancelled(
+          "the exchange is over: the client disconnected or cancelled"));
+    }
   }
   if (batch_writer_ != nullptr) {
     return arrow::Future<>::MakeFinished(
@@ -140,7 +143,7 @@ arrow::Future<> ExchangeWriter::Flush() {
   arrow::Future<> flush;
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (reactor_.load() == nullptr) {
+    if (reactor_ == nullptr) {
       // The exchange is over: report it rather than pumping into a dead reactor.
       return arrow::Future<>::MakeFinished(arrow::Status::Cancelled(
           "the exchange is over: the client disconnected or cancelled"));
@@ -158,6 +161,10 @@ arrow::Future<> ExchangeWriter::Flush() {
 void ExchangeWriter::Pump() {
   FlightPayload payload;
   ExchangeReactor* reactor = nullptr;
+  // Taken under mutex_ on the write path only: DetachReactor() takes the same
+  // lock, and OnDone() drops the RPC's reference only after detaching, so the
+  // reactor outlives the unlocked WritePayload() call. Released on return.
+  AsyncReactorBase::HoldToken token;
   enum class Action { kIdle, kDrained, kNoReactor, kWrite } action = Action::kIdle;
   arrow::Future<> drained;
   {
@@ -165,43 +172,34 @@ void ExchangeWriter::Pump() {
     if (write_in_flight_) {
       return;
     }
-    reactor = reactor_.load();
-    if (reactor != nullptr) {
-      reactor->Hold();
-    }
     if (queue_.empty()) {
       drained = std::move(flush_);
       flush_ = arrow::Future<>();
       action = Action::kDrained;
-    } else if (reactor == nullptr) {
-      write_in_flight_ = false;
+    } else if (reactor_ == nullptr) {
       action = Action::kNoReactor;
     } else {
+      reactor = reactor_;
+      token = reactor->hold();
       payload = std::move(queue_.front());
       queue_.pop_front();
       write_in_flight_ = true;
       action = Action::kWrite;
     }
   }
-  // Everything below runs without mutex_. Every path that pinned above must
-  // unpin exactly once, including the ones that never reach WritePayload().
+  // Everything below runs without mutex_.
   switch (action) {
     case Action::kDrained:
-      if (reactor != nullptr) {
-        reactor->ReleaseHold();
-      }
       if (drained.is_valid() && !drained.is_finished()) {
         drained.MarkFinished();
       }
       return;
     case Action::kNoReactor:
-      // reactor is null here, so nothing was pinned.
       FailFlush(arrow::Status::Cancelled(
           "the exchange is over: the client disconnected or cancelled"));
       return;
     case Action::kWrite: {
       const auto status = reactor->WritePayload(std::move(payload));
-      reactor->ReleaseHold();
       if (!status.ok()) {
         {
           std::lock_guard<std::mutex> lock(mutex_);

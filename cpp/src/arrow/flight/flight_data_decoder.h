@@ -48,6 +48,7 @@ class ARROW_FLIGHT_EXPORT FlightDataListenerTransport {
   virtual ~FlightDataListenerTransport();
 
   /// \brief Finish the upload's RPC with `status`, from any thread.
+  /// The caller keeps the transport alive across the call (see Hold()).
   /// \param status The status to finish the upload with.
   virtual void CancelUpload(Status status) = 0;
 

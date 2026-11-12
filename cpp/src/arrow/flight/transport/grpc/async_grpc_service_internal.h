@@ -161,6 +161,27 @@ class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
 
   void OnDone() override { ReleaseHold(); }
 
+  /// \brief HoldToken's deleter: drops the reference the token owns.
+  struct ReleaseHoldDeleter {
+    void operator()(AsyncReactorBase* reactor) const { reactor->ReleaseHold(); }
+  };
+
+  /// \brief A counted reference to a reactor, dropped when the token is destroyed.
+  ///
+  /// Capture one in every callback that may run after OnDone(), and hand it on
+  /// with std::move. Never call release() on it: unique_ptr::release() gives the
+  /// pointer up without dropping the reference, so the reactor is never deleted.
+  using HoldToken = std::unique_ptr<AsyncReactorBase, ReleaseHoldDeleter>;
+
+  /// \brief Take a reference: the reactor stays alive until the token is destroyed.
+  ///
+  /// Public so the DoExchange reader and writer can pin the reactor they reach
+  /// through a back-pointer; the raw Hold()/ReleaseHold() stay protected.
+  [[nodiscard]] HoldToken hold() {
+    Hold();
+    return HoldToken(this);
+  }
+
  protected:
   /// \brief Finish the RPC with this status, later calls are no-ops.
   ///
@@ -221,42 +242,6 @@ class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
       delete this;
     }
   }
-
-  /// A reference the reactor owns, to be handed to a callback.
-  class HoldToken {
-   public:
-    HoldToken() = default;
-    explicit HoldToken(AsyncReactorBase* reactor) : reactor_(reactor) {
-      reactor_->Hold();
-    }
-    HoldToken(const HoldToken&) = delete;
-    HoldToken& operator=(const HoldToken&) = delete;
-    HoldToken(HoldToken&& other) noexcept
-        : reactor_(std::exchange(other.reactor_, nullptr)) {}
-    HoldToken& operator=(HoldToken&& other) noexcept {
-      if (this != &other) {
-        Release();
-        reactor_ = std::exchange(other.reactor_, nullptr);
-      }
-      return *this;
-    }
-    ~HoldToken() { Release(); }
-
-    /// \brief The reference, to be captured by the callback and moved out of.
-    HoldToken&& release() { return std::move(*this); }
-
-   private:
-    void Release() {
-      if (reactor_ != nullptr) {
-        reactor_->ReleaseHold();
-        reactor_ = nullptr;
-      }
-    }
-    AsyncReactorBase* reactor_ = nullptr;
-  };
-
-  /// Take a reference and return the token that holds it.
-  HoldToken hold() { return HoldToken(this); }
 
  private:
   AsyncCallContext flight_context_;
