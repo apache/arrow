@@ -322,9 +322,7 @@ with launch_server(dist_dir) as (hostname, port):
         """
 import pyarrow,pathlib
 pyarrow_dir = pathlib.Path(pyarrow.__file__).parent
-# Substrait expression serialization crashes pyodide with a
-# "Cannot convert a BigInt value to a number" error.
-pytest.main([pyarrow_dir, '-r', 's', '-m', 'not substrait'])
+pytest.main([pyarrow_dir, '-r', 's'])
 """,
         wait_for_terminate=False,
     )

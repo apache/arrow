@@ -54,9 +54,7 @@ pyodide venv "${pyodide_venv_dir}"
   tzdata
 
 pushd "${pyodide_venv_dir}"
-# FIXME: Substrait expression serialization crashes the interpreter
-# with a "Cannot convert a BigInt value to a number" error.
-"${pyodide_venv_dir}/bin/python" -m pytest -r s -m "not substrait" --pyargs pyarrow
+"${pyodide_venv_dir}/bin/python" -m pytest -r s --pyargs pyarrow
 popd
 
 echo "-------------- Running emscripten tests in Chrome --------------------"
