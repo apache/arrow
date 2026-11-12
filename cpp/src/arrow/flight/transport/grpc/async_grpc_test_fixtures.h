@@ -609,33 +609,34 @@ class RecordingUploadServer : public AsyncGenericFlightServerBase {
 using TestUploadServer = RecordingUploadServer<FinishRecordingListener>;
 
 /// A listener that acknowledges every batch it is handed with one application
-/// metadata message, the way an application reports per-chunk progress.  The
-/// batch recording itself is RecordingListener's.
+/// metadata message, the way an application reports per-chunk progress, and
+/// takes the next batch only once that ack is written: chaining OnNext()'s
+/// future on WriteMetadataAsync()'s is the upload's backpressure. The batch
+/// recording itself is RecordingListener's.
 class MetadataReplyingListener final : public RecordingListener {
  public:
   arrow::Future<> OnNext(FlightStreamChunk chunk) override {
-    if (chunk.data) {
-      const Status status = writer()->WriteMetadata(*arrow::Buffer::FromString(
-          "ack " + std::to_string(chunk.data->num_rows()) + " rows"));
-      std::lock_guard<std::mutex> lock(mutex_);
-      last_write_ = status;
-      ++wrote_;
+    if (!chunk.data) {
+      return RecordingListener::OnNext(std::move(chunk));
     }
-    return RecordingListener::OnNext(std::move(chunk));
+    const auto ack = arrow::Buffer::FromString(
+        "ack " + std::to_string(chunk.data->num_rows()) + " rows");
+    return writer()->WriteMetadataAsync(*ack).Then([this, chunk]() {
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ++wrote_;
+      }
+      return RecordingListener::OnNext(chunk);
+    });
   }
 
   int wrote() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return wrote_;
   }
-  Status last_write() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return last_write_;
-  }
 
  private:
   int wrote_ = 0;
-  Status last_write_;
 };
 
 /// A listener whose OnFinish fails asynchronously: the commit it performs is
@@ -656,11 +657,12 @@ class FailingFinishListener final : public FinishRecordingListener {
 class FinishingAckListener final : public FinishRecordingListener {
  public:
   arrow::Future<> OnFinish(Status status) override {
-    finish_write = writer()->WriteMetadata(*arrow::Buffer::FromString("from-onfinish"));
+    finish_write =
+        writer()->WriteMetadataAsync(*arrow::Buffer::FromString("from-onfinish"));
     return FinishRecordingListener::OnFinish(std::move(status));
   }
 
-  Status finish_write;
+  arrow::Future<> finish_write;
 };
 
 /// Hands out a MetadataReplyingListener for every upload.

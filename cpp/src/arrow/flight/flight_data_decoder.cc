@@ -242,19 +242,19 @@ AsyncFlightDataListener::AsyncFlightDataListener() = default;
 AsyncFlightDataListener::~AsyncFlightDataListener() = default;
 AsyncFlightDataWriter::~AsyncFlightDataWriter() = default;
 
-Status AsyncFlightDataWriter::WriteMetadata(const Buffer& app_metadata) {
+Future<> AsyncFlightDataWriter::WriteMetadataAsync(const Buffer& app_metadata) {
   // Install() and Clear() swap transport_ under writer_mutex_, so both the read
   // and the call must happen under it: otherwise this can read the old pointer
   // just before DoPutReactor::OnDone() runs Clear(), and then call through a
-  // destructed reactor. The transport's own WriteMetadata only takes its
+  // destructed reactor. The transport's own WriteMetadataAsync only takes its
   // private write_mutex_, so there is no lock-order cycle.
   std::lock_guard<std::mutex> lock(writer_mutex_);
   if (transport_ == nullptr) {
-    return Status::Invalid(
+    return Future<>::MakeFinished(Status::Invalid(
         "no upload in flight to write metadata to: the writer is only usable "
-        "while the upload's RPC is running");
+        "while the upload's RPC is running"));
   }
-  return transport_->WriteMetadata(app_metadata);
+  return transport_->WriteMetadataAsync(app_metadata);
 }
 
 namespace internal {

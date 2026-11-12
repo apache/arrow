@@ -51,11 +51,13 @@ class ARROW_FLIGHT_EXPORT FlightDataListenerTransport {
   /// \param status The status to finish the upload with.
   virtual void CancelUpload(Status status) = 0;
 
-  /// \brief Send one application metadata message to the client, from any thread.
-  /// \param app_metadata The metadata to attach to the next PutResult message.
-  /// \return OK when the message was handed to the transport, or a non-OK status
-  /// when the upload is already over.
-  virtual Status WriteMetadata(const Buffer& app_metadata) = 0;
+  /// \brief Start sending one application metadata message to the client, from
+  /// any thread.
+  /// \param app_metadata The metadata to attach to the next PutResult message,
+  ///   copied before the call returns.
+  /// \return A future completed once the message has been written, or already
+  ///   failed when a message is still in flight or the upload is ending or over.
+  virtual Future<> WriteMetadataAsync(const Buffer& app_metadata) = 0;
 
   /// \brief Pin this transport's lifetime, from any thread.
   ///
@@ -98,20 +100,26 @@ class ARROW_FLIGHT_EXPORT FlightDataListenerTransport {
 /// The async counterpart of FlightMetadataWriter: the transport hands one to the
 /// AsyncFlightDataListener at the start of an upload (AsyncFlightDataListener::writer)
 /// and it stays valid for as long as the upload's RPC runs.  Every call sends one
-/// PutResult message immediately, the client reads them with ReadMetadata() on
-/// its DoPutResult.
+/// PutResult message, the client reads them with ReadMetadata() on its DoPutResult.
+/// One message is in flight at a time: await each returned future before writing
+/// the next. Returning a future chained on it from OnNext() holds the next read
+/// until the acknowledgement is written, which is how a listener applies
+/// backpressure.
 class ARROW_FLIGHT_EXPORT AsyncFlightDataWriter {
  public:
   virtual ~AsyncFlightDataWriter();
 
   /// \brief Send a metadata message to the client.
   ///
-  /// Safe to call from any thread while the upload is in flight.  Once the
-  /// upload has ended the call reports the ending (Cancelled or FailedPrecondition)
-  /// instead of writing to a finished RPC.
+  /// Safe to call from any thread while the upload is in flight: the write is
+  /// started on the calling thread, and `app_metadata` is copied before the call
+  /// returns.
   /// \param app_metadata The application metadata to send.
-  /// \return Status indicating success or failure.
-  Status WriteMetadata(const Buffer& app_metadata);
+  /// \return A future completed, on the gRPC thread that sees the write finish,
+  ///   once the message has been written (IOError if the write failed or the
+  ///   upload's RPC ended first). It is already failed with Invalid when the
+  ///   previous message is still in flight, or the upload is ending or over.
+  Future<> WriteMetadataAsync(const Buffer& app_metadata);
 
  private:
   friend class internal::FlightDataListenerTransport;
@@ -120,7 +128,7 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataWriter {
   /// FlightDataListenerTransport::Install/Clear, like
   /// AsyncFlightDataListener::transport_.
   internal::FlightDataListenerTransport* transport_ = nullptr;
-  /// Guards transport_, since WriteMetadata may be called from any thread while
+  /// Guards transport_, since WriteMetadataAsync may be called from any thread while
   /// the transport installs or clears the pointer.
   mutable std::mutex writer_mutex_;
 };
