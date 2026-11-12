@@ -18,7 +18,6 @@
 #include "arrow/flight/transport/grpc/async_grpc_service_internal.h"
 
 #include <memory>
-#include <mutex>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -66,6 +65,10 @@ class StreamingReactor : public AsyncReactorBase {
   }
 
  protected:
+  /// Run the handler. Its continuation publishes the state NextMessage() reads
+  /// before the first NextMessage(), and every later NextMessage() follows the
+  /// previous write's completion: that state is never shared concurrently, so
+  /// it needs no lock.
   virtual arrow::Future<> Start() = 0;
   virtual arrow::Future<bool> NextMessage() = 0;
 
@@ -87,19 +90,9 @@ class StreamingReactor : public AsyncReactorBase {
         });
   }
 
-  /// \brief Guards the subclass state that Start()'s continuation publishes and
-  /// NextMessage() consumes. NextMessage() runs on a gRPC callback thread
-  /// (OnWriteDone) while Start()'s continuation runs on the handler's, so both
-  /// share this one lock rather than each reactor declaring its own.
-  std::mutex& state_mutex() { return state_mutex_; }
-
- protected:
   AsyncGenericFlightServerBase* base_;
   ::grpc::ByteBuffer request_buf_;
   ::grpc::ByteBuffer write_buf_;
-
- private:
-  std::mutex state_mutex_;
 };
 
 class ListActionsReactor final : public StreamingReactor {
@@ -110,9 +103,6 @@ class ListActionsReactor final : public StreamingReactor {
   arrow::Future<> Start() override {
     return base_->ListActionsAsync(flight_context())
         .Then([this](const std::vector<ActionType>& actions) -> arrow::Status {
-          // Published on the handler's thread, read from NextMessage() which
-          // OnWriteDone() also calls from a gRPC thread: guard both.
-          std::lock_guard<std::mutex> lock(state_mutex());
           actions_ = actions;
           next_ = 0;
           return arrow::Status::OK();
@@ -120,16 +110,13 @@ class ListActionsReactor final : public StreamingReactor {
   }
 
   arrow::Future<bool> NextMessage() override {
+    if (next_ >= actions_.size()) {
+      return arrow::Future<bool>::MakeFinished(false);
+    }
     pb::ActionType pb_type;
-    {
-      std::lock_guard<std::mutex> lock(state_mutex());
-      if (next_ >= actions_.size()) {
-        return arrow::Future<bool>::MakeFinished(false);
-      }
-      const auto status = internal::ToProto(actions_[next_++], &pb_type);
-      if (!status.ok()) {
-        return arrow::Future<bool>::MakeFinished(status);
-      }
+    const auto status = internal::ToProto(actions_[next_++], &pb_type);
+    if (!status.ok()) {
+      return arrow::Future<bool>::MakeFinished(status);
     }
     write_buf_ = MakeWriteBuffer(pb_type);
     return arrow::Future<bool>::MakeFinished(true);
@@ -155,24 +142,16 @@ class DoActionReactor final : public StreamingReactor {
           if (stream == nullptr) {
             return arrow::Status::Cancelled();
           }
-          {
-            std::lock_guard<std::mutex> lock(state_mutex());
-            stream_ = stream;
-          }
+          stream_ = stream;
           return arrow::Status::OK();
         });
   }
 
   arrow::Future<bool> NextMessage() override {
-    std::shared_ptr<AsyncResultStream> stream;
-    {
-      std::lock_guard<std::mutex> lock(state_mutex());
-      stream = stream_;
-    }
-    if (stream == nullptr) {
+    if (stream_ == nullptr) {
       return arrow::Future<bool>::MakeFinished(false);
     }
-    return stream->NextAsync().Then(
+    return stream_->NextAsync().Then(
         [this](const std::shared_ptr<Result>& result) -> arrow::Result<bool> {
           if (result == nullptr) {
             return false;
@@ -202,22 +181,16 @@ class ListFlightsReactor final : public StreamingReactor {
     return base_->ListFlightsAsync(flight_context(), &criteria_)
         .Then(
             [this](const std::shared_ptr<AsyncFlightListing>& listing) -> arrow::Status {
-              std::lock_guard<std::mutex> lock(state_mutex());
               listing_ = listing;
               return arrow::Status::OK();
             });
   }
 
   arrow::Future<bool> NextMessage() override {
-    std::shared_ptr<AsyncFlightListing> listing;
-    {
-      std::lock_guard<std::mutex> lock(state_mutex());
-      listing = listing_;
-    }
-    if (listing == nullptr) {
+    if (listing_ == nullptr) {
       return arrow::Future<bool>::MakeFinished(false);
     }
-    return listing->NextAsync().Then(
+    return listing_->NextAsync().Then(
         [this](const std::shared_ptr<FlightInfo>& info) -> arrow::Result<bool> {
           if (info == nullptr) {
             return false;
