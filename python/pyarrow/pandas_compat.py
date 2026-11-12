@@ -547,8 +547,12 @@ def _get_range_index_descriptor(level):
 
 
 def _get_index_level_values(index):
-    n = len(getattr(index, 'levels', [index]))
-    return [index.get_level_values(i) for i in range(n)]
+    if not hasattr(index, 'levels'):
+        return [index.get_level_values(0)]
+    # get_level_values() matches integers against level names first
+    positional = index.set_names(list(range(index.nlevels)))
+    return [positional.get_level_values(i).rename(name)
+            for i, name in enumerate(index.names)]
 
 
 def _resolve_columns_of_interest(df, schema, columns):
