@@ -188,6 +188,19 @@ class ARROW_FLIGHT_EXPORT AsyncFlightMessageWriter {
 /// All handlers must be non-blocking and return promptly.
 /// Non overriding handlers will return `Status::NotImplemented` by default.
 ///
+/// Threading: the transport has no thread or executor of its own. It chains
+/// its continuation on every future you return (a handler's result,
+/// AsyncFlightDataStream::GetSchemaPayloadAsync()/NextAsync(),
+/// AsyncFlightListing::NextAsync(), AsyncResultStream::NextAsync(), and an
+/// AsyncFlightDataListener's OnDescriptor()/OnNext()/OnFinish()) with the
+/// default CallbackOptions, so the continuation runs on whichever thread
+/// completes your future, or inline on the gRPC callback thread that called
+/// you if the future is already complete when you return it. That
+/// continuation starts the RPC's next operation: the next StartWrite() (a
+/// payload, a listing entry, an action result, a unary response), the next
+/// StartRead(), or Finish(). Complete your futures on the executor you want
+/// the RPC's I/O issued from.
+///
 /// Every request argument a handler receives (`Ticket`, `FlightDescriptor`,
 /// `Criteria`, `Action`) is only valid for the duration of that handler call:
 /// copy what you need before completing the returned future from another
