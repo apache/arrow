@@ -259,6 +259,10 @@ if "pyarrow" not in sys.modules:
     await pjs.loadPackage("tzdata")
     await pjs.loadPackage("numpy")
     await pjs.loadPackage("pandas")
+    await pjs.loadPackage("cffi")
+    await pjs.loadPackage("cloudpickle")
+    await pjs.loadPackage("fsspec")
+    await pjs.loadPackage("scipy")
     import pytest
     import inspect
     if "exc_type" not in inspect.signature(pytest.importorskip).parameters:
