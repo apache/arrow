@@ -169,8 +169,12 @@ class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
   void FinishOnce(arrow::Status status) {
     bool expected = false;
     if (finished_.compare_exchange_strong(expected, true)) {
+      // FinishRequest() runs the middleware's CallCompleted(), application code
+      // that may call back into this RPC, so it runs before taking write_mutex_:
+      // finished_ is already set, so WriteIfLive() starts nothing meanwhile.
+      const ::grpc::Status grpc_status = flight_context_.FinishRequest(status);
       std::lock_guard<std::mutex> lock(write_mutex_);
-      Finish(flight_context_.FinishRequest(status));
+      Finish(grpc_status);
     }
   }
 

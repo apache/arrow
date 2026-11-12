@@ -301,6 +301,117 @@ TEST(AsyncGrpcTest, OnFinishMayWriteMetadataWithoutDeadlocking) {
       << listener->finish_write.status();
 }
 
+/// Middleware that calls back into the upload from CallCompleted(): middleware
+/// is application code too, so the transport must not hold its write lock
+/// across it.
+class UploadWritingMiddleware final : public ServerMiddleware {
+ public:
+  std::string name() const override { return "upload-writing"; }
+  void SendingHeaders(AddCallHeaders*) override {}
+
+  void CallCompleted(const Status&) override {
+    std::shared_ptr<AsyncFlightDataListener> upload;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      upload = upload_;
+    }
+    if (upload == nullptr) {
+      return;
+    }
+    auto write = upload->writer()->WriteMetadataAsync(
+        *arrow::Buffer::FromString("from-middleware"));
+    std::lock_guard<std::mutex> lock(mutex_);
+    completed_write_ = std::move(write);
+  }
+
+  void set_upload(std::shared_ptr<AsyncFlightDataListener> upload) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    upload_ = std::move(upload);
+  }
+
+  arrow::Future<> completed_write() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return completed_write_;
+  }
+
+ private:
+  mutable std::mutex mutex_;
+  std::shared_ptr<AsyncFlightDataListener> upload_;
+  arrow::Future<> completed_write_;
+};
+
+class UploadWritingMiddlewareFactory final : public ServerMiddlewareFactory {
+ public:
+  Status StartCall(const CallInfo&, const ServerCallContext&,
+                   std::shared_ptr<ServerMiddleware>* middleware) override {
+    auto instance = std::make_shared<UploadWritingMiddleware>();
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      last_ = instance;
+    }
+    *middleware = std::move(instance);
+    return Status::OK();
+  }
+
+  std::shared_ptr<UploadWritingMiddleware> last() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return last_;
+  }
+
+ private:
+  mutable std::mutex mutex_;
+  std::shared_ptr<UploadWritingMiddleware> last_;
+};
+
+/// Hands every upload's listener to the call's UploadWritingMiddleware.
+class MiddlewareWiredUploadServer final : public AsyncGenericFlightServerBase {
+ public:
+  std::shared_ptr<AsyncFlightDataListener> CreateDoPutListener(
+      const ServerCallContext& context) override {
+    auto listener = std::make_shared<FinishRecordingListener>();
+    auto* middleware =
+        static_cast<UploadWritingMiddleware*>(context.GetMiddleware("upload-writing"));
+    if (middleware != nullptr) {
+      middleware->set_upload(listener);
+    }
+    return listener;
+  }
+};
+
+TEST(AsyncGrpcTest, CallCompletedMayWriteMetadataWithoutDeadlocking) {
+  // Middleware's CallCompleted() runs as the RPC finishes and may reach the
+  // upload from there. The transport must not hold its write lock across that
+  // call: doing so deadlocks the finishing thread (verified: the RPC never
+  // finishes). The write itself is refused, the upload being over.
+  auto factory = std::make_shared<UploadWritingMiddlewareFactory>();
+  MiddlewareWiredUploadServer flight_server;
+  FlightServerOptions options(LocalhostLocation());
+  options.middleware = {{"upload-writing", factory}};
+  ASSERT_OK(flight_server.Init(options));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
+
+  // Bounded, so a deadlocked server fails the Close() below instead of hanging it.
+  FlightCallOptions bounded;
+  bounded.timeout = std::chrono::seconds(10);
+  auto schema = OneColumnSchema();
+  ASSERT_OK_AND_ASSIGN(
+      auto put, client->DoPut(bounded, FlightDescriptor::Path({"middleware"}), schema));
+  ASSERT_OK(put.writer->WriteRecordBatch(*OneColumnBatch(schema)));
+  ASSERT_OK(put.writer->Close());
+
+  ASSERT_OK(client->Close());
+  ASSERT_OK(flight_server.Shutdown());
+  ASSERT_OK(flight_server.Wait());
+
+  const auto middleware = factory->last();
+  ASSERT_NE(middleware, nullptr) << "the upload never created its middleware";
+  const auto write = middleware->completed_write();
+  ASSERT_TRUE(write.is_valid()) << "CallCompleted() never reached the upload's writer";
+  ASSERT_TRUE(write.is_finished())
+      << "a write refused once the upload ended must fail at once";
+  EXPECT_TRUE(write.status().IsInvalid()) << write.status();
+}
+
 TEST(AsyncGrpcTest, DoPutWritesMetadataBackToTheClient) {
   // The listener's writer() sends PutResult messages during the upload, the way
   // the sync FlightMetadataWriter does: the client reads them back with
