@@ -365,6 +365,17 @@ TEST(TestNullFromString, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[NaN]"));
 }
 
+TEST(TestNullFromString, MalformedNull) {
+  for (const auto& type : {null(), boolean(), int32(), timestamp(TimeUnit::SECOND),
+                           struct_({field("a", int32())})}) {
+    SCOPED_TRACE(type->ToString());
+    for (const auto* json : {"[nul]", "[nullx]"}) {
+      SCOPED_TRACE(json);
+      ASSERT_RAISES(Invalid, ArrayFromJSONString(type, json));
+    }
+  }
+}
+
 TEST(TestBooleanFromString, Basics) {
   std::shared_ptr<DataType> type = boolean();
 

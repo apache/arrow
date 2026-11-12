@@ -163,12 +163,13 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
   }
 
   Status AppendValue(sj::value& json_obj) override {
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
+    if (is_null) {
+      return AppendNull();
+    }
     ARROW_ASSIGN_OR_RAISE(
         auto json_type, internal::ResolveSimdjsonResult(json_obj.type(),
                                                         "Failed to determine JSON type"));
-    if (json_type == sj::json_type::null) {
-      return AppendNull();
-    }
     if (json_type == sj::json_type::number) {
       ARROW_ASSIGN_OR_RAISE(auto int_value, internal::GetJsonAs<int64_t>(json_obj));
       return builder_->Append(int_value != 0);
@@ -425,12 +426,13 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
   }
 
   Status AppendValue(sj::value& json_obj) override {
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
+    if (is_null) {
+      return this->AppendNull();
+    }
     ARROW_ASSIGN_OR_RAISE(
         auto json_type, internal::ResolveSimdjsonResult(json_obj.type(),
                                                         "Failed to determine JSON type"));
-    if (json_type == sj::json_type::null) {
-      return this->AppendNull();
-    }
     int64_t value;
     if (json_type == sj::json_type::string) {
       ARROW_ASSIGN_OR_RAISE(auto view, internal::GetJsonAs<std::string_view>(json_obj));
@@ -755,12 +757,13 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
   // or an object mapping struct names to values (omitted struct members
   // are mapped to null).
   Status AppendValue(sj::value& json_obj) override {
+    ARROW_ASSIGN_OR_RAISE(bool is_null, internal::IsJsonNull(json_obj));
+    if (is_null) {
+      return this->AppendNull();
+    }
     ARROW_ASSIGN_OR_RAISE(
         auto json_type, internal::ResolveSimdjsonResult(json_obj.type(),
                                                         "Failed to determine JSON type"));
-    if (json_type == sj::json_type::null) {
-      return this->AppendNull();
-    }
     if (json_type == sj::json_type::array) {
       ARROW_ASSIGN_OR_RAISE(auto array, internal::GetJsonAs<sj::array>(json_obj));
       auto expected_size = static_cast<size_t>(type_->num_fields());

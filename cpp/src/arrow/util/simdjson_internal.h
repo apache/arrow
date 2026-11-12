@@ -286,7 +286,8 @@ Result<SimdjsonValueType> GetJsonAs(simdjson::ondemand::value& value) {
   }
 
   if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
-    if (json_type == simdjson::ondemand::json_type::null) {
+    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(value));
+    if (is_null) {
       return SimdjsonNull{};
     }
     return Status::Invalid("Expected null, got JSON type ", JsonTypeName(json_type));
