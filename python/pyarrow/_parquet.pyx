@@ -2077,7 +2077,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         store_decimal_as_integer=False,
         use_content_defined_chunking=False,
         bloom_filter_options=None,
-        min_compression_savings=0.01) except *:
+        min_compression_savings=0.01,
+        size_statistics_level=None) except *:
 
     """General writer properties"""
     cdef:
@@ -2287,6 +2288,19 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     else:
         props.disable_write_page_index()
 
+    # size statistics
+
+    if size_statistics_level is not None:
+        if size_statistics_level == "none":
+            props.set_size_statistics_level(SizeStatisticsLevel_None)
+        elif size_statistics_level == "column":
+            props.set_size_statistics_level(SizeStatisticsLevel_ColumnChunk)
+        elif size_statistics_level == "page_and_column":
+            props.set_size_statistics_level(SizeStatisticsLevel_PageAndColumnChunk)
+        else:
+            raise ValueError(
+                f"Unsupported size statistics level: {size_statistics_level}")
+
     properties = props.build()
 
     return properties
@@ -2415,7 +2429,8 @@ cdef class ParquetWriter(_Weakrefable):
                   use_content_defined_chunking=False,
                   write_time_adjusted_to_utc=False,
                   bloom_filter_options=None,
-                  min_compression_savings=0.01):
+                  min_compression_savings=0.01,
+                  size_statistics_level=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2454,6 +2469,7 @@ cdef class ParquetWriter(_Weakrefable):
             use_content_defined_chunking=use_content_defined_chunking,
             bloom_filter_options=bloom_filter_options,
             min_compression_savings=min_compression_savings,
+            size_statistics_level=size_statistics_level,
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
