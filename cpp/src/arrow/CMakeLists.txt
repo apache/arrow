@@ -413,6 +413,35 @@ macro(append_runtime_sve512_src SRCS SRC)
   endif()
 endmacro()
 
+macro(append_runtime_rvv128_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_RVV128)
+    list(APPEND ${SRCS} ${SRC})
+    set(_flags ${ARROW_RVV128_FLAGS})
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
+  endif()
+endmacro()
+
+macro(append_runtime_rvv256_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_RVV256)
+    list(APPEND ${SRCS} ${SRC})
+    set(_flags ${ARROW_RVV256_FLAGS})
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
+  endif()
+endmacro()
+
+macro(append_runtime_rvv512_src SRCS SRC)
+  if(ARROW_HAVE_RUNTIME_RVV512)
+    list(APPEND ${SRCS} ${SRC})
+    set(_flags ${ARROW_RVV512_FLAGS})
+    set_property(SOURCE ${SRC}
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS ${_flags})
+  endif()
+endmacro()
 # Write out compile-time configuration constants
 string(REPLACE "${CMAKE_SOURCE_DIR}" "<CMAKE_SOURCE_DIR>" REDACTED_CXX_FLAGS
                ${CMAKE_CXX_FLAGS})
@@ -622,7 +651,14 @@ if(ARROW_CPU_FLAG STREQUAL "x86" AND ARROW_HAVE_RUNTIME_SSE4_2)
                                                                    "${ARROW_SSE4_2_FLAG}")
 endif()
 
+# also provides the RVV128 kernels on riscv64, so it stays in ARROW_UTIL_SRCS
+if(ARROW_CPU_FLAG STREQUAL "riscv64" AND ARROW_HAVE_RUNTIME_RVV128)
+  set_source_files_properties(util/bpacking_simd_128.cc PROPERTIES COMPILE_OPTIONS
+                                                                   "${ARROW_RVV128_FLAGS}")
+endif()
+
 append_runtime_sve256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
+append_runtime_rvv256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 
 if(ARROW_WITH_BROTLI)
   list(APPEND ARROW_UTIL_SRCS util/compression_brotli.cc)

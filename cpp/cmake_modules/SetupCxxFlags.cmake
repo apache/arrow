@@ -168,7 +168,13 @@ elseif(ARROW_CPU_FLAG STREQUAL "aarch64")
     set(ARROW_SIMD_LEVEL "NEON")
   endif()
 elseif(ARROW_CPU_FLAG STREQUAL "riscv64")
+  # RISC-V compiler flags, gcc/clang only
   set(ARROW_RVV_MARCH "rv64gcv")
+  # Fixed-size RVV is compiled with a zvl extension plus -mrvv-vector-bits=zvl,
+  # matching xsimd (see xsimd_get_riscv64_arch_flags in xsimd's Architecture.cmake).
+  set(ARROW_RVV128_FLAGS "-march=${ARROW_RVV_MARCH}_zvl128b" "-mrvv-vector-bits=zvl")
+  set(ARROW_RVV256_FLAGS "-march=${ARROW_RVV_MARCH}_zvl256b" "-mrvv-vector-bits=zvl")
+  set(ARROW_RVV512_FLAGS "-march=${ARROW_RVV_MARCH}_zvl512b" "-mrvv-vector-bits=zvl")
   check_cxx_compiler_flag("-march=${ARROW_RVV_MARCH}" CXX_SUPPORTS_RVV)
   if(CXX_SUPPORTS_RVV AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(RVV128|RVV256|RVV512|MAX)$")
     set(ARROW_HAVE_RUNTIME_RVV128 ON)
