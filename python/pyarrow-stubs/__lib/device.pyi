@@ -16,6 +16,7 @@
 # under the License.
 
 import enum
+from typing import ClassVar
 
 from pyarrow.lib import _Weakrefable
 
@@ -44,6 +45,7 @@ class Device(_Weakrefable):
     def is_cpu(self) -> bool: ...
     @property
     def device_type(self) -> DeviceAllocationType: ...
+    __hash__: ClassVar[None]  # type: ignore[assignment]
 
 class MemoryManager(_Weakrefable):
     @property

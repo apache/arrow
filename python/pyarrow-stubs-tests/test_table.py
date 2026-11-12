@@ -226,7 +226,7 @@ def test_invalid_usage() -> None:
         pa.chunked_array(streams)  # type: ignore[arg-type]
         table.add_column(0, "b", streams)  # type: ignore[arg-type]
         # Tables define __eq__ but not __hash__, hence unhashable at runtime
-        _: Hashable = table
+        _: Hashable = table  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # noqa: E501
 
 
 def test_record_batch_invalid_usage() -> None:
