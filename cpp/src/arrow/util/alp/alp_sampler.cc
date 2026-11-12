@@ -37,11 +37,11 @@ struct AlpSamplingParameters {
   int64_t sample_stride;
 };
 
-// Caps the lookup window and chooses a stride that yields at most one sample per
-// kSamplesPerChunk values.
+// Limit sampling to the start of the chunk and choose a stride that yields
+// at most kSamplesPerChunk samples.
 AlpSamplingParameters GetSamplingParameters(int64_t chunk_size) {
   const int64_t values_to_examine =
-      std::min(chunk_size, AlpSamplingConstants::kSampleWindowSize);
+      std::min(chunk_size, AlpSamplingConstants::kChunkSampleWindowSize);
   const int64_t sample_stride = std::max<int64_t>(
       1, bit_util::CeilDiv(values_to_examine, AlpSamplingConstants::kSamplesPerChunk));
   return AlpSamplingParameters{values_to_examine, sample_stride};
