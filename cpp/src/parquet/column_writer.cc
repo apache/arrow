@@ -744,7 +744,8 @@ class ColumnWriterImpl {
  public:
   ColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                    std::unique_ptr<PageWriter> pager, const bool use_dictionary,
-                   Encoding::type encoding, const WriterProperties* properties,
+                   Encoding::type encoding, Encoding::type fallback_encoding,
+                   const WriterProperties* properties,
                    internal::ContentDefinedChunker* content_defined_chunker)
       : metadata_(metadata),
         descr_(metadata->descr()),
@@ -752,6 +753,7 @@ class ColumnWriterImpl {
         pager_(std::move(pager)),
         has_dictionary_(use_dictionary),
         encoding_(encoding),
+        fallback_encoding_(fallback_encoding),
         properties_(properties),
         allocator_(properties->memory_pool()),
         num_buffered_values_(0),
@@ -857,6 +859,7 @@ class ColumnWriterImpl {
 
   bool has_dictionary_;
   Encoding::type encoding_;
+  Encoding::type fallback_encoding_;
   const WriterProperties* properties_;
 
   LevelEncoder level_encoder_;
@@ -894,7 +897,7 @@ class ColumnWriterImpl {
   // Flag to check if the Writer has been closed
   bool closed_;
 
-  // Flag to infer if dictionary encoding has fallen back to PLAIN
+  // Flag to infer if dictionary encoding has fallen back
   bool fallback_;
 
   ::arrow::BufferBuilder definition_levels_sink_;
@@ -1030,7 +1033,7 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
   int64_t first_row_index = rows_written_ - num_buffered_rows_;
 
   // Write the page to OutputStream eagerly if there is no dictionary or
-  // if dictionary encoding has fallen back to PLAIN
+  // if dictionary encoding has fallen back
   if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
     PARQUET_ASSIGN_OR_THROW(
         auto compressed_data_copy,
@@ -1093,7 +1096,7 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   DCHECK(!page_stats.has_null_count || page_stats.null_count == null_count);
 
   // Write the page to OutputStream eagerly if there is no dictionary or
-  // if dictionary encoding has fallen back to PLAIN
+  // if dictionary encoding has fallen back
   if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
     std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV2>(
         combined, num_values, null_count, num_rows, encoding_, def_levels_byte_length,
@@ -1287,11 +1290,37 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
   TypedColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                         std::unique_ptr<PageWriter> pager, const bool use_dictionary,
-                        Encoding::type encoding, const WriterProperties* properties,
-                        BloomFilter* bloom_filter,
+                        Encoding::type encoding, Encoding::type fallback_encoding,
+                        const WriterProperties* properties, BloomFilter* bloom_filter,
                         internal::ContentDefinedChunker* content_defined_chunker)
-      : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding, properties,
-                         content_defined_chunker) {
+      : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding,
+                         fallback_encoding, properties, content_defined_chunker) {
+    if (use_dictionary) {
+      // Validate fallback_encoding upfront so incompatible (physical_type, encoding)
+      // pairs fail immediately on ColumnWriter creation rather than only when a column
+      // happens to overflow its dictionary page size limit at runtime.
+      const Type::type physical_type = ParquetType::type_num;
+      const bool supported =
+          fallback_encoding == Encoding::PLAIN ||
+          (fallback_encoding == Encoding::DELTA_BINARY_PACKED &&
+           (physical_type == Type::INT32 || physical_type == Type::INT64)) ||
+          ((fallback_encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY ||
+            fallback_encoding == Encoding::DELTA_BYTE_ARRAY) &&
+           physical_type == Type::BYTE_ARRAY) ||
+          (fallback_encoding == Encoding::DELTA_BYTE_ARRAY &&
+           physical_type == Type::FIXED_LEN_BYTE_ARRAY) ||
+          (fallback_encoding == Encoding::BYTE_STREAM_SPLIT &&
+           (physical_type == Type::INT32 || physical_type == Type::INT64 ||
+            physical_type == Type::FLOAT || physical_type == Type::DOUBLE ||
+            physical_type == Type::FIXED_LEN_BYTE_ARRAY)) ||
+          (fallback_encoding == Encoding::ALP &&
+           (physical_type == Type::FLOAT || physical_type == Type::DOUBLE));
+      if (!supported) {
+        ParquetException::NYI("Unsupported fallback encoding " +
+                              EncodingToString(fallback_encoding) + " for " +
+                              TypeToString(physical_type));
+      }
+    }
     current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
                                    descr_, properties->memory_pool());
     // We have to dynamic_cast as some compilers don't want to static_cast
@@ -1364,8 +1393,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       value_offset += values_to_write;
 
       // Dictionary size checked separately from data page size since we
-      // circumvent this check when writing ::arrow::DictionaryArray directly
-      CheckDictionarySizeLimit();
+      // circumvent this check when writing ::arrow::DictionaryArray directly.
+      // When pages change on record boundaries for repeated columns, only
+      // check/flush at record boundaries (when check_page is true).
+      if (check_page || descr_->max_repetition_level() == 0 || rep_levels == nullptr) {
+        CheckDictionarySizeLimit();
+      }
     };
     DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
                 properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
@@ -1416,8 +1449,12 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       value_offset += batch_num_spaced_values;
 
       // Dictionary size checked separately from data page size since we
-      // circumvent this check when writing ::arrow::DictionaryArray directly
-      CheckDictionarySizeLimit();
+      // circumvent this check when writing ::arrow::DictionaryArray directly.
+      // When pages change on record boundaries for repeated columns, only
+      // check/flush at record boundaries (when check_page is true).
+      if (check_page || descr_->max_repetition_level() == 0 || rep_levels == nullptr) {
+        CheckDictionarySizeLimit();
+      }
     };
     DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
                 properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
@@ -1874,12 +1911,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       // Serialize the buffered Dictionary Indices
       FlushBufferedDataPages();
       fallback_ = true;
-      // Only PLAIN encoding is supported for fallback
-      current_encoder_ = MakeEncoder(ParquetType::type_num, Encoding::PLAIN, false,
+      current_encoder_ = MakeEncoder(ParquetType::type_num, fallback_encoding_, false,
                                      descr_, properties_->memory_pool());
       current_value_encoder_ = dynamic_cast<ValueEncoderType*>(current_encoder_.get());
       current_dict_encoder_ = nullptr;  // not using dict
-      encoding_ = Encoding::PLAIN;
+      encoding_ = fallback_encoding_;
     }
   }
 
@@ -2557,7 +2593,9 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
 
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, batch_size - non_null,
                                  check_page);
-    CheckDictionarySizeLimit();
+    if (check_page || descr_->max_repetition_level() == 0 || rep_levels == nullptr) {
+      CheckDictionarySizeLimit();
+    }
     value_offset += batch_num_spaced_values;
   };
 
@@ -2736,6 +2774,7 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(
                    ? Encoding::RLE
                    : Encoding::PLAIN;
   }
+  Encoding::type fallback_encoding = encoding;
   if (use_dictionary) {
     encoding = properties->dictionary_index_encoding();
   }
@@ -2745,37 +2784,37 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(
         throw ParquetException("Bloom filter is not supported for boolean type");
       }
       return std::make_shared<TypedColumnWriterImpl<BooleanType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties,
-          /*bloom_filter=*/nullptr, content_defined_chunker);
+          metadata, std::move(pager), use_dictionary, encoding, fallback_encoding,
+          properties, /*bloom_filter=*/nullptr, content_defined_chunker);
     }
     case Type::INT32:
       return std::make_shared<TypedColumnWriterImpl<Int32Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          content_defined_chunker);
+          metadata, std::move(pager), use_dictionary, encoding, fallback_encoding,
+          properties, bloom_filter, content_defined_chunker);
     case Type::INT64:
       return std::make_shared<TypedColumnWriterImpl<Int64Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          content_defined_chunker);
+          metadata, std::move(pager), use_dictionary, encoding, fallback_encoding,
+          properties, bloom_filter, content_defined_chunker);
     case Type::INT96:
       return std::make_shared<TypedColumnWriterImpl<Int96Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          content_defined_chunker);
+          metadata, std::move(pager), use_dictionary, encoding, fallback_encoding,
+          properties, bloom_filter, content_defined_chunker);
     case Type::FLOAT:
       return std::make_shared<TypedColumnWriterImpl<FloatType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          content_defined_chunker);
+          metadata, std::move(pager), use_dictionary, encoding, fallback_encoding,
+          properties, bloom_filter, content_defined_chunker);
     case Type::DOUBLE:
       return std::make_shared<TypedColumnWriterImpl<DoubleType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          content_defined_chunker);
+          metadata, std::move(pager), use_dictionary, encoding, fallback_encoding,
+          properties, bloom_filter, content_defined_chunker);
     case Type::BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<ByteArrayType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          content_defined_chunker);
+          metadata, std::move(pager), use_dictionary, encoding, fallback_encoding,
+          properties, bloom_filter, content_defined_chunker);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<FLBAType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter,
-          content_defined_chunker);
+          metadata, std::move(pager), use_dictionary, encoding, fallback_encoding,
+          properties, bloom_filter, content_defined_chunker);
     default:
       ParquetException::NYI("Column writer not implemented for type: " +
                             TypeToString(descr->physical_type()));

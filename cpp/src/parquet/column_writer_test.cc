@@ -24,8 +24,15 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/chunked_array.h"
+#include "arrow/compute/cast.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
@@ -33,6 +40,8 @@
 #include "arrow/util/config.h"
 #include "arrow/util/key_value_metadata.h"
 
+#include "parquet/arrow/reader.h"
+#include "parquet/arrow/writer.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/bloom_filter_writer.h"
 #include "parquet/column_page.h"
@@ -2619,6 +2628,751 @@ TEST_F(TestFloatValuesWriter, AlpAllNullDataPageV2) {
 
 TEST_F(TestDoubleValuesWriter, AlpAllNullDataPageV2) {
   this->TestAlpOptionalDataPageV2(/*num_nulls=*/SMALL_SIZE);
+}
+
+namespace {
+
+int32_t CountEncodingStatPages(const ColumnChunkMetaData& col_meta,
+                               PageType::type page_type, Encoding::type encoding) {
+  int32_t total = 0;
+  for (const auto& stat : col_meta.encoding_stats()) {
+    if (stat.page_type == page_type && stat.encoding == encoding) {
+      total += stat.count;
+    }
+  }
+  return total;
+}
+
+}  // namespace
+
+TEST(TestColumnWriter, ParquetVersionDictionaryPageEncodings) {
+  constexpr int64_t kNumRows = 64;
+  ::arrow::StringBuilder str_builder;
+  ::arrow::Int64Builder int_builder;
+  for (int64_t i = 0; i < kNumRows; ++i) {
+    if (i % 7 == 0) {
+      ASSERT_OK(str_builder.AppendNull());
+      ASSERT_OK(int_builder.AppendNull());
+    } else {
+      ASSERT_OK(str_builder.Append("val_" + std::to_string(i % 5)));
+      ASSERT_OK(int_builder.Append((i % 5) * 100));
+    }
+  }
+  ASSERT_OK_AND_ASSIGN(auto str_arr, str_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto int_arr, int_builder.Finish());
+  auto arrow_schema = ::arrow::schema({
+      ::arrow::field("s", ::arrow::utf8()),
+      ::arrow::field("x", ::arrow::int64()),
+  });
+  auto table = ::arrow::Table::Make(arrow_schema, {str_arr, int_arr});
+
+  for (ParquetVersion::type version :
+       {ParquetVersion::PARQUET_1_0, ParquetVersion::PARQUET_2_6}) {
+    auto sink = CreateOutputStream();
+    WriterProperties::Builder wp_builder;
+    wp_builder.version(version)
+        ->data_page_version(ParquetDataPageVersion::V1)
+        ->write_batch_size(16)
+        ->data_pagesize(1);
+    ASSERT_OK_AND_ASSIGN(
+        auto writer, parquet::arrow::FileWriter::Open(
+                         *arrow_schema, ::arrow::default_memory_pool(), sink,
+                         wp_builder.build(), ArrowWriterProperties::Builder().build()));
+    ASSERT_OK(writer->WriteTable(*table, kNumRows));
+    ASSERT_OK(writer->Close());
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+    auto file_reader =
+        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+    ASSERT_EQ(version, file_reader->metadata()->version());
+    auto rg_meta = file_reader->metadata()->RowGroup(0);
+    auto rg_reader = file_reader->RowGroup(0);
+
+    const bool is_v2 = (version != ParquetVersion::PARQUET_1_0);
+    const Encoding::type expected_dict_page_enc =
+        is_v2 ? Encoding::PLAIN : Encoding::PLAIN_DICTIONARY;
+    const Encoding::type expected_data_page_enc =
+        is_v2 ? Encoding::RLE_DICTIONARY : Encoding::PLAIN_DICTIONARY;
+
+    for (int col : {0, 1}) {
+      auto col_meta = rg_meta->ColumnChunk(col);
+      EXPECT_TRUE(col_meta->has_dictionary_page());
+      EXPECT_EQ(1, CountEncodingStatPages(*col_meta, PageType::DICTIONARY_PAGE,
+                                          expected_dict_page_enc));
+      EXPECT_EQ(4, CountEncodingStatPages(*col_meta, PageType::DATA_PAGE,
+                                          expected_data_page_enc));
+      EXPECT_EQ(0, CountEncodingStatPages(*col_meta, PageType::DATA_PAGE_V2,
+                                          expected_data_page_enc));
+      if (is_v2) {
+        EXPECT_EQ(0, CountEncodingStatPages(*col_meta, PageType::DICTIONARY_PAGE,
+                                            Encoding::PLAIN_DICTIONARY));
+        EXPECT_EQ(0, CountEncodingStatPages(*col_meta, PageType::DATA_PAGE,
+                                            Encoding::PLAIN_DICTIONARY));
+      } else {
+        EXPECT_EQ(0, CountEncodingStatPages(*col_meta, PageType::DATA_PAGE,
+                                            Encoding::RLE_DICTIONARY));
+      }
+
+      auto page_reader = rg_reader->GetColumnPageReader(col);
+      auto first_page = page_reader->NextPage();
+      ASSERT_NE(first_page, nullptr);
+      ASSERT_EQ(PageType::DICTIONARY_PAGE, first_page->type());
+      EXPECT_EQ(expected_dict_page_enc,
+                std::static_pointer_cast<DictionaryPage>(first_page)->encoding());
+      int data_pages = 0;
+      while (auto page = page_reader->NextPage()) {
+        ASSERT_EQ(PageType::DATA_PAGE, page->type());
+        EXPECT_EQ(expected_data_page_enc,
+                  std::static_pointer_cast<DataPageV1>(page)->encoding());
+        ++data_pages;
+      }
+      EXPECT_EQ(4, data_pages);
+    }
+
+    ASSERT_OK_AND_ASSIGN(
+        auto arrow_reader,
+        parquet::arrow::OpenFile(std::make_shared<::arrow::io::BufferReader>(buffer),
+                                 ::arrow::default_memory_pool()));
+    std::shared_ptr<::arrow::Table> actual;
+    ASSERT_OK(arrow_reader->ReadTable(&actual));
+    EXPECT_TRUE(actual->Equals(*table));
+  }
+
+  // Also verify default PARQUET_1_0 falls back from PLAIN_DICTIONARY to PLAIN on
+  // dictionary overflow without emitting any V2 encodings.
+  ::arrow::StringBuilder ov_b;
+  for (int64_t i = 0; i < kNumRows; ++i) {
+    ASSERT_OK(ov_b.Append(
+        (i < 16) ? ("d_" + std::to_string(i % 2))
+                 : ("v1_overflow_payload_" + std::string(16, 'z') + std::to_string(i))));
+  }
+  ASSERT_OK_AND_ASSIGN(auto ov_arr, ov_b.Finish());
+  auto ov_schema = ::arrow::schema({::arrow::field("s", ::arrow::utf8())});
+  auto ov_table = ::arrow::Table::Make(ov_schema, {ov_arr});
+  auto ov_sink = CreateOutputStream();
+  auto ov_props = WriterProperties::Builder()
+                      .version(ParquetVersion::PARQUET_1_0)
+                      ->dictionary_pagesize_limit(32)
+                      ->write_batch_size(16)
+                      ->data_pagesize(1)
+                      ->build();
+  ASSERT_OK_AND_ASSIGN(auto ov_writer,
+                       parquet::arrow::FileWriter::Open(
+                           *ov_schema, ::arrow::default_memory_pool(), ov_sink, ov_props,
+                           ArrowWriterProperties::Builder().build()));
+  ASSERT_OK(ov_writer->WriteTable(*ov_table, kNumRows));
+  ASSERT_OK(ov_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto ov_buf, ov_sink->Finish());
+  auto ov_fr =
+      ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(ov_buf));
+  EXPECT_EQ(ParquetVersion::PARQUET_1_0, ov_fr->metadata()->version());
+  auto ov_meta = ov_fr->metadata()->RowGroup(0)->ColumnChunk(0);
+  EXPECT_EQ(1, CountEncodingStatPages(*ov_meta, PageType::DICTIONARY_PAGE,
+                                      Encoding::PLAIN_DICTIONARY));
+  EXPECT_GE(
+      CountEncodingStatPages(*ov_meta, PageType::DATA_PAGE, Encoding::PLAIN_DICTIONARY),
+      1);
+  EXPECT_GE(CountEncodingStatPages(*ov_meta, PageType::DATA_PAGE, Encoding::PLAIN), 1);
+  EXPECT_EQ(
+      0, CountEncodingStatPages(*ov_meta, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY));
+  EXPECT_EQ(0, CountEncodingStatPages(*ov_meta, PageType::DATA_PAGE,
+                                      Encoding::DELTA_LENGTH_BYTE_ARRAY));
+}
+
+TEST(TestColumnWriter, Parquet26DeltaLengthByteArrayDisabledAndFallback) {
+  // Part 1: Multi-chunk Arrow WriteTable exercising PARQUET_2_6 + DataPageV1 with
+  // RLE_DICTIONARY + per-column DELTA_LENGTH_BYTE_ARRAY/DELTA_BYTE_ARRAY across low-NDV
+  // dict, mid-row-group dict overflow, dict-disabled String/LargeString/StringView/List,
+  // varying DictionaryArray fallback, sibling INT64 fallback, and default PLAIN column.
+  constexpr int64_t kChunkRows = 32;
+  constexpr int64_t kTotalRows = kChunkRows * 2;
+
+  int64_t expected_overflow_bytes = 0;
+  int64_t expected_nondict_bytes = 0;
+  int64_t expected_dba_overflow_bytes = 0;
+  int64_t expected_large_bytes = 0;
+  int64_t expected_view_bytes = 0;
+  int64_t expected_list_bytes = 0;
+
+  auto build_chunk = [&](int chunk_idx) {
+    ::arrow::StringBuilder low_ndv_b;
+    ::arrow::StringBuilder overflow_b;
+    ::arrow::StringBuilder nondict_b;
+    ::arrow::StringBuilder overflow_dba_b;
+    ::arrow::LargeStringBuilder large_b;
+    ::arrow::StringViewBuilder view_b;
+    auto list_b = std::make_shared<::arrow::ListBuilder>(
+        ::arrow::default_memory_pool(), std::make_shared<::arrow::StringBuilder>());
+    auto* list_val_b = static_cast<::arrow::StringBuilder*>(list_b->value_builder());
+    ::arrow::StringDictionary32Builder dict_arr_b;
+    ::arrow::Int64Builder int_b;
+    ::arrow::StringBuilder explicit_plain_b;
+
+    // Prepend 3 dummy elements to large_b so we can Slice(3, kChunkRows) in chunk 0.
+    if (chunk_idx == 0) {
+      for (int p = 0; p < 3; ++p) {
+        EXPECT_OK(large_b.Append("prefix_ignored_" + std::to_string(p)));
+      }
+    }
+
+    for (int64_t i = 0; i < kChunkRows; ++i) {
+      const int64_t row = chunk_idx * kChunkRows + i;
+      EXPECT_OK(low_ndv_b.Append("bucket_" + std::to_string(row % 4)));
+
+      std::string ov = (chunk_idx == 0)
+                           ? ("small_" + std::to_string(i % 3))
+                           : ("overflow_unique_payload_" + std::string(24, 'x') + "_" +
+                              std::to_string(row));
+      expected_overflow_bytes += static_cast<int64_t>(ov.size());
+      EXPECT_OK(overflow_b.Append(ov));
+
+      if (row % 5 == 0) {
+        EXPECT_OK(nondict_b.AppendNull());
+      } else if (row % 5 == 1) {
+        EXPECT_OK(nondict_b.Append(""));
+      } else {
+        std::string s = "nd_" + std::to_string(row) + "_payload";
+        expected_nondict_bytes += static_cast<int64_t>(s.size());
+        EXPECT_OK(nondict_b.Append(s));
+      }
+
+      std::string ov_dba = (chunk_idx == 0)
+                               ? ("dba_small_" + std::to_string(i % 3))
+                               : ("dba_overflow_shared_prefix_" + std::string(24, 'y') +
+                                  "_" + std::to_string(row));
+      expected_dba_overflow_bytes += static_cast<int64_t>(ov_dba.size());
+      EXPECT_OK(overflow_dba_b.Append(ov_dba));
+
+      if (chunk_idx == 0) {
+        std::string ls = (i % 4 == 0) ? "" : ("large_str_value_" + std::to_string(row));
+        expected_large_bytes += static_cast<int64_t>(ls.size());
+        EXPECT_OK(large_b.Append(ls));
+      } else if (i % 6 == 0) {
+        EXPECT_OK(large_b.AppendNull());
+      } else {
+        std::string ls = "large_nullable_" + std::to_string(row);
+        expected_large_bytes += static_cast<int64_t>(ls.size());
+        EXPECT_OK(large_b.Append(ls));
+      }
+
+      if (row % 7 == 0) {
+        EXPECT_OK(view_b.AppendNull());
+      } else if (row % 7 == 1) {
+        EXPECT_OK(view_b.Append(""));
+      } else if (row % 2 == 0) {
+        std::string sv = "inl_" + std::to_string(row % 99);  // <= 12B inline view
+        expected_view_bytes += static_cast<int64_t>(sv.size());
+        EXPECT_OK(view_b.Append(sv));
+      } else {
+        std::string sv =
+            "out_of_line_string_view_payload_" + std::to_string(row);  // > 12B view
+        expected_view_bytes += static_cast<int64_t>(sv.size());
+        EXPECT_OK(view_b.Append(sv));
+      }
+
+      if (row % 6 == 0) {
+        EXPECT_OK(list_b->AppendNull());
+      } else {
+        EXPECT_OK(list_b->Append());
+        const int len = static_cast<int>(row % 4);  // includes empty list (len == 0)
+        for (int j = 0; j < len; ++j) {
+          if (j == 2) {
+            EXPECT_OK(list_val_b->AppendNull());
+          } else {
+            std::string item =
+                (j == 1 && row % 2 == 0)
+                    ? ""
+                    : ("elem_" + std::to_string(row) + "_" + std::to_string(j));
+            expected_list_bytes += static_cast<int64_t>(item.size());
+            EXPECT_OK(list_val_b->Append(item));
+          }
+        }
+      }
+
+      // Different dictionary contents in chunk 0 vs chunk 1 trigger WriteArrowDictionary
+      // fallback.
+      EXPECT_OK(dict_arr_b.Append("chunk" + std::to_string(chunk_idx) + "_key_" +
+                                  std::to_string(i % 4)));
+      EXPECT_OK(int_b.Append(chunk_idx == 0 ? (i % 2) : (1000 + row * 13)));
+      EXPECT_OK(explicit_plain_b.Append("plain_" + std::to_string(row)));
+    }
+
+    ::arrow::ArrayVector cols(10);
+    EXPECT_OK(low_ndv_b.Finish(&cols[0]));
+    EXPECT_OK(overflow_b.Finish(&cols[1]));
+    EXPECT_OK(nondict_b.Finish(&cols[2]));
+    EXPECT_OK(overflow_dba_b.Finish(&cols[3]));
+    std::shared_ptr<::arrow::Array> large_arr;
+    EXPECT_OK(large_b.Finish(&large_arr));
+    cols[4] = (chunk_idx == 0) ? large_arr->Slice(3, kChunkRows) : large_arr;
+    EXPECT_OK(view_b.Finish(&cols[5]));
+    EXPECT_OK(list_b->Finish(&cols[6]));
+    EXPECT_OK(dict_arr_b.Finish(&cols[7]));
+    EXPECT_OK(int_b.Finish(&cols[8]));
+    EXPECT_OK(explicit_plain_b.Finish(&cols[9]));
+    return cols;
+  };
+
+  auto c0 = build_chunk(0);
+  auto c1 = build_chunk(1);
+  auto arrow_schema = ::arrow::schema({
+      ::arrow::field("low_ndv_str", ::arrow::utf8(), /*nullable=*/false),
+      ::arrow::field("overflow_str", ::arrow::utf8(), /*nullable=*/false),
+      ::arrow::field("nondict_str", ::arrow::utf8()),
+      ::arrow::field("overflow_dba_str", ::arrow::utf8(), /*nullable=*/false),
+      ::arrow::field("large_str", ::arrow::large_utf8()),
+      ::arrow::field("str_view", ::arrow::utf8_view()),
+      ::arrow::field("nested_list", ::arrow::list(::arrow::utf8())),
+      ::arrow::field("dict_arr_fallback",
+                     ::arrow::dictionary(::arrow::int32(), ::arrow::utf8()),
+                     /*nullable=*/false),
+      ::arrow::field("sibling_int64", ::arrow::int64(), /*nullable=*/false),
+      ::arrow::field("explicit_plain_str", ::arrow::utf8(), /*nullable=*/false),
+  });
+  std::vector<std::shared_ptr<::arrow::ChunkedArray>> chunked_cols;
+  chunked_cols.reserve(c0.size());
+  for (size_t col = 0; col < c0.size(); ++col) {
+    ASSERT_OK_AND_ASSIGN(auto ca, ::arrow::ChunkedArray::Make({c0[col], c1[col]}));
+    chunked_cols.push_back(std::move(ca));
+  }
+  auto table = ::arrow::Table::Make(arrow_schema, chunked_cols, kTotalRows);
+
+  auto sink = CreateOutputStream();
+  auto writer_props =
+      WriterProperties::Builder()
+          .version(ParquetVersion::PARQUET_2_6)
+          ->data_page_version(ParquetDataPageVersion::V1)
+          ->enable_write_page_index()
+          ->set_size_statistics_level(SizeStatisticsLevel::PageAndColumnChunk)
+          ->write_batch_size(16)
+          ->data_pagesize(1)
+          ->dictionary_pagesize_limit(128)
+          ->encoding("low_ndv_str", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+          ->encoding("overflow_str", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+          ->encoding("nondict_str", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+          ->encoding("overflow_dba_str", Encoding::DELTA_BYTE_ARRAY)
+          ->encoding("large_str", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+          ->encoding("str_view", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+          ->encoding("nested_list.list.element", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+          ->encoding("dict_arr_fallback", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+          ->disable_dictionary("nondict_str")
+          ->disable_dictionary("large_str")
+          ->disable_dictionary("str_view")
+          ->disable_dictionary("nested_list.list.element")
+          ->disable_dictionary("explicit_plain_str")
+          ->encoding("explicit_plain_str", Encoding::PLAIN)
+          ->build();
+  auto arrow_writer_props = ArrowWriterProperties::Builder().store_schema()->build();
+  ASSERT_OK_AND_ASSIGN(auto writer, parquet::arrow::FileWriter::Open(
+                                        *arrow_schema, ::arrow::default_memory_pool(),
+                                        sink, writer_props, arrow_writer_props));
+  ASSERT_OK(writer->WriteTable(*table, kTotalRows));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto file_reader =
+      ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+  ASSERT_EQ(ParquetVersion::PARQUET_2_6, file_reader->metadata()->version());
+  auto rg_meta = file_reader->metadata()->RowGroup(0);
+  auto rg_index = file_reader->GetPageIndexReader()->RowGroup(0);
+  ASSERT_NE(rg_index, nullptr);
+
+  // Every single column must emit only V1 DATA_PAGE (no DATA_PAGE_V2) and have a valid
+  // OffsetIndex.
+  for (int col = 0; col < rg_meta->num_columns(); ++col) {
+    auto col_meta = rg_meta->ColumnChunk(col);
+    for (const auto& stat : col_meta.get()->encoding_stats()) {
+      EXPECT_NE(PageType::DATA_PAGE_V2, stat.page_type) << "col=" << col;
+    }
+    EXPECT_NE(rg_index->GetOffsetIndex(col), nullptr) << "col=" << col;
+    EXPECT_NE(rg_index->GetColumnIndex(col), nullptr) << "col=" << col;
+  }
+
+  // Col 0 (low_ndv_str): 100% PLAIN dict + RLE_DICTIONARY data pages.
+  {
+    auto m = rg_meta->ColumnChunk(0);
+    EXPECT_TRUE(m->has_dictionary_page());
+    EXPECT_EQ(1, CountEncodingStatPages(*m, PageType::DICTIONARY_PAGE, Encoding::PLAIN));
+    EXPECT_EQ(4,
+              CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY));
+    EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE,
+                                        Encoding::DELTA_LENGTH_BYTE_ARRAY));
+    EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN));
+  }
+
+  // Col 1 (overflow_str): PLAIN dict + RLE_DICTIONARY prefix + DELTA_LENGTH_BYTE_ARRAY
+  // fallback pages + exact SizeStatistics.
+  {
+    auto m = rg_meta->ColumnChunk(1);
+    EXPECT_TRUE(m->has_dictionary_page());
+    EXPECT_EQ(1, CountEncodingStatPages(*m, PageType::DICTIONARY_PAGE, Encoding::PLAIN));
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY),
+              1);
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE,
+                                     Encoding::DELTA_LENGTH_BYTE_ARRAY),
+              1);
+    EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN));
+    ASSERT_NE(m->size_statistics(), nullptr);
+    EXPECT_EQ(expected_overflow_bytes,
+              m->size_statistics()->unencoded_byte_array_data_bytes);
+  }
+
+  // Col 3 (overflow_dba_str): PLAIN dict + RLE_DICTIONARY prefix + DELTA_BYTE_ARRAY
+  // fallback pages + exact SizeStatistics.
+  {
+    auto m = rg_meta->ColumnChunk(3);
+    EXPECT_TRUE(m->has_dictionary_page());
+    EXPECT_EQ(1, CountEncodingStatPages(*m, PageType::DICTIONARY_PAGE, Encoding::PLAIN));
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY),
+              1);
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::DELTA_BYTE_ARRAY),
+              1);
+    EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN));
+    ASSERT_NE(m->size_statistics(), nullptr);
+    EXPECT_EQ(expected_dba_overflow_bytes,
+              m->size_statistics()->unencoded_byte_array_data_bytes);
+  }
+
+  // Cols 2, 4, 5, 6 (dict-disabled String, sliced LargeString, StringView, nested
+  // List<utf8>): pure DELTA_LENGTH_BYTE_ARRAY + exact SizeStatistics.
+  const std::vector<std::pair<int, int64_t>> dlba_cols = {
+      {2, expected_nondict_bytes},
+      {4, expected_large_bytes},
+      {5, expected_view_bytes},
+      {6, expected_list_bytes},
+  };
+  for (const auto& [col, expected_bytes] : dlba_cols) {
+    auto m = rg_meta->ColumnChunk(col);
+    EXPECT_FALSE(m->has_dictionary_page()) << "col=" << col;
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE,
+                                     Encoding::DELTA_LENGTH_BYTE_ARRAY),
+              1)
+        << "col=" << col;
+    EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN))
+        << "col=" << col;
+    ASSERT_NE(m->size_statistics(), nullptr) << "col=" << col;
+    EXPECT_EQ(expected_bytes, m->size_statistics()->unencoded_byte_array_data_bytes)
+        << "col=" << col;
+  }
+
+  // Col 7 (dict_arr_fallback): varying DictionaryArray falls back from RLE_DICTIONARY to
+  // DELTA_LENGTH_BYTE_ARRAY.
+  {
+    auto m = rg_meta->ColumnChunk(7);
+    EXPECT_TRUE(m->has_dictionary_page());
+    EXPECT_EQ(1, CountEncodingStatPages(*m, PageType::DICTIONARY_PAGE, Encoding::PLAIN));
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY),
+              1);
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE,
+                                     Encoding::DELTA_LENGTH_BYTE_ARRAY),
+              1);
+    EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN));
+  }
+
+  // Col 8 (sibling_int64): unconfigured non-BYTE_ARRAY column still falls back to PLAIN.
+  {
+    auto m = rg_meta->ColumnChunk(8);
+    EXPECT_TRUE(m->has_dictionary_page());
+    EXPECT_EQ(1, CountEncodingStatPages(*m, PageType::DICTIONARY_PAGE, Encoding::PLAIN));
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY),
+              1);
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN), 1);
+  }
+
+  // Col 9 (explicit_plain_str): explicit per-column PLAIN writes PLAIN pages.
+  {
+    auto m = rg_meta->ColumnChunk(9);
+    EXPECT_FALSE(m->has_dictionary_page());
+    EXPECT_EQ(4, CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN));
+    EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE,
+                                        Encoding::DELTA_LENGTH_BYTE_ARRAY));
+  }
+
+  // Lossless Arrow ReadTable roundtrip across non-DictionaryType columns (0..6, 8..9),
+  // plus direct ByteArrayReader verification on col 7 (DictionaryArray fallback).
+  ASSERT_OK_AND_ASSIGN(
+      auto arrow_reader,
+      parquet::arrow::OpenFile(std::make_shared<::arrow::io::BufferReader>(buffer),
+                               ::arrow::default_memory_pool()));
+  const std::vector<int> non_dict_type_cols = {0, 1, 2, 3, 4, 5, 6, 8, 9};
+  std::shared_ptr<::arrow::Table> actual_table;
+  ASSERT_OK(arrow_reader->ReadTable(non_dict_type_cols, &actual_table));
+  ASSERT_EQ(static_cast<int>(non_dict_type_cols.size()), actual_table->num_columns());
+  ASSERT_EQ(table->num_rows(), actual_table->num_rows());
+  for (size_t i = 0; i < non_dict_type_cols.size(); ++i) {
+    const int col = non_dict_type_cols[i];
+    EXPECT_TRUE(actual_table->column(static_cast<int>(i))->Equals(*table->column(col)))
+        << "Mismatch in col " << col << " (" << arrow_schema->field(col)->name() << ")";
+  }
+  {
+    ASSERT_OK_AND_ASSIGN(auto expected_col7_datum,
+                         ::arrow::compute::Cast(table->column(7), ::arrow::utf8()));
+    std::vector<std::string> expected_col7;
+    for (const auto& chunk : expected_col7_datum.chunked_array()->chunks()) {
+      const auto& s = static_cast<const ::arrow::StringArray&>(*chunk);
+      for (int64_t j = 0; j < s.length(); ++j) {
+        expected_col7.emplace_back(s.GetView(j));
+      }
+    }
+    auto r7 =
+        std::static_pointer_cast<ByteArrayReader>(file_reader->RowGroup(0)->Column(7));
+    std::vector<std::string> actual_col7;
+    while (r7->HasNext()) {
+      std::vector<ByteArray> page_vals(kTotalRows);
+      int64_t values_read = 0;
+      int64_t levels_read =
+          r7->ReadBatch(kTotalRows - static_cast<int64_t>(actual_col7.size()), nullptr,
+                        nullptr, page_vals.data(), &values_read);
+      ASSERT_EQ(levels_read, values_read);
+      ASSERT_GT(levels_read, 0);
+      for (int64_t j = 0; j < values_read; ++j) {
+        actual_col7.emplace_back(reinterpret_cast<const char*>(page_vals[j].ptr),
+                                 page_vals[j].len);
+      }
+    }
+    EXPECT_EQ(expected_col7, actual_col7);
+  }
+
+  // Part 2: Direct WriteBatch + WriteBatchSpaced fallback to DELTA_LENGTH_BYTE_ARRAY
+  // (including empty strings), plus upfront rejection of incompatible fallback encodings.
+  {
+    auto batch_schema = std::static_pointer_cast<GroupNode>(
+        GroupNode::Make("schema", Repetition::REQUIRED,
+                        {
+                            schema::ByteArray("wb_col", Repetition::REQUIRED),
+                            schema::ByteArray("spaced_col", Repetition::OPTIONAL),
+                        }));
+    auto batch_sink = CreateOutputStream();
+    auto batch_props = WriterProperties::Builder()
+                           .version(ParquetVersion::PARQUET_2_6)
+                           ->encoding("wb_col", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+                           ->encoding("spaced_col", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+                           ->dictionary_pagesize_limit(64)
+                           ->write_batch_size(10)
+                           ->data_pagesize(1)
+                           ->build();
+    auto fw = ParquetFileWriter::Open(batch_sink, batch_schema, batch_props);
+    auto rg = fw->AppendRowGroup();
+
+    constexpr int kRows = 40;
+    std::vector<std::string> backing(kRows);
+    std::vector<ByteArray> vals(kRows);
+    std::vector<int16_t> def_levels(kRows, 1);
+    std::vector<uint8_t> valid_bytes(kRows, 1);
+    std::vector<std::string> expected_spaced_non_null;
+    for (int i = 0; i < kRows; ++i) {
+      backing[i] = (i < 10)    ? ("dup_" + std::to_string(i % 2))
+                   : (i >= 30) ? ""
+                               : ("unique_fallback_val_" + std::to_string(i));
+      vals[i] = ByteArray(static_cast<uint32_t>(backing[i].size()),
+                          reinterpret_cast<const uint8_t*>(backing[i].data()));
+      if (i % 4 == 0) {
+        def_levels[i] = 0;
+        valid_bytes[i] = 0;
+      } else {
+        expected_spaced_non_null.push_back(backing[i]);
+      }
+    }
+    ASSERT_OK_AND_ASSIGN(auto valid_bits, ::arrow::internal::BytesToBits(valid_bytes));
+
+    auto* w0 = static_cast<ByteArrayWriter*>(rg->NextColumn());
+    w0->WriteBatch(kRows, nullptr, nullptr, vals.data());
+    auto* w1 = static_cast<ByteArrayWriter*>(rg->NextColumn());
+    w1->WriteBatchSpaced(kRows, def_levels.data(), nullptr, valid_bits->data(), 0,
+                         vals.data());
+    ASSERT_NO_THROW(fw->Close());
+    ASSERT_OK_AND_ASSIGN(auto batch_buf, batch_sink->Finish());
+
+    auto fr =
+        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(batch_buf));
+    ASSERT_EQ(ParquetVersion::PARQUET_2_6, fr->metadata()->version());
+    for (int col : {0, 1}) {
+      auto m = fr->metadata()->RowGroup(0)->ColumnChunk(col);
+      EXPECT_EQ(1,
+                CountEncodingStatPages(*m, PageType::DICTIONARY_PAGE, Encoding::PLAIN));
+      EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY),
+                1);
+      EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE,
+                                       Encoding::DELTA_LENGTH_BYTE_ARRAY),
+                1);
+    }
+    auto rgr = fr->RowGroup(0);
+    // ByteArrayReader returns page-scoped zero-copy ByteArray views, stopping at each
+    // data page boundary; copy strings out per batch across the RLE_DICTIONARY ->
+    // DELTA_LENGTH_BYTE_ARRAY page transition.
+    auto r0 = std::static_pointer_cast<ByteArrayReader>(rgr->Column(0));
+    std::vector<std::string> actual0;
+    while (r0->HasNext()) {
+      std::vector<ByteArray> page_vals(kRows);
+      int64_t values_read = 0;
+      int64_t levels_read =
+          r0->ReadBatch(kRows - static_cast<int64_t>(actual0.size()), nullptr, nullptr,
+                        page_vals.data(), &values_read);
+      ASSERT_EQ(levels_read, values_read);
+      ASSERT_GT(levels_read, 0);
+      for (int64_t j = 0; j < values_read; ++j) {
+        actual0.emplace_back(reinterpret_cast<const char*>(page_vals[j].ptr),
+                             page_vals[j].len);
+      }
+    }
+    EXPECT_EQ(backing, actual0);
+
+    auto r1 = std::static_pointer_cast<ByteArrayReader>(rgr->Column(1));
+    std::vector<int16_t> out_def(kRows);
+    std::vector<std::string> actual1;
+    int64_t total_levels = 0;
+    while (r1->HasNext()) {
+      std::vector<ByteArray> page_vals(kRows);
+      int64_t values_read = 0;
+      int64_t levels_read =
+          r1->ReadBatch(kRows - total_levels, out_def.data() + total_levels, nullptr,
+                        page_vals.data(), &values_read);
+      ASSERT_GT(levels_read, 0);
+      total_levels += levels_read;
+      for (int64_t j = 0; j < values_read; ++j) {
+        actual1.emplace_back(reinterpret_cast<const char*>(page_vals[j].ptr),
+                             page_vals[j].len);
+      }
+    }
+    ASSERT_EQ(kRows, total_levels);
+    EXPECT_EQ(def_levels, out_def);
+    EXPECT_EQ(expected_spaced_non_null, actual1);
+  }
+
+  // Incompatible per-column fallback encodings on dictionary-enabled columns must fail
+  // immediately on NextColumn(), even before any dictionary overflow occurs.
+  for (const auto& [col_node, bad_encoding] :
+       std::vector<std::pair<schema::NodePtr, Encoding::type>>{
+           {schema::Int64("bad_col", Repetition::REQUIRED),
+            Encoding::DELTA_LENGTH_BYTE_ARRAY},
+           {schema::ByteArray("bad_col", Repetition::REQUIRED),
+            Encoding::DELTA_BINARY_PACKED},
+           {schema::ByteArray("bad_col", Repetition::REQUIRED),
+            Encoding::BYTE_STREAM_SPLIT},
+       }) {
+    auto bad_schema = std::static_pointer_cast<GroupNode>(
+        GroupNode::Make("schema", Repetition::REQUIRED, {col_node}));
+    auto bad_props = WriterProperties::Builder()
+                         .enable_dictionary()
+                         ->encoding("bad_col", bad_encoding)
+                         ->build();
+    auto fw = ParquetFileWriter::Open(CreateOutputStream(), bad_schema, bad_props);
+    auto rg = fw->AppendRowGroup();
+    EXPECT_THROW(rg->NextColumn(), ParquetException);
+  }
+}
+
+TEST(TestColumnWriter, ConfiguredFallbackEncodingsAndRepeatedRecordBoundaries) {
+  // Verify numeric fallback encodings (DELTA_BINARY_PACKED on INT64, BYTE_STREAM_SPLIT
+  // on DOUBLE) alongside repeated-column (list<utf8>) dictionary overflow when
+  // write_batch_size splits a multi-element list across batches with page index enabled.
+  constexpr int64_t kNumRows = 24;
+  constexpr int kElemsPerList = 6;
+
+  ::arrow::Int64Builder i64_b;
+  ::arrow::DoubleBuilder f64_b;
+  auto list_b = std::make_shared<::arrow::ListBuilder>(
+      ::arrow::default_memory_pool(), std::make_shared<::arrow::StringBuilder>());
+  auto* list_val_b = static_cast<::arrow::StringBuilder*>(list_b->value_builder());
+
+  for (int64_t r = 0; r < kNumRows; ++r) {
+    ASSERT_OK(i64_b.Append(r < 4 ? (r % 2) : (10000 + r * 37)));
+    ASSERT_OK(f64_b.Append(r < 4 ? static_cast<double>(r % 2) : (0.125 * r + 100.0)));
+    ASSERT_OK(list_b->Append());
+    for (int j = 0; j < kElemsPerList; ++j) {
+      // WriteBatch size is 4 while each list has 6 elements, so dictionary overflow
+      // triggers mid-list (rep_level == 1) and must defer flushing until rep_level == 0.
+      std::string elem = (r < 2) ? ("shared_" + std::to_string(j % 2))
+                                 : ("list_overflow_payload_" + std::string(16, 'q') +
+                                    "_" + std::to_string(r) + "_" + std::to_string(j));
+      ASSERT_OK(list_val_b->Append(elem));
+    }
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto i64_arr, i64_b.Finish());
+  ASSERT_OK_AND_ASSIGN(auto f64_arr, f64_b.Finish());
+  ASSERT_OK_AND_ASSIGN(auto list_arr, list_b->Finish());
+  auto arrow_schema = ::arrow::schema({
+      ::arrow::field("i64_delta", ::arrow::int64(), /*nullable=*/false),
+      ::arrow::field("f64_bss", ::arrow::float64(), /*nullable=*/false),
+      ::arrow::field("rep_str", ::arrow::list(::arrow::utf8())),
+  });
+  auto table = ::arrow::Table::Make(arrow_schema, {i64_arr, f64_arr, list_arr});
+
+  auto sink = CreateOutputStream();
+  auto writer_props =
+      WriterProperties::Builder()
+          .version(ParquetVersion::PARQUET_2_6)
+          ->enable_write_page_index()
+          ->write_batch_size(4)
+          ->data_pagesize(64)
+          ->dictionary_pagesize_limit(64)
+          ->encoding("i64_delta", Encoding::DELTA_BINARY_PACKED)
+          ->encoding("f64_bss", Encoding::BYTE_STREAM_SPLIT)
+          ->encoding("rep_str.list.element", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+          ->build();
+  ASSERT_OK_AND_ASSIGN(
+      auto writer, parquet::arrow::FileWriter::Open(
+                       *arrow_schema, ::arrow::default_memory_pool(), sink, writer_props,
+                       ArrowWriterProperties::Builder().build()));
+  ASSERT_OK(writer->WriteTable(*table, kNumRows));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto file_reader =
+      ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+  auto rg_meta = file_reader->metadata()->RowGroup(0);
+  auto rg_index = file_reader->GetPageIndexReader()->RowGroup(0);
+  ASSERT_NE(rg_index, nullptr);
+
+  // Col 0 (i64_delta): RLE_DICTIONARY -> DELTA_BINARY_PACKED.
+  {
+    auto m = rg_meta->ColumnChunk(0);
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY),
+              1);
+    EXPECT_GE(
+        CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::DELTA_BINARY_PACKED),
+        1);
+    EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN));
+  }
+
+  // Col 1 (f64_bss): RLE_DICTIONARY -> BYTE_STREAM_SPLIT.
+  {
+    auto m = rg_meta->ColumnChunk(1);
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY),
+              1);
+    EXPECT_GE(
+        CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::BYTE_STREAM_SPLIT), 1);
+    EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN));
+  }
+
+  // Col 2 (rep_str.list.element): RLE_DICTIONARY -> DELTA_LENGTH_BYTE_ARRAY with valid
+  // record-aligned OffsetIndex.
+  {
+    auto m = rg_meta->ColumnChunk(2);
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY),
+              1);
+    EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE,
+                                     Encoding::DELTA_LENGTH_BYTE_ARRAY),
+              1);
+    EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN));
+    auto offset_index = rg_index->GetOffsetIndex(2);
+    ASSERT_NE(offset_index, nullptr);
+    ASSERT_GE(offset_index->page_locations().size(), 2u);
+    EXPECT_EQ(0, offset_index->page_locations()[0].first_row_index);
+    for (size_t i = 1; i < offset_index->page_locations().size(); ++i) {
+      EXPECT_GT(offset_index->page_locations()[i].first_row_index,
+                offset_index->page_locations()[i - 1].first_row_index);
+    }
+  }
+
+  ASSERT_OK_AND_ASSIGN(
+      auto arrow_reader,
+      parquet::arrow::OpenFile(std::make_shared<::arrow::io::BufferReader>(buffer),
+                               ::arrow::default_memory_pool()));
+  std::shared_ptr<::arrow::Table> actual;
+  ASSERT_OK(arrow_reader->ReadTable(&actual));
+  EXPECT_TRUE(actual->Equals(*table));
 }
 
 }  // namespace test
