@@ -79,6 +79,36 @@ void AssertAlpEncodingUsed(const std::shared_ptr<FileMetaData>& metadata,
   }
 }
 
+// Assert that every data page of `column_index` was written with `encoding`.
+void AssertDataPageEncoding(const std::shared_ptr<FileMetaData>& metadata,
+                            int column_index, Encoding::type encoding) {
+  ASSERT_GE(column_index, 0);
+  for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
+    const auto row_group = metadata->RowGroup(rg);
+    const auto column_chunk = row_group->ColumnChunk(column_index);
+    for (const PageEncodingStats& stats : column_chunk->encoding_stats()) {
+      if (stats.page_type == PageType::DATA_PAGE) {
+        ASSERT_EQ(encoding, stats.encoding)
+            << "column " << column_index << " row group " << rg;
+      }
+    }
+  }
+}
+
+// Number of data pages of `column_index` in row group `rg` with `encoding`.
+int32_t CountDataPages(const std::shared_ptr<FileMetaData>& metadata, int rg,
+                       int column_index, Encoding::type encoding) {
+  const auto row_group = metadata->RowGroup(rg);
+  const auto column_chunk = row_group->ColumnChunk(column_index);
+  int32_t count = 0;
+  for (const PageEncodingStats& stats : column_chunk->encoding_stats()) {
+    if (stats.page_type == PageType::DATA_PAGE && stats.encoding == encoding) {
+      count += stats.count;
+    }
+  }
+  return count;
+}
+
 // Write `table` with `writer_props` and read it straight back. Optionally hands
 // back the file metadata.
 void WriteAndReadBack(const std::shared_ptr<Table>& table, int64_t row_group_size,
@@ -283,15 +313,23 @@ TEST_F(TestArrowReadAlpEncoding, ReferenceColumnsCoverCornerCases) {
 
 class ParquetAlpEncodingTest : public ::testing::Test {
  public:
+  static std::shared_ptr<WriterProperties> AlpWriterProperties(
+      int64_t max_rows_per_page = kDefaultMaxRowsPerPage) {
+    return WriterProperties::Builder()
+        .disable_dictionary()
+        ->encoding(Encoding::ALP)
+        ->max_rows_per_page(max_rows_per_page)
+        ->build();
+  }
+
   // Round-trip `table` through a file whose only value column is ALP-encoded, and
-  // check the encoding really was used. A non-positive `row_group_size` writes one
+  // check that every data page was written with `expected`: ALP, or PLAIN for
+  // inputs that ALP would make larger. A non-positive `row_group_size` writes one
   // row group.
   void TestAlpRoundTrip(const std::shared_ptr<Table>& table, int64_t row_group_size = 0,
-                        std::shared_ptr<Table>* result = nullptr) {
-    auto writer_props = WriterProperties::Builder()
-                            .disable_dictionary()
-                            ->encoding(Encoding::ALP)
-                            ->build();
+                        std::shared_ptr<Table>* result = nullptr,
+                        Encoding::type expected = Encoding::ALP) {
+    auto writer_props = AlpWriterProperties();
     if (row_group_size <= 0) {
       row_group_size = table->num_rows();
     }
@@ -299,7 +337,11 @@ class ParquetAlpEncodingTest : public ::testing::Test {
     std::shared_ptr<Table> round_tripped;
     std::shared_ptr<FileMetaData> metadata;
     WriteAndReadBack(table, row_group_size, &round_tripped, writer_props, &metadata);
-    ASSERT_NO_FATAL_FAILURE(AssertAlpEncodingUsed(metadata, /*column_index=*/0));
+    if (expected == Encoding::ALP) {
+      ASSERT_NO_FATAL_FAILURE(AssertAlpEncodingUsed(metadata, /*column_index=*/0));
+    }
+    ASSERT_NO_FATAL_FAILURE(
+        AssertDataPageEncoding(metadata, /*column_index=*/0, expected));
     ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *round_tripped));
 
     if (result != nullptr) {
@@ -311,21 +353,39 @@ class ParquetAlpEncodingTest : public ::testing::Test {
   template <typename ArrowType>
   void TestValuesRoundTrip(const std::vector<typename ArrowType::c_type>& values,
                            int64_t row_group_size = 0,
-                           std::shared_ptr<Table>* result = nullptr) {
+                           std::shared_ptr<Table>* result = nullptr,
+                           Encoding::type expected = Encoding::ALP) {
     std::shared_ptr<::arrow::Array> array;
     ::arrow::ArrayFromVector<ArrowType>(values, &array);
-    TestAlpRoundTrip(SingleColumnTable<ArrowType>(array), row_group_size, result);
+    TestAlpRoundTrip(SingleColumnTable<ArrowType>(array), row_group_size, result,
+                     expected);
   }
 
-  // Round-trip a single-column table of random values.
+  // Round-trip a single-column table of random values in [min, max] rounded to
+  // multiples of 0.25, which ALP compresses for both float and double.
   template <typename ArrowType>
   void TestRandomRoundTrip(int64_t num_values, typename ArrowType::c_type min,
                            typename ArrowType::c_type max, int64_t row_group_size = 0,
                            int32_t seed = 42) {
-    ::arrow::random::RandomArrayGenerator rag(seed);
-    TestAlpRoundTrip(
-        SingleColumnTable<ArrowType>(rag.Numeric<ArrowType>(num_values, min, max)),
-        row_group_size);
+    using c_type = typename ArrowType::c_type;
+    std::mt19937 rng(seed);
+    std::uniform_real_distribution<double> dist(min, max);
+    std::vector<c_type> values(num_values);
+    for (auto& value : values) {
+      value = static_cast<c_type>(std::round(dist(rng) * 4.0) / 4.0);
+    }
+    TestValuesRoundTrip<ArrowType>(values, row_group_size);
+  }
+
+  // Appends 1,000 multiples of 0.25 to `values`. A handful of special values alone
+  // would be smaller as PLAIN; with the decimals the page stays ALP and the
+  // special values travel as its exceptions.
+  template <typename T>
+  static std::vector<T> WithDecimals(std::vector<T> values) {
+    for (int i = 0; i < 1000; ++i) {
+      values.push_back(static_cast<T>(static_cast<double>(i * 37 % 997) / 4.0));
+    }
+    return values;
   }
 
   template <typename ArrowType>
@@ -358,11 +418,16 @@ TEST_F(ParquetAlpEncodingTest, MixedTypesWithFloatDouble) {
                                  ::arrow::field("value_f", ::arrow::float32()),
                                  ::arrow::field("value_d", ::arrow::float64()),
                                  ::arrow::field("name", ::arrow::utf8())});
-  auto table = ::arrow::TableFromJSON(schema, {R"([[1, 1.5, 1.125, "a"],
-                                          [2, 2.5, 2.250, "b"],
-                                          [3, 3.5, 3.375, "c"],
-                                          [4, 4.5, 4.500, "d"],
-                                          [5, 5.5, 5.625, "e"]])"});
+  // Twenty copies of five rows, enough values for the ALP pages to be smaller than
+  // PLAIN ones.
+  const std::string rows = R"([[1, 1.5, 1.125, "a"],
+                               [2, 2.5, 2.250, "b"],
+                               [3, 3.5, 3.375, "c"],
+                               [4, 4.5, 4.500, "d"],
+                               [5, 5.5, 5.625, "e"]])";
+  ASSERT_OK_AND_ASSIGN(auto table,
+                       ::arrow::TableFromJSON(schema, std::vector<std::string>(20, rows))
+                           ->CombineChunks());
   auto writer_props = WriterProperties::Builder()
                           .disable_dictionary()
                           ->encoding("value_f", Encoding::ALP)
@@ -401,6 +466,59 @@ TEST_F(ParquetAlpEncodingTest, DecimalLikeValues) {
   TestValuesRoundTrip<::arrow::DoubleType>(values);
 }
 
+// Values with full-precision mantissas, like the measured doubles of scientific
+// datasets, have no decimal form; ALP would store each one as an exception and
+// be larger than PLAIN, so every page is written as PLAIN.
+TEST_F(ParquetAlpEncodingTest, IncompressibleValuesWritePlainPages) {
+  std::mt19937_64 rng(42);
+  std::uniform_real_distribution<double> dist(-1.0, 1.0);
+  std::vector<double> values(100000);
+  for (auto& value : values) {
+    value = dist(rng);
+  }
+  std::shared_ptr<::arrow::Array> array;
+  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
+  const auto table = SingleColumnTable<::arrow::DoubleType>(array);
+
+  std::shared_ptr<Table> result;
+  std::shared_ptr<FileMetaData> metadata;
+  WriteAndReadBack(table, table->num_rows(), &result, AlpWriterProperties(), &metadata);
+  ASSERT_EQ(0, CountDataPages(metadata, 0, 0, Encoding::ALP));
+  ASSERT_EQ(5, CountDataPages(metadata, 0, 0, Encoding::PLAIN));
+  ASSERT_THAT(metadata->RowGroup(0)->ColumnChunk(0)->encodings(),
+              ::testing::Not(::testing::Contains(Encoding::ALP)));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+}
+
+// Pages alternate between decimal values, which ALP compresses, and
+// full-precision values, which it cannot. The column chunk mixes ALP and PLAIN
+// pages, lists both encodings, and reads back as written.
+TEST_F(ParquetAlpEncodingTest, MixedAlpAndPlainPages) {
+  constexpr int64_t kPageSize = 20000;
+  constexpr int kNumPages = 6;
+  std::mt19937_64 rng(42);
+  std::uniform_real_distribution<double> dist(-1.0, 1.0);
+  std::vector<double> values(kPageSize * kNumPages);
+  for (size_t i = 0; i < values.size(); ++i) {
+    const bool decimal_page = (i / kPageSize) % 2 == 0;
+    values[i] = decimal_page ? static_cast<double>(i % 1000) / 100.0 : dist(rng);
+  }
+  std::shared_ptr<::arrow::Array> array;
+  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
+  const auto table = SingleColumnTable<::arrow::DoubleType>(array);
+
+  std::shared_ptr<Table> result;
+  std::shared_ptr<FileMetaData> metadata;
+  WriteAndReadBack(table, table->num_rows(), &result, AlpWriterProperties(kPageSize),
+                   &metadata);
+  ASSERT_EQ(1, metadata->num_row_groups());
+  ASSERT_EQ(kNumPages / 2, CountDataPages(metadata, 0, 0, Encoding::ALP));
+  ASSERT_EQ(kNumPages / 2, CountDataPages(metadata, 0, 0, Encoding::PLAIN));
+  ASSERT_THAT(metadata->RowGroup(0)->ColumnChunk(0)->encodings(),
+              ::testing::IsSupersetOf({Encoding::ALP, Encoding::PLAIN}));
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+}
+
 TEST_F(ParquetAlpEncodingTest, SpecialFloatValues) {
   // TableFromJSON cannot express infinities or NaN.
   const std::vector<double> values = {1.0,
@@ -411,7 +529,7 @@ TEST_F(ParquetAlpEncodingTest, SpecialFloatValues) {
                                       -0.0,
                                       2.5,
                                       3.5};
-  TestValuesRoundTrip<::arrow::DoubleType>(values);
+  TestValuesRoundTrip<::arrow::DoubleType>(WithDecimals(values));
 }
 
 TEST_F(ParquetAlpEncodingTest, DoubleWithNulls) {
@@ -445,7 +563,7 @@ TEST_F(ParquetAlpEncodingTest, DoubleAtEncodedIntegerBounds) {
       1.25,
       2.5,
       3.75};
-  TestValuesRoundTrip<::arrow::DoubleType>(values);
+  TestValuesRoundTrip<::arrow::DoubleType>(WithDecimals(values));
 }
 
 TEST_F(ParquetAlpEncodingTest, FloatAtEncodedIntegerBounds) {
@@ -466,11 +584,11 @@ TEST_F(ParquetAlpEncodingTest, FloatAtEncodedIntegerBounds) {
       1.25f,
       2.5f,
       3.75f};
-  TestValuesRoundTrip<::arrow::FloatType>(values);
+  TestValuesRoundTrip<::arrow::FloatType>(WithDecimals(values));
 }
 
-// Every value is an exception: no exponent/factor pair encodes anything, so each
-// vector carries num_elements exceptions and the page is larger than PLAIN. (The
+// Every value is an exception: no exponent/factor pair encodes anything, so ALP
+// would be larger than PLAIN and every page is written as PLAIN. (The
 // 32768-exception count boundary is covered in arrow/util/alp/alp_test.cc; the
 // writer here uses 1024-element vectors.)
 TEST_F(ParquetAlpEncodingTest, AllExceptionsColumn) {
@@ -478,7 +596,8 @@ TEST_F(ParquetAlpEncodingTest, AllExceptionsColumn) {
   const std::vector<double> values(70000, std::numeric_limits<double>::quiet_NaN());
 
   std::shared_ptr<Table> result;
-  TestValuesRoundTrip<::arrow::DoubleType>(values, /*row_group_size=*/0, &result);
+  TestValuesRoundTrip<::arrow::DoubleType>(values, /*row_group_size=*/0, &result,
+                                           Encoding::PLAIN);
 
   // Array equality treats NaN as equal, so compare the payloads instead.
   const uint64_t expected_bits = std::bit_cast<uint64_t>(values[0]);

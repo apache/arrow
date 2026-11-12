@@ -162,6 +162,12 @@ class Encoder {
   virtual std::shared_ptr<Buffer> FlushValues() = 0;
   virtual Encoding::type encoding() const = 0;
 
+  /// The encoding of the buffer returned by the most recent FlushValues().
+  ///
+  /// This is encoding() unless the encoder wrote that page in another encoding,
+  /// as the ALP encoder does with PLAIN for a page that ALP would make larger.
+  virtual Encoding::type flushed_encoding() const { return encoding(); }
+
   virtual void Put(const ::arrow::Array& values) = 0;
 
   // Report the number of bytes written to the encoder since the last report.
