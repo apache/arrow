@@ -124,19 +124,26 @@ class DoGetReactor : public AsyncReactorBase {
   }
 
   void WriteNextPayload() {
-    if (finished()) {
-      return;
-    }
     HoldToken token = hold();
 
     arrow::Future<std::optional<FlightPayload>> next;
-    if (!wrote_schema_) {
-      next = async_data_stream_->GetSchemaPayloadAsync().Then(
-          [](FlightPayload payload) -> std::optional<FlightPayload> {
-            return {std::move(payload)};
-          });
-    } else {
-      next = async_data_stream_->NextAsync();
+    {
+      // Ask under stream_mutex_, which CloseStreamOnce() takes to claim the
+      // stream before calling Close(): a demand never overlaps Close() and is
+      // never made once Close() has started.
+      std::lock_guard<std::mutex> lock(stream_mutex_);
+      if (closed_ || finished()) {
+        return;
+      }
+      if (!wrote_schema_) {
+        wrote_schema_ = true;
+        next = async_data_stream_->GetSchemaPayloadAsync().Then(
+            [](FlightPayload payload) -> std::optional<FlightPayload> {
+              return {std::move(payload)};
+            });
+      } else {
+        next = async_data_stream_->NextAsync();
+      }
     }
     next.AddCallback([this, token = token.release()](
                          arrow::Result<std::optional<FlightPayload>> result) {
@@ -147,7 +154,6 @@ class DoGetReactor : public AsyncReactorBase {
               CloseStreamOnce(),
               "DoGet: closing the data stream after a failed payload failed");
         } else {
-          wrote_schema_ = true;
           std::optional<FlightPayload> payload = std::move(*result);
           if (!payload.has_value()) {
             FinishOnce(CloseStreamOnce());
@@ -174,11 +180,11 @@ class DoGetReactor : public AsyncReactorBase {
   ::grpc::ByteBuffer request_buf_;
   ::grpc::ByteBuffer write_buf_;
   std::shared_ptr<AsyncFlightDataStream> async_data_stream_;
-  bool wrote_schema_ = false;
-  /// Guards async_data_stream_ and closed_, so adopting the stream and the cancellation
-  /// teardown cannot interleave.
+  /// Guards async_data_stream_, closed_ and wrote_schema_: adopting the stream,
+  /// each demand on it and the teardown's Close() never interleave.
   std::mutex stream_mutex_;
   bool closed_ = false;
+  bool wrote_schema_ = false;
 };
 
 }  // namespace
