@@ -136,6 +136,10 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataWriter {
 /// \brief A general listener class to receive events from FlightMessageDecoder
 ///
 /// User must implement callback methods for interested events.
+///
+/// When it serves a DoPut, the transport continues on the thread that
+/// completes the futures this listener returns: see the threading notes on
+/// AsyncGenericFlightServerBase.
 class ARROW_FLIGHT_EXPORT AsyncFlightDataListener : public ipc::Listener {
  public:
   AsyncFlightDataListener();
