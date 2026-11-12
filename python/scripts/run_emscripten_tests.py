@@ -21,8 +21,6 @@ import contextlib
 import http.server
 import os
 import queue
-import shutil
-import subprocess
 import sys
 import time
 import threading
@@ -142,75 +140,6 @@ def launch_server(dist_dir):
     time.sleep(0.1)  # wait to make sure server is started
     yield address
     p.terminate()
-
-
-class NodeDriver:
-    import subprocess
-
-    def __init__(self, hostname, port):
-        # handle different syntax for util-linux script and macOS BSD-style script
-        if sys.platform == "darwin":
-            script_command = [shutil.which("script"), "-q", "/dev/null",
-                              shutil.which("node")]
-        else:
-            script_command = [shutil.which("script"), "-c", shutil.which("node")]
-        self.process = subprocess.Popen(
-            script_command,
-            stdin=subprocess.PIPE,
-            shell=False,
-            bufsize=0,
-        )
-        print(self.process)
-        time.sleep(0.1)  # wait for node to start
-        self.hostname = hostname
-        self.port = port
-        self.last_ret_code = None
-
-    def load_pyodide(self, dist_dir):
-        self.execute_js(
-            f"""
-        const {{ loadPyodide }} = require('{dist_dir}/pyodide.js');
-        let pyodide = await loadPyodide();
-        """
-        )
-
-    def clear_logs(self):
-        pass  # we don't handle logs for node
-
-    def write_stdin(self, buffer):
-        # because we use unbuffered IO for
-        # stdout, stdin.write is also unbuffered
-        # so might under-run on writes
-        while len(buffer) > 0 and self.process.poll() is None:
-            written = self.process.stdin.write(buffer)
-            if written == len(buffer):
-                break
-            elif written == 0:
-                # full buffer - wait
-                time.sleep(0.01)
-            else:
-                buffer = buffer[written:]
-
-    def execute_js(self, code, wait_for_terminate=True):
-        self.write_stdin((code + "\n").encode("utf-8"))
-
-    def load_arrow(self):
-        self.execute_js(f"await pyodide.loadPackage('{PYARROW_WHEEL_PATH}');")
-
-    def execute_python(self, code, wait_for_terminate=True):
-        js_code = f"""
-            python = `{code}`;
-            await pyodide.loadPackagesFromImports(python);
-            python_output = await pyodide.runPythonAsync(python);
-        """
-        self.last_ret_code = self.execute_js(js_code, wait_for_terminate)
-        return self.last_ret_code
-
-    def wait_for_done(self):
-        # in node we just let it run above
-        # then send EOF and join process
-        self.write_stdin(b"process.exit(python_output)\n")
-        return self.process.wait()
 
 
 class BrowserDriver:
@@ -363,7 +292,7 @@ parser.add_argument(
     "-r",
     "--runtime",
     type=str,
-    choices=["chrome", "node", "firefox"],
+    choices=["chrome", "firefox"],
     help="Runtime to run tests in",
     default="chrome",
 )
@@ -376,8 +305,6 @@ print(f"dist dir={dist_dir}")
 with launch_server(dist_dir) as (hostname, port):
     if args.runtime == "chrome":
         driver = ChromeDriver(hostname, port)
-    elif args.runtime == "node":
-        driver = NodeDriver(hostname, port)
     elif args.runtime == "firefox":
         driver = FirefoxDriver(hostname, port)
 
