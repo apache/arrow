@@ -829,6 +829,53 @@ TEST(AsyncGrpcTest, DoPutWithoutDescriptorOnFirstMessageIsRejected) {
   EXPECT_EQ(0, listener->batches().size());
 }
 
+TEST(AsyncGrpcTest, DoPutMalformedFirstMessageIsRejected) {
+  // A first message that does not parse as FlightData (here a descriptor field
+  // cut short) fails the upload before the listener hears anything.
+  TestFlightServer flight_server;
+  auto listener = std::make_shared<RecordingListener>();
+  flight_server.set_listener(listener);
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
+  FlightServerOptions options(location);
+  ASSERT_OK(flight_server.Init(options));
+
+  // Field 1 (the descriptor), length-delimited, announcing 127 bytes of 2.
+  ::grpc::Slice truncated(std::string("\x0a\x7f\x01\x02", 4));
+  ::grpc::ByteBuffer request(&truncated, 1);
+
+  std::shared_ptr<::grpc::Channel> channel = ::grpc::CreateChannel(
+      std::string(kLoopbackHost) + ":" + std::to_string(flight_server.port()),
+      ::grpc::InsecureChannelCredentials());
+  ::grpc::GenericStub stub(channel);
+  ::grpc::ClientContext context;
+  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(10));
+  ::grpc::CompletionQueue cq;
+  void* tag = nullptr;
+  bool ok = false;
+
+  auto call = stub.Call(&context, "/arrow.flight.protocol.FlightService/DoPut", &cq,
+                        reinterpret_cast<void*>(1));
+  ASSERT_NE(call, nullptr);
+  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the call never started";
+  call->Write(request, reinterpret_cast<void*>(2));
+  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the message was never written";
+  call->WritesDone(reinterpret_cast<void*>(3));
+  ASSERT_TRUE(cq.Next(&tag, &ok)) << "WritesDone never completed";
+  ::grpc::Status status;
+  call->Finish(&status, reinterpret_cast<void*>(4));
+  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the call never finished";
+
+  EXPECT_FALSE(status.ok()) << "a malformed first message must be refused";
+  EXPECT_THAT(status.error_message(),
+              ::testing::HasSubstr("Unable to read FlightDescriptor"));
+
+  ASSERT_OK(flight_server.Shutdown());
+  ASSERT_OK(flight_server.Wait());
+
+  EXPECT_EQ(0, listener->descriptor_count());
+  EXPECT_EQ(0, listener->batches().size());
+}
+
 TEST(AsyncGrpcTest, DoPutReportsAFailingOnFinishToTheClient) {
   // The listener's OnFinish() is where an application commits the upload. When
   // it fails asynchronously, the client must not see a successful Close(): the
