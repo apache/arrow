@@ -83,7 +83,7 @@ void ExchangeReactor::OnWriteDone(bool ok) {
   writer_->OnWriteDone(ok);
 }
 
-void ExchangeReactor::OnCancel() {
+void ExchangeReactor::TearDownOnCancel() {
   // Finish first (the handler's future may never resolve), then unwind the
   // reader and writer so a handler parked on their futures wakes up.
   FinishOnce(arrow::Status::Cancelled());

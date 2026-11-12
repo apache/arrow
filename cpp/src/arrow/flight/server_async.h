@@ -18,6 +18,7 @@
 #pragma once
 
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -61,9 +62,10 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataStream {
 
   /// \brief Stop the stream: the RPC it was producing for is over.
   ///
-  /// Called at most once, possibly from any thread. A pending
-  /// NextAsync()/GetSchemaPayloadAsync() future must be resolved here (or
-  /// abandoned knowingly): the transport does not wait for it.
+  /// Called once, possibly from any thread, whichever way the RPC ends, including for a
+  /// stream DoGetAsync() resolves after the RPC was cancelled. A pending
+  /// NextAsync()/GetSchemaPayloadAsync() future must be resolved here (or abandoned
+  /// knowingly): the transport does not wait for it.
   /// Its return status becomes the RPC's final status only on the normal end-of-stream
   /// path (after NextAsync() reports end of stream).
   /// On every other path (write failure, cancellation) the RPC already has a status and
@@ -252,6 +254,26 @@ class ARROW_FLIGHT_EXPORT AsyncGenericFlightServerBase {
   /// is still unresolved.
   Status Wait();
 
+  /// \brief Run `callback` once if the RPC behind `context` is cancelled: the
+  /// push counterpart of ServerCallContext::is_cancelled(), to stop work a
+  /// handler started instead of polling.
+  ///
+  /// The callback runs when the RPC is cancelled (by the client, a deadline, a
+  /// network error, etc.), on the transport thread that observes it and after
+  /// the transport has settled the RPC's status; or before this call returns,
+  /// on the calling thread, if the RPC is already cancelled. It never runs if
+  /// the RPC ends without being cancelled. It must not block.
+  ///
+  /// Call this while the RPC is live: during a handler call, or while a future
+  /// the transport awaits from that handler is still pending.
+  /// \param[in] context The context an AsyncGenericFlightServerBase handed to the
+  ///   handler.
+  /// \param[in] callback The function to run on cancellation.
+  /// \return OK once the callback is registered (or has run); Invalid when
+  ///   `context` comes from anywhere else.
+  static Status AddCancelCallback(const ServerCallContext& context,
+                                  std::function<void()> callback);
+
   /// \brief Asynchronously retrieve a list of available fields given an
   /// optional opaque criteria.
   /// \param[in] context is the server call context.
@@ -342,9 +364,11 @@ class ARROW_FLIGHT_EXPORT AsyncGenericFlightServerBase {
   /// whatever stream it resolves to, and must not be blocked waiting for it.
   ///
   /// If the RPC is cancelled while the returned future is pending, the
-  /// transport finishes the RPC without waiting for it, and the stream it
-  /// eventually resolves to is dropped without Close() ever being delivered
-  /// (the transport no longer holds the stream).
+  /// transport finishes the RPC without waiting for it. The stream the future
+  /// eventually resolves to is never read from, but still receives Close():
+  /// on the thread that completes the future, or on the transport's thread when
+  /// that completion races the cancellation. To stop the work behind a pending
+  /// future, register a callback with AddCancelCallback().
   virtual arrow::Future<std::shared_ptr<AsyncFlightDataStream>> DoGetAsync(
       const ServerCallContext& context, const Ticket& request);
 
