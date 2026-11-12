@@ -34,14 +34,11 @@ namespace arrow::flight::transport::grpc {
 TEST(AsyncGrpcTest, DoExchangeEchoesBatches) {
   // Two batches up, two batches back, in order: this is the case that needs a
   // read and a write outstanding at the same time.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   FlightServerOptions options(location);
   EchoExchangeTestServer flight_server;
   ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(
-      auto client_location,
-      Location::Parse("grpc://localhost:" + std::to_string(flight_server.port())));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(client_location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
   ASSERT_OK_AND_ASSIGN(auto exchange,
                        client->DoExchange(FlightDescriptor::Command("echo")));
@@ -83,14 +80,11 @@ TEST(AsyncGrpcTest, DoExchangeMetadataOnlyDoesNotHang) {
   // handler must see the end of the exchange and reply, not wait for a schema
   // message that will never come (the case DataTest::TestDoExchangeNoData
   // covers). A hang here is the failure mode this test exists for.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   FlightServerOptions options(location);
   EchoExchangeTestServer flight_server;
   ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(
-      auto client_location,
-      Location::Parse("grpc://localhost:" + std::to_string(flight_server.port())));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(client_location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
   ASSERT_OK_AND_ASSIGN(auto exchange,
                        client->DoExchange(FlightDescriptor::Command("echo")));
@@ -120,14 +114,11 @@ TEST(AsyncGrpcTest, DoExchangeClientDisconnectFinishes) {
   // must let the handler unwind and finish the RPC, and the exchange counter
   // added to the test server must come back to zero -- a hang or a leaked
   // handler leaves it above zero.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   FlightServerOptions options(location);
   EchoExchangeTestServer flight_server;
   ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(
-      auto client_location,
-      Location::Parse("grpc://localhost:" + std::to_string(flight_server.port())));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(client_location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
   ASSERT_OK_AND_ASSIGN(auto exchange,
                        client->DoExchange(FlightDescriptor::Command("echo")));
@@ -175,7 +166,7 @@ TEST(AsyncGrpcTest, DoExchangeClientCancelWithPendingHandlerFinishes) {
   // finish the RPC (and unwind reader/writer), not wait for the handler.
   const int64_t before = detail::AsyncReactorBase::live_reactors();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   HangingExchangeServer flight_server;
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
