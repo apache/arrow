@@ -77,7 +77,7 @@ arrow::Future<FlightStreamChunk> ExchangeReader::NextAsync() {
       return FSCFuture::MakeFinished(read_error_);
     }
 
-    if (read_closed_ || reactor_.load() == nullptr) {
+    if (read_closed_ || reactor_ == nullptr) {
       // End of exchange: the reactor either saw the read side close or the RPC
       // is over (and the reactor is gone), so no further read can be started.
       return FSCFuture::MakeFinished(FlightStreamChunk{});
@@ -104,12 +104,12 @@ arrow::Future<FlightStreamChunk> ExchangeReader::NextAsync() {
 
 void ExchangeReader::SetReactor(ExchangeReactor* reactor) {
   std::lock_guard<std::mutex> lock(mutex_);
-  reactor_.store(reactor);
+  reactor_ = reactor;
 }
 
 void ExchangeReader::DetachReactor() {
   std::lock_guard<std::mutex> lock(mutex_);
-  reactor_.store(nullptr);
+  reactor_ = nullptr;
 }
 
 void ExchangeReader::SetDescriptor(const FlightDescriptor& descriptor) {
@@ -213,17 +213,20 @@ void ExchangeReader::Consume(internal::FlightData data) {
 
 void ExchangeReader::RequestRead() {
   ExchangeReactor* reactor = nullptr;
+  // Taken under mutex_: DetachReactor() takes the same lock, and OnDone()
+  // drops the RPC's reference only after detaching, so the reactor outlives
+  // the unlocked call below. Released when this function returns.
+  AsyncReactorBase::HoldToken token;
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    reactor = reactor_.load();
-    if (read_in_flight_ || read_closed_ || reactor == nullptr) {
+    if (read_in_flight_ || read_closed_ || reactor_ == nullptr) {
       return;
     }
-    reactor->Hold();
+    reactor = reactor_;
+    token = reactor->hold();
     read_in_flight_ = true;
   }
   reactor->StartReadNext();
-  reactor->ReleaseHold();
 }
 
 }  // namespace arrow::flight::transport::grpc::detail

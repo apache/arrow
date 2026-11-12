@@ -124,8 +124,6 @@ class DoGetReactor : public AsyncReactorBase {
   }
 
   void WriteNextPayload() {
-    HoldToken token = hold();
-
     arrow::Future<std::optional<FlightPayload>> next;
     {
       // Ask under stream_mutex_, which CloseStreamOnce() takes to claim the
@@ -145,7 +143,7 @@ class DoGetReactor : public AsyncReactorBase {
         next = async_data_stream_->NextAsync();
       }
     }
-    next.AddCallback([this, token = token.release()](
+    next.AddCallback([this, token = hold()](
                          arrow::Result<std::optional<FlightPayload>> result) {
       if (!finished()) {
         if (!result.ok()) {

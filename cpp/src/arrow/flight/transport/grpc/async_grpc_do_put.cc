@@ -49,9 +49,7 @@ class DoPutReactor : public AsyncReactorBase,
     if (status.ok()) {
       status = Status::Invalid("Cancel() needs a non-OK status");
     }
-    AsyncReactorBase::Hold();
     FinishUpload(std::move(status));
-    AsyncReactorBase::ReleaseHold();
   }
 
   Future<> WriteMetadataAsync(const Buffer& app_metadata) override {

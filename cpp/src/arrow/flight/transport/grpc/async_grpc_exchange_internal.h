@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -100,7 +99,8 @@ class ExchangeReader final : public AsyncFlightMessageReader,
   /// async_grpc_exchange_reader.cc, which has the reactor's definition.
   void RequestRead();
 
-  std::atomic<ExchangeReactor*> reactor_{nullptr};
+  /// Guarded by mutex_.
+  ExchangeReactor* reactor_ = nullptr;
   std::shared_ptr<ChunkListener> listener_;
   AsyncFlightMessageDecoder decoder_;
   FlightDescriptor descriptor_;
@@ -159,7 +159,8 @@ class ExchangeWriter final : public AsyncFlightMessageWriter {
 
   void FailFlush(Status status);
 
-  std::atomic<ExchangeReactor*> reactor_;
+  /// Set by the constructor, cleared by DetachReactor(); read under mutex_.
+  ExchangeReactor* reactor_;
   std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
   ipc::IpcWriteOptions options_ = ipc::IpcWriteOptions::Defaults();
   std::shared_ptr<Buffer> pending_app_metadata_;
@@ -194,16 +195,6 @@ class ExchangeReactor final : public AsyncReactorBase {
   /// \brief Serialize one payload into the write buffer and start the write.
   /// Called by ExchangeWriter, OnWriteDone() resumes it.
   arrow::Status WritePayload(FlightPayload payload);
-
-  /// \brief Take a reference across a call made through a back-pointer.
-  ///
-  /// OnDone() detaches the reader/writer back-pointers and then releases the
-  /// reactor's last reference, so a reader/writer that loads the raw pointer and
-  /// calls in can reach freed memory. These re-expose the base's protected
-  /// Hold()/ReleaseHold() publicly (the same way DoPutReactor does for its
-  /// transport interface); callers pair them around the call.
-  void Hold() { AsyncReactorBase::Hold(); }
-  void ReleaseHold() { AsyncReactorBase::ReleaseHold(); }
 
  private:
   AsyncGenericFlightServerBase* base_;
