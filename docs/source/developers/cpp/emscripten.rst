@@ -49,8 +49,9 @@ versions of emsdk tools.
 .. code:: shell
 
    # install Pyodide build tools.
-   # e.g., for version 0.26 of Pyodide, pyodide-build 0.26 and later work
-   pip install "pyodide-build>=0.26"
+   # pyodide-build is versioned independently of Pyodide.
+   # For Pyodide 314.0.x, pyodide-build 0.39.2 and later work well
+   pip install "pyodide-build>=0.39.2"
 
 Then build with the ``ninja-release-emscripten`` CMake preset,
 like below:
