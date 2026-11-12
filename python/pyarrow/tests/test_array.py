@@ -4339,6 +4339,25 @@ def test_run_end_encoded_to_pandas():
         ree_array.to_pandas(zero_copy_only=True)
 
 
+@pytest.mark.pandas
+@pytest.mark.parametrize('run_end_type', [pa.int16(), pa.int32(), pa.int64()])
+def test_run_end_encoded_dictionary_to_pandas(run_end_type):
+    source = pa.array(['a', 'a', None, None, 'b', 'a', 'a', 'a']).dictionary_encode()
+    runs = pc.run_end_encode(source.indices, options=pc.RunEndEncodeOptions(run_end_type))
+    values = pa.DictionaryArray.from_arrays(runs.values, source.dictionary)
+    ree = pa.RunEndEncodedArray.from_arrays(runs.run_ends, values)
+
+    decoded = pc.run_end_decode(ree)
+    assert decoded.type == source.type
+    assert decoded.indices.equals(source.indices)
+    assert decoded.dictionary.equals(source.dictionary)
+
+    import pandas as pd
+    result = pa.table({'c': ree}).to_pandas()
+    expected = pa.table({'c': source}).to_pandas()
+    pd.testing.assert_frame_equal(result, expected)
+
+
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
                          [(pa.ListViewArray, pa.list_view),
                           (pa.LargeListViewArray, pa.large_list_view)])
