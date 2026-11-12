@@ -526,16 +526,15 @@ class RawBuilderSet {
 
   /// Appending null is slightly tricky since null count is stored inline
   /// for builders of Kind::kNull. Append nulls using this helper
-  Status AppendNull(BuilderPtr parent, int field_index, BuilderPtr builder) {
+  Result<BuilderPtr> AppendNull(BuilderPtr parent, int field_index) {
+    BuilderPtr builder = parent.kind == Kind::kArray
+                             ? Cast<Kind::kArray>(parent)->value_builder()
+                             : Cast<Kind::kObject>(parent)->field_builder(field_index);
     if (ARROW_PREDICT_FALSE(!builder.nullable)) {
       return ParseError("a required field was null");
     }
     switch (builder.kind) {
       case Kind::kNull: {
-        DCHECK_EQ(builder, parent.kind == Kind::kArray
-                               ? Cast<Kind::kArray>(parent)->value_builder()
-                               : Cast<Kind::kObject>(parent)->field_builder(field_index));
-
         // increment null count stored inline
         builder.index += 1;
 
@@ -545,38 +544,43 @@ class RawBuilderSet {
         } else {
           Cast<Kind::kObject>(parent)->field_builder(field_index, builder);
         }
-        return Status::OK();
+        break;
       }
       case Kind::kBoolean:
-        return Cast<Kind::kBoolean>(builder)->AppendNull();
+        RETURN_NOT_OK(Cast<Kind::kBoolean>(builder)->AppendNull());
+        break;
 
       case Kind::kNumber:
-        return Cast<Kind::kNumber>(builder)->AppendNull();
+        RETURN_NOT_OK(Cast<Kind::kNumber>(builder)->AppendNull());
+        break;
 
       case Kind::kString:
-        return Cast<Kind::kString>(builder)->AppendNull();
+        RETURN_NOT_OK(Cast<Kind::kString>(builder)->AppendNull());
+        break;
 
       case Kind::kNumberOrString: {
-        return Cast<Kind::kNumberOrString>(builder)->AppendNull();
+        RETURN_NOT_OK(Cast<Kind::kNumberOrString>(builder)->AppendNull());
+        break;
       }
 
       case Kind::kArray:
-        return Cast<Kind::kArray>(builder)->AppendNull();
+        RETURN_NOT_OK(Cast<Kind::kArray>(builder)->AppendNull());
+        break;
 
       case Kind::kObject: {
         auto struct_builder = Cast<Kind::kObject>(builder);
         RETURN_NOT_OK(struct_builder->AppendNull());
 
         for (int i = 0; i < struct_builder->num_fields(); ++i) {
-          auto field_builder = struct_builder->field_builder(i);
-          RETURN_NOT_OK(AppendNull(builder, i, field_builder));
+          RETURN_NOT_OK(AppendNull(builder, i));
         }
-        return Status::OK();
+        break;
       }
 
       default:
         return Status::NotImplemented("invalid builder Kind");
     }
+    return builder;
   }
 
   Status Finish(const std::shared_ptr<Array>& scalar_values, BuilderPtr builder,
@@ -669,7 +673,9 @@ class ParseImpl : public BlockParser {
 
   Status Null() {
     DCHECK(!builder_stack_.empty());
-    return builder_set_.AppendNull(builder_stack_.back(), field_index_, builder_);
+    ARROW_ASSIGN_OR_RAISE(builder_,
+                          builder_set_.AppendNull(builder_stack_.back(), field_index_));
+    return Status::OK();
   }
 
   Status HandleUnexpectedField(std::string_view key, sj::value& value) {
@@ -962,11 +968,10 @@ class ParseImpl : public BlockParser {
       if (!absent_fields_stack_[i]) {
         continue;
       }
-      auto field_builder = Cast<Kind::kObject>(parent)->field_builder(i);
-      if (ARROW_PREDICT_FALSE(!field_builder.nullable)) {
+      if (ARROW_PREDICT_FALSE(!Cast<Kind::kObject>(parent)->field_builder(i).nullable)) {
         return ParseError("a required field was absent");
       }
-      RETURN_NOT_OK(builder_set_.AppendNull(parent, i, field_builder));
+      RETURN_NOT_OK(builder_set_.AppendNull(parent, i));
     }
     absent_fields_stack_.Pop();
     EndNested();

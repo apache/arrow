@@ -726,6 +726,21 @@ TEST(TestBufferBuilder, ResizeReserve) {
   ASSERT_EQ(9, builder.length());
 }
 
+TEST(TestBufferBuilder, ReserveAndAppendOverflow) {
+  const std::string data = "x";
+  auto data_ptr = data.c_str();
+  BufferBuilder builder;
+
+  const int64_t overflow_add = std::numeric_limits<int64_t>::max() - 8;
+  ASSERT_RAISES(OutOfMemory, builder.Reserve(overflow_add));
+
+  ASSERT_OK(builder.Append(data_ptr, 1));
+  constexpr int64_t kMaxLength = std::numeric_limits<int64_t>::max();
+  ASSERT_RAISES(CapacityError, builder.Reserve(kMaxLength));
+  ASSERT_RAISES(CapacityError, builder.Append(data_ptr, kMaxLength));
+  ASSERT_EQ(1, builder.length());
+}
+
 TEST(TestBufferBuilder, Alignment) {
   const std::string data = "some data";
   auto data_ptr = data.c_str();
@@ -860,6 +875,15 @@ TYPED_TEST(TypedTestBufferBuilder, AppendCopies) {
   for (int i = 0; i != 13 + 17; ++i, ++data) {
     ASSERT_EQ(*data, static_cast<TypeParam>(i < 13)) << "index = " << i;
   }
+}
+
+TYPED_TEST(TypedTestBufferBuilder, OverflowAppend) {
+  TypedBufferBuilder<TypeParam> builder;
+
+  const int64_t max_num_elements =
+      std::numeric_limits<int64_t>::max() / static_cast<int64_t>(sizeof(TypeParam)) + 1;
+  ASSERT_RAISES(CapacityError,
+                builder.Append(max_num_elements, static_cast<TypeParam>(0)));
 }
 
 TEST(TestBoolBufferBuilder, Basics) {

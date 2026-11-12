@@ -85,9 +85,6 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
-          (github.event_name == 'push' &&
-           github.repository == 'apache/arrow' &&
-           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
@@ -149,7 +146,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
@@ -178,17 +175,14 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: .docker
           key: cpp-extra-${{ matrix.image }}
           include-hidden-files: true
       - name: Docker Push
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.repository == 'apache/arrow' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -238,7 +232,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
@@ -260,16 +254,14 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}
           include-hidden-files: true
       - name: Docker Push
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         env:
           ARCHERY_DOCKER_USER: ${{ github.actor }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -280,8 +272,8 @@ jobs:
     needs: check-enabled
     if: needs.check-enabled.outputs.is_enabled == 'true'
     name: JNI macOS
-    runs-on: macos-14
-    timeout-minutes: 45
+    runs-on: macos-26
+    timeout-minutes: 60
     env:
       MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
@@ -315,7 +307,7 @@ jobs:
         run: |
           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: ccache
           key: jni-macos
@@ -361,7 +353,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: ccache
           key: jni-macos
@@ -416,7 +408,7 @@ jobs:
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
 
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
@@ -490,7 +482,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
@@ -524,7 +516,7 @@ jobs:
           docker compose up -d dremio
           cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: .docker
           key: ubuntu-cpp-odbc
@@ -540,17 +532,14 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: .docker
           key: ubuntu-cpp-odbc
           include-hidden-files: true
       - name: Docker Push
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.repository == 'apache/arrow' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -614,7 +603,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Restore ccache
-        uses: apache/infrastructure-actions/stash/restore@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/restore@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
@@ -637,7 +626,7 @@ jobs:
       - name: Save ccache
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@e3e0a2261a9c6d5bdd882802b303f34b1511b6df
+        uses: apache/infrastructure-actions/stash/save@5a4eaabe6c43770c9df95875a513a6b8362be5eb
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}
@@ -835,7 +824,7 @@ jobs:
       ARROW_USE_STATIC_CRT: OFF
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
-      VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
+      VCPKG_BINARY_SOURCES: 'clear;nugettimeout,1800;nuget,GitHub,readwrite'
       # GH-49465: custom triplet that rebuilds gRPC with GPR_DISABLE_ABSEIL_SYNC
       # (native sync instead of absl::Mutex). See ci/vcpkg/amd64-windows-no-absl-sync-release.cmake
       VCPKG_DEFAULT_TRIPLET: amd64-windows-no-absl-sync-release

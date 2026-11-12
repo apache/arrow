@@ -232,3 +232,59 @@ test_that("find_latest_nightly()", {
     "Failed to find latest nightly"
   )
 })
+
+test_that("with_vendored_dependencies()", {
+  vendored_dir <- tempfile()
+  dir.create(vendored_dir)
+  on.exit(unlink(vendored_dir, recursive = TRUE), add = TRUE)
+  original_dir <- nixlibs_env$vendored_dependency_dir
+  original_get_component_names <- nixlibs_env$get_component_names
+  original_quietly <- nixlibs_env$quietly
+  on.exit(nixlibs_env$vendored_dependency_dir <- original_dir, add = TRUE)
+  on.exit(nixlibs_env$get_component_names <- original_get_component_names, add = TRUE)
+  on.exit(nixlibs_env$quietly <- original_quietly, add = TRUE)
+  nixlibs_env$vendored_dependency_dir <- vendored_dir
+  nixlibs_env$get_component_names <- function() {
+    data.frame(
+      env_varname = c("ARROW_URIPARSER_URL", "ARROW_XSIMD_URL", "ARROW_ZSTD_URL"),
+      filename = c("uriparser-1.0.2.tar.bz2", "xsimd-14.3.0.tar.gz", "zstd-1.5.7.tar.gz")
+    )
+  }
+  withr::local_envvar(c(ARROW_URIPARSER_URL = NA, ARROW_XSIMD_URL = NA))
+
+  # Without the vendored tarballs, nothing is set
+  nixlibs_env$quietly <- TRUE
+  expect_silent(
+    expect_identical(with_vendored_dependencies(list(A = "1")), list(A = "1"))
+  )
+  # The missing tarballs are only reported with verbose logging
+  nixlibs_env$quietly <- FALSE
+  expect_output(
+    expect_identical(with_vendored_dependencies(list(A = "1")), list(A = "1")),
+    "Vendored source for ARROW_URIPARSER_URL not found"
+  )
+  nixlibs_env$quietly <- TRUE
+
+  uriparser <- file.path(vendored_dir, "uriparser-1.0.2.tar.bz2")
+  xsimd <- file.path(vendored_dir, "xsimd-14.3.0.tar.gz")
+  # Only dependencies in vendored_dependencies are used
+  zstd <- file.path(vendored_dir, "zstd-1.5.7.tar.gz")
+  file.create(uriparser, xsimd, zstd)
+  expect_identical(
+    with_vendored_dependencies(list(A = "1")),
+    list(A = "1", ARROW_URIPARSER_URL = normalizePath(uriparser), ARROW_XSIMD_URL = normalizePath(xsimd))
+  )
+
+  # Already set (e.g. by set_thirdparty_urls()) is respected
+  expect_identical(
+    with_vendored_dependencies(list(ARROW_URIPARSER_URL = "other.tar.bz2")),
+    list(ARROW_URIPARSER_URL = "other.tar.bz2", ARROW_XSIMD_URL = normalizePath(xsimd))
+  )
+
+  # As is a user-set env var
+  withr::local_envvar(c(ARROW_URIPARSER_URL = "https://example.com/uriparser.tar.bz2"))
+  expect_identical(
+    with_vendored_dependencies(list(A = "1")),
+    list(A = "1", ARROW_XSIMD_URL = normalizePath(xsimd))
+  )
+})

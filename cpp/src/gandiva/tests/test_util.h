@@ -122,6 +122,12 @@ std::shared_ptr<Configuration> TestConfigWithHolderFunction(
 std::shared_ptr<Configuration> TestConfigWithContextFunction(
     std::shared_ptr<FunctionRegistry> registry);
 
+// helper function to create a Configuration with an external function registered
+// to the given function registry, and the external function takes arena scratch memory
+// but returns an int32
+std::shared_ptr<Configuration> TestConfigWithArenaScratchFunction(
+    std::shared_ptr<FunctionRegistry> registry);
+
 std::string GetTestFunctionLLVMIRPath();
 NativeFunction GetTestExternalFunction();
 

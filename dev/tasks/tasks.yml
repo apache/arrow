@@ -632,6 +632,16 @@ tasks:
     ci: github
     template: r/github.linux.offline.build.yml
 
+  # Simulate a CRAN builder without network access: the build should detect
+  # that it is offline and fall back to a minimal build without downloading
+  # anything.
+  test-r-offline-minimal:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      flags: '-e ARROW_R_TEST_OFFLINE=true -e NOT_CRAN=false -e SKIP_VIGNETTES=true'
+      image: r
+
   # This one has -flto=auto
   test-r-ubuntu-22.04:
     ci: github

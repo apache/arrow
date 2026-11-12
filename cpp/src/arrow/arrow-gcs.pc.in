@@ -15,21 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: "Label when reviewed"
-on: pull_request_review
+prefix=@CMAKE_INSTALL_PREFIX@
+includedir=@ARROW_PKG_CONFIG_INCLUDEDIR@
+libdir=@ARROW_PKG_CONFIG_LIBDIR@
 
-permissions:
-  contents: read
-
-jobs:
-  # due to GitHub Actions permissions we can't change labels on the pull_request_review
-  # workflow. We trigger a new workflow run which will have permissions to add labels.
-  label-when-reviewed:
-    name: "Label PRs when reviewed"
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Upload PR review Payload"
-        uses: actions/upload-artifact@v7
-        with:
-          path: "${{ github.event_path }}"
-          name: "pr_review_payload"
+Name: Apache Arrow GCS
+Description: Apache Arrow's GCS filesystem implementation.
+Version: @ARROW_VERSION@
+Requires: arrow@ARROW_GCS_PC_REQUIRES@
+Requires.private:@ARROW_GCS_PC_REQUIRES_PRIVATE@
+Libs: -L${libdir} -larrow_gcs@ARROW_GCS_PC_LIBS@
+Libs.private:@ARROW_GCS_PC_LIBS_PRIVATE@
+Cflags:@ARROW_GCS_PC_CFLAGS@
+Cflags.private:@ARROW_GCS_PC_CFLAGS_PRIVATE@

@@ -3211,35 +3211,6 @@ cdef class Schema(_Weakrefable):
         cdef int index = <int> _normalize_index(i, self.schema.num_fields())
         return pyarrow_wrap_field(self.schema.field(index))
 
-    def field_by_name(self, name):
-        """
-        DEPRECATED
-
-        Parameters
-        ----------
-        name : str
-
-        Returns
-        -------
-        field: pyarrow.Field
-        """
-        cdef:
-            vector[shared_ptr[CField]] results
-
-        warnings.warn(
-            "The 'field_by_name' method is deprecated, use 'field' instead",
-            FutureWarning, stacklevel=2)
-
-        results = self.schema.GetAllFieldsByName(tobytes(name))
-        if results.size() == 0:
-            return None
-        elif results.size() > 1:
-            warnings.warn("Schema field name corresponds to more "
-                          "than one field", UserWarning)
-            return None
-        else:
-            return pyarrow_wrap_field(results[0])
-
     def get_field_index(self, name):
         """
         Return index of the unique field with the given name.
@@ -3452,19 +3423,6 @@ cdef class Schema(_Weakrefable):
             new_schema = GetResultValue(self.schema.SetField(i, c_field))
 
         return pyarrow_wrap_schema(new_schema)
-
-    def add_metadata(self, metadata):
-        """
-        DEPRECATED
-
-        Parameters
-        ----------
-        metadata : dict
-            Keys and values must be string-like / coercible to bytes
-        """
-        warnings.warn("The 'add_metadata' method is deprecated, use "
-                      "'with_metadata' instead", FutureWarning, stacklevel=2)
-        return self.with_metadata(metadata)
 
     def with_metadata(self, metadata):
         """

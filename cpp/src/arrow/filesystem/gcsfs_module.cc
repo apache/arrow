@@ -15,14 +15,4 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
-#include <cstdint>
-
-#include "parquet/level_comparison.h"
-
-namespace parquet::internal {
-
-uint64_t GreaterThanBitmapAvx2(const int16_t* levels, int64_t num_levels, int16_t rhs);
-
-}  // namespace parquet::internal
+#include "arrow/filesystem/filesystem_library.h"

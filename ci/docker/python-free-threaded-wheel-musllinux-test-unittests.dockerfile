@@ -37,7 +37,7 @@ RUN apk update && \
 # See available releases at: https://github.com/astral-sh/python-build-standalone/releases
 RUN set -e; \
     case "${python_version}" in \
-      3.14) python_patch_version="3.14.7";; \
+      3.14) python_patch_version="3.14.8";; \
       3.15) python_patch_version="3.15.0";; \
     esac && \
     curl -L -o python.tar.zst \

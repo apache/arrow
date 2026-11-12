@@ -26,10 +26,11 @@ endif()
 
 if(ARROW_COMPUTE)
   if(ARROW_TEST_LINKAGE STREQUAL "static")
-    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_static arrow_compute_testing)
+    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_static)
   else()
-    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_shared arrow_compute_testing)
+    list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_shared)
   endif()
+  list(APPEND ARROW_TEST_LINK_LIBS arrow_compute_testing_main)
 endif()
 
 add_arrow_test(bridge_test

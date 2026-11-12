@@ -18,7 +18,6 @@
 #include "arrow/util/alp/alp_compression_internal.h"
 
 #include <algorithm>
-#include <bit>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -200,7 +199,7 @@ std::optional<int64_t> EstimateCompressedSizeBits(
   const EncodedUnsigned delta = (static_cast<EncodedUnsigned>(max_encoded_value) -
                                  static_cast<EncodedUnsigned>(min_encoded_value));
 
-  const int32_t estimated_bits_per_value = static_cast<int32_t>(std::bit_width(delta));
+  const int32_t estimated_bits_per_value = bit_util::BitWidth(delta);
   int64_t estimated_compression_size =
       static_cast<int64_t>(inputs.size()) * estimated_bits_per_value;
   estimated_compression_size +=
@@ -445,7 +444,7 @@ typename AlpCompression<T>::BitPackingResult AlpCompression<T>::BitPackIntegers(
   uint8_t bit_width = 0;
 
   if (min_max_diff > 0) {
-    bit_width = static_cast<uint8_t>(std::bit_width(min_max_diff));
+    bit_width = static_cast<uint8_t>(bit_util::BitWidth(min_max_diff));
   }
   const int32_t bit_packed_size = static_cast<int32_t>(
       bit_util::BytesForBits(bit_width * static_cast<int64_t>(for_deltas.size())));
@@ -561,10 +560,13 @@ void AlpCompression<T>::Decompress(const AlpEncodedVectorView<T>& encoded_view,
   // Fused unFOR + decode loop: undo FOR in unsigned arithmetic, reinterpret the
   // result as signed encoded integers, then apply the normative decimal decode.
   const EncodedUnsigned frame_of_ref = for_info.frame_of_reference();
+  // Read the exponent/factor once. AlpInfo stores them as uint8_t, which may
+  // alias the output stores, so reading them inside the loop blocks vectorization.
+  const AlpExponentAndFactor exponent_and_factor = alp_info.GetExponentAndFactor();
   for (size_t i = 0; i < output.size(); ++i) {
     const EncodedUnsigned unfored_value = scratch[i] + frame_of_ref;
     const EncodedSigned signed_value = util::SafeCopy<EncodedSigned>(unfored_value);
-    output[i] = AlpInlines<T>::DecodeValue(signed_value, alp_info.GetExponentAndFactor());
+    output[i] = AlpInlines<T>::DecodeValue(signed_value, exponent_and_factor);
   }
 
   PatchExceptions<TargetType>(

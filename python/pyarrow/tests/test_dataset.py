@@ -853,8 +853,8 @@ def test_partitioning_pickling(pickle_module):
     "flavor, expected_defined_partition, expected_undefined_partition",
     [
         ("HivePartitioning", (r"foo=A/bar=ant%20bee", ""), ("", "")),
-        ("DirectoryPartitioning", (r"A/ant bee", ""), ("", "")),
-        ("FilenamePartitioning", ("", r"A_ant bee_"), ("", "_")),
+        ("DirectoryPartitioning", (r"A/ant%20bee", ""), ("", "")),
+        ("FilenamePartitioning", ("", r"A_ant%20bee_"), ("", "_")),
     ],
 )
 def test_dataset_partitioning_format(
@@ -5947,6 +5947,32 @@ def test_write_dataset_content_defined_chunking(tempdir, cdc):
     opts = fmt.make_write_options(use_content_defined_chunking=cdc)
     ds.write_dataset(expected_table, tempdir, format=fmt, file_options=opts)
     assert ds.dataset(tempdir, format=fmt).to_table().equals(expected_table)
+
+
+@pytest.mark.parquet
+def test_parquet_min_compression_savings(tempdir):
+    import pyarrow.parquet as pq
+
+    table = pa.table({
+        "value": pa.array([0.0] * 1000, type=pa.float32())
+    })
+    sizes = []
+
+    for minimum in [0.0, 0.1, 1.0]:
+        directory = tempdir / str(minimum)
+        pq.write_to_dataset(
+            table,
+            directory,
+            compression="snappy",
+            use_dictionary=False,
+            data_page_version="2.0",
+            min_compression_savings=minimum,
+        )
+        result = ds.dataset(directory, format="parquet").to_table()
+        assert result.equals(table)
+        sizes.append(next(directory.iterdir()).stat().st_size)
+
+    assert sizes[-1] > max(sizes[:-1])
 
 
 def test_make_write_options_error():

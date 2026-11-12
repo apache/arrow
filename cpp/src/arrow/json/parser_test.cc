@@ -236,6 +236,22 @@ TEST(BlockParserWithSchema, FailOnIncompleteJson) {
   ASSERT_RAISES(Invalid, ParseFromString(options, "{\"a\":0, \"b\"", &parsed));
 }
 
+TEST(BlockParserWithSchema, NullsInList) {
+  auto options = ParseOptions::Defaults();
+  options.explicit_schema = schema({field("a", list(null()))});
+  for (auto behavior :
+       {UnexpectedFieldBehavior::Error, UnexpectedFieldBehavior::Ignore}) {
+    options.unexpected_field_behavior = behavior;
+    AssertParseColumns(options, R"({"a": [null, null]})", {field("a", list(null()))},
+                       {"[[null, null]]"});
+  }
+
+  auto type = list(struct_({field("b", null())}));
+  options.explicit_schema = schema({field("a", type)});
+  AssertParseColumns(options, R"({"a": [{"b": null}, null]})", {field("a", type)},
+                     {R"([[{"b": null}, null]])"});
+}
+
 TEST(BlockParserWithSchema, ValidateIgnoredFields) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema = schema({field("known", int64())});
@@ -284,6 +300,17 @@ TEST(BlockParser, Null) {
        field("struct", struct_({field("plain", null())}))},
       {"[null, null]", "[[], []]", "[[], [null]]",
        R"([{"plain": null}, {"plain": null}])"});
+}
+
+TEST(BlockParser, NullsInList) {
+  auto options = ParseOptions::Defaults();
+  options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+  AssertParseColumns(options, R"({"a": [null, null], "b": [null, "hi", null]})",
+                     {field("a", list(null())), field("b", list(utf8()))},
+                     {"[[null, null]]", R"([[null, "hi", null]])"});
+  AssertParseColumns(options, R"({"a": [{"b": null}, null]})",
+                     {field("a", list(struct_({field("b", null())})))},
+                     {R"([[{"b": null}, null]])"});
 }
 
 TEST(BlockParser, InferNewFields) {

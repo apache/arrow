@@ -1,0 +1,4 @@
+usr/lib/*/cmake/ArrowGcs/
+usr/lib/*/libarrow_gcs.a
+usr/lib/*/libarrow_gcs.so
+usr/lib/*/pkgconfig/arrow-gcs.pc
