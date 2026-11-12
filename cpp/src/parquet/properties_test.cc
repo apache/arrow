@@ -148,6 +148,20 @@ TEST(TestWriterProperties, AdvancedHandling) {
   ASSERT_EQ(ParquetDataPageVersion::V2, props->data_page_version());
 }
 
+TEST(TestWriterProperties, DictionaryEncodingsByParquetVersion) {
+  auto props_v1 =
+      WriterProperties::Builder().version(ParquetVersion::PARQUET_1_0)->build();
+  EXPECT_EQ(Encoding::PLAIN_DICTIONARY, props_v1->dictionary_index_encoding());
+  EXPECT_EQ(Encoding::PLAIN_DICTIONARY, props_v1->dictionary_page_encoding());
+
+  for (auto v2 : {ParquetVersion::PARQUET_2_4, ParquetVersion::PARQUET_2_6,
+                  ParquetVersion::PARQUET_2_LATEST}) {
+    auto props_v2 = WriterProperties::Builder().version(v2)->build();
+    EXPECT_EQ(Encoding::RLE_DICTIONARY, props_v2->dictionary_index_encoding());
+    EXPECT_EQ(Encoding::PLAIN, props_v2->dictionary_page_encoding());
+  }
+}
+
 TEST(TestWriterProperties, SetCodecOptions) {
   constexpr int ZSTD_c_windowLog = 101;
 
