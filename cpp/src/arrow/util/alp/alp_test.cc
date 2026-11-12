@@ -326,6 +326,24 @@ TYPED_TEST(AlpVectorTest, PicksBestCombination) {
   EXPECT_TRUE(IsBitwiseEqual(output, input));
 }
 
+// The search tries every candidate in the preset, so the best one is found even
+// when it comes after several worse ones.
+TYPED_TEST(AlpVectorTest, SearchesEveryCombination) {
+  std::vector<TypeParam> input(1024);
+  for (size_t i = 0; i < input.size(); ++i) {
+    input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
+  }
+
+  const AlpEncodingPreset preset{
+      {AlpExponentAndFactor{2, 0}, AlpExponentAndFactor{3, 0}, AlpExponentAndFactor{4, 0},
+       AlpExponentAndFactor{0, 0}, AlpExponentAndFactor{1, 0}},
+      0};
+  const auto encoded = AlpCompression<TypeParam>::Compress(input, preset);
+
+  EXPECT_EQ(encoded.alp_info().exponent(), 1);
+  EXPECT_EQ(encoded.alp_info().factor(), 0);
+}
+
 // A wide random range plus a few extremes, so values land on both sides of the
 // ALP window and the exception path gets used.
 TYPED_TEST(AlpVectorTest, RandomAndExtremes) {

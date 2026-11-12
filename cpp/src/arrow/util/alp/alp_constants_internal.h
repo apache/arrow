@@ -73,15 +73,9 @@ struct AlpSamplingOptions {
   /// Values sampled from a vector when choosing among preset combinations.
   static constexpr int64_t kSearchSamplesPerVector = 256;
 
-  /// Consecutive non-improving combinations before an early exit.
-  static constexpr uint8_t kEarlyExitThreshold = 4;
-
   /// Maximum exponent-factor combinations retained in a preset. The ALP paper
   /// keeps 5.
   static constexpr uint8_t kMaxCombinations = 5;
-
-  static_assert(kMaxCombinations > kEarlyExitThreshold,
-                "early exit requires at least one additional candidate");
 };
 
 // Power-of-ten constants

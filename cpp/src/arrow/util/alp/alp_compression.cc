@@ -336,9 +336,9 @@ AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
 
   AlpExponentAndFactor best_exponent_and_factor;
   int64_t best_total_bits = std::numeric_limits<int64_t>::max();
-  int64_t worse_total_bits_counter = 0;
 
-  // Try each candidate combination to find the one which minimizes compression size.
+  // Try every candidate combination, at most kMaxCombinations, and keep the one
+  // which minimizes compression size. Ties keep the earlier, more frequent one.
   // penalize_exceptions=false because this is second-level sampling: the preset
   // already filtered out bad combinations during first-level sampling, so we
   // just pick whichever pre-vetted combination compresses this vector best.
@@ -347,20 +347,10 @@ AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
         EstimateCompressedSizeBits<T>(sample, exponent_and_factor,
                                       /*penalize_exceptions=*/false)
             .value_or(std::numeric_limits<int64_t>::max());
-
-    // If current compression size is worse or equal than current best combination.
-    if (estimated_compression_size >= best_total_bits) {
-      worse_total_bits_counter += 1;
-      // Early exit strategy.
-      if (worse_total_bits_counter == AlpSamplingOptions::kEarlyExitThreshold) {
-        break;
-      }
-      continue;
+    if (estimated_compression_size < best_total_bits) {
+      best_total_bits = estimated_compression_size;
+      best_exponent_and_factor = exponent_and_factor;
     }
-    // Otherwise replace the best and continue trying with next combination.
-    best_total_bits = estimated_compression_size;
-    best_exponent_and_factor = exponent_and_factor;
-    worse_total_bits_counter = 0;
   }
   return best_exponent_and_factor;
 }
