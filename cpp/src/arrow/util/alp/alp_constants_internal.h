@@ -60,22 +60,24 @@ static_assert(sizeof(AlpFormatConstants::PositionType) == 2);
 // Sampling and parameter-search tuning
 
 struct AlpSamplingOptions {
-  /// Input elements per sampling chunk.
-  static constexpr int64_t kChunkSize = 4096;
+  /// Values per sampling window: 128 vectors, the power of two nearest the ALP
+  /// paper's row group of 100 vectors (section 4, "Sampling Parameters").
+  static constexpr int64_t kSampleWindowSize = 131072;
 
-  /// Elements per sampling interval.
-  static constexpr int64_t kIntervalSize = 122880;
+  /// Vectors sampled from each window. The ALP paper samples 8 per row group.
+  static constexpr int64_t kSampledVectors = 8;
 
-  /// Samples collected per chunk.
-  static constexpr int64_t kSamplesPerChunk = 256;
+  /// Values sampled from each sampled vector. The ALP paper uses 32.
+  static constexpr int64_t kSamplesPerVector = 32;
 
-  /// Chunks sampled per interval.
-  static constexpr int64_t kSampleChunksPerInterval = 8;
+  /// Values sampled from a vector when choosing among preset combinations.
+  static constexpr int64_t kSearchSamplesPerVector = 256;
 
   /// Consecutive non-improving combinations before an early exit.
   static constexpr uint8_t kEarlyExitThreshold = 4;
 
-  /// Maximum exponent-factor combinations retained in a preset.
+  /// Maximum exponent-factor combinations retained in a preset. The ALP paper
+  /// keeps 5.
   static constexpr uint8_t kMaxCombinations = 5;
 
   static_assert(kMaxCombinations > kEarlyExitThreshold,

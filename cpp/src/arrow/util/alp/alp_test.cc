@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -22,6 +23,7 @@
 #include <functional>
 #include <limits>
 #include <random>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -824,6 +826,129 @@ TYPED_TEST(AlpSamplerTest, KeepsSeveralCombinations) {
   std::vector<TypeParam> output(tenths.size());
   DecodeEncodedVector(encoded, &output);
   EXPECT_TRUE(IsBitwiseEqual(output, tenths));
+}
+
+// The sampled vectors are spread evenly across each window of kSampleWindowSize
+// values, and across a shorter input as a whole. An input shorter than one vector,
+// or a short trailing vector, is sampled like a full one.
+TEST(AlpSamplerTest, SampledVectorOffsets) {
+  using ::testing::ElementsAreArray;
+  constexpr int64_t kVector = AlpFormatConstants::kDefaultVectorSize;
+  static_assert(AlpSamplingOptions::kSampleWindowSize == 128 * kVector);
+  // Offsets of the vectors with the given indices.
+  auto at = [](std::vector<int64_t> indices) {
+    for (int64_t& index : indices) {
+      index *= kVector;
+    }
+    return indices;
+  };
+  auto stride16 = [](int64_t first) {
+    std::vector<int64_t> indices;
+    for (int64_t i = 0; i < 8; ++i) {
+      indices.push_back(first + 16 * i);
+    }
+    return indices;
+  };
+
+  EXPECT_THAT(GetSampledVectorOffsets(0), ::testing::IsEmpty());
+  EXPECT_THAT(GetSampledVectorOffsets(5), ElementsAreArray(at({0})));
+  EXPECT_THAT(GetSampledVectorOffsets(kVector), ElementsAreArray(at({0})));
+  EXPECT_THAT(GetSampledVectorOffsets(kVector + 1), ElementsAreArray(at({0, 1})));
+  EXPECT_THAT(GetSampledVectorOffsets(7 * kVector),
+              ElementsAreArray(at({0, 1, 2, 3, 4, 5, 6})));
+  EXPECT_THAT(GetSampledVectorOffsets(8 * kVector),
+              ElementsAreArray(at({0, 1, 2, 3, 4, 5, 6, 7})));
+  // 20,000 values: 20 vectors, the last one short.
+  EXPECT_THAT(GetSampledVectorOffsets(20000),
+              ElementsAreArray(at({0, 2, 5, 7, 10, 12, 15, 17})));
+  // A full window samples every 16th vector.
+  EXPECT_THAT(GetSampledVectorOffsets(128 * kVector), ElementsAreArray(at(stride16(0))));
+
+  std::vector<int64_t> two_windows = stride16(0);
+  two_windows.push_back(128);
+  EXPECT_THAT(GetSampledVectorOffsets(129 * kVector), ElementsAreArray(at(two_windows)));
+
+  two_windows = stride16(0);
+  for (const int64_t index : stride16(128)) {
+    two_windows.push_back(index);
+  }
+  EXPECT_THAT(GetSampledVectorOffsets(256 * kVector), ElementsAreArray(at(two_windows)));
+
+  // The third window holds 44 vectors and samples 8 of them spread across it.
+  std::vector<int64_t> three_windows = two_windows;
+  for (const int64_t index : {0, 5, 11, 16, 22, 27, 33, 38}) {
+    three_windows.push_back(256 + index);
+  }
+  EXPECT_THAT(GetSampledVectorOffsets(300 * kVector),
+              ElementsAreArray(at(three_windows)));
+}
+
+// The same input always gives the same preset.
+TYPED_TEST(AlpSamplerTest, PresetIsDeterministic) {
+  constexpr int64_t kVector = AlpFormatConstants::kDefaultVectorSize;
+  std::vector<TypeParam> data(20000);
+  for (size_t i = 0; i < data.size(); ++i) {
+    // Each vector uses a different number of decimal digits.
+    const int64_t digits = static_cast<int64_t>(i) / kVector % 3;
+    data[i] = static_cast<TypeParam>(static_cast<double>(i % 997) /
+                                     std::pow(10.0, static_cast<double>(digits)));
+  }
+
+  AlpSampler<TypeParam> first, second;
+  first.AddSample(data);
+  second.AddSample(data);
+  const AlpEncodingPreset preset = first.MakePreset();
+  EXPECT_GT(preset.combinations.size(), 1);
+  EXPECT_EQ(second.MakePreset().combinations, preset.combinations);
+}
+
+// Data that repeats with a period dividing the sampling stride must not hide from
+// the sample. Here every 32nd value is an integer and the rest are quarters, so a
+// sample of every 32nd value would see only integers.
+TYPED_TEST(AlpSamplerTest, SampleDoesNotAlignWithPeriodicData) {
+  std::vector<TypeParam> data(20000);
+  for (size_t i = 0; i < data.size(); ++i) {
+    data[i] = static_cast<TypeParam>(static_cast<double>(i % 500) / 4.0);
+  }
+  AlpSampler<TypeParam> sampler;
+  sampler.AddSample(data);
+
+  const auto vector =
+      std::span<const TypeParam>(data).first(AlpFormatConstants::kDefaultVectorSize);
+  EXPECT_EQ(AlpCompression<TypeParam>::Compress(vector, sampler.MakePreset())
+                .alp_info()
+                .num_exceptions(),
+            0);
+}
+
+// Values late in the input must reach the preset: a preset built from the whole
+// input encodes its tail at least as compactly as the tail's own preset does.
+TYPED_TEST(AlpSamplerTest, SamplesAcrossTheWholeInput) {
+  constexpr int64_t kVector = AlpFormatConstants::kDefaultVectorSize;
+  // Only the first vector has one decimal digit; the rest have three.
+  std::vector<TypeParam> data(15000);
+  for (size_t i = 0; i < data.size(); ++i) {
+    data[i] = static_cast<int64_t>(i) < kVector
+                  ? static_cast<TypeParam>(static_cast<double>(i % 100) / 10.0)
+                  : static_cast<TypeParam>(static_cast<double>(i % 1000) / 1000.0);
+  }
+  const auto head = std::span<const TypeParam>(data).first(kVector);
+  const auto tail = std::span<const TypeParam>(data).subspan(8 * kVector, kVector);
+
+  ASSERT_OK_AND_ASSIGN(const AlpEncodingPreset whole,
+                       AlpCodec<TypeParam>::MakePreset(data));
+  ASSERT_OK_AND_ASSIGN(const AlpEncodingPreset tail_only,
+                       AlpCodec<TypeParam>::MakePreset(tail));
+  ASSERT_OK_AND_ASSIGN(const AlpEncodingPreset head_only,
+                       AlpCodec<TypeParam>::MakePreset(head));
+
+  const int64_t tail_size =
+      AlpCompression<TypeParam>::Compress(tail, tail_only).GetDataStoredSize();
+  EXPECT_LE(AlpCompression<TypeParam>::Compress(tail, whole).GetDataStoredSize(),
+            tail_size);
+  // The head's preset alone is a poor fit, so the comparison above is meaningful.
+  EXPECT_GT(AlpCompression<TypeParam>::Compress(tail, head_only).GetDataStoredSize(),
+            tail_size);
 }
 
 // Corrupted Data Handling Tests

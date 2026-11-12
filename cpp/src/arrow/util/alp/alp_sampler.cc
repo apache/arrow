@@ -18,6 +18,7 @@
 #include "arrow/util/alp/alp_sampler_internal.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <span>
 #include <utility>
 
@@ -30,95 +31,82 @@ namespace arrow::util::alp {
 
 namespace {
 
-struct AlpSamplingParameters {
-  /// Prefix length examined in the chunk.
-  int64_t values_to_examine;
-  /// Stride between sampled values.
-  int64_t sample_stride;
-};
+// splitmix64, a small fixed-seed generator: the same input always yields the same
+// sample.
+class SampleRng {
+ public:
+  explicit SampleRng(uint64_t seed) : state_(0x9E3779B97F4A7C15ULL ^ seed) {}
 
-// The interval holds 30 4096-element chunks. Round up the jump so about eight
-// chunks per interval are sampled instead of ten under integer truncation.
-constexpr int64_t kSampledChunkStride = bit_util::CeilDiv(
-    bit_util::CeilDiv(AlpSamplingOptions::kIntervalSize, AlpSamplingOptions::kChunkSize),
-    AlpSamplingOptions::kSampleChunksPerInterval);
-static_assert(kSampledChunkStride > 0, "sample jump must be positive");
-
-// Caps the lookup window and chooses a stride that yields at most one sample per
-// kSamplesPerChunk values.
-AlpSamplingParameters GetSamplingParameters(int64_t chunk_size) {
-  const int64_t values_to_examine =
-      std::min(chunk_size, static_cast<int64_t>(AlpFormatConstants::kDefaultVectorSize));
-  const int64_t sample_stride = std::max<int64_t>(
-      1, bit_util::CeilDiv(values_to_examine, AlpSamplingOptions::kSamplesPerChunk));
-  return AlpSamplingParameters{values_to_examine, sample_stride};
-}
-
-bool ShouldSkipChunk(const int64_t chunk_index, const int64_t sampled_chunk_count,
-                     const int64_t chunk_size) {
-  if ((chunk_index % kSampledChunkStride) != 0) {
-    return true;
+  uint64_t Next() {
+    uint64_t z = (state_ += 0x9E3779B97F4A7C15ULL);
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+    return z ^ (z >> 31);
   }
 
-  // Skip short chunks unless nothing has been sampled yet: for inputs shorter
-  // than a full sample window, a short chunk is the only sample available.
-  return chunk_size < AlpSamplingOptions::kSamplesPerChunk && sampled_chunk_count != 0;
-}
+ private:
+  uint64_t state_;
+};
 
 }  // namespace
+
+std::vector<int64_t> GetSampledVectorOffsets(int64_t num_values) {
+  constexpr int64_t kVectorSize = AlpFormatConstants::kDefaultVectorSize;
+  constexpr int64_t kWindowSize = AlpSamplingOptions::kSampleWindowSize;
+  static_assert(kWindowSize % kVectorSize == 0, "windows must hold whole vectors");
+
+  std::vector<int64_t> offsets;
+  for (int64_t window = 0; window < num_values; window += kWindowSize) {
+    const int64_t num_vectors =
+        bit_util::CeilDiv(std::min(kWindowSize, num_values - window), kVectorSize);
+    const int64_t num_sampled =
+        std::min(num_vectors, AlpSamplingOptions::kSampledVectors);
+    for (int64_t i = 0; i < num_sampled; ++i) {
+      offsets.push_back(window + i * num_vectors / num_sampled * kVectorSize);
+    }
+  }
+  return offsets;
+}
 
 template <AlpFloatingType T>
 void AlpSampler<T>::AddSample(std::span<const T> input) {
   const int64_t input_size = static_cast<int64_t>(input.size());
-  for (int64_t i = 0; i < input_size; i += AlpSamplingOptions::kChunkSize) {
-    const int64_t elements = std::min(input_size - i, AlpSamplingOptions::kChunkSize);
-    AddSampleChunk({input.data() + i, static_cast<size_t>(elements)});
+  values_processed_ += input_size;
+  for (const int64_t offset : GetSampledVectorOffsets(input_size)) {
+    const int64_t length =
+        std::min<int64_t>(AlpFormatConstants::kDefaultVectorSize, input_size - offset);
+    AddVectorSample(
+        input.subspan(static_cast<size_t>(offset), static_cast<size_t>(length)), offset);
   }
 }
 
 template <AlpFloatingType T>
-void AlpSampler<T>::AddSampleChunk(std::span<const T> input) {
-  if (input.empty()) {
-    return;
+void AlpSampler<T>::AddVectorSample(std::span<const T> vector, int64_t offset) {
+  const size_t stride = static_cast<size_t>(bit_util::CeilDiv(
+      static_cast<int64_t>(vector.size()), AlpSamplingOptions::kSamplesPerVector));
+
+  // One value from each run of `stride` values, at a pseudo-random position within
+  // the run, so the sample covers the whole vector without lining up with data
+  // that repeats with a period dividing the stride.
+  SampleRng rng(static_cast<uint64_t>(offset) * 0xD1B54A32D192ED03ULL);
+  std::vector<T> sample;
+  sample.reserve(static_cast<size_t>(AlpSamplingOptions::kSamplesPerVector));
+  for (size_t i = 0; i < vector.size(); i += stride) {
+    const size_t run = std::min(stride, vector.size() - i);
+    sample.push_back(vector[i + static_cast<size_t>(rng.Next() % run)]);
   }
-
-  const int64_t input_size = static_cast<int64_t>(input.size());
-  const bool should_skip =
-      ShouldSkipChunk(chunks_processed_, chunks_sampled_, input_size);
-
-  chunks_processed_ += 1;
-  values_processed_ += input_size;
-  if (should_skip) {
-    return;
-  }
-
-  const AlpSamplingParameters sampling_params = GetSamplingParameters(input_size);
-  const int64_t sample_count =
-      bit_util::CeilDiv(sampling_params.values_to_examine, sampling_params.sample_stride);
-  ARROW_CHECK_LE(sample_count, AlpSamplingOptions::kSamplesPerChunk)
-      << "ALP sampler produced too many values for one chunk: " << sample_count << " > "
-      << AlpSamplingOptions::kSamplesPerChunk;
-
-  std::vector<T> chunk_sample;
-  chunk_sample.reserve(static_cast<size_t>(sample_count));
-  for (int64_t i = 0; i < sampling_params.values_to_examine;
-       i += sampling_params.sample_stride) {
-    chunk_sample.push_back(input[static_cast<size_t>(i)]);
-  }
-  sampled_values_count_ += static_cast<int64_t>(chunk_sample.size());
-
-  chunk_samples_.push_back(std::move(chunk_sample));
-  chunks_sampled_++;
+  sampled_values_count_ += static_cast<int64_t>(sample.size());
+  vector_samples_.push_back(std::move(sample));
 }
 
 template <AlpFloatingType T>
 AlpEncodingPreset AlpSampler<T>::MakePreset() const {
-  ARROW_LOG(DEBUG) << "AlpSampler create preset: chunksSampled=" << chunks_sampled_ << "/"
-                   << chunks_processed_ << " total"
+  ARROW_LOG(DEBUG) << "AlpSampler create preset: vectorsSampled="
+                   << vector_samples_.size()
                    << ", valuesSampled=" << sampled_values_count_ << "/"
                    << values_processed_ << " total";
 
-  AlpEncodingPreset preset = AlpCompression<T>::MakePreset(chunk_samples_);
+  AlpEncodingPreset preset = AlpCompression<T>::MakePreset(vector_samples_);
 
   ARROW_LOG(DEBUG) << "AlpSampler preset: " << preset.combinations.size()
                    << " exponent/factor combinations"

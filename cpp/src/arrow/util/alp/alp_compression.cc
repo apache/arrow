@@ -306,10 +306,11 @@ AlpEncodingPreset AlpCompression<T>::MakePreset(
 
 template <AlpFloatingType T>
 std::vector<T> AlpCompression<T>::CreateSample(std::span<const T> inputs) {
-  // Pick an equidistant stride so the sample count is capped at kSamplesPerChunk.
+  // Pick an equidistant stride so the sample count is capped at
+  // kSearchSamplesPerVector.
   const int32_t idx_increments = std::max<int32_t>(
       1, static_cast<int32_t>(std::ceil(static_cast<double>(inputs.size()) /
-                                        AlpSamplingOptions::kSamplesPerChunk)));
+                                        AlpSamplingOptions::kSearchSamplesPerVector)));
   const size_t increment = static_cast<size_t>(idx_increments);
   std::vector<T> sample;
   sample.reserve((inputs.size() + increment - 1) / increment);
