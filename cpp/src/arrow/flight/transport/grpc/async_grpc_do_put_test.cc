@@ -35,7 +35,7 @@ TEST(AsyncGrpcTest, BasicDoPut) {
 
   int port = 0;
   ::grpc::ServerBuilder builder;
-  builder.AddListeningPort("localhost:0", ::grpc::InsecureServerCredentials(), &port);
+  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
   builder.RegisterCallbackGenericService(&service);
   auto server = builder.BuildAndStart();
   ASSERT_NE(server, nullptr);
@@ -82,15 +82,13 @@ TEST(AsyncGrpcTest, EmptyDoPut) {
 
   int port = 0;
   ::grpc::ServerBuilder builder;
-  builder.AddListeningPort("localhost:0", ::grpc::InsecureServerCredentials(), &port);
+  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
   builder.RegisterCallbackGenericService(&service);
   auto server = builder.BuildAndStart();
   ASSERT_NE(server, nullptr);
   ASSERT_NE(port, 0);
 
-  std::string uri = "grpc://localhost:" + std::to_string(port);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(uri));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
 
   auto schema = arrow::schema(
       {arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64())});
@@ -124,15 +122,13 @@ TEST(AsyncGrpcTest, MetadataOnlyPutChunk) {
 
   int port = 0;
   ::grpc::ServerBuilder builder;
-  builder.AddListeningPort("localhost:0", ::grpc::InsecureServerCredentials(), &port);
+  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
   builder.RegisterCallbackGenericService(&service);
   auto server = builder.BuildAndStart();
   ASSERT_NE(server, nullptr);
   ASSERT_NE(port, 0);
 
-  std::string uri = "grpc://localhost:" + std::to_string(port);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(uri));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
 
   auto schema = arrow::schema(
       {arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64())});
@@ -165,15 +161,13 @@ TEST(AsyncGrpcTest, DoPutRejectedByListener) {
 
   int port = 0;
   ::grpc::ServerBuilder builder;
-  builder.AddListeningPort("localhost:0", ::grpc::InsecureServerCredentials(), &port);
+  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
   builder.RegisterCallbackGenericService(&service);
   auto server = builder.BuildAndStart();
   ASSERT_NE(server, nullptr);
   ASSERT_NE(port, 0);
 
-  std::string uri = "grpc://localhost:" + std::to_string(port);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(uri));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
 
   auto schema = TwoColumnSchema();
   auto batch = TwoColumnBatch(schema);
@@ -200,7 +194,7 @@ TEST(AsyncGrpcTest, CreateDoPutListenerServesUpload) {
   // The upload half of the server class API: CreateDoPutListener() hands out
   // the per-RPC listener, with no options-level factory.
   TestUploadServer flight_server;
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
   ASSERT_GT(flight_server.port(), 0);
@@ -416,7 +410,7 @@ TEST(AsyncGrpcTest, DoPutClientDeadlineWithPendingHandlerFinishes) {
   // RPC itself instead of waiting for the listener: Shutdown()/Wait() below
   // would otherwise block, since gRPC keeps the call alive until Finish()
   // runs.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   HangingDoPutServer flight_server;
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
@@ -525,7 +519,7 @@ TEST(AsyncGrpcTest, DoPutClientCancelWhileListenerParkedStaysSafe) {
   // never touch the finished call) rather than reach into a destroyed reactor.
   // The test resolves the parked future from its own thread, and the server
   // keeps its shared_ptr alive, so the resolution lands on the real listener.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   DeferredDoPutServer flight_server;
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
@@ -583,7 +577,7 @@ TEST(AsyncGrpcTest, DoPutWithoutDescriptorOnFirstMessageIsRejected) {
   TestFlightServer flight_server;
   auto listener = std::make_shared<RecordingListener>();
   flight_server.set_listener(listener);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
   ASSERT_GT(flight_server.port(), 0);
@@ -603,9 +597,9 @@ TEST(AsyncGrpcTest, DoPutWithoutDescriptorOnFirstMessageIsRejected) {
 
   // Drive the bidi call through the raw generic stub: the regular FlightClient
   // always sets the descriptor, which is exactly what this case lacks.
-  std::shared_ptr<::grpc::Channel> channel =
-      ::grpc::CreateChannel("127.0.0.1:" + std::to_string(flight_server.port()),
-                            ::grpc::InsecureChannelCredentials());
+  std::shared_ptr<::grpc::Channel> channel = ::grpc::CreateChannel(
+      std::string(kLoopbackHost) + ":" + std::to_string(flight_server.port()),
+      ::grpc::InsecureChannelCredentials());
   ::grpc::GenericStub stub(channel);
   ::grpc::ClientContext context;
   // Bound the call: were the descriptor ever accepted, the client would wait
@@ -649,7 +643,7 @@ TEST(AsyncGrpcTest, DoPutReportsAFailingOnFinishToTheClient) {
   TestFlightServer flight_server;
   auto listener = std::make_shared<FailingFinishListener>();
   flight_server.set_listener(listener);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
@@ -682,14 +676,14 @@ TEST(AsyncGrpcTest, DoPutHalfCloseWithoutAnyMessageIsRejected) {
   TestFlightServer flight_server;
   auto listener = std::make_shared<RecordingListener>();
   flight_server.set_listener(listener);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
   ASSERT_GT(flight_server.port(), 0);
 
-  std::shared_ptr<::grpc::Channel> channel =
-      ::grpc::CreateChannel("127.0.0.1:" + std::to_string(flight_server.port()),
-                            ::grpc::InsecureChannelCredentials());
+  std::shared_ptr<::grpc::Channel> channel = ::grpc::CreateChannel(
+      std::string(kLoopbackHost) + ":" + std::to_string(flight_server.port()),
+      ::grpc::InsecureChannelCredentials());
   ::grpc::GenericStub stub(channel);
   ::grpc::ClientContext context;
   context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(10));
@@ -728,7 +722,7 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagUploadRejectedOnDescriptor) {
   auto listener = std::make_shared<RecordingListener>();
   listener->set_descriptor_status(
       arrow::Status::Invalid("listener rejected this descriptor"));
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   FlightServerOptions options(location);
   flight_server.set_listener(listener);
   ASSERT_OK(flight_server.Init(options));

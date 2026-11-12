@@ -194,14 +194,11 @@ TEST(AsyncGrpcTest, GetFlightInfoAsyncCompletesOnAnotherThread) {
     }
   };
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   DeferredInfoServer flight_server;
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(
-      auto client_location,
-      Location::Parse("grpc://localhost:" + std::to_string(flight_server.port())));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(client_location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
   ASSERT_OK_AND_ASSIGN(auto info,
                        client->GetFlightInfo(FlightDescriptor::Command("deferred")));

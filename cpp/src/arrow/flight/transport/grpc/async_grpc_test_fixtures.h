@@ -732,6 +732,16 @@ MakeAsyncHelper() {
       /*auth_handler=*/nullptr, MiddlewareFactoryList{});
 }
 
+// The host every test server listens on and every client connects to:
+// 127.0.0.1, not localhost. localhost also resolves to [::1], gRPC then binds
+// the ephemeral port on both, and when another process already holds it on
+// 127.0.0.1 the server keeps only [::1] while the client reaches that process.
+static const char kLoopbackHost[] = "127.0.0.1";
+// kLoopbackHost with an ephemeral port, for a hand-built grpc::ServerBuilder.
+static const char kListenAddress[] = "127.0.0.1:0";
+// kLoopbackHost with an ephemeral port, for a FlightServerBase's options.
+static const char kServerUri[] = "grpc://127.0.0.1:0";
+
 // The method name no FlightService stub knows: the transport must answer it
 // with the UNIMPLEMENTED fallback reactor rather than any typed path. It is
 // called over a raw generic stub, because only a generic client can name a
@@ -742,8 +752,9 @@ constexpr const char* kUnknownMethod =
 // Call `kUnknownMethod` on the server listening on `port` with the sync-style
 // generic stub API, and return the server's status.
 inline ::grpc::Status CallUnknownMethod(int port) {
-  std::shared_ptr<::grpc::Channel> channel = ::grpc::CreateChannel(
-      "127.0.0.1:" + std::to_string(port), ::grpc::InsecureChannelCredentials());
+  std::shared_ptr<::grpc::Channel> channel =
+      ::grpc::CreateChannel(std::string(kLoopbackHost) + ":" + std::to_string(port),
+                            ::grpc::InsecureChannelCredentials());
   ::grpc::GenericStub stub(channel);
   ::grpc::ClientContext context;
   ::grpc::ByteBuffer request;
@@ -772,15 +783,15 @@ inline std::shared_ptr<RecordBatch> OneColumnBatch(
                                   {arrow::ArrayFromJSON(arrow::int64(), "[1, 2]")});
 }
 
-// The listen address the tests start their servers on: an ephemeral port.
+// The location the tests start their servers on, see kServerUri.
 inline const Location& LocalhostLocation() {
-  static const Location location = *Location::Parse("grpc://localhost:0");
+  static const Location location = *Location::Parse(kServerUri);
   return location;
 }
 
 // Connect a FlightClient to the server listening on `port`.
 inline arrow::Result<std::unique_ptr<FlightClient>> ConnectTo(int port) {
-  ARROW_ASSIGN_OR_RAISE(auto location, Location::ForScheme("grpc", "127.0.0.1", port));
+  ARROW_ASSIGN_OR_RAISE(auto location, Location::ForScheme("grpc", kLoopbackHost, port));
   return FlightClient::Connect(location);
 }
 

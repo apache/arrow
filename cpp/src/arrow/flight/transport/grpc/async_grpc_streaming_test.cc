@@ -243,14 +243,11 @@ TEST(AsyncGrpcTest, ListFlightsAsyncCompletesOnAnotherThread) {
     }
   };
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   DeferredListingServer flight_server;
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(
-      auto client_location,
-      Location::Parse("grpc://localhost:" + std::to_string(flight_server.port())));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(client_location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
   ASSERT_OK_AND_ASSIGN(auto listing, client->ListFlights());
   int seen = 0;
@@ -280,7 +277,7 @@ TEST(AsyncGrpcTest, ListFlightsDeadlineWithPendingHandlerFinishes) {
   // the reactor must be released even though the handler never completes.
   const int64_t before = detail::AsyncReactorBase::live_reactors();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   HangingListingServer flight_server;
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));

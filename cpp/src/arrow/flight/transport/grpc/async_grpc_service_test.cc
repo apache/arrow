@@ -43,7 +43,7 @@ TEST(AsyncGrpcTest, MiddlewareCallCompletedRunsOnUnknownMethod) {
 
   int port = 0;
   ::grpc::ServerBuilder builder;
-  builder.AddListeningPort("localhost:0", ::grpc::InsecureServerCredentials(), &port);
+  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
   builder.RegisterCallbackGenericService(&service);
   auto server = builder.BuildAndStart();
   ASSERT_NE(server, nullptr);
@@ -70,15 +70,13 @@ TEST(AsyncGrpcTest, OtherMethodsAreUnimplemented) {
 
   int port = 0;
   ::grpc::ServerBuilder builder;
-  builder.AddListeningPort("localhost:0", ::grpc::InsecureServerCredentials(), &port);
+  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
   builder.RegisterCallbackGenericService(&service);
   auto server = builder.BuildAndStart();
   ASSERT_NE(server, nullptr);
   ASSERT_NE(port, 0);
 
-  std::string uri = "grpc://localhost:" + std::to_string(port);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(uri));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
 
   // Every typed FlightService method is served now, the fallback reactor is
   // still reachable through a method name no stub knows (which maps to
@@ -95,13 +93,13 @@ TEST(AsyncGrpcTest, OtherMethodsAreUnimplemented) {
 }
 
 TEST(AsyncGrpcTest, UseAsyncGrpcFlag) {
-  ASSERT_OK_AND_ASSIGN(auto default_location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto default_location, Location::Parse(kServerUri));
   FlightServerOptions default_options(default_location);
 
   // Same adapter as the tests above, but now started through the async
   // server's own Init instead of a hand-built grpc::ServerBuilder.
   TestFlightServer flight_server;
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
   ASSERT_GT(flight_server.port(), 0);
@@ -160,7 +158,7 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagServesDoPut) {
   // through to UNIMPLEMENTED.
   TestFlightServer flight_server;
   auto listener = std::make_shared<RecordingListener>();
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   FlightServerOptions options(location);
   flight_server.set_listener(listener);
   ASSERT_OK(flight_server.Init(options));
@@ -205,7 +203,7 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagRefusesBlockingAuthHandler) {
   // on callback threads), so a server configured with one must refuse to start
   // instead of silently serving unauthenticated requests. Middleware *is*
   // supported now - see UseAsyncGrpcFlagAllowsMiddleware.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
 
   TestFlightServer auth_server;
   FlightServerOptions with_auth(location);
@@ -222,7 +220,7 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagAllowsMiddleware) {
   // path: StartCall at call creation, SendingHeaders and CallCompleted at the
   // end - success or failure alike.
   auto trace = std::make_shared<MiddlewareTrace>();
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
 
   TestFlightServer flight_server;
   FlightServerOptions options(location);
@@ -248,7 +246,7 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagAllowsMiddleware) {
 }
 
 TEST(AsyncGrpcTest, UseAsyncGrpcFlagMiddlewareCanRejectCall) {
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   TestFlightServer flight_server;
   FlightServerOptions options(location);
   options.middleware = {

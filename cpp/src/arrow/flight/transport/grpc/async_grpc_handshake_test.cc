@@ -122,14 +122,12 @@ struct AuthenticatedHarness {
 
  private:
   Status Start() {
-    ARROW_ASSIGN_OR_RAISE(auto location, Location::Parse("grpc://localhost:0"));
+    ARROW_ASSIGN_OR_RAISE(auto location, Location::Parse(kServerUri));
     // The server class alone selects the async transport: deriving from it and
     // overriding its virtuals are the whole configuration.
     FlightServerOptions options(location);
     RETURN_NOT_OK(server.Init(options));
-    ARROW_ASSIGN_OR_RAISE(auto client_location,
-                          Location::ForScheme("grpc", "127.0.0.1", server.port()));
-    ARROW_ASSIGN_OR_RAISE(client, FlightClient::Connect(client_location));
+    ARROW_ASSIGN_OR_RAISE(client, ConnectTo(server.port()));
     return Status::OK();
   }
 };
@@ -141,7 +139,7 @@ class AsyncGenericTestServer : public AsyncGenericFlightServerBase {};
 TEST(AsyncGrpcTest, HandshakeWithoutHookIsUnimplemented) {
   // A bare async server: Handshake is answered by the class's default virtual
   // with UNIMPLEMENTED, and the client's Authenticate() surfaces it.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   AsyncGenericTestServer flight_server;
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
@@ -162,7 +160,7 @@ TEST(AsyncGrpcTest, AsyncGenericFlightServerBaseImpliesAsyncTransport) {
   // yet the RPC is served by the generic callback service. DoPut is the
   // discriminator: an async server with no listener factory answers with its own
   // message rather than "NYI".
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   AsyncGenericTestServer flight_server;
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
@@ -193,10 +191,7 @@ TEST(AsyncGrpcTest, HandshakeAuthenticatesAndTokenIsRequired) {
   ASSERT_OK(harness.status);
 
   // 1. Without a handshake the data call is rejected before it is served.
-  ASSERT_OK_AND_ASSIGN(auto unauthenticated_location,
-                       Location::ForScheme("grpc", "127.0.0.1", harness.server.port()));
-  ASSERT_OK_AND_ASSIGN(auto unauthenticated_client,
-                       FlightClient::Connect(unauthenticated_location));
+  ASSERT_OK_AND_ASSIGN(auto unauthenticated_client, ConnectTo(harness.server.port()));
   auto status = unauthenticated_client->DoGet(Ticket{"auth-ticket"}).status();
   EXPECT_FALSE(status.ok());
   EXPECT_THAT(status.ToString(), ::testing::HasSubstr("Invalid token"));
@@ -282,7 +277,7 @@ TEST(AsyncGrpcTest, HandshakePayloadIsBinarySafe) {
   // response is echoed back through the client's reader: an embedded NUL and
   // non-ASCII bytes must survive both directions unchanged.
   const std::string binary("p4ss\0w0rd\xC3\xA9", 11);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   AsyncAuthTestServer server(binary, binary, "bin-ticket");
   FlightServerOptions options(location);
   ASSERT_OK(server.Init(options));
@@ -364,12 +359,7 @@ TEST(AsyncGrpcTest, ConcurrentHandshakesAllComplete) {
   std::vector<Status> statuses(kClients);
   for (int i = 0; i < kClients; i++) {
     threads.emplace_back([&harness, &statuses, i] {
-      auto location = Location::ForScheme("grpc", "127.0.0.1", harness.server.port());
-      if (!location.ok()) {
-        statuses[i] = location.status();
-        return;
-      }
-      auto client = FlightClient::Connect(*location);
+      auto client = ConnectTo(harness.server.port());
       if (!client.ok()) {
         statuses[i] = client.status();
         return;
@@ -407,9 +397,7 @@ TEST(AsyncGrpcTest, RepeatedHandshakesOnFreshChannels) {
   AuthenticatedHarness harness;
   ASSERT_OK(harness.status);
   for (int i = 0; i < kRounds; i++) {
-    ASSERT_OK_AND_ASSIGN(auto location,
-                         Location::ForScheme("grpc", "127.0.0.1", harness.server.port()));
-    ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
+    ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(harness.server.port()));
     ASSERT_OK(client->Authenticate(
         {}, std::make_unique<TestClientAuthHandler>("user", "p4ssw0rd")));
     ASSERT_OK(client->Close());
@@ -434,7 +422,7 @@ TEST(AsyncGrpcTest, LateHandshakeResponseLeavesServerUsable) {
     std::atomic<int> handshakes{0};
   };
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   SlowAnsweringServer server;
   FlightServerOptions options(location);
   ASSERT_OK(server.Init(options));
@@ -450,9 +438,7 @@ TEST(AsyncGrpcTest, LateHandshakeResponseLeavesServerUsable) {
   EXPECT_EQ(1, server.handshakes.load())
       << "the first call must have reached the hook, so its write had to finish";
 
-  ASSERT_OK_AND_ASSIGN(auto second_location,
-                       Location::ForScheme("grpc", "127.0.0.1", server.port()));
-  ASSERT_OK_AND_ASSIGN(auto second_client, FlightClient::Connect(second_location));
+  ASSERT_OK_AND_ASSIGN(auto second_client, ConnectTo(server.port()));
   ASSERT_OK(second_client->Authenticate(
       {}, std::make_unique<TestClientAuthHandler>("user", "p4ssw0rd")));
 
@@ -473,7 +459,7 @@ TEST(AsyncGrpcTest, EmptyHandshakeResponseIsDelivered) {
     }
   };
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   NoResponseServer server;
   FlightServerOptions options(location);
   ASSERT_OK(server.Init(options));

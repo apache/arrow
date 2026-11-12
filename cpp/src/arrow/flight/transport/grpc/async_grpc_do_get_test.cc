@@ -25,16 +25,14 @@ TEST(AsyncGrpcTest, BasicDoGet) {
 
   int port = 0;
   ::grpc::ServerBuilder builder;
-  builder.AddListeningPort("localhost:0", ::grpc::InsecureServerCredentials(), &port);
+  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
   builder.RegisterCallbackGenericService(&service);
   auto server = builder.BuildAndStart();
   ASSERT_NE(server, nullptr);
   ASSERT_NE(port, 0);
 
   // Connect the existing arrow::flight::FlightClient implementation.
-  std::string uri = "grpc://localhost:" + std::to_string(port);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(uri));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
 
   // Call DoGet: the ticket must reach TestFlightServer::DoGetAsync.
   Ticket ticket{"basic-do-get-ticket"};
@@ -73,15 +71,13 @@ TEST(AsyncGrpcTest, SchemaOnlyDoGet) {
 
   int port = 0;
   ::grpc::ServerBuilder builder;
-  builder.AddListeningPort("localhost:0", ::grpc::InsecureServerCredentials(), &port);
+  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
   builder.RegisterCallbackGenericService(&service);
   auto server = builder.BuildAndStart();
   ASSERT_NE(server, nullptr);
   ASSERT_NE(port, 0);
 
-  std::string uri = "grpc://localhost:" + std::to_string(port);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(uri));
-  ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
 
   // This ticket is served as a stream with no batches at all.
   Ticket ticket{kSchemaOnlyTicket};
@@ -185,7 +181,7 @@ TEST(AsyncGrpcTest, DoGetClientCancelWithPendingPayloadFinishes) {
   // instead of waiting for a payload that will not come.
   const int64_t before = detail::AsyncReactorBase::live_reactors();
   auto trace = std::make_shared<MiddlewareTrace>();
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   HangingDoGetServer flight_server(HangingDoGetServer::HangAt::kStream);
   FlightServerOptions options(location);
   options.middleware = {
@@ -226,7 +222,7 @@ TEST(AsyncGrpcTest, DoGetClientDeadlineWhilePreparingFinishes) {
   // stream exists here, so Close() has nothing to deliver and the producer
   // notices through ServerCallContext::is_cancelled().
   auto trace = std::make_shared<MiddlewareTrace>();
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   HangingDoGetServer flight_server(HangingDoGetServer::HangAt::kPrepare);
   FlightServerOptions options(location);
   options.middleware = {
@@ -299,7 +295,7 @@ TEST(AsyncGrpcTest, DoGetPumpErrorStillClosesTheStream) {
   // The producer's first NextAsync() fails: the RPC ends with that status, and
   // the producer must still be told the RPC is over through Close(), like the
   // write-failure and cancel paths already do.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   ErrorPayloadDoGetServer flight_server;
   FlightServerOptions options(location);
   ASSERT_OK(flight_server.Init(options));
