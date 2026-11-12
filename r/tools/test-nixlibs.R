@@ -301,8 +301,7 @@ test_that("usable_vendored_dependencies()", {
       ARROW_URIPARSER_URL = "aaa",
       # A different version than the vendored one
       ARROW_XSIMD_URL = "other",
-      # Still has the trimmed checksum (a build was killed before restoring it)
-      ARROW_LZ4_URL = "ccc-trimmed",
+      ARROW_LZ4_URL = "ccc",
       ARROW_JEMALLOC_URL = "ddd"
     )
   )
@@ -389,14 +388,11 @@ test_that("check_vendored_deps_setting()", {
   )
 })
 
-test_that("use_vendored_checksums()", {
-  local_binding("quietly", TRUE)
+test_that("with_vendored_checksums()", {
   dirs <- local_vendored_dependencies(
     c("uriparser-1.0.2.tar.bz2" = "aaa", "xsimd-14.3.0.tar.gz" = "bbb", "lz4-v1.10.0.tar.gz" = "ccc"),
     c(ARROW_URIPARSER_URL = "aaa", ARROW_XSIMD_URL = "bbb", ARROW_LZ4_URL = "ccc", ARROW_JEMALLOC_URL = "ddd")
   )
-  versions_txt <- file.path(dirs$src_dir, "thirdparty", "versions.txt")
-  original <- readLines(versions_txt)
   vendored <- c(
     ARROW_URIPARSER_URL = file.path(dirs$vendored_dir, "uriparser-1.0.2.tar.bz2"),
     ARROW_XSIMD_URL = file.path(dirs$vendored_dir, "xsimd-14.3.0.tar.gz"),
@@ -404,8 +400,7 @@ test_that("use_vendored_checksums()", {
   )
 
   # Nothing is pointed at the vendored tarballs
-  expect_null(use_vendored_checksums(dirs$src_dir, list(), vendored))
-  expect_identical(readLines(versions_txt), original)
+  expect_identical(with_vendored_checksums(list(), vendored), list())
 
   # Only the ones that are (e.g. not when the user set ARROW_XSIMD_URL)
   env_var_list <- list(
@@ -413,27 +408,14 @@ test_that("use_vendored_checksums()", {
     ARROW_XSIMD_URL = "https://example.com/xsimd.tar.gz",
     ARROW_LZ4_URL = vendored[["ARROW_LZ4_URL"]]
   )
-  returned <- use_vendored_checksums(dirs$src_dir, env_var_list, vendored)
-  expect_identical(returned, original)
   expect_identical(
-    readLines(versions_txt),
+    with_vendored_checksums(env_var_list, vendored),
     c(
-      "# a comment",
-      "ARROW_URIPARSER_BUILD_SHA256_CHECKSUM=aaa-trimmed",
-      "ARROW_XSIMD_BUILD_SHA256_CHECKSUM=bbb",
-      "ARROW_LZ4_BUILD_SHA256_CHECKSUM=ccc-trimmed",
-      "ARROW_JEMALLOC_BUILD_SHA256_CHECKSUM=ddd"
+      env_var_list,
+      ARROW_URIPARSER_BUILD_SHA256_CHECKSUM = "aaa-trimmed",
+      ARROW_LZ4_BUILD_SHA256_CHECKSUM = "ccc-trimmed"
     )
   )
-  # and they are still usable afterwards
-  expect_named(
-    usable_vendored_dependencies(dirs$src_dir),
-    c("ARROW_URIPARSER_URL", "ARROW_XSIMD_URL", "ARROW_LZ4_URL")
-  )
-
-  # The upstream checksums can be put back after the build
-  restore_versions_txt(dirs$src_dir, returned)
-  expect_identical(readLines(versions_txt), original)
 })
 
 test_that("with_vendored_dependencies()", {

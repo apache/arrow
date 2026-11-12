@@ -657,13 +657,7 @@ build_libarrow <- function(src_dir, dst_dir) {
   # Some of them are required even for a minimal build, so they can't be turned
   # off like the ones above.
   env_var_list <- with_vendored_dependencies(env_var_list, vendored)
-  original_versions <- use_vendored_checksums(src_dir, env_var_list, vendored)
-  if (!is.null(original_versions)) {
-    # Put the upstream checksums back afterwards (even if the build fails), so
-    # that a later build from this source (or a package built from it) accepts
-    # upstream tarballs, e.g. from ARROW_*_URL or thirdparty_dependency_dir
-    on.exit(restore_versions_txt(src_dir, original_versions), add = TRUE)
-  }
+  env_var_list <- with_vendored_checksums(env_var_list, vendored)
   env_vars <- env_vars_as_string(env_var_list)
 
   lg("arrow %s", ifelse(quietly, "", paste("with", env_vars)), .indent = "****")
@@ -974,11 +968,11 @@ with_vendored_dependencies <- function(env_var_list, vendored) {
 
 # Returns the paths of the vendored tarballs that the libarrow source in
 # `src_dir` can use, named by their ARROW_*_URL.
-# The tarballs are trimmed, so the libarrow build only accepts them once
-# `use_vendored_checksums()` has put their checksums in versions.txt. We only
-# do that to the package's own copy of the source (tools/cpp), not e.g. ../cpp
-# of a git checkout, and only for tarballs that were trimmed from the version
-# that versions.txt pins (according to the checksums.txt file that
+# The tarballs are trimmed, so the libarrow build only accepts them with the
+# checksums that `with_vendored_checksums()` sets. We only use them to build the
+# package's own copy of the source (tools/cpp), not e.g. ../cpp of a git
+# checkout, and only for tarballs that were trimmed from the version that
+# versions.txt pins (according to the checksums.txt file that
 # tools/vendor_dependencies.sh writes).
 usable_vendored_dependencies <- function(src_dir) {
   if (!use_vendored_deps) {
@@ -1015,10 +1009,7 @@ usable_vendored_dependencies <- function(src_dir) {
     }
     checksum_varname <- sub("_URL$", "_BUILD_SHA256_CHECKSUM", env_varname)
     entry <- manifest[manifest$filename == filename, , drop = FALSE]
-    # versions.txt can still have the vendored checksum if a build was killed
-    # before build_libarrow() could put the upstream checksums back
-    matches <- nrow(entry) == 1 &&
-      unname(expected[checksum_varname]) %in% c(entry$upstream_sha256, entry$vendored_sha256)
+    matches <- nrow(entry) == 1 && identical(unname(expected[checksum_varname]), entry$upstream_sha256)
     if (!matches) {
       if (!quietly) {
         lg(
@@ -1045,35 +1036,25 @@ read_vendored_checksums <- function() {
   read.table(manifest_file, header = TRUE, stringsAsFactors = FALSE)
 }
 
-# The libarrow build checks the checksums of the thirdparty tarballs against
-# src_dir's versions.txt, so replace the upstream checksums of the vendored
-# tarballs that `env_var_list` points at with the trimmed tarballs' checksums.
-# Returns the original lines of versions.txt (or NULL if it wasn't changed), to
-# be put back with `restore_versions_txt()` once the build is done.
-use_vendored_checksums <- function(src_dir, env_var_list, vendored) {
+# The libarrow build checks the thirdparty tarballs against the upstream
+# checksums in versions.txt, so set ARROW_*_BUILD_SHA256_CHECKSUM to the trimmed
+# tarballs' checksums for the vendored tarballs that `env_var_list` points at.
+with_vendored_checksums <- function(env_var_list, vendored) {
   used <- vendored[vapply(
     names(vendored),
     function(env_varname) identical(env_var_list[[env_varname]], vendored[[env_varname]]),
     logical(1)
   )]
   if (length(used) == 0) {
-    return(invisible(NULL))
+    return(env_var_list)
   }
   manifest <- read_vendored_checksums()
-  versions_txt <- file.path(src_dir, "thirdparty", "versions.txt")
-  original <- readLines(versions_txt)
-  lines <- original
   for (env_varname in names(used)) {
     checksum_varname <- sub("_URL$", "_BUILD_SHA256_CHECKSUM", env_varname)
     checksum <- manifest$vendored_sha256[manifest$filename == basename(used[[env_varname]])]
-    lines <- sub(paste0("^", checksum_varname, "=.*$"), paste0(checksum_varname, "=", checksum), lines)
+    env_var_list <- replace(env_var_list, checksum_varname, checksum)
   }
-  writeLines(lines, versions_txt)
-  invisible(original)
-}
-
-restore_versions_txt <- function(src_dir, original) {
-  writeLines(original, file.path(src_dir, "thirdparty", "versions.txt"))
+  env_var_list
 }
 
 # Parse the *_BUILD_SHA256_CHECKSUM=... lines of a versions.txt into a named vector
