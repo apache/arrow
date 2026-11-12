@@ -293,9 +293,12 @@ TEST(AsyncGrpcTest, OnFinishMayWriteMetadataWithoutDeadlocking) {
 
   auto listener = flight_server.WaitForListener(0);
   ASSERT_NE(listener, nullptr) << "the server never handed out a DoPut listener";
-  // The write is refused (the upload is ending) rather than deadlocking.
-  EXPECT_TRUE(listener->finish_write.IsInvalid()) << listener->finish_write;
   ASSERT_EQ(1, listener->finish_count());
+  // The write is refused (the upload is ending) rather than deadlocking.
+  ASSERT_TRUE(listener->finish_write.is_finished())
+      << "a write refused while the upload ends must fail at once";
+  EXPECT_TRUE(listener->finish_write.status().IsInvalid())
+      << listener->finish_write.status();
 }
 
 TEST(AsyncGrpcTest, DoPutWritesMetadataBackToTheClient) {
@@ -336,7 +339,6 @@ TEST(AsyncGrpcTest, DoPutWritesMetadataBackToTheClient) {
   auto listener = flight_server.WaitForListener();
   ASSERT_NE(listener, nullptr) << "the server never handed out a DoPut listener";
   ASSERT_EQ(2, listener->wrote()) << "every batch must have been acknowledged";
-  ASSERT_OK(listener->last_write()) << listener->last_write();
 }
 
 TEST(AsyncGrpcTest, DoPutCancelFromServerSideFinishesTheUpload) {

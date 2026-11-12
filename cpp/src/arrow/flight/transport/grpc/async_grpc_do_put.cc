@@ -53,34 +53,35 @@ class DoPutReactor : public AsyncReactorBase,
     AsyncReactorBase::ReleaseHold();
   }
 
-  Status WriteMetadata(const Buffer& app_metadata) override {
+  Future<> WriteMetadataAsync(const Buffer& app_metadata) override {
     std::lock_guard<std::mutex> lock(write_mutex());
     if (finished()) {
-      return Status::Invalid(
-          "the upload is over: WriteMetadata() is only usable while the "
-          "upload's RPC is running");
+      return Future<>::MakeFinished(Status::Invalid(
+          "the upload is over: WriteMetadataAsync() is only usable while the "
+          "upload's RPC is running"));
     }
     if (metadata_in_flight_ || ending_) {
       // One message in flight at a time: OnWriteDone serializes the PutResults.
-      return Status::Invalid(
-          "a PutResult message is already in flight: await it before writing "
-          "another metadata message");
+      return Future<>::MakeFinished(Status::Invalid(
+          "a PutResult message is already in flight: await the previous "
+          "WriteMetadataAsync() future before writing another metadata message"));
     }
     metadata_in_flight_ = true;
+    metadata_written_ = Future<>::Make();
     pb::PutResult pb_result;
     if (app_metadata.size() > 0) {
       pb_result.set_app_metadata(app_metadata.data(), app_metadata.size());
     }
     write_buf_ = MakeWriteBuffer(pb_result);
     StartWrite(&write_buf_);
-    return Status::OK();
+    return metadata_written_;
   }
 
   void OnReadDone(bool ok) override {
     if (!ok) {
       // Decide under the lock, act outside it: FinishUpload() runs the
       // listener's OnFinish(), which is application code and may itself call
-      // WriteMetadata(). That takes writer_mutex_ and then write_mutex_, the
+      // WriteMetadataAsync(). That takes writer_mutex_ and then write_mutex_, the
       // reverse of a caller holding write_mutex_ and waiting for writer_mutex_,
       // so invoking it here would deadlock the two threads.
       {
@@ -90,7 +91,7 @@ class DoPutReactor : public AsyncReactorBase,
         }
         if (read_descriptor_) {
           // The client half-closed: this ack ends the upload.  It takes the
-          // same write slot as a mid-upload WriteMetadata, which may be on the
+          // same write slot as a mid-upload WriteMetadataAsync, which may be on the
           // wire right now: starting a second write would clobber write_buf_
           // and the RPC would never see its OnWriteDone.
           ending_ = true;
@@ -155,29 +156,42 @@ class DoPutReactor : public AsyncReactorBase,
   }
 
   void OnWriteDone(bool ok) override {
-    // Decide under the lock, act outside it: FinishUpload() runs the listener's
-    // OnFinish(), which is application code and may call back into WriteMetadata().
+    // Decide under the lock, act outside it: completing a WriteMetadataAsync()
+    // future runs its continuation and FinishUpload() runs the listener's
+    // OnFinish(); both are application code that may call WriteMetadataAsync().
     Status finish_status;
     bool ended = false;
+    // The mid-upload message this write carried, unless it was the ending ack.
+    Future<> written;
     {
       std::lock_guard<std::mutex> lock(write_mutex());
-      if (finished()) {
-        return;
-      }
-      if (!ok) {
-        finish_status = MakeFlightError(FlightStatusCode::Internal, "Write failed");
-        ended = true;
-      } else if (ending_ack_in_flight_) {
-        // The ending ack reached the client: that is the clean end of the upload.
-        ended = true;
-      } else {
+      if (!ending_ack_in_flight_) {
+        written = std::move(metadata_written_);
+        metadata_written_ = Future<>();
         metadata_in_flight_ = false;
-        if (ending_) {
+      }
+      if (!finished()) {
+        if (!ok) {
+          finish_status = MakeFlightError(FlightStatusCode::Internal, "Write failed");
+          ended = true;
+          // The call is broken: a continuation of the failed future must not
+          // start another write before FinishOnce() runs.
+          ending_ = true;
+        } else if (ending_ack_in_flight_) {
+          // The ending ack reached the client: that is the clean end of the upload.
+          ended = true;
+        } else if (ending_) {
           // The client half-closed while a metadata message was on the wire:
           // with the slot free, the ending ack is the next write.
           StartEndingAck();
         }
       }
+    }
+    if (written.is_valid()) {
+      written.MarkFinished(
+          ok ? Status::OK()
+             : Status::IOError("the PutResult message was not written: "
+                               "the upload's RPC failed or was cancelled"));
     }
     if (ended) {
       FinishUpload(std::move(finish_status));
@@ -232,11 +246,13 @@ class DoPutReactor : public AsyncReactorBase,
   /// Whether the descriptor of the first message has been checked.
   bool read_descriptor_ = false;
   // The write side is serialized by AsyncReactorBase::write_mutex_, which
-  // FinishOnce() also takes: WriteMetadata() runs on the listener's thread
+  // FinishOnce() also takes: WriteMetadataAsync() runs on the listener's thread
   // while OnReadDone()/OnWriteDone() run on gRPC callback threads, and this
   // must be the same mutex the base uses or finishing can race a write.
   /// Whether a mid-upload metadata message is on the wire.
   bool metadata_in_flight_ = false;
+  /// Completed by OnWriteDone() once that mid-upload message is written.
+  Future<> metadata_written_;
   /// Whether the client half-closed, so the ending ack is owed.
   bool ending_ = false;
   /// Whether that ending ack is the write in flight.
