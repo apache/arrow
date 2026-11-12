@@ -245,6 +245,103 @@ TEST(AsyncGrpcTest, DoGetClientDeadlineWhilePreparingFinishes) {
   EXPECT_EQ(1, trace->call_completed);
 }
 
+/// A DoGet server whose DoGetAsync() registers a cancel callback and parks its
+/// future until the test resolves it: the test drives a cancellation, a
+/// callback registered once the RPC is already cancelled, and a stream that
+/// arrives after the RPC ended.
+class CancelCallbackDoGetServer final : public AsyncGenericFlightServerBase {
+ public:
+  arrow::Future<std::shared_ptr<AsyncFlightDataStream>> DoGetAsync(
+      const ServerCallContext& context, const Ticket&) override {
+    auto pending = arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::Make();
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      context_ = &context;
+      pending_ = pending;
+    }
+    ARROW_RETURN_NOT_OK(
+        AddCancelCallback(context, [this] { cancel_callbacks.fetch_add(1); }));
+    return pending;
+  }
+
+  /// Register on the parked call's context from the test thread: the call is
+  /// still live, since the transport awaits the parked future.
+  Status AddCancelCallbackFromTest(std::function<void()> callback) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return AddCancelCallback(*context_, std::move(callback));
+  }
+
+  /// Resolve the parked DoGetAsync() future with a stream, on this thread.
+  void ResolveWithStream() {
+    arrow::Future<std::shared_ptr<AsyncFlightDataStream>> pending;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      pending = pending_;
+    }
+    auto reader = arrow::RecordBatchReader::Make(
+                      {}, arrow::schema({arrow::field("value", arrow::int64())}))
+                      .ValueOrDie();
+    std::shared_ptr<AsyncFlightDataStream> stream = std::make_shared<HangingDoGetStream>(
+        std::make_shared<ResolvedStream>(std::move(reader)), &next_awaits,
+        &stream_closes);
+    pending.MarkFinished(std::move(stream));
+  }
+
+  std::atomic<int> cancel_callbacks{0};
+  std::atomic<int> next_awaits{0};
+  std::atomic<int> stream_closes{0};
+
+ private:
+  std::mutex mutex_;
+  const ServerCallContext* context_ = nullptr;
+  arrow::Future<std::shared_ptr<AsyncFlightDataStream>> pending_;
+};
+
+TEST(AsyncGrpcTest, DoGetCancelCallbackReachesPendingHandler) {
+  // The client's deadline expires while DoGetAsync() is pending: the callback
+  // the handler registered runs once without any polling, a callback
+  // registered once the RPC is cancelled runs at once, and the stream the
+  // handler then resolves to is never read from but still receives Close().
+  const int64_t before = detail::AsyncReactorBase::live_reactors();
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
+  CancelCallbackDoGetServer flight_server;
+  FlightServerOptions options(location);
+  ASSERT_OK(flight_server.Init(options));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
+
+  FlightCallOptions impatient;
+  impatient.timeout = std::chrono::milliseconds(500);
+  EXPECT_FALSE(client->DoGet(impatient, Ticket{"hang"}).ok())
+      << "the deadline must expire while the handler is pending";
+  ASSERT_TRUE(WaitFor([&] { return flight_server.cancel_callbacks.load() >= 1; }))
+      << "the cancellation never reached the handler's callback";
+
+  auto late_callbacks = std::make_shared<std::atomic<int>>(0);
+  ASSERT_OK(flight_server.AddCancelCallbackFromTest(
+      [late_callbacks] { late_callbacks->fetch_add(1); }));
+  EXPECT_EQ(1, late_callbacks->load())
+      << "a callback registered after the cancellation must run before "
+         "AddCancelCallback() returns";
+
+  // The transport's continuation runs inline, on this thread.
+  flight_server.ResolveWithStream();
+  EXPECT_EQ(1, flight_server.stream_closes.load())
+      << "a stream that arrives after the RPC ended must still be closed";
+  EXPECT_EQ(0, flight_server.next_awaits.load())
+      << "a stream that arrives after the RPC ended must not be read from";
+
+  ASSERT_OK(client->Close());
+  ASSERT_OK(flight_server.Shutdown());
+  ASSERT_OK(flight_server.Wait());
+
+  EXPECT_EQ(1, flight_server.cancel_callbacks.load())
+      << "the cancel callback must run exactly once";
+  EXPECT_TRUE(WaitFor([&] {
+    return detail::AsyncReactorBase::live_reactors() == before;
+  })) << "a reactor leaked: still alive after the server stopped (before="
+      << before << ", now=" << detail::AsyncReactorBase::live_reactors() << ")";
+}
+
 /// A DoGet stream whose first payload is an error: the transport must fail the
 /// RPC and still tell the producer the RPC is over through Close().
 class ErrorPayloadDoGetStream final : public AsyncFlightDataStream {

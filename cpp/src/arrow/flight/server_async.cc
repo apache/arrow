@@ -21,13 +21,18 @@
 #include "arrow/flight/server_async.h"
 
 #include <chrono>
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "arrow/flight/transport.h"
+#include "arrow/flight/transport/grpc/async_grpc_compat.h"
 #include "arrow/flight/transport/grpc/grpc_server.h"
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+#  include "arrow/flight/transport/grpc/async_grpc_service_internal.h"
+#endif
 #include "arrow/flight/transport_server.h"
 #include "arrow/flight/transport_server_internal.h"
 #include "arrow/flight/types.h"
@@ -81,6 +86,20 @@ Status AsyncGenericFlightServerBase::Shutdown(
 }
 
 Status AsyncGenericFlightServerBase::Wait() { return impl_->lifecycle.Wait(); }
+
+Status AsyncGenericFlightServerBase::AddCancelCallback(const ServerCallContext& context,
+                                                       std::function<void()> callback) {
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+  // Only the contexts the async transport hands its handlers carry a registry.
+  if (const auto* async_context =
+          dynamic_cast<const transport::grpc::detail::AsyncCallContext*>(&context)) {
+    return async_context->AddCancelCallback(std::move(callback));
+  }
+#endif
+  return Status::Invalid(
+      "AddCancelCallback() needs the context an AsyncGenericFlightServerBase handed "
+      "to a handler");
+}
 
 // --- handler defaults: the same answers FlightServerBase's defaults give ---
 

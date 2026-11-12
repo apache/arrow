@@ -183,7 +183,7 @@ class ExchangeReactor final : public AsyncReactorBase {
 
   void OnReadDone(bool ok) override;
   void OnWriteDone(bool ok) override;
-  void OnCancel() override;
+  void TearDownOnCancel() override;
   void OnDone() override;
 
   /// \brief The reader's demand: arm the next read. The demand guarantees at

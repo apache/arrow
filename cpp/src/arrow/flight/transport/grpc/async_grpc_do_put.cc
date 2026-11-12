@@ -184,7 +184,7 @@ class DoPutReactor : public AsyncReactorBase,
     }
   }
 
-  void OnCancel() override {
+  void TearDownOnCancel() override {
     // The RPC is cancelled: report it to the listener but do not let a failing
     // OnFinish replace the cancellation the client is seeing. The report is
     // fire-and-forget here; keeping a reference alive for it is unnecessary as

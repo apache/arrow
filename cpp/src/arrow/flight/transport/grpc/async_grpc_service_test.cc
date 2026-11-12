@@ -263,4 +263,32 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagMiddlewareCanRejectCall) {
   ASSERT_OK(flight_server.Wait());
 }
 
+/// A ServerCallContext no async server handed out, as a synchronous
+/// FlightServerBase handler would hold.
+class ForeignCallContext final : public ServerCallContext {
+ public:
+  const std::string& peer_identity() const override { return empty_; }
+  const std::string& peer() const override { return empty_; }
+  void AddHeader(const std::string&, const std::string&) const override {}
+  void AddTrailer(const std::string&, const std::string&) const override {}
+  ServerMiddleware* GetMiddleware(const std::string&) const override { return nullptr; }
+  bool is_cancelled() const override { return false; }
+  const CallHeaders& incoming_headers() const override { return headers_; }
+
+ private:
+  std::string empty_;
+  CallHeaders headers_;
+};
+
+TEST(AsyncGrpcTest, AddCancelCallbackRefusesAContextItDidNotHandOut) {
+  // Cancellation is only pushed for calls the async server serves: any other
+  // context is refused, and its callback never runs.
+  ForeignCallContext context;
+  bool ran = false;
+  const Status status =
+      AsyncGenericFlightServerBase::AddCancelCallback(context, [&ran] { ran = true; });
+  EXPECT_TRUE(status.IsInvalid()) << status;
+  EXPECT_FALSE(ran) << "a refused callback must not run";
+}
+
 }  // namespace arrow::flight::transport::grpc

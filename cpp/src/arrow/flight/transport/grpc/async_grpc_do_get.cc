@@ -52,28 +52,33 @@ class DoGetReactor : public AsyncReactorBase {
     future.AddCallback(
         [this, token = hold()](
             const arrow::Result<std::shared_ptr<AsyncFlightDataStream>>& result) {
-          if (!finished()) {
-            if (!result.ok()) {
-              FinishOnce(result.status());
-            } else {
-              std::shared_ptr<AsyncFlightDataStream> stream = result.ValueOrDie();
-              if (stream == nullptr) {
-                FinishOnce(arrow::Status::KeyError("No data in this flight"));
-              } else {
-                bool already_closed;
-                {
-                  std::lock_guard<std::mutex> lock(stream_mutex_);
-                  async_data_stream_ = stream;
-                  already_closed = closed_;
-                }
-                if (already_closed) {
-                  ARROW_WARN_NOT_OK(stream->Close(),
-                                    "DoGet: closing a cancelled call's stream failed");
-                } else {
-                  WriteNextPayload();
-                }
-              }
-            }
+          if (!result.ok()) {
+            FinishOnce(result.status());
+            return;
+          }
+          std::shared_ptr<AsyncFlightDataStream> stream = result.ValueOrDie();
+          if (stream == nullptr) {
+            FinishOnce(arrow::Status::KeyError("No data in this flight"));
+            return;
+          }
+          bool already_closed;
+          {
+            std::lock_guard<std::mutex> lock(stream_mutex_);
+            async_data_stream_ = stream;
+            already_closed = closed_;
+          }
+          if (already_closed) {
+            // The RPC ended before the stream arrived: the teardown found no
+            // stream to close, so this one is closed here.
+            ARROW_WARN_NOT_OK(stream->Close(),
+                              "DoGet: closing a cancelled call's stream failed");
+          } else if (finished()) {
+            // Cancelled, but the teardown's CloseStreamOnce() has not run yet:
+            // whichever CloseStreamOnce() runs first closes the stream.
+            ARROW_WARN_NOT_OK(CloseStreamOnce(),
+                              "DoGet: closing a finished call's stream failed");
+          } else {
+            WriteNextPayload();
           }
         });
   }
@@ -91,7 +96,7 @@ class DoGetReactor : public AsyncReactorBase {
     WriteNextPayload();
   }
 
-  void OnCancel() override {
+  void TearDownOnCancel() override {
     FinishOnce(arrow::Status::Cancelled());
     ARROW_WARN_NOT_OK(CloseStreamOnce(),
                       "DoGet: closing the stream of a cancelled call failed");

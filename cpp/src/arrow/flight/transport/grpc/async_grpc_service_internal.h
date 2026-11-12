@@ -19,11 +19,13 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include <grpcpp/support/byte_buffer.h>
 #include <grpcpp/support/slice.h>
@@ -41,7 +43,51 @@ namespace pb = arrow::flight::protocol;
 
 #if ARROW_FLIGHT_HAS_ASYNC_SERVER
 
-using AsyncCallContext = GrpcServerCallContext<::grpc::CallbackServerContext>;
+/// \brief The context of one async call: GrpcServerCallContext plus the
+/// callbacks AsyncGenericFlightServerBase::AddCancelCallback() registers, which
+/// AsyncReactorBase::OnCancel() runs.
+class AsyncCallContext : public GrpcServerCallContext<::grpc::CallbackServerContext> {
+ public:
+  explicit AsyncCallContext(::grpc::CallbackServerContext* context)
+      : GrpcServerCallContext<::grpc::CallbackServerContext>(context) {}
+
+  arrow::Status AddCancelCallback(std::function<void()> callback) const {
+    {
+      std::lock_guard<std::mutex> lock(cancel_->mutex);
+      if (!cancel_->cancelled) {
+        cancel_->callbacks.push_back(std::move(callback));
+        return arrow::Status::OK();
+      }
+    }
+    // Already cancelled: run it now, on the caller's thread, unlocked.
+    callback();
+    return arrow::Status::OK();
+  }
+
+  /// \brief Run the registered callbacks once, unlocked, so a callback may
+  /// register another (which then runs inline). Called by
+  /// AsyncReactorBase::OnCancel() only.
+  void RunCancelCallbacks() {
+    std::vector<std::function<void()>> callbacks;
+    {
+      std::lock_guard<std::mutex> lock(cancel_->mutex);
+      cancel_->cancelled = true;
+      callbacks.swap(cancel_->callbacks);
+    }
+    for (auto& callback : callbacks) {
+      callback();
+    }
+  }
+
+ private:
+  struct CancelCallbacks {
+    std::mutex mutex;
+    bool cancelled = false;
+    std::vector<std::function<void()>> callbacks;
+  };
+  /// Behind a pointer so the context stays movable.
+  std::unique_ptr<CancelCallbacks> cancel_ = std::make_unique<CancelCallbacks>();
+};
 
 template <typename ProtoT>
 ::grpc::ByteBuffer MakeWriteBuffer(const ProtoT& message) {
@@ -103,9 +149,15 @@ class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
     return live_reactors_.load(std::memory_order_relaxed);
   }
 
-  /// The default cancellation: report the RPC as cancelled and finish it.
-  /// Reactors with their own teardown override this and call it first.
-  void OnCancel() override { FinishOnce(arrow::Status::Cancelled()); }
+  /// \brief gRPC's cancellation (client cancel, deadline, network failure).
+  ///
+  /// Final, so every reactor does both halves in this order: the transport's
+  /// teardown settles the RPC's status, then the callbacks handlers registered
+  /// with AsyncGenericFlightServerBase::AddCancelCallback() run.
+  void OnCancel() final {
+    TearDownOnCancel();
+    flight_context_.RunCancelCallbacks();
+  }
 
   void OnDone() override { ReleaseHold(); }
 
@@ -124,6 +176,10 @@ class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
 
   /// Whether FinishOnce() has already run (the RPC's status is settled).
   bool finished() const { return finished_.load(); }
+
+  /// The transport's teardown on cancellation: finish the RPC as cancelled.
+  /// Reactors with more to unwind override it and call FinishOnce() first.
+  virtual void TearDownOnCancel() { FinishOnce(arrow::Status::Cancelled()); }
 
   /// The call context: handlers and the teardown paths need it.
   AsyncCallContext& flight_context() { return flight_context_; }
