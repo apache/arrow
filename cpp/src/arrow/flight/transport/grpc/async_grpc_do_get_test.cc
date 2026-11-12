@@ -342,6 +342,109 @@ TEST(AsyncGrpcTest, DoGetCancelCallbackReachesPendingHandler) {
       << before << ", now=" << detail::AsyncReactorBase::live_reactors() << ")";
 }
 
+/// A DoGet stream asked for its schema while the RPC dies: GetSchemaPayloadAsync()
+/// stays inside the call until the client's deadline cancelled the RPC, then
+/// gives the cancellation's teardown time to deliver Close(). It records whether
+/// Close() arrived while it was still being asked, or a demand after Close().
+class SlowSchemaDoGetStream final : public AsyncFlightDataStream {
+ public:
+  SlowSchemaDoGetStream(const ServerCallContext* context,
+                        std::shared_ptr<ResolvedStream> resolved,
+                        std::atomic<int>* closes, std::atomic<bool>* closed_while_asked,
+                        std::atomic<int>* asked_after_close)
+      : context_(context),
+        resolved_(std::move(resolved)),
+        closes_(closes),
+        closed_while_asked_(closed_while_asked),
+        asked_after_close_(asked_after_close) {}
+
+  std::shared_ptr<Schema> schema() override { return resolved_->schema(); }
+
+  arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
+    CountDemandAfterClose();
+    WaitFor([this] { return context_->is_cancelled(); });
+    if (WaitFor([this] { return closes_->load() > 0; }, std::chrono::milliseconds(300))) {
+      closed_while_asked_->store(true);
+    }
+    return resolved_->GetSchemaPayloadAsync();
+  }
+
+  arrow::Future<std::optional<FlightPayload>> NextAsync() override {
+    CountDemandAfterClose();
+    return resolved_->NextAsync();
+  }
+
+  Status Close() override {
+    closes_->fetch_add(1);
+    return resolved_->Close();
+  }
+
+ private:
+  void CountDemandAfterClose() {
+    if (closes_->load() > 0) {
+      asked_after_close_->fetch_add(1);
+    }
+  }
+
+  const ServerCallContext* context_;
+  std::shared_ptr<ResolvedStream> resolved_;
+  std::atomic<int>* closes_;
+  std::atomic<bool>* closed_while_asked_;
+  std::atomic<int>* asked_after_close_;
+};
+
+/// Serves every DoGet with a SlowSchemaDoGetStream, resolved at once.
+class SlowSchemaDoGetServer final : public AsyncGenericFlightServerBase {
+ public:
+  arrow::Future<std::shared_ptr<AsyncFlightDataStream>> DoGetAsync(
+      const ServerCallContext& context, const Ticket&) override {
+    auto reader = arrow::RecordBatchReader::Make(
+                      {}, arrow::schema({arrow::field("value", arrow::int64())}))
+                      .ValueOrDie();
+    std::shared_ptr<AsyncFlightDataStream> stream =
+        std::make_shared<SlowSchemaDoGetStream>(
+            &context, std::make_shared<ResolvedStream>(std::move(reader)), &closes,
+            &closed_while_asked, &asked_after_close);
+    return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
+        std::move(stream));
+  }
+
+  std::atomic<int> closes{0};
+  std::atomic<bool> closed_while_asked{false};
+  std::atomic<int> asked_after_close{0};
+};
+
+TEST(AsyncGrpcTest, DoGetNeverClosesAStreamItIsAskingForAPayload) {
+  // The client's deadline expires while the transport is inside the stream's
+  // GetSchemaPayloadAsync(): the cancellation's Close() must wait for that
+  // call to return, and the stream must not be asked for anything after it.
+  const int64_t before = detail::AsyncReactorBase::live_reactors();
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
+  SlowSchemaDoGetServer flight_server;
+  FlightServerOptions options(location);
+  ASSERT_OK(flight_server.Init(options));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
+
+  FlightCallOptions impatient;
+  impatient.timeout = std::chrono::milliseconds(300);
+  EXPECT_FALSE(client->DoGet(impatient, Ticket{"slow-schema"}).ok())
+      << "the deadline must expire while the stream is asked for its schema";
+
+  ASSERT_OK(client->Close());
+  ASSERT_OK(flight_server.Shutdown());
+  ASSERT_OK(flight_server.Wait());
+
+  EXPECT_FALSE(flight_server.closed_while_asked.load())
+      << "Close() ran while the transport was inside GetSchemaPayloadAsync()";
+  EXPECT_EQ(0, flight_server.asked_after_close.load())
+      << "the stream was asked for a payload after Close()";
+  EXPECT_EQ(1, flight_server.closes.load()) << "Close() must be delivered exactly once";
+  EXPECT_TRUE(WaitFor([&] {
+    return detail::AsyncReactorBase::live_reactors() == before;
+  })) << "a reactor leaked: still alive after the server stopped (before="
+      << before << ", now=" << detail::AsyncReactorBase::live_reactors() << ")";
+}
+
 /// A DoGet stream whose first payload is an error: the transport must fail the
 /// RPC and still tell the producer the RPC is over through Close().
 class ErrorPayloadDoGetStream final : public AsyncFlightDataStream {

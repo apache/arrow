@@ -65,7 +65,9 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataStream {
   /// Called once, possibly from any thread, whichever way the RPC ends, including for a
   /// stream DoGetAsync() resolves after the RPC was cancelled. A pending
   /// NextAsync()/GetSchemaPayloadAsync() future must be resolved here (or abandoned
-  /// knowingly): the transport does not wait for it.
+  /// knowingly): the transport does not wait for it. Close() never overlaps a
+  /// GetSchemaPayloadAsync()/NextAsync() call, and neither is called once Close()
+  /// has started.
   /// Its return status becomes the RPC's final status only on the normal end-of-stream
   /// path (after NextAsync() reports end of stream).
   /// On every other path (write failure, cancellation) the RPC already has a status and
