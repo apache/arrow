@@ -243,6 +243,10 @@ class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
     }
   }
 
+  /// The request message StartRead() fills and the message StartWrite() sends.
+  ::grpc::ByteBuffer request_buf_;
+  ::grpc::ByteBuffer write_buf_;
+
  private:
   AsyncCallContext flight_context_;
   std::mutex write_mutex_;

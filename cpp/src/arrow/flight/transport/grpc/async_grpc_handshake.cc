@@ -68,8 +68,6 @@ class HandshakeReactor final : public AsyncReactorBase {
 
  private:
   HandshakeFn handshake_handler_;
-  ::grpc::ByteBuffer request_buf_;
-  ::grpc::ByteBuffer write_buf_;
 };
 
 }  // namespace

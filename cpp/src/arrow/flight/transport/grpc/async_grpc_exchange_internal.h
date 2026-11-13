@@ -200,8 +200,6 @@ class ExchangeReactor final : public AsyncReactorBase {
   AsyncGenericFlightServerBase* base_;
   std::shared_ptr<ExchangeReader> reader_;
   std::shared_ptr<ExchangeWriter> writer_;
-  ::grpc::ByteBuffer read_buf_;
-  ::grpc::ByteBuffer write_buf_;
   internal::FlightData read_data_;
   bool started_ = false;
 };
