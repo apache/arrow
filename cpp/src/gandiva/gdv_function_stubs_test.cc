@@ -1539,6 +1539,26 @@ TEST(TestGdvFnStubs, TestMask) {
   result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "\?", 1, "*", 1, "#",
                                     1, &out_len);
   EXPECT_EQ(std::string(result, out_len), expected);
+
+  // With empty replacements the unmasked characters must still get their own
+  // output space, so a later allocation cannot overwrite them.
+  data = "QwErTy:4)";
+  expected = ":)";
+  data_len = static_cast<int32_t>(data.length());
+  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, "", 0, "", 0, "", 0,
+                                    &out_len);
+  int32_t other_len = 0;
+  mask_utf8_utf8_utf8_utf8(ctx_ptr, "#$", 2, "", 0, "", 0, "", 0, &other_len);
+  EXPECT_EQ(std::string(result, out_len), expected);
+
+  data = std::string(46341, 'A');
+  data_len = static_cast<int32_t>(data.length());
+  result = mask_utf8_utf8_utf8_utf8(ctx_ptr, data.c_str(), data_len, data.c_str(),
+                                    data_len, "x", 1, "n", 1, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
 }
 
 TEST(TestGdvFnStubs, TestAesEncryptDecrypt16) {
