@@ -671,6 +671,19 @@ cdef class Date32Scalar(Scalar):
         else:
             return None
 
+    def __repr__(self):
+        try:
+            return Scalar.__repr__(self)
+        except OverflowError:
+            value = frombytes(self.wrapped.get().ToString())
+            return f'<pyarrow.{self.__class__.__name__}: {value}>'
+
+    def __str__(self):
+        try:
+            return Scalar.__str__(self)
+        except OverflowError:
+            return frombytes(self.wrapped.get().ToString())
+
 
 cdef class Date64Scalar(Scalar):
     """
@@ -701,6 +714,19 @@ cdef class Date64Scalar(Scalar):
             )
         else:
             return None
+
+    def __repr__(self):
+        try:
+            return Scalar.__repr__(self)
+        except OverflowError:
+            value = frombytes(self.wrapped.get().ToString())
+            return f'<pyarrow.{self.__class__.__name__}: {value}>'
+
+    def __str__(self):
+        try:
+            return Scalar.__str__(self)
+        except OverflowError:
+            return frombytes(self.wrapped.get().ToString())
 
 
 def _datetime_from_int(int64_t value, TimeUnit unit, tzinfo=None):
