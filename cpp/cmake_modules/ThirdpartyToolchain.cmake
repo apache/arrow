@@ -3741,12 +3741,19 @@ function(build_google_cloud_cpp_storage)
       TRUE
       PARENT_SCOPE)
 
-  # Workaround missing BCRYPT_RSA_ALG_HANDLE macro in older MinGW-w64 headers.
-  # google-cloud-cpp v3+ uses it without guards in sign_using_sha256.cc.
+  # Workaround missing BCRYPT_RSA_ALG_HANDLE and BCRYPT_MD5_ALG_HANDLE macros
+  # in older MinGW-w64 headers. google-cloud-cpp v3+ uses them without guards.
   set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
   find_program(PATCH patch)
-  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11")
-    # This is for RTools 40.
+  if(MINGW)
+    include(CheckCXXSymbolExists)
+    check_cxx_symbol_exists(BCRYPT_RSA_ALG_HANDLE "windows.h;bcrypt.h"
+                            ARROW_HAVE_BCRYPT_RSA_HANDLE)
+    check_cxx_symbol_exists(BCRYPT_MD5_ALG_HANDLE "windows.h;bcrypt.h"
+                            ARROW_HAVE_BCRYPT_MD5_HANDLE)
+  endif()
+  if(MINGW AND NOT (ARROW_HAVE_BCRYPT_RSA_HANDLE AND ARROW_HAVE_BCRYPT_MD5_HANDLE))
+    # This is for the MinGW-w64 headers in RTools 40 to 45.
     if(PATCH)
       set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
           ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-bcrypt-mingw.patch)
