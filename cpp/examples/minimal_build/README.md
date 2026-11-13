@@ -85,4 +85,10 @@ system. To run this configuration, set
 docker compose run --rm static-system-dependency
 ```
 
+### Static filesystem examples
+
+Enable `ARROW_EXAMPLE_S3_STATIC_CHECK` or `ARROW_EXAMPLE_GCS_STATIC_CHECK`
+to test static linking. Enable both to also test S3 and GCS together.
+Run the examples from this directory.
+
 [docker-compose]: https://docs.docker.com/compose/

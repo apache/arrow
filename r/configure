@@ -370,7 +370,11 @@ add_feature_flags () {
     if arrow_built_with ARROW_GCS; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_GCS"
       PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-gcs"
-      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_gcs $PKG_LIBS_FEATURES_WITHOUT_PC"
+      if [ -n "$(find "$LIB_DIR" -name 'libarrow_gcs_bundled_dependencies.*')" ]; then
+        PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_gcs -larrow_gcs_bundled_dependencies $PKG_LIBS_FEATURES_WITHOUT_PC"
+      else
+        PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_gcs $PKG_LIBS_FEATURES_WITHOUT_PC"
+      fi
       # NOTE: arrow_gcs is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
