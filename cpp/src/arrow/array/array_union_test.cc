@@ -211,6 +211,53 @@ TEST(TestSparseUnionArray, Validate) {
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 }
 
+TEST(TestSparseUnionArray, ValidateMissingTypeIds) {
+  auto type = sparse_union({field("a", int32())});
+  auto children = ArrayDataVector{ArrayFromJSON(int32(), "[4, 5]")->data()};
+
+  auto data = ArrayData::Make(type, /*length=*/2, {nullptr, nullptr}, children);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Non-empty union array but type ids are null",
+                             MakeArray(data)->Validate());
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Non-empty union array but type ids are null",
+                             MakeArray(data)->ValidateFull());
+
+  // An empty array does not need a type ids buffer
+  data = ArrayData::Make(type, /*length=*/0, {nullptr, nullptr}, children);
+  ASSERT_OK(MakeArray(data)->ValidateFull());
+}
+
+TEST(TestDenseUnionArray, ValidateMissingBuffers) {
+  auto type = dense_union({field("a", int32())});
+  auto children = ArrayDataVector{ArrayFromJSON(int32(), "[7]")->data()};
+  auto type_ids = ArrayFromJSON(int8(), "[0]")->data()->buffers[1];
+  auto offsets = ArrayFromJSON(int32(), "[0]")->data()->buffers[1];
+
+  auto data = ArrayData::Make(type, /*length=*/1, {nullptr, nullptr, offsets}, children);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Non-empty union array but type ids are null",
+                             MakeArray(data)->Validate());
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Non-empty union array but type ids are null",
+                             MakeArray(data)->ValidateFull());
+
+  data = ArrayData::Make(type, /*length=*/1, {nullptr, type_ids, nullptr}, children);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Non-empty dense union array but offsets are null",
+                             MakeArray(data)->Validate());
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: Non-empty dense union array but offsets are null",
+                             MakeArray(data)->ValidateFull());
+
+  data = ArrayData::Make(type, /*length=*/1, {nullptr, type_ids, offsets}, children);
+  ASSERT_OK(MakeArray(data)->ValidateFull());
+
+  // An empty array does not need type ids or offsets buffers
+  data = ArrayData::Make(type, /*length=*/0, {nullptr, nullptr, nullptr}, children);
+  ASSERT_OK(MakeArray(data)->ValidateFull());
+}
+
 TEST(TestSparseUnionArray, Comparison) {
   auto ints1 = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]");
   auto ints2 = ArrayFromJSON(int32(), "[1, 2, -3, 4, -5, 6]");
