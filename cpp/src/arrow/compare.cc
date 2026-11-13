@@ -53,6 +53,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/memory_internal.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/util/ulp_distance_internal.h"
 #include "arrow/util/unreachable.h"
 #include "arrow/visit_scalar_inline.h"
@@ -73,12 +74,13 @@ using util::Float16;
 namespace {
 
 template <bool AbsoluteTolerance, bool NansEqual, bool SignedZerosEqual,
-          bool UlpDistanceEqual>
+          bool UlpDistanceEqual, bool PhysicalValueEqual>
 struct FloatingEqualityFlags {
   static constexpr bool absolute_tolerance = AbsoluteTolerance;
   static constexpr bool nans_equal = NansEqual;
   static constexpr bool signed_zeros_equal = SignedZerosEqual;
   static constexpr bool ulp_distance_equal = UlpDistanceEqual;
+  static constexpr bool physical_Value_Equal = PhysicalValueEqual;
 };
 
 template <typename T, typename Flags>
@@ -88,6 +90,17 @@ struct FloatingEquality {
         ulp_distance(options.ulp_distance().value_or(-1)) {}
 
   bool operator()(T x, T y) const {
+    if constexpr (Flags::physical_Value_Equal) {
+      using UIntType = std::conditional_t<sizeof(T) == 4, uint32_t, uint64_t>;
+
+      auto uint_x = util::SafeCopy<UIntType>(x);
+      auto uint_y = util::SafeCopy<UIntType>(y);
+
+      if (uint_x == uint_y) {
+        return true;
+      }
+    }
+
     if (x == y) {
       return Flags::signed_zeros_equal || (std::signbit(x) == std::signbit(y));
     }
@@ -123,6 +136,13 @@ struct FloatingEquality<uint16_t, Flags> {
   bool operator()(uint16_t x, uint16_t y) const {
     Float16 f_x = Float16::FromBits(x);
     Float16 f_y = Float16::FromBits(y);
+
+    if constexpr (Flags::physical_Value_Equal) {
+      if (x == y) {
+        return true;
+      }
+    }
+
     if (f_x == f_y) {
       return Flags::signed_zeros_equal || (f_x.signbit() == f_y.signbit());
     }
@@ -152,16 +172,28 @@ struct FloatingEqualityDispatcher {
   const EqualOptions& options;
   Visitor&& visit;
 
+  template <bool AbsoluteTolerance, bool NansEqual, bool SignedZero,
+            bool UlpDistanceEqual>
+  void DispatchL5() {
+    if (options.physical_repr_equal()) {
+      visit(
+          FloatingEquality<T, FloatingEqualityFlags<AbsoluteTolerance, NansEqual,
+                                                    SignedZero, UlpDistanceEqual, true>>{
+              options});
+    } else {
+      visit(
+          FloatingEquality<T, FloatingEqualityFlags<AbsoluteTolerance, NansEqual,
+                                                    SignedZero, UlpDistanceEqual, false>>{
+              options});
+    }
+  }
+
   template <bool AbsoluteTolerance, bool NansEqual, bool SignedZero>
   void DispatchL4() {
     if (options.ulp_distance()) {
-      visit(FloatingEquality<
-            T, FloatingEqualityFlags<AbsoluteTolerance, NansEqual, SignedZero, true>>{
-          options});
+      DispatchL5<AbsoluteTolerance, NansEqual, SignedZero, true>();
     } else {
-      visit(FloatingEquality<
-            T, FloatingEqualityFlags<AbsoluteTolerance, NansEqual, SignedZero, false>>{
-          options});
+      DispatchL5<AbsoluteTolerance, NansEqual, SignedZero, false>();
     }
   }
 

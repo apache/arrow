@@ -306,8 +306,10 @@ struct RunEndEncodeExec {
       auto input = input_array.ToArray();
       // Avoid merging floating-point values whose representations may differ. Signed
       // zeros compare unequal, and NaNs remain in separate runs to preserve payloads.
-      const auto equal_options =
-          EqualOptions::Defaults().nans_equal(false).signed_zeros_equal(false);
+      const auto equal_options = EqualOptions::Defaults()
+                                     .nans_equal(false)
+                                     .signed_zeros_equal(false)
+                                     .physical_repr_equal(true);
       for (int64_t i = 1; i < input_length; ++i) {
         if (!ArrayRangeEquals(*input, *input, i - 1, i, i, equal_options)) {
           RETURN_NOT_OK(run_ends_builder.Append(static_cast<RunEndCType>(i)));
