@@ -233,7 +233,7 @@ test_that("find_latest_nightly()", {
   )
 })
 
-# Set up a fake vendored_dependency_dir and package_cpp_dir for the vendored
+# Set up a fake vendored_dependency_dir and source dir for the vendored
 # dependency tests. `vendored` is a named vector of filename = upstream
 # checksum in checksums.txt (the trimmed checksum is "<upstream>-trimmed"),
 # `expected` is the checksums in the source dir's versions.txt, named by
@@ -247,8 +247,8 @@ local_vendored_dependencies <- function(vendored, expected, env = parent.frame()
   if (length(vendored)) {
     writeLines(
       c(
-        "filename upstream_sha256 vendored_sha256",
-        paste(names(vendored), vendored, paste0(vendored, "-trimmed"))
+        "filename upstream_sha256 vendored_sha256 trim_sha256",
+        paste(names(vendored), vendored, paste0(vendored, "-trimmed"), "recipe")
       ),
       file.path(vendored_dir, "checksums.txt")
     )
@@ -262,7 +262,6 @@ local_vendored_dependencies <- function(vendored, expected, env = parent.frame()
     file.path(src_dir, "thirdparty", "versions.txt")
   )
   local_binding("vendored_dependency_dir", vendored_dir, env)
-  local_binding("package_cpp_dir", src_dir, env)
   local_binding(
     "get_component_names",
     function() {
@@ -319,17 +318,23 @@ test_that("usable_vendored_dependencies()", {
     "Vendored source for ARROW_XSIMD_URL doesn't match"
   )
 
-  # Only used to build package_cpp_dir (not e.g. ../cpp of a git checkout)
+  # Also used for other source dirs (e.g. ../cpp of a git checkout), checked
+  # against that dir's versions.txt
+  local_binding("quietly", TRUE)
   other_src_dir <- withr::local_tempdir()
   file.copy(file.path(dirs$src_dir, "thirdparty"), other_src_dir, recursive = TRUE)
-  expect_output(
-    expect_identical(usable_vendored_dependencies(other_src_dir), character()),
-    "Not using vendored dependencies"
+  expect_named(
+    usable_vendored_dependencies(other_src_dir),
+    c("ARROW_URIPARSER_URL", "ARROW_LZ4_URL")
   )
-  expect_output(
-    expect_identical(usable_vendored_dependencies(NULL), character()),
-    "Not using vendored dependencies"
+  writeLines(
+    "ARROW_LZ4_BUILD_SHA256_CHECKSUM=ccc",
+    file.path(other_src_dir, "thirdparty", "versions.txt")
   )
+  expect_named(usable_vendored_dependencies(other_src_dir), "ARROW_LZ4_URL")
+  # No source dir, nothing to build
+  expect_identical(usable_vendored_dependencies(NULL), character())
+  local_binding("quietly", FALSE)
 
   # A missing tarball isn't used, even if it's in checksums.txt
   unlink(file.path(dirs$vendored_dir, "lz4-v1.10.0.tar.gz"))
@@ -461,7 +466,7 @@ test_that("turn_off_unvendored_features()", {
   expect_identical(result$ARROW_WITH_BROTLI, "OFF")
   expect_identical(result$ARROW_WITH_ZSTD, "OFF")
   expect_identical(result$ARROW_WITH_LZ4, "ON")
-  for (feature in setdiff(c(names(vendored_features), "ARROW_DATASET"), "ARROW_WITH_LZ4")) {
+  for (feature in setdiff(names(vendored_features), "ARROW_WITH_LZ4")) {
     expect_null(result[[feature]])
   }
   expect_identical(result$EXTRA_CMAKE_FLAGS, "")

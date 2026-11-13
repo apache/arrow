@@ -862,14 +862,6 @@ turn_off_all_optional_features <- function(env_var_list, keep = character()) {
 turn_off_unvendored_features <- function(env_var_list, available) {
   has_all <- vapply(vendored_features, function(deps) all(deps %in% available), logical(1))
   keep <- names(vendored_features)[has_all]
-  if ("ARROW_PARQUET" %in% keep) {
-    # Dataset needs no thirdparty dependencies itself, but it's only useful
-    # with Parquet (and we've always turned them on and off together)
-    keep <- c(keep, "ARROW_DATASET")
-  }
-  if ("ARROW_XSIMD_URL" %in% available) {
-    keep <- c(keep, "ARROW_SIMD_LEVEL")
-  }
   if (!quietly) {
     lg(
       "Features with vendored dependencies: %s",
@@ -967,13 +959,13 @@ with_vendored_dependencies <- function(env_var_list, vendored) {
 }
 
 # Returns the paths of the vendored tarballs that the libarrow source in
-# `src_dir` can use, named by their ARROW_*_URL.
+# `src_dir` (tools/cpp, or e.g. ../cpp of a git checkout) can use, named by
+# their ARROW_*_URL.
 # The tarballs are trimmed, so the libarrow build only accepts them with the
-# checksums that `with_vendored_checksums()` sets. We only use them to build the
-# package's own copy of the source (tools/cpp), not e.g. ../cpp of a git
-# checkout, and only for tarballs that were trimmed from the version that
-# versions.txt pins (according to the checksums.txt file that
-# tools/vendor_dependencies.sh writes).
+# checksums that `with_vendored_checksums()` sets. We only use the tarballs
+# that were trimmed from the version that `src_dir`'s versions.txt pins
+# (according to the checksums.txt file that tools/vendor_dependencies.sh
+# writes).
 usable_vendored_dependencies <- function(src_dir) {
   if (!use_vendored_deps) {
     lg("LIBARROW_VENDORED_DEPS=false, so not using vendored dependencies", .indent = "****")
@@ -987,12 +979,7 @@ usable_vendored_dependencies <- function(src_dir) {
     }
     return(character())
   }
-  is_package_cpp_dir <- !is.null(src_dir) &&
-    identical(normalizePath(src_dir, mustWork = FALSE), normalizePath(package_cpp_dir, mustWork = FALSE))
-  if (!is_package_cpp_dir) {
-    if (!quietly) {
-      lg("Not using vendored dependencies, they are only used to build %s", package_cpp_dir, .indent = "****")
-    }
+  if (is.null(src_dir)) {
     return(character())
   }
   expected <- read_thirdparty_checksums(file.path(src_dir, "thirdparty", "versions.txt"))
@@ -1027,7 +1014,8 @@ usable_vendored_dependencies <- function(src_dir) {
 }
 
 # Read the checksums.txt that tools/vendor_dependencies.sh writes, with the
-# checksums of each vendored tarball before (upstream) and after trimming
+# checksums of each vendored tarball before (upstream) and after trimming (and
+# of how it was trimmed, which only vendor_dependencies.sh uses)
 read_vendored_checksums <- function() {
   manifest_file <- file.path(vendored_dependency_dir, "checksums.txt")
   if (!file.exists(manifest_file)) {
@@ -1316,18 +1304,27 @@ package_cpp_dir <- "tools/cpp"
 # cpp/cmake_modules/ThirdpartyToolchain.cmake
 # Brotli and Zstandard aren't vendored (to keep the package small), so they are
 # turned off when building offline.
-vendored_features <- list(
+# The names are what `turn_off_all_optional_features()` accepts in `keep`.
+vendored_features <- local({
   # Parquet turns on Thrift and simdjson; Thrift needs zlib and Boost
-  ARROW_PARQUET = c("ARROW_BOOST_URL", "ARROW_SIMDJSON_URL", "ARROW_THRIFT_URL", "ARROW_ZLIB_URL"),
-  ARROW_JSON = c("ARROW_RAPIDJSON_URL", "ARROW_SIMDJSON_URL"),
-  ARROW_MIMALLOC = "ARROW_MIMALLOC_URL",
-  ARROW_WITH_BZ2 = "ARROW_BZIP2_URL",
-  ARROW_WITH_LZ4 = "ARROW_LZ4_URL",
-  ARROW_WITH_RE2 = "ARROW_RE2_URL",
-  ARROW_WITH_SNAPPY = "ARROW_SNAPPY_URL",
-  ARROW_WITH_UTF8PROC = "ARROW_UTF8PROC_URL",
-  ARROW_WITH_ZLIB = "ARROW_ZLIB_URL"
-)
+  parquet_deps <- c("ARROW_BOOST_URL", "ARROW_SIMDJSON_URL", "ARROW_THRIFT_URL", "ARROW_ZLIB_URL")
+  list(
+    ARROW_PARQUET = parquet_deps,
+    # Dataset needs no thirdparty dependencies itself, but it's only useful
+    # with Parquet (and we've always turned them on and off together)
+    ARROW_DATASET = parquet_deps,
+    ARROW_JSON = c("ARROW_RAPIDJSON_URL", "ARROW_SIMDJSON_URL"),
+    ARROW_MIMALLOC = "ARROW_MIMALLOC_URL",
+    # Not a CMake option: SIMD is turned off with EXTRA_CMAKE_FLAGS
+    ARROW_SIMD_LEVEL = "ARROW_XSIMD_URL",
+    ARROW_WITH_BZ2 = "ARROW_BZIP2_URL",
+    ARROW_WITH_LZ4 = "ARROW_LZ4_URL",
+    ARROW_WITH_RE2 = "ARROW_RE2_URL",
+    ARROW_WITH_SNAPPY = "ARROW_SNAPPY_URL",
+    ARROW_WITH_UTF8PROC = "ARROW_UTF8PROC_URL",
+    ARROW_WITH_ZLIB = "ARROW_ZLIB_URL"
+  )
+})
 # uriparser and xsimd are required even for a minimal build
 vendored_dependencies <- unique(c(
   "ARROW_URIPARSER_URL",

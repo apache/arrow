@@ -28,9 +28,13 @@
 # build uses (no tests, docs, other language bindings, ...). Trimmed tarballs
 # no longer match the checksums pinned in versions.txt, so this script records
 # the upstream and trimmed checksums of each tarball in DESTDIR/checksums.txt.
-# When building the package's copy of the libarrow source (tools/cpp), nixlibs.R
-# uses the tarballs whose upstream checksum matches versions.txt and replaces
-# it with the trimmed one for the duration of the build.
+# nixlibs.R uses the tarballs whose upstream checksum matches the versions.txt
+# of the libarrow source it builds (tools/cpp, or ../cpp in a git checkout) and
+# replaces it with the trimmed one for the duration of the build.
+#
+# checksums.txt also records a checksum of how each tarball was trimmed (see
+# trim_recipe_sha256()). A tarball that DESTDIR already has is only downloaded
+# and trimmed again if its upstream version or the way it's trimmed changed.
 #
 # Trimming is done by, in order of preference:
 #   1. tools/trim/<name>.sh IN_TARBALL OUT_TARBALL, if it exists, where <name>
@@ -90,11 +94,12 @@ source "${VERSIONS_TXT}"
 # Don't add macOS metadata (._* files, extended attributes) to the tarballs
 export COPYFILE_DISABLE=1
 
+# Checksum of the file $1, or of stdin without arguments
 sha256() {
   if command -v sha256sum > /dev/null 2>&1; then
-    sha256sum "$1" | cut -d " " -f 1
+    sha256sum "${1:--}" | cut -d " " -f 1
   else
-    shasum -a 256 "$1" | cut -d " " -f 1
+    shasum -a 256 "${1:--}" | cut -d " " -f 1
   fi
 }
 
@@ -149,9 +154,11 @@ trim_dependency() {
       trim_generic
       ;;
     lz4)
-      # Only lib/ is built (LZ4_BUILD_CLI=OFF). Files outside of lib/ are
-      # GPL-2.0-or-later, so don't ship the ones we don't need.
-      rmd programs contrib ossfuzz
+      # Only lib/ is built (LZ4_BUILD_CLI=OFF), with build/cmake. LZ4's
+      # LICENSE says that the files outside of lib/ are GPL-2.0-or-later
+      # unless they say otherwise, so only keep what the build needs plus
+      # the license and README (which build/cmake references).
+      keep_only lib build LICENSE README.md
       trim_generic
       (cd build && keep_only cmake)
       ;;
@@ -197,7 +204,8 @@ trim_tarball() {
     bash "${SOURCE_DIR}/trim/${name}.sh" "${in}" "${out}"
     return
   fi
-  work="$(mktemp -d)"
+  # Under TRIM_DIR, so the EXIT trap removes it if anything below fails
+  work="$(mktemp -d "${TRIM_DIR}/work.XXXXXX")"
   # Use CMake's tar (libarchive) for .tar.bz2: tar -j needs a bzip2 binary,
   # which e.g. the R CI images don't have.
   case "${in}" in
@@ -208,7 +216,6 @@ trim_tarball() {
   src="$(cd "${work}" && ls)"
   if [ "$(echo "${src}" | wc -l)" -ne 1 ] || [ ! -d "${work}/${src}" ]; then
     echo "Expected a single top-level directory in ${in}" >&2
-    rm -rf "${work}"
     return 1
   fi
   (cd "${work}/${src}" && trim_dependency "${name}")
@@ -217,11 +224,28 @@ trim_tarball() {
     *.tar.gz) tar -czf "${out}" -C "${work}" "${src}" ;;
     *)
       echo "Don't know how to compress ${out}" >&2
-      rm -rf "${work}"
       return 1
       ;;
   esac
+  # Free the space now rather than at exit: the extracted trees can be large
   rm -rf "${work}"
+}
+
+# Print a checksum of everything that determines how dependency $1 is
+# trimmed, so that a tarball is trimmed again when any of it changes: this
+# script, tools/trim/<name>.sh if there is one, and for those, the libarrow
+# CMake (e.g. tools/trim/boost.sh reads the Boost libraries to keep from
+# ThirdpartyToolchain.cmake) and BOOST_INCLUDE_LIBRARIES (which overrides it).
+trim_recipe_sha256() {
+  local name="$1"
+  {
+    cat "${SOURCE_DIR}/vendor_dependencies.sh"
+    if [ -f "${SOURCE_DIR}/trim/${name}.sh" ]; then
+      cat "${SOURCE_DIR}/trim/${name}.sh"
+      cat "${SOURCE_DIR}/cpp/cmake_modules/ThirdpartyToolchain.cmake"
+      echo "BOOST_INCLUDE_LIBRARIES=${BOOST_INCLUDE_LIBRARIES:-}"
+    fi
+  } | sha256
 }
 
 mkdir -p "${DESTDIR}" "${DOWNLOAD_DIR}"
@@ -229,8 +253,14 @@ mkdir -p "${DESTDIR}" "${DOWNLOAD_DIR}"
 DOWNLOAD_DIR="$(cd "${DOWNLOAD_DIR}" && pwd)"
 TRIM_DIR="$(mktemp -d)"
 trap 'rm -rf "${TRIM_DIR}"' EXIT
+# Newly trimmed tarballs are staged here and only moved into DESTDIR, together
+# with the new checksums.txt, once all of them are done. So if this script
+# fails, DESTDIR still has the previous tarballs with a matching checksums.txt.
+STAGING_DIR="${TRIM_DIR}/staging"
+mkdir "${STAGING_DIR}"
+MANIFEST="${DESTDIR}/checksums.txt"
 keep=(checksums.txt)
-sums="filename upstream_sha256 vendored_sha256"$'\n'
+sums="filename upstream_sha256 vendored_sha256 trim_sha256"$'\n'
 for vendored_url_var in "${VENDORED_DEPENDENCIES[@]}"; do
   url=""
   for dep_packed in "${DEPENDENCIES[@]}"; do
@@ -252,6 +282,20 @@ for vendored_url_var in "${VENDORED_DEPENDENCIES[@]}"; do
   name="$(echo "${vendored_url_var}" | sed -e 's/^ARROW_//' -e 's/_URL$//' | tr '[:upper:]' '[:lower:]')"
   keep+=("${tar_name}")
 
+  trim_checksum="$(trim_recipe_sha256 "${name}")"
+
+  # Skip the download and the trimming if DESTDIR already has this tarball,
+  # trimmed the same way from the same upstream tarball
+  out="${DESTDIR}/${tar_name}"
+  if [ -f "${out}" ] && [ -f "${MANIFEST}" ]; then
+    recorded="$(awk -v f="${tar_name}" '$1 == f { print $2, $3, $4 }' "${MANIFEST}")"
+    if [ "${recorded}" = "${checksum} $(sha256 "${out}") ${trim_checksum}" ]; then
+      echo "${tar_name} is up to date"
+      sums="${sums}${tar_name} ${recorded}"$'\n'
+      continue
+    fi
+  fi
+
   upstream="${DOWNLOAD_DIR}/${tar_name}"
   if [ ! -f "${upstream}" ] || [ "$(sha256 "${upstream}")" != "${checksum}" ]; then
     echo "Downloading ${url}"
@@ -263,17 +307,23 @@ for vendored_url_var in "${VENDORED_DEPENDENCIES[@]}"; do
     fi
   fi
 
-  # Trim into a temporary directory (keeping the file name, so the extension
-  # says how to compress it) so that a failure doesn't leave a partial file.
+  # Keep the file name, so the extension says how to compress it
   echo "Trimming ${tar_name}"
-  trim_tarball "${upstream}" "${TRIM_DIR}/${tar_name}" "${name}"
-  out="${DESTDIR}/${tar_name}"
-  mv "${TRIM_DIR}/${tar_name}" "${out}"
-  sums="${sums}${tar_name} ${checksum} $(sha256 "${out}")"$'\n'
+  trim_tarball "${upstream}" "${STAGING_DIR}/${tar_name}" "${name}"
+  sums="${sums}${tar_name} ${checksum} $(sha256 "${STAGING_DIR}/${tar_name}") ${trim_checksum}"$'\n'
 done
 
+# Replace the tarballs and checksums.txt together. Remove checksums.txt first:
+# without it nixlibs.R uses none of the tarballs, so being interrupted part way
+# through can't leave tarballs that don't match their recorded checksums.
+rm -f "${MANIFEST}"
+for file in "${STAGING_DIR}"/*; do
+  [ -e "${file}" ] || continue
+  mv "${file}" "${DESTDIR}/"
+done
 # See read_vendored_checksums() in nixlibs.R
-printf "%s" "${sums}" > "${DESTDIR}/checksums.txt"
+printf "%s" "${sums}" > "${TRIM_DIR}/checksums.txt"
+mv "${TRIM_DIR}/checksums.txt" "${MANIFEST}"
 
 # Remove tarballs for other versions (or dependencies we no longer vendor)
 for file in "${DESTDIR}"/*; do

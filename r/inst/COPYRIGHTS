@@ -9,7 +9,9 @@ tools/vendored. They are only used when the dependency isn't found on the
 system, and are statically linked into the package when used. Each tarball
 contains the dependency's full license text.
 
-Boost (headers used by Apache Thrift)
+Boost (the subset of libraries used by Apache Thrift; Boost.Locale and the
+Boost libraries it needs are compiled and statically linked, the rest are
+header-only)
   Copyright the Boost authors
   Boost Software License 1.0
 
