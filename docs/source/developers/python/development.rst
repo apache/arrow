@@ -156,8 +156,10 @@ To run mypy on the PyArrow codebase:
    $ mypy
 
 The mypy configuration is in the ``[tool.mypy]`` section of ``pyproject.toml``.
-mypy only uses the stubs when it checks them too, so pass ``pyarrow-stubs``
-along with any other files you check:
+With an editable install, mypy finds ``pyarrow-stubs`` automatically. With a
+non-editable install (``pip install .`` or a wheel built with
+``python -m build``), the stubs aren't installed yet, so pass ``pyarrow-stubs``
+along with the files you check:
 
 .. code-block::
 

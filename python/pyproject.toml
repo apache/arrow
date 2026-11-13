@@ -112,9 +112,9 @@ git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow
 fallback_version = '27.0.0a0'
 
 [tool.mypy]
-# mypy can't find a "-stubs" package on mypy_path, but it maps pyarrow-stubs/
-# to the pyarrow module when checking it. Pass pyarrow-stubs as well when
-# checking other files, e.g. `mypy pyarrow-stubs pyarrow/tests/test_array.py`.
+# With an editable install, mypy finds pyarrow-stubs on the path added by the
+# install. With a non-editable install (`pip install .` or a wheel), the stubs
+# aren't installed yet, so specify pyarrow-stubs along with the files you check.
 files = ["pyarrow-stubs", "pyarrow-stubs-tests"]
 # The type annotation tests use `# type: ignore[...]` to assert that some
 # usage is rejected, so an ignore that is no longer needed is an error there.
