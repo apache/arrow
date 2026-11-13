@@ -1,0 +1,94 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: ODBC macOS Reusable
+description: Install dependencies and build the Flight SQL ODBC driver on macOS
+inputs:
+  architecture:
+    description: 'Architecture to build for (AMD64 or ARM64)'
+    required: true
+  generate-installer:
+    description: 'Whether to run cpack to generate the .pkg installer after the build'
+    required: false
+    default: 'false'
+runs:
+  using: "composite"
+  steps:
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        brew bundle --file=cpp/Brewfile
+
+        # We want to use bundled RE2 for static linking. If
+        # Homebrew's RE2 is installed, its header file may be used.
+        # We uninstall Homebrew's RE2 to ensure using bundled RE2.
+        brew uninstall grpc || : # gRPC depends on RE2
+        brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
+        brew uninstall re2
+
+        # We want to use bundled Protobuf for static linking. If
+        # Homebrew's Protobuf is installed, its library file may be
+        # used on test. We uninstall Homebrew's Protobuf to ensure using
+        # bundled Protobuf.
+        brew uninstall protobuf
+
+        # We want to use bundled Boost for static linking.
+        brew uninstall boost
+    - name: Setup ccache
+      shell: bash
+      run: |
+        ci/scripts/ccache_setup.sh
+    - name: ccache info
+      id: ccache-info
+      shell: bash
+      run: |
+        echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+    - name: Restore ccache
+      uses: apache/infrastructure-actions/stash/restore@5a4eaabe6c43770c9df95875a513a6b8362be5eb
+      with:
+        path: ${{ steps.ccache-info.outputs.cache-dir }}
+        key: cpp-odbc-ccache-macos-${{ inputs.architecture }}-${{ env.ARROW_BUILD_TYPE }}
+    - name: Build
+      shell: bash
+      run: |
+        # Homebrew uses /usr/local as prefix. So packages
+        # installed by Homebrew also use /usr/local/include. We
+        # want to include headers for packages installed by
+        # Homebrew as system headers to ignore warnings in them.
+        # But "-isystem /usr/local/include" isn't used by CMake
+        # because /usr/local/include is marked as the default
+        # include path. So we disable -Werror to avoid build error
+        # by warnings from packages installed by Homebrew.
+        export BUILD_WARNING_LEVEL=PRODUCTION
+        LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
+        ODBC_INCLUDE_DIR=$LIBIODBC_DIR/include
+        export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
+        export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
+        ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+    - name: Save ccache
+      if: ${{ !cancelled() }}
+      continue-on-error: true
+      uses: apache/infrastructure-actions/stash/save@5a4eaabe6c43770c9df95875a513a6b8362be5eb
+      with:
+        path: ${{ steps.ccache-info.outputs.cache-dir }}
+        key: cpp-odbc-ccache-macos-${{ inputs.architecture }}-${{ env.ARROW_BUILD_TYPE }}
+    - name: Generate macOS Installer
+      if: inputs.generate-installer == 'true'
+      shell: bash
+      run: |
+        cd build/cpp
+        cpack
