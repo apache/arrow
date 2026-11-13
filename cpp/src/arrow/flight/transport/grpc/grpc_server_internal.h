@@ -29,7 +29,6 @@
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/server_middleware.h"
-#include "arrow/flight/transport/grpc/async_grpc_compat.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/util/uri.h"
 
