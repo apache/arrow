@@ -130,6 +130,8 @@ class ColumnReaderImpl : public ColumnReader {
   virtual ::arrow::Status BuildArray(int64_t length_upper_bound,
                                      std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
   virtual bool IsOrHasRepeatedChild() const = 0;
+  virtual bool SetFixedSizeList(int32_t /*width*/) { return false; }
+  virtual bool dense_fixed_size_list() const { return false; }
 };
 
 namespace {
@@ -501,6 +503,12 @@ class LeafReader : public ColumnReaderImpl {
   }
 
   bool IsOrHasRepeatedChild() const final { return false; }
+  bool SetFixedSizeList(int32_t width) override {
+    return record_reader_->SetFixedSizeList(width);
+  }
+  bool dense_fixed_size_list() const override {
+    return record_reader_->dense_fixed_size_list();
+  }
 
   Status LoadBatch(int64_t records_to_read) final {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
@@ -690,6 +698,7 @@ class ListReader : public ColumnReaderImpl {
   const std::shared_ptr<Field> field() override { return field_; }
 
  protected:
+  ColumnReaderImpl* item_reader() const { return item_reader_.get(); }
   std::shared_ptr<ReaderContext> ctx_;
 
  private:
@@ -734,7 +743,31 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
                       ::parquet::internal::LevelInfo level_info,
                       std::unique_ptr<ColumnReaderImpl> child_reader)
       : ListReader(std::move(ctx), std::move(field), level_info,
-                   std::move(child_reader)) {}
+                   std::move(child_reader)) {
+    const auto& type =
+        checked_cast<const ::arrow::FixedSizeListType&>(*this->field()->type());
+    this->item_reader()->SetFixedSizeList(type.list_size());
+  }
+
+  Status BuildArray(int64_t length_upper_bound,
+                    std::shared_ptr<ChunkedArray>* out) override {
+    if (!item_reader()->dense_fixed_size_list()) {
+      return ListReader<int32_t>::BuildArray(length_upper_bound, out);
+    }
+    const auto& type = checked_cast<const ::arrow::FixedSizeListType&>(*field()->type());
+    std::shared_ptr<ChunkedArray> child;
+    RETURN_NOT_OK(item_reader()->BuildArray(length_upper_bound, &child));
+    ARROW_ASSIGN_OR_RAISE(auto child_data, ChunksToSingle(*child));
+    const int64_t rows = child_data->length / type.list_size();
+    if (child_data->length % type.list_size() != 0) {
+      return Status::Invalid("Incomplete fixed-size list at end of column");
+    }
+    auto data = ::arrow::ArrayData::Make(field()->type(), rows, {nullptr},
+                                         {std::move(child_data)}, 0);
+    *out = std::make_shared<ChunkedArray>(::arrow::MakeArray(std::move(data)));
+    return Status::OK();
+  }
+
   ::arrow::Result<std::shared_ptr<ChunkedArray>> AssembleArray(
       std::shared_ptr<ArrayData> data) final {
     DCHECK_EQ(data->buffers.size(), 2);
