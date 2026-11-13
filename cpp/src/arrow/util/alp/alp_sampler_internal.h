@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <span>
 #include <vector>
 
@@ -27,10 +28,17 @@
 
 namespace arrow::util::alp {
 
+/// Returns the offsets of the vectors AlpSampler samples from an input of
+/// `num_values` values. Each window of AlpSamplingOptions::kSampleWindowSize
+/// values, or the whole input if shorter, contributes up to
+/// AlpSamplingOptions::kSampledVectors vectors of
+/// AlpFormatConstants::kDefaultVectorSize values spaced evenly across it.
+ARROW_EXPORT std::vector<int64_t> GetSampledVectorOffsets(int64_t num_values);
+
 /// Collects samples and builds an ALP encoding preset.
 ///
-/// Input is split into fixed-size chunks. Each sampled chunk contributes one
-/// strided sample. Call AddSample() one or more times, then MakePreset().
+/// Each AddSample() call samples the vectors given by GetSampledVectorOffsets().
+/// Call AddSample() one or more times, then MakePreset().
 template <AlpFloatingType T>
 class ARROW_EXPORT AlpSampler {
  public:
@@ -45,20 +53,16 @@ class ARROW_EXPORT AlpSampler {
   AlpEncodingPreset MakePreset() const;
 
  private:
-  /// Adds one sampling chunk. Only the first
-  /// AlpFormatConstants::kDefaultVectorSize elements are examined.
-  void AddSampleChunk(std::span<const T> input);
+  /// Adds a sample of at most AlpSamplingOptions::kSamplesPerVector values of the
+  /// vector at `offset` in the input.
+  void AddVectorSample(std::span<const T> vector, int64_t offset);
 
-  /// Number of chunks that have contributed a sample.
-  int64_t chunks_sampled_{0};
-  /// Number of chunks processed.
-  int64_t chunks_processed_{0};
-  /// Number of values processed.
+  /// Number of values passed to AddSample().
   int64_t values_processed_{0};
-  /// Number of values retained in chunk_samples_.
+  /// Number of values retained in vector_samples_.
   int64_t sampled_values_count_{0};
-  /// One strided sample per sampled chunk. MakePreset() only reads these.
-  std::vector<std::vector<T>> chunk_samples_;
+  /// The sample of each sampled vector. MakePreset() only reads these.
+  std::vector<std::vector<T>> vector_samples_;
 };
 
 }  // namespace arrow::util::alp

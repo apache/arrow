@@ -19,10 +19,13 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <optional>
+#include <random>
 #include <span>
 #include <utility>
 #include <vector>
@@ -2867,19 +2870,34 @@ class TestAlpEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
-  void CheckRoundtrip() override {
-    CheckRoundtripWithValues(std::span(draws_, num_values_));
+  // Random multiples of 0.25, which ALP compresses for both float and double, so
+  // the round-trip tests exercise ALP pages.
+  void InitData(int nvalues, int repeats) override {
+    std::mt19937 rng(nvalues);
+    std::uniform_int_distribution<int> dist(-40000, 40000);
+    InitDataWith(nvalues, repeats, [&](int) {
+      return static_cast<c_type>(static_cast<double>(dist(rng)) / 4.0);
+    });
   }
 
-  void CheckRoundtripWithValues(std::span<const c_type> values) {
+  void CheckRoundtrip() override {
+    CheckRoundtripWithValues(std::span(draws_, num_values_), expected_encoding_);
+  }
+
+  // Round-trips `values` as one page. A page ALP would make larger is flushed as
+  // PLAIN, so its encoding is checked against `expected` when given.
+  void CheckRoundtripWithValues(std::span<const c_type> values,
+                                std::optional<Encoding::type> expected = Encoding::ALP) {
     auto encoder =
         MakeTypedEncoder<Type>(Encoding::ALP, /*use_dictionary=*/false, descr_.get());
-    auto decoder = MakeTypedDecoder<Type>(Encoding::ALP, descr_.get());
     const auto num_values = static_cast<int>(values.size());
     std::vector<c_type> output(values.size());
 
     encoder->Put(values.data(), num_values);
     encode_buffer_ = encoder->FlushValues();
+    ASSERT_NO_FATAL_FAILURE(
+        CheckFlushedEncoding(*encoder, values.size_bytes(), expected));
+    auto decoder = MakeTypedDecoder<Type>(encoder->flushed_encoding(), descr_.get());
 
     decoder->SetData(num_values, encode_buffer_->data(),
                      static_cast<int>(encode_buffer_->size()));
@@ -2892,7 +2910,6 @@ class TestAlpEncoding : public TestEncodingBase<Type> {
                             int64_t valid_bits_offset) override {
     auto encoder =
         MakeTypedEncoder<Type>(Encoding::ALP, /*use_dictionary=*/false, descr_.get());
-    auto decoder = MakeTypedDecoder<Type>(Encoding::ALP, descr_.get());
 
     int null_count = 0;
     for (auto i = 0; i < num_values_; i++) {
@@ -2903,6 +2920,9 @@ class TestAlpEncoding : public TestEncodingBase<Type> {
 
     encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
     encode_buffer_ = encoder->FlushValues();
+    ASSERT_NO_FATAL_FAILURE(CheckFlushedEncoding(
+        *encoder, (num_values_ - null_count) * sizeof(c_type), expected_encoding_));
+    auto decoder = MakeTypedDecoder<Type>(encoder->flushed_encoding(), descr_.get());
 
     // In production, SetData gets the level count (nulls included).
     decoder->SetData(num_values_, encode_buffer_->data(),
@@ -2910,12 +2930,29 @@ class TestAlpEncoding : public TestEncodingBase<Type> {
     auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
                                                 valid_bits, valid_bits_offset);
     ASSERT_EQ(num_values_, values_decoded);
-    ASSERT_EQ(0, decoder->values_left());
+    // The PLAIN decoder counts only the values it read, not the nulls.
+    if (encoder->flushed_encoding() == Encoding::ALP) {
+      ASSERT_EQ(0, decoder->values_left());
+    }
 
     for (int j = 0; j < num_values_; ++j) {
       if (bit_util::GetBit(valid_bits, valid_bits_offset + j)) {
         ASSERT_EQ(0, std::memcmp(&draws_[j], &decode_buf_[j], sizeof(c_type))) << j;
       }
+    }
+  }
+
+  // A PLAIN page holds exactly the values, and an ALP page is never larger.
+  void CheckFlushedEncoding(const TypedEncoder<Type>& encoder, size_t plain_size,
+                            std::optional<Encoding::type> expected) {
+    if (encoder.flushed_encoding() == Encoding::PLAIN) {
+      ASSERT_EQ(plain_size, static_cast<size_t>(encode_buffer_->size()));
+    } else {
+      ASSERT_EQ(Encoding::ALP, encoder.flushed_encoding());
+      ASSERT_LE(static_cast<size_t>(encode_buffer_->size()), plain_size);
+    }
+    if (expected.has_value()) {
+      ASSERT_EQ(*expected, encoder.flushed_encoding());
     }
   }
 
@@ -2938,13 +2975,16 @@ class TestAlpEncoding : public TestEncodingBase<Type> {
     }
   }
 
+  // Expected encoding of every round-trip page; nullopt accepts either.
+  std::optional<Encoding::type> expected_encoding_ = Encoding::ALP;
+
   void ExecuteSpecialValues(int nvalues, int repeats) {
     InitDataWith(nvalues, repeats, [](int i) {
       if (i % 20 == 0) return std::numeric_limits<c_type>::quiet_NaN();
       if (i % 20 == 5) return std::numeric_limits<c_type>::infinity();
       if (i % 20 == 10) return -std::numeric_limits<c_type>::infinity();
       if (i % 20 == 15) return static_cast<c_type>(-0.0);
-      return static_cast<c_type>(i) * static_cast<c_type>(0.123);
+      return static_cast<c_type>(static_cast<double>(i * 37 % 997) / 4.0);
     });
     CheckRoundtrip();
   }
@@ -2963,9 +3003,12 @@ using AlpEncodedTypes = ::testing::Types<FloatType, DoubleType>;
 TYPED_TEST_SUITE(TestAlpEncoding, AlpEncodedTypes);
 
 TYPED_TEST(TestAlpEncoding, BasicRoundTrip) {
+  // A page of a few values may be smaller as PLAIN, because of the ALP headers.
+  this->expected_encoding_ = std::nullopt;
   for (int values = 1; values < 32; ++values) {
     ASSERT_NO_FATAL_FAILURE(this->Execute(values, 1));
   }
+  this->expected_encoding_ = Encoding::ALP;
 
   for (int values : {1023, 1024, 1025, 2048, 3000}) {
     ASSERT_NO_FATAL_FAILURE(this->Execute(values, 1));
@@ -2973,13 +3016,15 @@ TYPED_TEST(TestAlpEncoding, BasicRoundTrip) {
 }
 
 TYPED_TEST(TestAlpEncoding, BatchedDecode) {
-  // Read the page in many small batches.
+  // Read the page in many small batches. Decimal values keep the page in ALP.
   using c_type = typename TypeParam::c_type;
-  this->InitData(2000, 1);
+  this->InitDataWith(2000, 1,
+                     [](int i) { return static_cast<c_type>(100.0 + i * 0.01); });
   auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, /*use_dictionary=*/false,
                                              this->descr_.get());
   encoder->Put(this->draws_, this->num_values_);
   auto buffer = encoder->FlushValues();
+  ASSERT_EQ(Encoding::ALP, encoder->flushed_encoding());
 
   const std::vector<std::vector<int>> batch_plans = {
       {2000}, {1999, 1}, {1, 1999}, {1, 7, 100, 1892}, {1024, 976}, {500, 500, 500, 500}};
@@ -3006,10 +3051,13 @@ TYPED_TEST(TestAlpEncoding, BatchedDecode) {
 TYPED_TEST(TestAlpEncoding, ReusesEncoderAcrossFlushes) {
   using c_type = typename TypeParam::c_type;
   auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, this->descr_.get());
-  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, this->descr_.get());
 
+  std::vector<c_type> quarters(1100);
+  for (size_t i = 0; i < quarters.size(); ++i) {
+    quarters[i] = static_cast<c_type>(1.25 * static_cast<double>(i % 3 + 1));
+  }
   const std::vector<std::vector<c_type>> pages = {
-      {static_cast<c_type>(1.25), static_cast<c_type>(2.5), static_cast<c_type>(3.75)},
+      quarters,
       // Two vectors, so a bad offset table would be caught.
       std::vector<c_type>(1500, static_cast<c_type>(7.5)),
   };
@@ -3017,6 +3065,8 @@ TYPED_TEST(TestAlpEncoding, ReusesEncoderAcrossFlushes) {
   for (const auto& page : pages) {
     encoder->Put(page.data(), static_cast<int>(page.size()));
     auto buffer = encoder->FlushValues();
+    ASSERT_EQ(Encoding::ALP, encoder->flushed_encoding());
+    auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, this->descr_.get());
 
     std::vector<c_type> output(page.size());
     decoder->SetData(static_cast<int>(page.size()), buffer->data(),
@@ -3027,13 +3077,59 @@ TYPED_TEST(TestAlpEncoding, ReusesEncoderAcrossFlushes) {
   }
 }
 
+// Encodes `values` as one page with `encoder` and checks that it decodes back.
+template <typename Type>
+std::shared_ptr<Buffer> EncodeAlpPage(TypedEncoder<Type>* encoder,
+                                      const ColumnDescriptor* descr,
+                                      const std::vector<typename Type::c_type>& values) {
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buffer = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<Type>(encoder->flushed_encoding(), descr);
+  std::vector<typename Type::c_type> output(values.size());
+  decoder->SetData(static_cast<int>(values.size()), buffer->data(),
+                   static_cast<int>(buffer->size()));
+  EXPECT_EQ(static_cast<int>(values.size()),
+            decoder->Decode(output.data(), static_cast<int>(values.size())));
+  EXPECT_EQ(0, std::memcmp(values.data(), output.data(),
+                           values.size() * sizeof(typename Type::c_type)));
+  return buffer;
+}
+
+// Round trip across page sizes, through one encoder per column chunk, on values
+// whose precision changes partway through.
+TYPED_TEST(TestAlpEncoding, RoundTripAcrossPageSizes) {
+  using c_type = typename TypeParam::c_type;
+  constexpr int kNumValues = 120000;
+  std::vector<c_type> values(kNumValues);
+  for (int i = 0; i < kNumValues; ++i) {
+    const double scale = std::pow(10.0, (i / 3000) % 4);
+    values[i] = static_cast<c_type>(static_cast<double>(i % 977) / scale);
+  }
+  for (const int page_size : {1000, 1024, 20000, 50000, kNumValues}) {
+    SCOPED_TRACE(page_size);
+    auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, this->descr_.get());
+    for (int start = 0; start < kNumValues; start += page_size) {
+      const int end = std::min(kNumValues, start + page_size);
+      EncodeAlpPage<TypeParam>(
+          encoder.get(), this->descr_.get(),
+          std::vector<c_type>(values.begin() + start, values.begin() + end));
+    }
+  }
+}
+
 TYPED_TEST(TestAlpEncoding, RoundTripWithRepeats) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(100, 10));
 }
 
 TYPED_TEST(TestAlpEncoding, SpecialValues) {
-  // NaN, Inf, -Inf and -0.0 are all ALP exceptions.
+  // NaN, Inf, -Inf and -0.0 are all ALP exceptions. With one value in five an
+  // exception, a page of 100 floats may be smaller as PLAIN.
+  this->expected_encoding_ = sizeof(typename TypeParam::c_type) == 4
+                                 ? std::nullopt
+                                 : std::optional(Encoding::ALP);
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpecialValues(100, 1));
+  this->expected_encoding_ = Encoding::ALP;
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpecialValues(1024, 1));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpecialValues(2000, 1));
 }
@@ -3047,7 +3143,12 @@ TYPED_TEST(TestAlpEncoding, DecimalPatterns) {
 
 TYPED_TEST(TestAlpEncoding, SpacedRoundTrip) {
   for (double null_prob : {0.0, 0.1, 0.5, 0.9}) {
+    // About ten values remain at the highest null probability, few enough that
+    // the page may be smaller as PLAIN.
+    this->expected_encoding_ =
+        null_prob < 0.9 ? std::optional(Encoding::ALP) : std::nullopt;
     ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(100, 1, 0, null_prob));
+    this->expected_encoding_ = Encoding::ALP;
     ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(1024, 1, 0, null_prob));
     ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(2000, 1, 0, null_prob));
   }
@@ -3079,7 +3180,9 @@ TYPED_TEST(TestAlpEncoding, RandomData) {
   ASSERT_NO_THROW(encoder->Put(*arr));
   auto buffer = encoder->FlushValues();
 
-  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, this->descr_.get());
+  // Values this far apart have no common decimal scale, so the page is PLAIN.
+  ASSERT_EQ(Encoding::PLAIN, encoder->flushed_encoding());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::PLAIN, this->descr_.get());
   decoder->SetData(static_cast<int>(arr->length()), buffer->data(),
                    static_cast<int>(buffer->size()));
 
@@ -3109,6 +3212,7 @@ TYPED_TEST(TestAlpEncoding, ConstantValues) {
 TYPED_TEST(TestAlpEncoding, EmptyInput) {
   auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, this->descr_.get());
   auto buffer = encoder->FlushValues();
+  ASSERT_EQ(Encoding::ALP, encoder->flushed_encoding());
   ASSERT_GT(buffer->size(), 0);
 
   auto decoder = MakeTypedDecoder<TypeParam>(Encoding::ALP, this->descr_.get());
@@ -3118,16 +3222,60 @@ TYPED_TEST(TestAlpEncoding, EmptyInput) {
 }
 
 TYPED_TEST(TestAlpEncoding, AllExceptions) {
-  // All values are exceptions. Nothing is bit-packed.
+  // All values are exceptions, so ALP would be larger and the page is PLAIN.
   using c_type = typename TypeParam::c_type;
   const std::vector<c_type> data(100, std::numeric_limits<c_type>::quiet_NaN());
 
-  this->CheckRoundtripWithValues(data);
+  this->CheckRoundtripWithValues(data, Encoding::PLAIN);
+}
+
+// Exceptions mixed into decimal values keep the page in ALP.
+TYPED_TEST(TestAlpEncoding, SomeExceptions) {
+  using c_type = typename TypeParam::c_type;
+  std::vector<c_type> data(2000);
+  for (size_t i = 0; i < data.size(); ++i) {
+    data[i] = i % 50 == 0 ? std::numeric_limits<c_type>::quiet_NaN()
+                          : static_cast<c_type>(static_cast<double>(i % 397) / 8.0);
+  }
+
+  this->CheckRoundtripWithValues(data, Encoding::ALP);
+}
+
+// Values with full-precision mantissas have no decimal form, so ALP stores them
+// as exceptions and would be larger than PLAIN. The page is written as PLAIN, and
+// its bytes are the values themselves.
+TYPED_TEST(TestAlpEncoding, FallsBackToPlainWhenLarger) {
+  using c_type = typename TypeParam::c_type;
+  std::mt19937_64 rng(42);
+  std::uniform_real_distribution<double> dist(-1.0, 1.0);
+  std::vector<c_type> values(20000);
+  for (auto& value : values) {
+    value = static_cast<c_type>(dist(rng));
+  }
+
+  auto encoder = MakeTypedEncoder<TypeParam>(Encoding::ALP, false, this->descr_.get());
+  const auto buffer = EncodeAlpPage<TypeParam>(encoder.get(), this->descr_.get(), values);
+  ASSERT_EQ(Encoding::PLAIN, encoder->flushed_encoding());
+  ASSERT_EQ(values.size() * sizeof(c_type), static_cast<size_t>(buffer->size()));
+  ASSERT_EQ(0, std::memcmp(values.data(), buffer->data(), buffer->size()));
+
+  // The next page is decimal, so it goes back to ALP.
+  std::vector<c_type> decimals(20000);
+  for (size_t i = 0; i < decimals.size(); ++i) {
+    decimals[i] = static_cast<c_type>(static_cast<double>(i % 1000) / 100.0);
+  }
+  EncodeAlpPage<TypeParam>(encoder.get(), this->descr_.get(), decimals);
+  ASSERT_EQ(Encoding::ALP, encoder->flushed_encoding());
 }
 
 TYPED_TEST(TestAlpEncoding, BoundaryValues) {
   using c_type = typename TypeParam::c_type;
-  const std::vector<c_type> data = {
+  // Boundary values are exceptions; the decimals around them keep the page in ALP.
+  std::vector<c_type> data(1000);
+  for (size_t i = 0; i < data.size(); ++i) {
+    data[i] = static_cast<c_type>(static_cast<double>(i % 97) / 4.0);
+  }
+  const std::vector<c_type> boundaries = {
       std::numeric_limits<c_type>::max(),
       std::numeric_limits<c_type>::min(),
       std::numeric_limits<c_type>::lowest(),
@@ -3138,8 +3286,11 @@ TYPED_TEST(TestAlpEncoding, BoundaryValues) {
       static_cast<c_type>(1.0),
       static_cast<c_type>(-1.0),
   };
+  for (size_t i = 0; i < boundaries.size(); ++i) {
+    data[i * 97] = boundaries[i];
+  }
 
-  this->CheckRoundtripWithValues(data);
+  this->CheckRoundtripWithValues(data, Encoding::ALP);
 }
 
 TEST(AlpEncodeDecode, InvalidDataTypes) {
