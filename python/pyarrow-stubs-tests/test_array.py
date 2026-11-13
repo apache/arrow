@@ -165,6 +165,16 @@ def test_list_arrays() -> None:
                       pa.FixedSizeListArray),
           pa.FixedSizeListArray)
 
+    # mask must be a boolean pyarrow Array (no lists or ndarrays)
+    mask = pa.array([False, True])
+    check(assert_type(pa.ListArray.from_arrays([0, 1, 2], [1, 2], mask=mask),
+                      pa.ListArray),
+          pa.ListArray)
+    if TYPE_CHECKING:
+        pa.ListArray.from_arrays(
+            [0, 1, 2], [1, 2], mask=[False, True]  # type: ignore[arg-type]
+        )
+
     # MapArray is a ListArray (of key-item structs) at runtime.
     map_arr = pa.MapArray.from_arrays([0, 2], [1, 2], ["a", "b"])
     check(assert_type(map_arr, pa.MapArray), pa.ListArray)

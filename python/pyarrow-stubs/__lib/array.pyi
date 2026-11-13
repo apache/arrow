@@ -158,7 +158,7 @@ class Array(_PandasConvertible):
     @staticmethod
     def from_pandas(
         obj: pd.Series | np.ndarray | ArrayLike,
-        mask: Mask | None = None,
+        mask: Array | Iterable[bool] | NDArray[np.bool_] | None = None,
         type: DataType | str | None = None,
         safe: bool = True,
         memory_pool: MemoryPool | None = None,
@@ -321,7 +321,7 @@ class ListArray(BaseListArray):
         values: Array | Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
-        mask: Mask | None = None,
+        mask: Array | None = None,
     ) -> ListArray: ...
     @property
     def values(self) -> Array: ...
@@ -336,7 +336,7 @@ class LargeListArray(BaseListArray):
         values: Array | Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
-        mask: Mask | None = None,
+        mask: Array | None = None,
     ) -> LargeListArray: ...
     @property
     def values(self) -> Array: ...
@@ -352,7 +352,7 @@ class ListViewArray(BaseListArray):
         values: Array | Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
-        mask: Mask | None = None,
+        mask: Array | None = None,
     ) -> ListViewArray: ...
     @property
     def values(self) -> Array: ...
@@ -370,7 +370,7 @@ class LargeListViewArray(BaseListArray):
         values: Array | Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
-        mask: Mask | None = None,
+        mask: Array | None = None,
     ) -> LargeListViewArray: ...
     @property
     def values(self) -> Array: ...
@@ -386,7 +386,7 @@ class FixedSizeListArray(BaseListArray):
         values: Array | Iterable[Any],
         list_size: int | None = None,
         type: DataType | None = None,
-        mask: Mask | None = None,
+        mask: Array | None = None,
     ) -> FixedSizeListArray: ...
     @property
     def values(self) -> Array: ...
@@ -400,7 +400,7 @@ class MapArray(ListArray):
         items: Array | Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
-        mask: Mask | None = None,
+        mask: Array | None = None,
     ) -> MapArray: ...
     @property
     def keys(self) -> Array: ...
