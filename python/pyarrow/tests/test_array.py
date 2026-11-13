@@ -31,7 +31,7 @@ import weakref
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
@@ -323,11 +323,11 @@ def test_asarray():
 
     arr = pa.array(range(4))
 
-    # The iterator interface gives back an array of Int64Value's
+    # The iterator interface gives back an array of Int64Scalar's
     np_arr = np.asarray([_ for _ in arr])
     assert np_arr.tolist() == [0, 1, 2, 3]
     assert np_arr.dtype == np.dtype('O')
-    assert isinstance(np_arr[0], pa.lib.Int64Value)
+    assert isinstance(np_arr[0], pa.Int64Scalar)
 
     # Calling with the arrow array gives back an array with 'int64' dtype
     np_arr = np.asarray(arr)
@@ -3188,7 +3188,7 @@ def test_buffers_primitive():
     # Slicing does not affect the buffers but the offset
     a_sliced = a[1:]
     buffers = a_sliced.buffers()
-    a_sliced.offset == 1
+    assert a_sliced.offset == 1
     assert len(buffers) == 2
     null_bitmap = buffers[0].to_pybytes()
     assert 1 <= len(null_bitmap) <= 64  # XXX this is varying

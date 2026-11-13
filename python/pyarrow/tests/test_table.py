@@ -23,7 +23,7 @@ import weakref
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc

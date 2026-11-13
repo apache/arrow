@@ -170,10 +170,6 @@ class DocstringInserter(libcst.CSTTransformer):
         return updated_node
 
 
-LIB_MODULES = {"array", "builder", "compat", "config", "device", "error", "io",
-               "_ipc", "memory", "pandas_shim", "scalar", "table", "tensor", "_types"}
-
-
 def add_docstrings_to_stubs(stubs_dir):
     """Update all stub files in stubs_dir with docstrings from pyarrow runtime."""
     stubs_dir = Path(stubs_dir)
@@ -186,7 +182,7 @@ def add_docstrings_to_stubs(stubs_dir):
             continue
 
         module_name = stub_file.stem
-        if module_name in LIB_MODULES:
+        if stub_file.parent.name == "__lib":
             namespace = "lib"
         elif stub_file.parent.name in ("parquet", "interchange"):
             namespace = (stub_file.parent.name if module_name == "__init__"
