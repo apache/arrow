@@ -204,7 +204,7 @@ repos:
         language: python
         # Unset the VIRTUAL_ENV of the hook, so that ty uses the environment
         # of uvx.
-        entry: env -u VIRTUAL_ENV uvx --with-requirements python/requirements-stubs.txt ty check --project python
+        entry: env -u VIRTUAL_ENV -u CONDA_PREFIX uvx --with-requirements python/requirements-stubs.txt ty check --project python
         pass_filenames: false
         files: >-
           ^python/(pyarrow-stubs(-tests)?/|(pyproject\.toml|requirements-stubs\.txt)$)
