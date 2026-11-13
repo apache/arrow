@@ -74,11 +74,11 @@ def test_table() -> None:
     # return the union here.
     check(assert_type(table.column("a"), pa.Array | pa.ChunkedArray),
           pa.ChunkedArray)
-    check(assert_type(table["a"], pa.Array | pa.ChunkedArray | pa.Table),
+    check(assert_type(table["a"], pa.Array | pa.ChunkedArray),
           pa.ChunkedArray)
-    check(assert_type(table[0], pa.Array | pa.ChunkedArray | pa.Table),
+    check(assert_type(table[0], pa.Array | pa.ChunkedArray),
           pa.ChunkedArray)
-    check(assert_type(table[:1], pa.Array | pa.ChunkedArray | pa.Table),
+    check(assert_type(table[:1], pa.Table),
           pa.Table)
 
     check(assert_type(table.set_column(0, "a", [_ArrowDeviceArrayProvider()]),

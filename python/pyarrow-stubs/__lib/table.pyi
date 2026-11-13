@@ -17,7 +17,7 @@
 
 import builtins
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Literal, Self, TypeAlias
+from typing import Any, ClassVar, Literal, overload, Self, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -251,7 +251,10 @@ class _Tabular(_PandasConvertible):
     def __dataframe__(
         self, nan_as_null: bool = False, allow_copy: bool = True
     ) -> _PyArrowDataFrame: ...
-    def __getitem__(self, key: int | str | slice) -> _ArrayOrChunkedArray | Self: ...
+    @overload
+    def __getitem__(self, key: int | str) -> _ArrayOrChunkedArray: ...
+    @overload
+    def __getitem__(self, key: slice) -> Self: ...
     def __len__(self) -> int: ...
     __hash__: ClassVar[None]  # type: ignore[assignment]
     def column(self, i: int | str) -> _ArrayOrChunkedArray: ...
