@@ -571,6 +571,8 @@ set(ARROW_UTIL_SRCS
     util/mutex.cc
     util/ree_util.cc
     util/secure_string.cc
+    util/spaced.cc
+    util/spaced_simd_128.cc
     util/string.cc
     util/string_util.cc
     util/task_group.cc
@@ -593,10 +595,15 @@ append_runtime_sse4_2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_sse4_2
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
 
+append_runtime_avx2_src(ARROW_UTIL_SRCS util/spaced_simd_256.cc)
+append_runtime_avx512_src(ARROW_UTIL_SRCS util/spaced_simd_avx512.cc)
+
 # also provides the NEON kernels on aarch64, so it stays in ARROW_UTIL_SRCS
 if(ARROW_CPU_FLAG STREQUAL "x86" AND ARROW_HAVE_RUNTIME_SSE4_2)
   set_source_files_properties(util/bpacking_simd_128.cc PROPERTIES COMPILE_OPTIONS
                                                                    "${ARROW_SSE4_2_FLAG}")
+  set_source_files_properties(util/spaced_simd_128.cc PROPERTIES COMPILE_OPTIONS
+                                                                  "${ARROW_SSE4_2_FLAG}")
 endif()
 
 append_runtime_sve256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
