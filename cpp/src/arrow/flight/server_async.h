@@ -38,13 +38,6 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataStream {
  public:
   virtual ~AsyncFlightDataStream();
 
-  /// \brief The schema of the payloads this stream produces.
-  ///
-  /// The transport never calls this: the schema the client sees is the one
-  /// GetSchemaPayloadAsync() returns.
-  /// \return The schema of the payloads this stream produces.
-  virtual std::shared_ptr<Schema> schema() = 0;
-
   /// \brief Like GetSchemaPayload(), but the payload arrives later.
   ///
   /// Called once, before any NextAsync() payload is requested.
