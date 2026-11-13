@@ -34,9 +34,9 @@ activate it using the commands below (see https://emscripten.org/docs/getting_st
    git clone https://github.com/emscripten-core/emsdk.git
    cd emsdk
    # replace <version> with the desired EMSDK version.
-   # e.g. for Pyodide 0.26, you need EMSDK version 3.1.58
+   # e.g. for Pyodide 314.0.x, you need EMSDK version 5.0.3
    # the versions can be found in the Makefile.envs file in the Pyodide repo:
-   # https://github.com/pyodide/pyodide/blob/10b484cfe427e076c929a55dc35cfff01ea8d3bc/Makefile.envs
+   # https://github.com/pyodide/pyodide/blob/314.0.7/Makefile.envs
    ./emsdk install <version>
    ./emsdk activate <version>
    source ./emsdk_env.sh
@@ -49,8 +49,9 @@ versions of emsdk tools.
 .. code:: shell
 
    # install Pyodide build tools.
-   # e.g., for version 0.26 of Pyodide, pyodide-build 0.26 and later work
-   pip install "pyodide-build>=0.26"
+   # pyodide-build is versioned independently of Pyodide.
+   # For Pyodide 314.0.x, pyodide-build 0.39.2 and later work well
+   pip install "pyodide-build>=0.39.2"
 
 Then build with the ``ninja-release-emscripten`` CMake preset,
 like below:

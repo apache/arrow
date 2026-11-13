@@ -2202,6 +2202,7 @@ def test_write_csv_decimal(tmpdir, type_factory):
     assert out.column('col').cast(type) == table.column('col')
 
 
+@pytest.mark.threading
 def test_read_csv_gil_deadlock():
     # GH-38676
     # This test depends on several preconditions:

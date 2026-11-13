@@ -111,7 +111,9 @@ if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1")
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
-if(UNIX)
+# On Emscripten, the equivalent $ORIGIN runtime path is added
+# through the linker flags in SetupCxxFlags.cmake instead
+if(UNIX AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
   # In the event that we are bundling the shared libraries (e.g. in a
   # manylinux1 wheel), we need to set the RPATH of the extensions to the

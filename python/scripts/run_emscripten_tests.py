@@ -76,7 +76,7 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
                                 evt.data.print.forEach((x)=>{window.python_logs.push(x)});
                             }
                         }
-                        window.pyworker = new Worker("worker.js");
+                        window.pyworker = new Worker("worker.js", {type: "module"});
                         window.pyworker.onmessage = capturelogs;
                     </script>
                 </head>
@@ -90,8 +90,8 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
             self.copyfile(BytesIO(body), self.wfile)
         elif self.path.endswith("/worker.js"):
             body = b"""
-                importScripts("./pyodide.js");
-                onmessage = async function (e) {
+                import { loadPyodide } from "./pyodide.mjs";
+                self.onmessage = async function (e) {
                     const data = e.data;
                     if (!self.pyodide) {
                         self.pyodide = await loadPyodide();
@@ -148,8 +148,14 @@ class NodeDriver:
     import subprocess
 
     def __init__(self, hostname, port):
+        # handle different syntax for util-linux script and macOS BSD-style script
+        if sys.platform == "darwin":
+            script_command = [shutil.which("script"), "-q", "/dev/null",
+                              shutil.which("node")]
+        else:
+            script_command = [shutil.which("script"), "-c", shutil.which("node")]
         self.process = subprocess.Popen(
-            [shutil.which("script"), "-c", shutil.which("node")],
+            script_command,
             stdin=subprocess.PIPE,
             shell=False,
             bufsize=0,
@@ -320,6 +326,7 @@ import micropip
 if "pyarrow" not in sys.modules:
     await micropip.install("hypothesis")
     import pyodide_js as pjs
+    await pjs.loadPackage("packaging")
     await pjs.loadPackage("tzdata")
     await pjs.loadPackage("numpy")
     await pjs.loadPackage("pandas")
