@@ -171,8 +171,7 @@ target_link_libraries(arrow_odbc_spi_impl_cli arrow_odbc_spi_impl)
 
 # Unit tests
 
-# On Windows and Linux, dynamic linking ODBC is supported.
-# On macOS, static linking ODBC is supported, thus the library linking is static.
+# On macOS, only static linking ODBC is supported, thus the library linking is static.
 # Use STATIC_LINK_LIBS when Flight tests require static linkage to avoid mixing static/shared Arrow
 if(NOT APPLE AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ODBC_SPI_IMPL_TEST_STATIC_LIBS arrow_odbc_spi_impl arrow_flight_testing_static
