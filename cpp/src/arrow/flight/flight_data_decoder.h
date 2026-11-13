@@ -42,7 +42,7 @@ namespace internal {
 ///
 /// The transport owns this, the listener only holds a reference for as long as
 /// the RPC is live, and asks for it under a lock the transport takes to clear
-/// it (see FlightDataListenerTransport::Clear)
+/// it (see FlightDataListenerTransport::SetTransport)
 class ARROW_FLIGHT_EXPORT FlightDataListenerTransport {
  public:
   virtual ~FlightDataListenerTransport();
@@ -62,25 +62,23 @@ class ARROW_FLIGHT_EXPORT FlightDataListenerTransport {
 
   /// \brief Pin this transport's lifetime, from any thread.
   ///
-  /// Install()/Clear() publish and retire the transport through the listener's
+  /// SetTransport() publishes and retires the transport through the listener's
   /// mutex, but a caller that reads the pointer and then releases the mutex
   /// before calling in (as Cancel() must, so OnFinish() can re-enter) still
-  /// races with Clear() and the reactor's deletion. Hold under the mutex and
-  /// pair with ReleaseHold() around the call so the object stays alive.
+  /// races with SetTransport(listener, nullptr) and the reactor's deletion. Hold
+  /// under the mutex and pair with ReleaseHold() around the call so the object
+  /// stays alive.
   virtual void Hold() = 0;
 
   /// \brief Drop a reference taken with Hold(). Deletes the transport at zero.
   virtual void ReleaseHold() = 0;
 
-  /// \brief Install `transport` on `listener` for the life of the RPC.
-  /// \param listener The listener to install the transport on.
-  /// \param transport The transport to install.
-  static void Install(const std::shared_ptr<AsyncFlightDataListener>& listener,
-                      FlightDataListenerTransport* transport);
-
-  /// \brief Clear the installed transport.
-  /// \param listener The listener to clear the transport from.
-  static void Clear(const std::shared_ptr<AsyncFlightDataListener>& listener);
+  /// \brief Set the transport of `listener`: the RPC's at its start, nullptr at
+  /// its end.
+  /// \param listener The listener to set the transport on.
+  /// \param transport The transport, or nullptr to clear it.
+  static void SetTransport(const std::shared_ptr<AsyncFlightDataListener>& listener,
+                           FlightDataListenerTransport* transport);
 
   /// \brief Report the upload's terminal status to the listener, once.
   /// \param listener The listener to report the status to.
@@ -125,12 +123,12 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataWriter {
  private:
   friend class internal::FlightDataListenerTransport;
 
-  /// The transport's RPC state, set and cleared through
-  /// FlightDataListenerTransport::Install/Clear, like
+  /// The transport's RPC state, set through
+  /// FlightDataListenerTransport::SetTransport, like
   /// AsyncFlightDataListener::transport_.
   internal::FlightDataListenerTransport* transport_ = nullptr;
   /// Guards transport_, since WriteMetadataAsync may be called from any thread while
-  /// the transport installs or clears the pointer.
+  /// the transport sets or clears the pointer.
   mutable std::mutex writer_mutex_;
 };
 
@@ -192,8 +190,8 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataListener : public ipc::Listener {
   Future<> Cancel(Status status);
 
  private:
-  /// The transport installs and clears the state through
-  /// FlightDataListenerTransport::Install/Clear, both under this lock.
+  /// The transport sets and clears the state through
+  /// FlightDataListenerTransport::SetTransport, under this lock.
   friend class internal::FlightDataListenerTransport;
 
   /// Whether OnFinish was already reported.
@@ -204,7 +202,7 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataListener : public ipc::Listener {
       std::make_shared<AsyncFlightDataWriter>();
 
   mutable std::mutex transport_mutex_;
-  /// Not owned: the transport's own RPC state, valid until Clear().
+  /// Not owned: the transport's own RPC state, valid until it is cleared.
   internal::FlightDataListenerTransport* transport_ = nullptr;
 };
 

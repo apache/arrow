@@ -243,9 +243,9 @@ AsyncFlightDataListener::~AsyncFlightDataListener() = default;
 AsyncFlightDataWriter::~AsyncFlightDataWriter() = default;
 
 Future<> AsyncFlightDataWriter::WriteMetadataAsync(const Buffer& app_metadata) {
-  // Install() and Clear() swap transport_ under writer_mutex_, so both the read
-  // and the call must happen under it: otherwise this can read the old pointer
-  // just before DoPutReactor::OnDone() runs Clear(), and then call through a
+  // SetTransport() swaps transport_ under writer_mutex_, so both the read and
+  // the call must happen under it: otherwise this can read the old pointer just
+  // before DoPutReactor::OnDone() clears it, and then call through a
   // destructed reactor. The transport's own WriteMetadataAsync only takes its
   // private write_mutex_, so there is no lock-order cycle.
   std::lock_guard<std::mutex> lock(writer_mutex_);
@@ -261,7 +261,7 @@ namespace internal {
 
 FlightDataListenerTransport::~FlightDataListenerTransport() = default;
 
-void FlightDataListenerTransport::Install(
+void FlightDataListenerTransport::SetTransport(
     const std::shared_ptr<AsyncFlightDataListener>& listener,
     FlightDataListenerTransport* transport) {
   if (listener == nullptr) {
@@ -269,23 +269,8 @@ void FlightDataListenerTransport::Install(
   }
   std::lock_guard<std::mutex> lock(listener->transport_mutex_);
   listener->transport_ = transport;
-  if (listener->writer_ != nullptr) {
-    std::lock_guard<std::mutex> writer_lock(listener->writer_->writer_mutex_);
-    listener->writer_->transport_ = transport;
-  }
-}
-
-void FlightDataListenerTransport::Clear(
-    const std::shared_ptr<AsyncFlightDataListener>& listener) {
-  if (listener == nullptr) {
-    return;
-  }
-  std::lock_guard<std::mutex> lock(listener->transport_mutex_);
-  listener->transport_ = nullptr;
-  if (listener->writer_ != nullptr) {
-    std::lock_guard<std::mutex> writer_lock(listener->writer_->writer_mutex_);
-    listener->writer_->transport_ = nullptr;
-  }
+  std::lock_guard<std::mutex> writer_lock(listener->writer_->writer_mutex_);
+  listener->writer_->transport_ = transport;
 }
 
 Future<> FlightDataListenerTransport::ReportFinish(

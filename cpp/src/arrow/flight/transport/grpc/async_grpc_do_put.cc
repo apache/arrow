@@ -37,7 +37,7 @@ class DoPutReactor : public AsyncReactorBase,
       : AsyncReactorBase(std::move(flight_context)),
         listener_(std::move(listener)),
         decoder_(listener_) {
-    arrow::flight::internal::FlightDataListenerTransport::Install(listener_, this);
+    arrow::flight::internal::FlightDataListenerTransport::SetTransport(listener_, this);
     StartRead(&request_buf_);
   }
 
@@ -214,7 +214,8 @@ class DoPutReactor : public AsyncReactorBase,
   }
 
   void OnDone() override {
-    arrow::flight::internal::FlightDataListenerTransport::Clear(listener_);
+    arrow::flight::internal::FlightDataListenerTransport::SetTransport(listener_,
+                                                                       nullptr);
     ReleaseHold();
   }
 
