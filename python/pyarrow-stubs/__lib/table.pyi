@@ -132,7 +132,8 @@ _AggregateOptions: TypeAlias = (
 
 _ChunkedArrayConstructorInput: TypeAlias = (
     Iterable[
-        Iterable[Any]
+        Array
+        | Iterable[Any]
         | SupportsArrowArray
         | SupportsArrowDeviceArray
         | SupportsPyArrowArray
@@ -473,7 +474,9 @@ class Table(_Tabular):
     @staticmethod
     def from_arrays(
         arrays: Sequence[
-            Iterable[Any]
+            Array
+            | ChunkedArray
+            | Iterable[Any]
             | SupportsArrowArray
             | SupportsArrowDeviceArray
             | SupportsPyArrowArray
