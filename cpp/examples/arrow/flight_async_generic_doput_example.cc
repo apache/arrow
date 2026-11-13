@@ -16,11 +16,6 @@
 // under the License.
 
 #include <signal.h>
-#ifdef _WIN32
-#  include <windows.h>
-#else
-#  include <unistd.h>
-#endif
 
 #include <atomic>
 #include <cstdint>
@@ -66,15 +61,6 @@ DEFINE_bool(demo, false, "Run the DoPut self-check against the server, then exit
 
 namespace flight = arrow::flight;
 
-/// \brief The current process' id, portably.
-int64_t CurrentPid() {
-#ifdef _WIN32
-  return static_cast<int64_t>(::GetCurrentProcessId());
-#else
-  return static_cast<int64_t>(::getpid());
-#endif
-}
-
 constexpr int kNumBatches = 3;
 constexpr int64_t kRowsPerBatch = 4;
 
@@ -96,8 +82,6 @@ class CountingUploadListener : public flight::AsyncFlightDataListener {
  public:
   arrow::Future<> OnDescriptor(const flight::FlightDescriptor& descriptor) override {
     std::cout << "DoPut descriptor: " << descriptor.ToString() << std::endl;
-    // Returning non-OK here would reject the upload, the client sees that
-    // status when it closes the writer.
     return arrow::Future<>::MakeFinished(arrow::Status::OK());
   }
 
@@ -178,44 +162,19 @@ class UploadServer : public flight::AsyncGenericFlightServerBase {
 /// \brief The --demo client half: upload kNumBatches batches and close the
 /// writer.  What the listener saw is read back in main(), once the server has
 /// stopped.
-bool RunDemo(int port) {
-  auto location = flight::Location::ForGrpcTcp("127.0.0.1", port);
-  if (!location.ok()) {
-    std::cerr << "Failed to build client location: " << location.status() << std::endl;
-    return false;
-  }
-  auto client = flight::FlightClient::Connect(*location);
-  if (!client.ok()) {
-    std::cerr << "Failed to connect: " << client.status() << std::endl;
-    return false;
-  }
-
+arrow::Status RunDemo(int port) {
+  ARROW_ASSIGN_OR_RAISE(auto location, flight::Location::ForGrpcTcp("127.0.0.1", port));
+  ARROW_ASSIGN_OR_RAISE(auto client, flight::FlightClient::Connect(location));
   auto schema = arrow::schema({arrow::field("value", arrow::int64())});
-  auto put = (*client)->DoPut(flight::FlightDescriptor::Command("upload"), schema);
-  if (!put.ok()) {
-    std::cerr << "DoPut failed: " << put.status() << std::endl;
-    return false;
+  ARROW_ASSIGN_OR_RAISE(
+      auto put, client->DoPut(flight::FlightDescriptor::Command("upload"), schema));
+  for (int i = 0; i < kNumBatches; i++) {
+    ARROW_ASSIGN_OR_RAISE(auto batch,
+                          MakeInt64Batch(schema, i * kRowsPerBatch, kRowsPerBatch));
+    ARROW_RETURN_NOT_OK(put.writer->WriteRecordBatch(*batch));
   }
-  arrow::Status status;
-  for (int i = 0; i < kNumBatches && status.ok(); i++) {
-    auto batch = MakeInt64Batch(schema, i * kRowsPerBatch, kRowsPerBatch);
-    if (!batch.ok()) {
-      std::cerr << "Failed to make a batch: " << batch.status() << std::endl;
-      return false;
-    }
-    status = put->writer->WriteRecordBatch(**batch);
-  }
-  if (status.ok()) {
-    status = put->writer->DoneWriting();
-  }
-  if (status.ok()) {
-    status = put->writer->Close();
-  }
-  if (!status.ok()) {
-    std::cerr << "DoPut upload failed: " << status << std::endl;
-    return false;
-  }
-  return true;
+  ARROW_RETURN_NOT_OK(put.writer->DoneWriting());
+  return put.writer->Close();
 }
 
 int main(int argc, char** argv) {
@@ -234,21 +193,20 @@ int main(int argc, char** argv) {
     std::cerr << location.status() << std::endl;
     return EXIT_FAILURE;
   }
-  flight::FlightServerOptions options(*location);
-  // UploadServer derives from AsyncGenericFlightServerBase: the server class
-  // alone selects the async generic transport, so there is no option to set.
-  // Uploads come from the server's CreateDoPutListener() override.
-  auto status = server.Init(options);
+  auto status = server.Init(flight::FlightServerOptions(*location));
   if (!status.ok()) {
     std::cerr << status.ToString() << std::endl;
     return EXIT_FAILURE;
   }
   int port = server.port();
   std::cout << "Serving Flight on " << server.location().ToString() << std::endl;
-  std::cout << "Server pid " << CurrentPid() << ", port " << port << std::endl;
 
   if (FLAGS_demo) {
-    bool ok = RunDemo(port);
+    status = RunDemo(port);
+    bool ok = status.ok();
+    if (!ok) {
+      std::cout << "FAIL: " << status.ToString() << std::endl;
+    }
     ARROW_WARN_NOT_OK(server.Shutdown(), "Error shutting down server");
     ARROW_WARN_NOT_OK(server.Wait(), "Error waiting for server shutdown");
     // The listener callbacks run on gRPC threads: read its counters only once
