@@ -36,9 +36,9 @@ def test_array() -> None:
     check(assert_type(arr.null_count, int), int)
     check(assert_type(len(arr), int), int)
     check(assert_type(arr.to_pylist(), list[Any]), list)
-    # Scalars aren't annotated yet, so indexing returns Any | Int64Array.
-    check(assert_type(arr[0], Any | pa.Int64Array), pa.Int64Scalar)
-    check(assert_type(arr[1:], Any | pa.Int64Array), pa.Int64Array)
+    # Scalars aren't annotated yet, so indexing returns Any, slice keeps the subclass
+    check(assert_type(arr[0], Any), pa.Int64Scalar)
+    check(assert_type(arr[1:], pa.Int64Array), pa.Int64Array)
 
     # Methods returning the same kind of array keep the subclass.
     check(assert_type(arr.slice(1), pa.Int64Array), pa.Int64Array)
@@ -92,7 +92,7 @@ def test_array_numpy() -> None:
     import numpy as np
 
     arr = cast(pa.Int64Array, pa.array([1, 2]))
-    check(assert_type(arr[np.int64(0)], Any | pa.Int64Array), pa.Int64Scalar)
+    check(assert_type(arr[np.int64(0)], Any), pa.Int64Scalar)
     check(assert_type(pa.infer_type(np.array([1])), pa.DataType), pa.DataType)
     offsets = np.array([0, 1, 2], dtype="int32")
     check(assert_type(pa.ListArray.from_arrays(offsets, [1, 2]), pa.ListArray),
@@ -233,9 +233,9 @@ def test_chunked_array() -> None:
     check(assert_type(chunked.type, pa.DataType), pa.DataType)
     check(assert_type(chunked.num_chunks, int), int)
     check(assert_type(chunked.chunk(0), pa.Array), pa.Int64Array)
-    # Scalars aren't annotated yet, so indexing returns Any | ChunkedArray.
-    check(assert_type(chunked[0], Any | pa.ChunkedArray), pa.Int64Scalar)
-    check(assert_type(chunked[1:], Any | pa.ChunkedArray), pa.ChunkedArray)
+    # Scalars aren't annotated yet, so indexing returns Any, slice keeps ChunkedArray
+    check(assert_type(chunked[0], Any), pa.Int64Scalar)
+    check(assert_type(chunked[1:], pa.ChunkedArray), pa.ChunkedArray)
     check(assert_type(chunked.chunks, list[pa.Array]), list)
     check(assert_type(chunked.combine_chunks(), pa.Array), pa.Int64Array)
     check(assert_type(chunked.unique(), pa.Array), pa.Int64Array)
