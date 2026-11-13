@@ -2089,7 +2089,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     savings = min_compression_savings
     if not (0.0 <= savings <= 1.0):
         raise ValueError("min_compression_savings must be in range [0, 1]")
-    if savings > 0.01 and data_page_version in (None, "1.0"):
+    if savings > 0.01 and data_page_version == "1.0":
         raise ValueError("min_compression_savings requires V2 data pages")
     props.min_compression_savings(savings)
 

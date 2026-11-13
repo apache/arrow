@@ -148,8 +148,15 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
       const int64_t total_compressed_size = rg_metadata->total_compressed_size();
       if (expected_codec_type == Compression::UNCOMPRESSED) {
         ASSERT_EQ(total_byte_size, total_compressed_size);
-      } else {
+      } else if (writer_properties->data_page_version() == ParquetDataPageVersion::V1) {
         ASSERT_NE(total_byte_size, total_compressed_size);
+      } else {
+        // In Parquet V2, selective compression may keep small or incompressible data
+        // pages uncompressed (total_compressed_size == total_byte_size), while
+        // compressed dictionary pages or pages with savings may be larger or smaller
+        // than uncompressed sizes.
+        ASSERT_GT(total_byte_size, 0);
+        ASSERT_GT(total_compressed_size, 0);
       }
 
       int64_t total_column_byte_size = 0;

@@ -267,9 +267,10 @@ group that takes precedent over the ``chunk_size`` passed in the write methods.
 
 You can set the version of Parquet to write with ``version``, which determines
 which logical types are available. In addition, you can set the data page version
-with ``data_page_version``. It's V1 by default; setting to V2 will allow more
-optimal compression (skipping compressing pages where there isn't a space
-benefit), but not all readers support this data page version.
+with ``data_page_version``. It defaults to V2, which allows more optimal
+compression (skipping compressing pages where there isn't a space benefit) and
+page-level null count metadata. If compatibility with older readers is needed,
+it can be set to V1.
 
 For V2 pages, use ``min_compression_savings`` to set how much space compression must
 save. Use a value from 0.0 to 1.0. For example, ``min_compression_savings(0.1)`` requires

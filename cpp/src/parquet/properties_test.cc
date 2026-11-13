@@ -67,7 +67,7 @@ TEST(TestWriterProperties, Basics) {
   ASSERT_EQ(kDefaultDataPageSize, props->data_pagesize());
   ASSERT_EQ(DEFAULT_DICTIONARY_PAGE_SIZE_LIMIT, props->dictionary_pagesize_limit());
   ASSERT_EQ(ParquetVersion::PARQUET_2_6, props->version());
-  ASSERT_EQ(ParquetDataPageVersion::V1, props->data_page_version());
+  ASSERT_EQ(ParquetDataPageVersion::V2, props->data_page_version());
   ASSERT_FALSE(props->page_checksum_enabled());
 }
 
@@ -112,14 +112,15 @@ TEST(TestWriterProperties, MinCompressionSavingsRequiresDataPageV2) {
   for (double savings : {2 * kDefaultMinCompressionSavings, 0.1, 1.0}) {
     WriterProperties::Builder builder;
     builder.min_compression_savings(savings);
+    EXPECT_NO_THROW(builder.build());
+
+    builder.data_page_version(ParquetDataPageVersion::V1);
     EXPECT_THROW(builder.build(), ParquetException);
 
     builder.data_page_version(ParquetDataPageVersion::V2);
     EXPECT_NO_THROW(builder.build());
 
     builder.data_page_version(ParquetDataPageVersion::V1);
-    EXPECT_THROW(builder.build(), ParquetException);
-
     builder.min_compression_savings(0.0);
     EXPECT_NO_THROW(builder.build());
     builder.min_compression_savings(kDefaultMinCompressionSavings);
@@ -418,7 +419,7 @@ std::vector<WriterPropertiesTestCase> writer_properties_test_cases() {
     builder.max_row_group_length(DEFAULT_MAX_ROW_GROUP_LENGTH - 1);
     builder.data_pagesize(kDefaultDataPageSize - 1);
     builder.max_rows_per_page(kDefaultMaxRowsPerPage - 1);
-    builder.data_page_version(ParquetDataPageVersion::V2);
+    builder.data_page_version(ParquetDataPageVersion::V1);
     builder.version(ParquetVersion::type::PARQUET_2_4);
     builder.enable_store_decimal_as_integer();
     builder.disable_write_page_index();
