@@ -111,6 +111,13 @@ it up from the ``arrow/python`` directory. The stubs aren't included in the
 distributed wheel packages until they are complete (see
 `GH-49831 <https://github.com/apache/arrow/issues/49831>`_).
 
+Run all the commands in this section from the ``arrow/python`` directory,
+which holds the type checker configurations in ``pyproject.toml``:
+
+.. code-block::
+
+   $ cd arrow/python
+
 Running Type Checkers
 ---------------------
 
@@ -146,7 +153,6 @@ To run mypy on the PyArrow codebase:
 
 .. code-block::
 
-   $ cd arrow/python
    $ mypy
 
 The mypy configuration is in the ``[tool.mypy]`` section of ``pyproject.toml``.
@@ -163,7 +169,6 @@ To run pyright:
 
 .. code-block::
 
-   $ cd arrow/python
    $ pyright
 
 The pyright configuration is in the ``[tool.pyright]`` section of ``pyproject.toml``.
@@ -174,7 +179,6 @@ To run ty:
 
 .. code-block::
 
-   $ cd arrow/python
    $ ty check
 
 **stubtest**
@@ -184,12 +188,18 @@ PyArrow. Run it with:
 
 .. code-block::
 
-   $ cd arrow/python
    $ python scripts/run_stubtest.py
 
 Stubs that aren't written yet are skipped. The known mismatches are listed in
 ``pyarrow-stubs-tests/stubtest_allowlist.txt``; remove the entries of the
 mismatches you fix, as stubtest fails on unused entries.
+
+Type Checking in an IDE
+-----------------------
+
+Editors also run the type checkers from the folder they open. If you open the
+whole ``arrow`` repository in VS Code, point the type checker at ``arrow/python``
+instead.
 
 Maintaining Type Stubs
 -----------------------
@@ -244,7 +254,6 @@ with what PyArrow actually returns:
 
 .. code-block::
 
-   $ cd arrow/python
    $ pytest pyarrow-stubs-tests
 
 Code under ``if TYPE_CHECKING:`` is never executed. It holds the usage that
