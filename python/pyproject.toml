@@ -123,7 +123,7 @@ warn_unused_ignores = true
 # Modules that will be annotated in later PRs (GH-32609). Treat them as Any
 # rather than type checking their sources.
 [[tool.mypy.overrides]]
-module = ["pyarrow._compute", "pyarrow.compute", "pyarrow.interchange.*"]
+module = ["pyarrow.interchange.*"]
 follow_imports = "skip"
 
 # Optional dependencies without type hints.
@@ -154,8 +154,6 @@ reportMissingModuleSource = false
 # Modules that will be annotated in later PRs (GH-32609), and the optional
 # sparse dependency, which has no type hints. Treat them as Any.
 replace-imports-with-any = [
-    "pyarrow._compute",
-    "pyarrow.compute",
     "pyarrow.interchange.**",
     "sparse",
 ]
@@ -166,9 +164,10 @@ include = ["pyarrow-stubs", "pyarrow-stubs-tests"]
 # ty doesn't honor `# type: ignore[<mypy code>]` comments, so disable the
 # rules that those comments suppress for mypy.
 [[tool.ty.overrides]]
-include = ["pyarrow-stubs/__lib/array.pyi"]
+include = ["pyarrow-stubs/__lib/array.pyi", "pyarrow-stubs/_compute.pyi"]
 [tool.ty.overrides.rules]
-# Some array classes override methods with a different signature at runtime.
+# Some array classes override methods with a different signature at runtime,
+# and Expression.__eq__ and __ne__ return an Expression rather than a bool.
 invalid-method-override = "ignore"
 
 [[tool.ty.overrides]]
