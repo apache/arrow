@@ -4476,6 +4476,22 @@ extern "C" SEXP _arrow_parquet___arrow___FileReader__num_columns(SEXP reader_sex
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_PARQUET)
+std::vector<int> parquet___arrow___FileReader__FieldIndicesToColumnIndices(const std::shared_ptr<parquet::arrow::FileReader>& reader, const std::vector<int>& field_indices);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__FieldIndicesToColumnIndices(SEXP reader_sexp, SEXP field_indices_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::arrow::FileReader>&>::type reader(reader_sexp);
+	arrow::r::Input<const std::vector<int>&>::type field_indices(field_indices_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__FieldIndicesToColumnIndices(reader, field_indices));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___FileReader__FieldIndicesToColumnIndices(SEXP reader_sexp, SEXP field_indices_sexp){
+	Rf_error("Cannot call parquet___arrow___FileReader__FieldIndicesToColumnIndices(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
 int parquet___arrow___FileReader__num_row_groups(const std::shared_ptr<parquet::arrow::FileReader>& reader);
 extern "C" SEXP _arrow_parquet___arrow___FileReader__num_row_groups(SEXP reader_sexp){
 BEGIN_CPP11
@@ -6194,6 +6210,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileReader__ReadRowGroups2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroups2, 3}, 
 		{ "_arrow_parquet___arrow___FileReader__num_rows", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_rows, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__num_columns", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_columns, 1}, 
+		{ "_arrow_parquet___arrow___FileReader__FieldIndicesToColumnIndices", (DL_FUNC) &_arrow_parquet___arrow___FileReader__FieldIndicesToColumnIndices, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__num_row_groups", (DL_FUNC) &_arrow_parquet___arrow___FileReader__num_row_groups, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadColumn", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadColumn, 2}, 
 		{ "_arrow_parquet___ArrowWriterProperties___create", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___create, 3}, 

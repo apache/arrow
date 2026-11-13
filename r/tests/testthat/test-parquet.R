@@ -559,3 +559,31 @@ test_that("WriteBatch on ParquetFileWriter errors when called on closed sink", {
   batch <- RecordBatch$create(data.frame(a = 1:10))
   expect_error(writer$WriteBatch(batch, chunk_size = 10), "Operation on closed file")
 })
+
+test_that("read_parquet() col_select works with nested columns (GH-55578)", {
+  df <- tibble::tibble(a = 1:2)
+  df$nested <- list(
+    tibble::tibble(x = 1, y = "p"),
+    tibble::tibble(x = 2, y = "q")
+  )
+  df$b <- c("b1", "b2")
+  df$c <- c(TRUE, FALSE)
+
+  tf <- tempfile(fileext = ".parquet")
+  on.exit(unlink(tf))
+  write_parquet(df, tf)
+
+  # columns after the nested one
+  expect_identical(names(read_parquet(tf, col_select = "b")), "b")
+  expect_identical(names(read_parquet(tf, col_select = "c")), "c")
+  expect_identical(names(read_parquet(tf, col_select = c("a", "c"))), c("a", "c"))
+  expect_identical(read_parquet(tf, col_select = c("a", "c")), df[, c("a", "c")])
+
+  # selection order is preserved
+  expect_identical(names(read_parquet(tf, col_select = c("c", "a"))), c("c", "a"))
+
+  # the nested column itself is read in full
+  nested <- read_parquet(tf, col_select = "nested", as_data_frame = FALSE)
+  expect_identical(names(nested), "nested")
+  expect_equal(nested, read_parquet(tf, as_data_frame = FALSE)[, "nested"])
+})
