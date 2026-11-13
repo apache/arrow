@@ -67,7 +67,7 @@ def array(
     type: Any | None = None,
     # TODO: when scalars are annotated, Array won't match Iterable[bool] anymore,
     # so consider Array instead of BooleanArray for usability then
-    mask: BooleanArray | Iterable[bool] | NDArray[np.bool_] | None = None,
+    mask: Array | Iterable[bool] | NDArray[np.bool_] | None = None,
     size: int | None = None,
     from_pandas: bool | None = None,
     safe: bool = True,
