@@ -27,7 +27,7 @@ ExchangeReactor::ExchangeReactor(AsyncCallContext flight_context,
       writer_(std::make_shared<ExchangeWriter>(this)) {
   reader_->SetReactor(this);
   // The first message carries the request descriptor.
-  StartRead(&read_buf_);
+  StartRead(&request_buf_);
 }
 
 void ExchangeReactor::OnReadDone(bool ok) {
@@ -42,7 +42,7 @@ void ExchangeReactor::OnReadDone(bool ok) {
     reader_->OnReadClosed();
     return;
   }
-  const ::grpc::Status deserialized = FlightDataDeserialize(&read_buf_, &read_data_);
+  const ::grpc::Status deserialized = FlightDataDeserialize(&request_buf_, &read_data_);
   if (!deserialized.ok()) {
     if (!started_) {
       FinishOnce(
@@ -98,7 +98,6 @@ void ExchangeReactor::OnDone() {
 }
 
 void ExchangeReactor::StartReadNext() {
-  WriteIfLive([this] { StartRead(&read_buf_); });
 }
 
 arrow::Status ExchangeReactor::WritePayload(FlightPayload payload) {

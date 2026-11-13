@@ -271,8 +271,6 @@ class DoPutReactor : public AsyncReactorBase,
   bool ending_ = false;
   /// Whether that ending ack is the write in flight.
   bool ending_ack_in_flight_ = false;
-  ::grpc::ByteBuffer request_buf_;
-  ::grpc::ByteBuffer write_buf_;
 };
 
 }  // namespace

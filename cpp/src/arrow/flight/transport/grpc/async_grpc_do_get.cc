@@ -175,8 +175,6 @@ class DoGetReactor : public AsyncReactorBase {
   }
 
   AsyncGenericFlightServerBase* base_;
-  ::grpc::ByteBuffer request_buf_;
-  ::grpc::ByteBuffer write_buf_;
   std::shared_ptr<AsyncFlightDataStream> async_data_stream_;
   /// Guards async_data_stream_, closed_ and wrote_schema_: adopting the stream,
   /// each demand on it and the teardown's Close() never interleave.

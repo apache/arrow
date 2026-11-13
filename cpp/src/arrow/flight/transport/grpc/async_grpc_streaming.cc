@@ -91,8 +91,6 @@ class StreamingReactor : public AsyncReactorBase {
   }
 
   AsyncGenericFlightServerBase* base_;
-  ::grpc::ByteBuffer request_buf_;
-  ::grpc::ByteBuffer write_buf_;
 };
 
 class ListActionsReactor final : public StreamingReactor {
