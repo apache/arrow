@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/csv/reader.h"
 #include "arrow/csv/writer.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
@@ -384,13 +385,88 @@ TEST_P(TestWriteCSV, TestWrite) {
 INSTANTIATE_TEST_SUITE_P(MultiColumnWriteCSVTest, TestWriteCSV,
                          ::testing::ValuesIn(GenerateTestCases()));
 
-INSTANTIATE_TEST_SUITE_P(SingleColumnWriteCSVTest, TestWriteCSV,
-                         ::testing::Values(WriterTestParams(
-                             schema({field("int64", int64())}),
-                             R"([{ "int64": 9999}, {}, { "int64": -15}])", WriteOptions(),
-                             R"("int64")"
-                             "\n9999\n\n-15\n",
-                             Status::OK())));
+INSTANTIATE_TEST_SUITE_P(
+    SingleColumnWriteCSVTest, TestWriteCSV,
+    ::testing::Values(
+        WriterTestParams(schema({field("int64", int64())}),
+                         R"([{ "int64": 9999}, {}, { "int64": -15}])", WriteOptions(),
+                         R"("int64")"
+                         "\n9999\n\"\"\n-15\n",
+                         Status::OK()),
+        WriterTestParams(schema({field("int64", int64())}), R"([{}, { "int64": 1}, {}])",
+                         DefaultTestOptions(), "\"\"\n1\n\"\"\n"),
+        WriterTestParams(schema({field("int64", int64())}), R"([{}, { "int64": 1}, {}])",
+                         DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                                            QuotingStyle::AllValid),
+                         "\"\"\n\"1\"\n\"\"\n"),
+        WriterTestParams(schema({field("int64", int64())}), R"([{}, { "int64": 1}, {}])",
+                         DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                                            QuotingStyle::None),
+                         "\n1\n\n"),
+        WriterTestParams(schema({field("int64", int64())}), R"([{}, { "int64": 1}, {}])",
+                         DefaultTestOptions(/*include_header=*/false,
+                                            /*null_string=*/"NA"),
+                         "NA\n1\nNA\n"),
+        WriterTestParams(schema({field("s", utf8())}), R"([{ "s": "a"}, {}, { "s": ""}])",
+                         DefaultTestOptions(), "\"a\"\n\n\"\"\n"),
+        WriterTestParams(schema({field("s", utf8())}), R"([{ "s": "a"}, {}, { "s": ""}])",
+                         DefaultTestOptions(/*include_header=*/false, /*null_string=*/"",
+                                            QuotingStyle::AllValid),
+                         "\"a\"\n\n\"\"\n"),
+        WriterTestParams(schema({field("d", dictionary(int32(), utf8()))}),
+                         R"([{ "d": "a"}, {}])", DefaultTestOptions(), "\"a\"\n\n"),
+        WriterTestParams(schema({field("a", int64()), field("b", int64())}),
+                         R"([{ "a": 1}, {}])", DefaultTestOptions(), "1,\n,\n")));
+
+Result<std::shared_ptr<Table>> RoundTripCSV(const RecordBatch& batch,
+                                            const WriteOptions& write_options,
+                                            const ParseOptions& parse_options,
+                                            const ConvertOptions& convert_options) {
+  ARROW_ASSIGN_OR_RAISE(auto out, io::BufferOutputStream::Create());
+  RETURN_NOT_OK(WriteCSV(batch, write_options, out.get()));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> csv, out->Finish());
+
+  auto input = std::make_shared<io::BufferReader>(csv);
+  ARROW_ASSIGN_OR_RAISE(auto reader, TableReader::Make(io::default_io_context(), input,
+                                                       ReadOptions::Defaults(),
+                                                       parse_options, convert_options));
+  return reader->Read();
+}
+
+TEST(TestWriteCSV, SingleColumnNullsRoundTrip) {
+  auto schema = arrow::schema({field("c", int64())});
+  auto batch = RecordBatchFromJSON(schema, R"([{"c": 1}, {}, {"c": 3}, {}, {"c": 5}])");
+  ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
+
+  for (auto quoting_style : {QuotingStyle::Needed, QuotingStyle::AllValid}) {
+    auto write_options = WriteOptions::Defaults();
+    write_options.quoting_style = quoting_style;
+    ASSERT_OK_AND_ASSIGN(auto table,
+                         RoundTripCSV(*batch, write_options, ParseOptions::Defaults(),
+                                      ConvertOptions::Defaults()));
+    AssertTablesEqual(*expected, *table);
+  }
+}
+
+TEST(TestWriteCSV, SingleColumnStringNullsRoundTrip) {
+  auto schema = arrow::schema({field("s", utf8())});
+  auto batch = RecordBatchFromJSON(schema, R"([{"s": "a"}, {}, {"s": ""}])");
+  ASSERT_OK_AND_ASSIGN(auto expected, Table::FromRecordBatches({batch}));
+
+  auto parse_options = ParseOptions::Defaults();
+  parse_options.ignore_empty_lines = false;
+  auto convert_options = ConvertOptions::Defaults();
+  convert_options.strings_can_be_null = true;
+  convert_options.quoted_strings_can_be_null = false;
+
+  for (auto quoting_style : {QuotingStyle::Needed, QuotingStyle::AllValid}) {
+    auto write_options = WriteOptions::Defaults();
+    write_options.quoting_style = quoting_style;
+    ASSERT_OK_AND_ASSIGN(
+        auto table, RoundTripCSV(*batch, write_options, parse_options, convert_options));
+    AssertTablesEqual(*expected, *table);
+  }
+}
 
 #ifndef _WIN32
 // TODO(ARROW-13168):
