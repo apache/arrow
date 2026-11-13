@@ -32,3 +32,5 @@ STYLE.md
 ^inst/__pycache__$
 ^bootstrap.R$
 air.toml
+^tools/vendored-downloads$
+^tools/trim$

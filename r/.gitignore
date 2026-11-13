@@ -35,3 +35,5 @@ extra-tests/files
 # Source tarballs of required dependencies that we ship for offline builds.
 # They're downloaded by `make sync-cpp` (see tools/vendor_dependencies.sh).
 /tools/vendored/
+# Cache of the upstream (untrimmed) tarballs used by tools/vendor_dependencies.sh
+/tools/vendored-downloads/

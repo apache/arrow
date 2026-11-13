@@ -486,7 +486,7 @@ find_local_source <- function() {
   # The second probably occurs if we're installing the arrow R package
   cpp_dir_options <- c(
     file.path(Sys.getenv("ARROW_SOURCE_HOME", ".."), "cpp"),
-    "tools/cpp"
+    package_cpp_dir
   )
   for (cpp_dir in cpp_dir_options) {
     if (file.exists(file.path(cpp_dir, "src/arrow/api.h"))) {
@@ -545,6 +545,13 @@ build_libarrow <- function(src_dir, dst_dir) {
   if (!quietly) {
     lg("Building with MAKEFLAGS=%s", makeflags)
   }
+
+  thirdparty_deps_unavailable <- !download_ok &&
+    !dir.exists(thirdparty_dependency_dir) &&
+    !env_is("ARROW_DEPENDENCY_SOURCE", "system")
+  # Fail early (before e.g. downloading cmake) if the build can't work
+  check_vendored_deps_setting(thirdparty_deps_unavailable)
+
   # Check for libarrow build dependencies:
   # * cmake
   cmake <- ensure_cmake()
@@ -625,30 +632,32 @@ build_libarrow <- function(src_dir, dst_dir) {
   env_var_list <- with_cloud_support(env_var_list)
   env_var_list <- with_wasm_support(env_var_list)
 
-  # turn_off_all_optional_features() needs to happen after
-  # with_cloud_support(), since it might turn features ON.
-  thirdparty_deps_unavailable <- !download_ok &&
-    !dir.exists(thirdparty_dependency_dir) &&
-    !env_is("ARROW_DEPENDENCY_SOURCE", "system")
+  # turn_off_all_optional_features() and turn_off_unvendored_features() need to
+  # happen after with_cloud_support(), since it might turn features ON.
   do_minimal_build <- env_is("LIBARROW_MINIMAL", "true")
+  # Thirdparty source tarballs shipped in the package
+  vendored <- usable_vendored_dependencies(src_dir)
 
   if (do_minimal_build) {
     env_var_list <- turn_off_all_optional_features(env_var_list)
   } else if (thirdparty_deps_unavailable) {
     cat(paste0(
       "*** Building C++ library from source, but downloading thirdparty dependencies\n",
-      "    is not possible, so this build will turn off all thirdparty features.\n",
+      "    is not possible, so this build will turn off the thirdparty features\n",
+      "    whose sources are not included in the package.\n",
       "    See installation guide for details:\n",
       "    https://arrow.apache.org/docs/r/articles/install.html\n"
     ))
-    env_var_list <- turn_off_all_optional_features(env_var_list)
+    env_var_list <- turn_off_unvendored_features(env_var_list, names(vendored))
   } else if (dir.exists(thirdparty_dependency_dir)) {
     # Add the *_SOURCE_URL env vars
     env_var_list <- set_thirdparty_urls(env_var_list)
   }
-  # Some thirdparty dependencies are required even for a minimal build, so they
-  # can't be turned off like the ones above.
-  env_var_list <- with_vendored_dependencies(env_var_list)
+  # Point the build at the vendored sources of the thirdparty dependencies.
+  # Some of them are required even for a minimal build, so they can't be turned
+  # off like the ones above.
+  env_var_list <- with_vendored_dependencies(env_var_list, vendored)
+  env_var_list <- with_vendored_checksums(env_var_list, vendored)
   env_vars <- env_vars_as_string(env_var_list)
 
   lg("arrow %s", ifelse(quietly, "", paste("with", env_vars)), .indent = "****")
@@ -795,7 +804,9 @@ cmake_version <- function(cmd = "cmake") {
   )
 }
 
-turn_off_all_optional_features <- function(env_var_list) {
+# `keep` is a vector of features (names in `turn_off` below, or
+# "ARROW_SIMD_LEVEL") to leave as they are.
+turn_off_all_optional_features <- function(env_var_list, keep = character()) {
   # Because these are done as environment variables (as opposed to build flags),
   # setting these to "OFF" overrides any previous setting. We don't need to
   # check the existing value.
@@ -822,17 +833,43 @@ turn_off_all_optional_features <- function(env_var_list) {
     "ARROW_WITH_ZLIB" = "OFF",
     "ARROW_WITH_ZSTD" = "OFF",
     "ARROW_WITH_RE2" = "OFF",
-    "ARROW_WITH_UTF8PROC" = "OFF",
+    "ARROW_WITH_UTF8PROC" = "OFF"
+  )
+  turn_off <- turn_off[setdiff(names(turn_off), keep)]
+  if (!("ARROW_SIMD_LEVEL" %in% keep)) {
     # The syntax to turn off XSIMD is different.
     # Pull existing value of EXTRA_CMAKE_FLAGS first (must be defined)
-    "EXTRA_CMAKE_FLAGS" = paste(
-      env_var_list[["EXTRA_CMAKE_FLAGS"]],
-      "-DARROW_SIMD_LEVEL=NONE -DARROW_RUNTIME_SIMD_LEVEL=NONE"
+    turn_off <- c(
+      turn_off,
+      "EXTRA_CMAKE_FLAGS" = paste(
+        env_var_list[["EXTRA_CMAKE_FLAGS"]],
+        "-DARROW_SIMD_LEVEL=NONE -DARROW_RUNTIME_SIMD_LEVEL=NONE"
+      )
     )
-  )
+  }
   # Create a new env_var_list, with the values of turn_off set.
   # replace() also adds new values if they didn't exist before
   replace(env_var_list, names(turn_off), turn_off)
+}
+
+# Without network access, libarrow can only build the thirdparty dependencies
+# whose source tarballs are shipped in the package (see
+# `with_vendored_dependencies()`), so turn off every optional feature except
+# those whose dependencies are all vendored. Features that are kept are left as
+# they are (e.g. as the user or the platform defaults set them), not turned on.
+# `available` is the ARROW_*_URL names of the usable vendored tarballs (see
+# `usable_vendored_dependencies()`).
+turn_off_unvendored_features <- function(env_var_list, available) {
+  has_all <- vapply(vendored_features, function(deps) all(deps %in% available), logical(1))
+  keep <- names(vendored_features)[has_all]
+  if (!quietly) {
+    lg(
+      "Features with vendored dependencies: %s",
+      if (length(keep)) paste(keep, collapse = ", ") else "none",
+      .indent = "****"
+    )
+  }
+  turn_off_all_optional_features(env_var_list, keep = keep)
 }
 
 get_component_names <- function() {
@@ -874,26 +911,81 @@ set_thirdparty_urls <- function(env_var_list) {
   env_var_list
 }
 
-# libarrow requires some thirdparty dependencies, even for a minimal build.
-# The libarrow build uses them from the system if they are available and
-# otherwise builds them from source, downloading from ARROW_*_URL. To make sure
-# that works without network access, `make sync-cpp` saves their source
-# tarballs into vendored_dependency_dir and we point ARROW_*_URL at them here.
+# The libarrow build uses thirdparty dependencies from the system if they are
+# available and otherwise builds them from source, downloading from ARROW_*_URL.
+# Some are required even for a minimal build. To make sure that works without
+# network access, `make sync-cpp` saves (trimmed) source tarballs into
+# vendored_dependency_dir and we point ARROW_*_URL at them here.
 # This does not change whether the system versions are used.
-with_vendored_dependencies <- function(env_var_list) {
-  if (!dir.exists(vendored_dependency_dir)) {
-    # e.g. building from a git checkout without `make sync-cpp`
-    if (!quietly) {
-      lg("No vendored dependencies found, they will be built with CMake if needed", .indent = "****")
-    }
-    return(env_var_list)
+# `vendored` is the result of `usable_vendored_dependencies()`.
+# With LIBARROW_VENDORED_DEPS=false, the build uses the full upstream sources of
+# the thirdparty dependencies instead of the vendored ones, so it needs to be
+# able to download them (or find them in thirdparty_dependency_dir). Some of
+# them are needed even for a minimal build, so error with a clear message
+# rather than failing later in the libarrow build.
+check_vendored_deps_setting <- function(thirdparty_deps_unavailable) {
+  if (use_vendored_deps || !thirdparty_deps_unavailable) {
+    return(invisible(TRUE))
   }
-  deps_df <- get_component_names()
-  for (env_varname in vendored_dependencies) {
+  offline_build <- env_is("ARROW_OFFLINE_BUILD", "true")
+  stop(
+    "LIBARROW_VENDORED_DEPS=false, so the thirdparty sources included in the\n",
+    "package won't be used, but they can't be downloaded either (",
+    if (offline_build) "ARROW_OFFLINE_BUILD=true" else "no network connection was found",
+    ").\n",
+    "libarrow needs some of them even for a minimal build. Either:\n",
+    "  * unset LIBARROW_VENDORED_DEPS to use the sources included in the package,\n",
+    "  * build with network access",
+    if (offline_build) " (and unset ARROW_OFFLINE_BUILD)",
+    ", or\n",
+    "  * set ARROW_THIRDPARTY_DEPENDENCY_DIR to a directory with the downloaded\n",
+    "    sources (currently '",
+    thirdparty_dependency_dir,
+    "', which doesn't exist).\n",
+    "See https://arrow.apache.org/docs/r/articles/install.html",
+    call. = FALSE
+  )
+}
+
+with_vendored_dependencies <- function(env_var_list, vendored) {
+  for (env_varname in names(vendored)) {
     if (!is.null(env_var_list[[env_varname]]) || !env_is(env_varname, "")) {
       # Respect the user's (or set_thirdparty_urls()'s) choice
       next
     }
+    env_var_list <- replace(env_var_list, env_varname, vendored[[env_varname]])
+  }
+  env_var_list
+}
+
+# Returns the paths of the vendored tarballs that the libarrow source in
+# `src_dir` (tools/cpp, or e.g. ../cpp of a git checkout) can use, named by
+# their ARROW_*_URL.
+# The tarballs are trimmed, so the libarrow build only accepts them with the
+# checksums that `with_vendored_checksums()` sets. We only use the tarballs
+# that were trimmed from the version that `src_dir`'s versions.txt pins
+# (according to the checksums.txt file that tools/vendor_dependencies.sh
+# writes).
+usable_vendored_dependencies <- function(src_dir) {
+  if (!use_vendored_deps) {
+    lg("LIBARROW_VENDORED_DEPS=false, so not using vendored dependencies", .indent = "****")
+    return(character())
+  }
+  manifest <- read_vendored_checksums()
+  if (is.null(manifest)) {
+    # e.g. building from a git checkout without `make sync-cpp`
+    if (!quietly) {
+      lg("No vendored dependencies found, they will be built with CMake if needed", .indent = "****")
+    }
+    return(character())
+  }
+  if (is.null(src_dir)) {
+    return(character())
+  }
+  expected <- read_thirdparty_checksums(file.path(src_dir, "thirdparty", "versions.txt"))
+  deps_df <- get_component_names()
+  usable <- character()
+  for (env_varname in vendored_dependencies) {
     filename <- deps_df$filename[deps_df$env_varname == env_varname]
     tarball <- file.path(vendored_dependency_dir, filename)
     if (length(tarball) != 1 || !file.exists(tarball)) {
@@ -902,9 +994,64 @@ with_vendored_dependencies <- function(env_var_list) {
       }
       next
     }
-    env_var_list <- replace(env_var_list, env_varname, normalizePath(tarball))
+    checksum_varname <- sub("_URL$", "_BUILD_SHA256_CHECKSUM", env_varname)
+    entry <- manifest[manifest$filename == filename, , drop = FALSE]
+    matches <- nrow(entry) == 1 && identical(unname(expected[checksum_varname]), entry$upstream_sha256)
+    if (!matches) {
+      if (!quietly) {
+        lg(
+          "Vendored source for %s doesn't match %s, it will be downloaded if needed",
+          env_varname,
+          file.path(src_dir, "thirdparty", "versions.txt"),
+          .indent = "****"
+        )
+      }
+      next
+    }
+    usable[[env_varname]] <- normalizePath(tarball)
+  }
+  usable
+}
+
+# Read the checksums.txt that tools/vendor_dependencies.sh writes, with the
+# checksums of each vendored tarball before (upstream) and after trimming (and
+# of how it was trimmed, which only vendor_dependencies.sh uses)
+read_vendored_checksums <- function() {
+  manifest_file <- file.path(vendored_dependency_dir, "checksums.txt")
+  if (!file.exists(manifest_file)) {
+    return(NULL)
+  }
+  read.table(manifest_file, header = TRUE, stringsAsFactors = FALSE)
+}
+
+# The libarrow build checks the thirdparty tarballs against the upstream
+# checksums in versions.txt, so set ARROW_*_BUILD_SHA256_CHECKSUM to the trimmed
+# tarballs' checksums for the vendored tarballs that `env_var_list` points at.
+with_vendored_checksums <- function(env_var_list, vendored) {
+  used <- vendored[vapply(
+    names(vendored),
+    function(env_varname) identical(env_var_list[[env_varname]], vendored[[env_varname]]),
+    logical(1)
+  )]
+  if (length(used) == 0) {
+    return(env_var_list)
+  }
+  manifest <- read_vendored_checksums()
+  for (env_varname in names(used)) {
+    checksum_varname <- sub("_URL$", "_BUILD_SHA256_CHECKSUM", env_varname)
+    checksum <- manifest$vendored_sha256[manifest$filename == basename(used[[env_varname]])]
+    env_var_list <- replace(env_var_list, checksum_varname, checksum)
   }
   env_var_list
+}
+
+# Parse the *_BUILD_SHA256_CHECKSUM=... lines of a versions.txt into a named vector
+read_thirdparty_checksums <- function(versions_txt) {
+  if (!file.exists(versions_txt)) {
+    return(character())
+  }
+  lines <- grep("^[A-Z0-9_]+_BUILD_SHA256_CHECKSUM=", readLines(versions_txt), value = TRUE)
+  setNames(sub("^[^=]*=", "", lines), sub("=.*$", "", lines))
 }
 
 # this is generally about features that people asked for via environment variables, but
@@ -1141,11 +1288,50 @@ if (download_libarrow_ok && !is_release && !test_mode) {
 # `create_package_with_all_dependencies()` in install-arrow.R
 thirdparty_dependency_dir <- Sys.getenv("ARROW_THIRDPARTY_DEPENDENCY_DIR", "tools/thirdparty_dependencies")
 
-# Source tarballs of dependencies that libarrow requires even for a minimal build.
-# These are always shipped in the package (see `with_vendored_dependencies()`).
-# If you change this path or list, you also need to edit tools/vendor_dependencies.sh
+# Trimmed source tarballs of thirdparty dependencies, shipped in the package so
+# that building without network access still works and can include the features
+# below (see `with_vendored_dependencies()` and `turn_off_unvendored_features()`).
+# If you change this path or these lists, you also need to edit
+# tools/vendor_dependencies.sh
 vendored_dependency_dir <- "tools/vendored"
-vendored_dependencies <- c("ARROW_URIPARSER_URL", "ARROW_XSIMD_URL")
+# Set LIBARROW_VENDORED_DEPS=false to not use them, and use the full upstream
+# sources instead (downloaded, or from thirdparty_dependency_dir), e.g. if a
+# build configuration needs something that was trimmed from them
+use_vendored_deps <- !env_is("LIBARROW_VENDORED_DEPS", "false")
+# The copy of the libarrow source in the package (see `make sync-cpp`)
+package_cpp_dir <- "tools/cpp"
+# Optional features and the ARROW_*_URL of each dependency they need (when the
+# dependency is built from source). See "Some EP's require other EP's" in
+# cpp/cmake_modules/ThirdpartyToolchain.cmake
+# Brotli and Zstandard aren't vendored (to keep the package small), so they are
+# turned off when building offline.
+# The names are what `turn_off_all_optional_features()` accepts in `keep`.
+vendored_features <- local({
+  # Parquet turns on Thrift and simdjson; Thrift needs zlib and Boost
+  parquet_deps <- c("ARROW_BOOST_URL", "ARROW_SIMDJSON_URL", "ARROW_THRIFT_URL", "ARROW_ZLIB_URL")
+  list(
+    ARROW_PARQUET = parquet_deps,
+    # Dataset needs no thirdparty dependencies itself, but it's only useful
+    # with Parquet (and we've always turned them on and off together)
+    ARROW_DATASET = parquet_deps,
+    ARROW_JSON = c("ARROW_RAPIDJSON_URL", "ARROW_SIMDJSON_URL"),
+    ARROW_MIMALLOC = "ARROW_MIMALLOC_URL",
+    # Not a CMake option: SIMD is turned off with EXTRA_CMAKE_FLAGS
+    ARROW_SIMD_LEVEL = "ARROW_XSIMD_URL",
+    ARROW_WITH_BZ2 = "ARROW_BZIP2_URL",
+    ARROW_WITH_LZ4 = "ARROW_LZ4_URL",
+    ARROW_WITH_RE2 = "ARROW_RE2_URL",
+    ARROW_WITH_SNAPPY = "ARROW_SNAPPY_URL",
+    ARROW_WITH_UTF8PROC = "ARROW_UTF8PROC_URL",
+    ARROW_WITH_ZLIB = "ARROW_ZLIB_URL"
+  )
+})
+# uriparser and xsimd are required even for a minimal build
+vendored_dependencies <- unique(c(
+  "ARROW_URIPARSER_URL",
+  "ARROW_XSIMD_URL",
+  unlist(vendored_features, use.names = FALSE)
+))
 
 arrow_versioned <- paste0("arrow-", VERSION)
 # configure.win uses a different libarrow dir and the zip is already nested

@@ -233,58 +233,257 @@ test_that("find_latest_nightly()", {
   )
 })
 
-test_that("with_vendored_dependencies()", {
-  vendored_dir <- tempfile()
-  dir.create(vendored_dir)
-  on.exit(unlink(vendored_dir, recursive = TRUE), add = TRUE)
-  original_dir <- nixlibs_env$vendored_dependency_dir
-  original_get_component_names <- nixlibs_env$get_component_names
-  original_quietly <- nixlibs_env$quietly
-  on.exit(nixlibs_env$vendored_dependency_dir <- original_dir, add = TRUE)
-  on.exit(nixlibs_env$get_component_names <- original_get_component_names, add = TRUE)
-  on.exit(nixlibs_env$quietly <- original_quietly, add = TRUE)
-  nixlibs_env$vendored_dependency_dir <- vendored_dir
-  nixlibs_env$get_component_names <- function() {
-    data.frame(
-      env_varname = c("ARROW_URIPARSER_URL", "ARROW_XSIMD_URL", "ARROW_ZSTD_URL"),
-      filename = c("uriparser-1.0.2.tar.bz2", "xsimd-14.3.0.tar.gz", "zstd-1.5.7.tar.gz")
+# Set up a fake vendored_dependency_dir and source dir for the vendored
+# dependency tests. `vendored` is a named vector of filename = upstream
+# checksum in checksums.txt (the trimmed checksum is "<upstream>-trimmed"),
+# `expected` is the checksums in the source dir's versions.txt, named by
+# ARROW_*_URL.
+local_vendored_dependencies <- function(vendored, expected, env = parent.frame()) {
+  vendored_dir <- withr::local_tempdir(.local_envir = env)
+  src_dir <- withr::local_tempdir(.local_envir = env)
+  for (filename in names(vendored)) {
+    file.create(file.path(vendored_dir, filename))
+  }
+  if (length(vendored)) {
+    writeLines(
+      c(
+        "filename upstream_sha256 vendored_sha256 trim_sha256",
+        paste(names(vendored), vendored, paste0(vendored, "-trimmed"), "recipe")
+      ),
+      file.path(vendored_dir, "checksums.txt")
     )
   }
+  dir.create(file.path(src_dir, "thirdparty"))
+  writeLines(
+    c(
+      "# a comment",
+      paste0(sub("_URL$", "_BUILD_SHA256_CHECKSUM", names(expected)), "=", expected)
+    ),
+    file.path(src_dir, "thirdparty", "versions.txt")
+  )
+  local_binding("vendored_dependency_dir", vendored_dir, env)
+  local_binding(
+    "get_component_names",
+    function() {
+      data.frame(
+        env_varname = c("ARROW_URIPARSER_URL", "ARROW_XSIMD_URL", "ARROW_LZ4_URL", "ARROW_JEMALLOC_URL"),
+        filename = c("uriparser-1.0.2.tar.bz2", "xsimd-14.3.0.tar.gz", "lz4-v1.10.0.tar.gz", "jemalloc-5.3.0.tar.bz2")
+      )
+    },
+    env
+  )
+  list(vendored_dir = vendored_dir, src_dir = src_dir)
+}
+
+# Temporarily replace a variable in nixlibs_env
+local_binding <- function(name, value, env = parent.frame()) {
+  original <- nixlibs_env[[name]]
+  assign(name, value, envir = nixlibs_env)
+  withr::defer(assign(name, original, envir = nixlibs_env), envir = env)
+}
+
+test_that("usable_vendored_dependencies()", {
+  local_binding("quietly", TRUE)
+  # Nothing vendored
+  dirs <- local_vendored_dependencies(character(), c(ARROW_URIPARSER_URL = "aaa"))
+  expect_identical(usable_vendored_dependencies(dirs$src_dir), character())
+
+  dirs <- local_vendored_dependencies(
+    c(
+      "uriparser-1.0.2.tar.bz2" = "aaa",
+      "xsimd-14.3.0.tar.gz" = "bbb",
+      "lz4-v1.10.0.tar.gz" = "ccc",
+      # Not in vendored_dependencies, so it isn't used
+      "jemalloc-5.3.0.tar.bz2" = "ddd"
+    ),
+    c(
+      ARROW_URIPARSER_URL = "aaa",
+      # A different version than the vendored one
+      ARROW_XSIMD_URL = "other",
+      ARROW_LZ4_URL = "ccc",
+      ARROW_JEMALLOC_URL = "ddd"
+    )
+  )
+  expect_identical(
+    usable_vendored_dependencies(dirs$src_dir),
+    c(
+      ARROW_URIPARSER_URL = normalizePath(file.path(dirs$vendored_dir, "uriparser-1.0.2.tar.bz2")),
+      ARROW_LZ4_URL = normalizePath(file.path(dirs$vendored_dir, "lz4-v1.10.0.tar.gz"))
+    )
+  )
+  # Mismatches are only reported with verbose logging
+  local_binding("quietly", FALSE)
+  expect_output(
+    usable_vendored_dependencies(dirs$src_dir),
+    "Vendored source for ARROW_XSIMD_URL doesn't match"
+  )
+
+  # Also used for other source dirs (e.g. ../cpp of a git checkout), checked
+  # against that dir's versions.txt
+  local_binding("quietly", TRUE)
+  other_src_dir <- withr::local_tempdir()
+  file.copy(file.path(dirs$src_dir, "thirdparty"), other_src_dir, recursive = TRUE)
+  expect_named(
+    usable_vendored_dependencies(other_src_dir),
+    c("ARROW_URIPARSER_URL", "ARROW_LZ4_URL")
+  )
+  writeLines(
+    "ARROW_LZ4_BUILD_SHA256_CHECKSUM=ccc",
+    file.path(other_src_dir, "thirdparty", "versions.txt")
+  )
+  expect_named(usable_vendored_dependencies(other_src_dir), "ARROW_LZ4_URL")
+  # No source dir, nothing to build
+  expect_identical(usable_vendored_dependencies(NULL), character())
+  local_binding("quietly", FALSE)
+
+  # A missing tarball isn't used, even if it's in checksums.txt
+  unlink(file.path(dirs$vendored_dir, "lz4-v1.10.0.tar.gz"))
+  expect_output(
+    expect_named(usable_vendored_dependencies(dirs$src_dir), "ARROW_URIPARSER_URL"),
+    "Vendored source for ARROW_LZ4_URL not found"
+  )
+
+  # None are used with LIBARROW_VENDORED_DEPS=false (logged even when quiet)
+  local_binding("quietly", TRUE)
+  local_binding("use_vendored_deps", FALSE)
+  expect_output(
+    expect_identical(usable_vendored_dependencies(dirs$src_dir), character()),
+    "LIBARROW_VENDORED_DEPS=false"
+  )
+})
+
+test_that("LIBARROW_VENDORED_DEPS sets use_vendored_deps", {
+  use_vendored_deps_with <- function(value) {
+    withr::with_envvar(c(LIBARROW_VENDORED_DEPS = value), {
+      env <- new.env()
+      env$TESTING <- TRUE
+      capture.output(source("nixlibs.R", local = env))
+      env$use_vendored_deps
+    })
+  }
+  expect_true(use_vendored_deps_with(NA))
+  expect_true(use_vendored_deps_with("true"))
+  expect_false(use_vendored_deps_with("false"))
+  expect_false(use_vendored_deps_with("FALSE"))
+})
+
+test_that("check_vendored_deps_setting()", {
+  local_binding("thirdparty_dependency_dir", "does/not/exist")
+
+  # Using the vendored dependencies: always fine
+  local_binding("use_vendored_deps", TRUE)
+  expect_true(check_vendored_deps_setting(thirdparty_deps_unavailable = TRUE))
+  expect_true(check_vendored_deps_setting(thirdparty_deps_unavailable = FALSE))
+
+  # Not using them: fine if the upstream sources can be downloaded (or are in
+  # thirdparty_dependency_dir)
+  local_binding("use_vendored_deps", FALSE)
+  expect_true(check_vendored_deps_setting(thirdparty_deps_unavailable = FALSE))
+
+  # ...but not if they can't
+  withr::local_envvar(c(ARROW_OFFLINE_BUILD = "true"))
+  expect_error(
+    check_vendored_deps_setting(thirdparty_deps_unavailable = TRUE),
+    "LIBARROW_VENDORED_DEPS=false.*ARROW_OFFLINE_BUILD=true.*does/not/exist"
+  )
+  withr::local_envvar(c(ARROW_OFFLINE_BUILD = NA))
+  expect_error(
+    check_vendored_deps_setting(thirdparty_deps_unavailable = TRUE),
+    "no network connection was found"
+  )
+})
+
+test_that("with_vendored_checksums()", {
+  dirs <- local_vendored_dependencies(
+    c("uriparser-1.0.2.tar.bz2" = "aaa", "xsimd-14.3.0.tar.gz" = "bbb", "lz4-v1.10.0.tar.gz" = "ccc"),
+    c(ARROW_URIPARSER_URL = "aaa", ARROW_XSIMD_URL = "bbb", ARROW_LZ4_URL = "ccc", ARROW_JEMALLOC_URL = "ddd")
+  )
+  vendored <- c(
+    ARROW_URIPARSER_URL = file.path(dirs$vendored_dir, "uriparser-1.0.2.tar.bz2"),
+    ARROW_XSIMD_URL = file.path(dirs$vendored_dir, "xsimd-14.3.0.tar.gz"),
+    ARROW_LZ4_URL = file.path(dirs$vendored_dir, "lz4-v1.10.0.tar.gz")
+  )
+
+  # Nothing is pointed at the vendored tarballs
+  expect_identical(with_vendored_checksums(list(), vendored), list())
+
+  # Only the ones that are (e.g. not when the user set ARROW_XSIMD_URL)
+  env_var_list <- list(
+    ARROW_URIPARSER_URL = vendored[["ARROW_URIPARSER_URL"]],
+    ARROW_XSIMD_URL = "https://example.com/xsimd.tar.gz",
+    ARROW_LZ4_URL = vendored[["ARROW_LZ4_URL"]]
+  )
+  expect_identical(
+    with_vendored_checksums(env_var_list, vendored),
+    c(
+      env_var_list,
+      ARROW_URIPARSER_BUILD_SHA256_CHECKSUM = "aaa-trimmed",
+      ARROW_LZ4_BUILD_SHA256_CHECKSUM = "ccc-trimmed"
+    )
+  )
+})
+
+test_that("with_vendored_dependencies()", {
+  vendored <- c(ARROW_URIPARSER_URL = "/vendored/uriparser.tar.bz2", ARROW_XSIMD_URL = "/vendored/xsimd.tar.gz")
   withr::local_envvar(c(ARROW_URIPARSER_URL = NA, ARROW_XSIMD_URL = NA))
 
-  # Without the vendored tarballs, nothing is set
-  nixlibs_env$quietly <- TRUE
-  expect_silent(
-    expect_identical(with_vendored_dependencies(list(A = "1")), list(A = "1"))
-  )
-  # The missing tarballs are only reported with verbose logging
-  nixlibs_env$quietly <- FALSE
-  expect_output(
-    expect_identical(with_vendored_dependencies(list(A = "1")), list(A = "1")),
-    "Vendored source for ARROW_URIPARSER_URL not found"
-  )
-  nixlibs_env$quietly <- TRUE
-
-  uriparser <- file.path(vendored_dir, "uriparser-1.0.2.tar.bz2")
-  xsimd <- file.path(vendored_dir, "xsimd-14.3.0.tar.gz")
-  # Only dependencies in vendored_dependencies are used
-  zstd <- file.path(vendored_dir, "zstd-1.5.7.tar.gz")
-  file.create(uriparser, xsimd, zstd)
+  expect_identical(with_vendored_dependencies(list(A = "1"), character()), list(A = "1"))
   expect_identical(
-    with_vendored_dependencies(list(A = "1")),
-    list(A = "1", ARROW_URIPARSER_URL = normalizePath(uriparser), ARROW_XSIMD_URL = normalizePath(xsimd))
+    with_vendored_dependencies(list(A = "1"), vendored),
+    list(A = "1", ARROW_URIPARSER_URL = "/vendored/uriparser.tar.bz2", ARROW_XSIMD_URL = "/vendored/xsimd.tar.gz")
   )
 
   # Already set (e.g. by set_thirdparty_urls()) is respected
   expect_identical(
-    with_vendored_dependencies(list(ARROW_URIPARSER_URL = "other.tar.bz2")),
-    list(ARROW_URIPARSER_URL = "other.tar.bz2", ARROW_XSIMD_URL = normalizePath(xsimd))
+    with_vendored_dependencies(list(ARROW_URIPARSER_URL = "other.tar.bz2"), vendored),
+    list(ARROW_URIPARSER_URL = "other.tar.bz2", ARROW_XSIMD_URL = "/vendored/xsimd.tar.gz")
   )
 
   # As is a user-set env var
   withr::local_envvar(c(ARROW_URIPARSER_URL = "https://example.com/uriparser.tar.bz2"))
   expect_identical(
-    with_vendored_dependencies(list(A = "1")),
-    list(A = "1", ARROW_XSIMD_URL = normalizePath(xsimd))
+    with_vendored_dependencies(list(A = "1"), vendored),
+    list(A = "1", ARROW_XSIMD_URL = "/vendored/xsimd.tar.gz")
+  )
+})
+
+test_that("turn_off_unvendored_features()", {
+  local_binding("quietly", TRUE)
+  env_var_list <- list(EXTRA_CMAKE_FLAGS = "", ARROW_WITH_LZ4 = "ON", ARROW_S3 = "ON")
+
+  # Nothing vendored: the same as turn_off_all_optional_features()
+  expect_identical(
+    turn_off_unvendored_features(env_var_list, character()),
+    turn_off_all_optional_features(env_var_list)
+  )
+
+  # Everything vendored: only features that need unvendored dependencies are
+  # turned off, and the rest are left as they were (not turned on)
+  result <- turn_off_unvendored_features(env_var_list, vendored_dependencies)
+  expect_identical(result$ARROW_S3, "OFF")
+  expect_identical(result$ARROW_JEMALLOC, "OFF")
+  # Brotli and Zstandard aren't vendored
+  expect_identical(result$ARROW_WITH_BROTLI, "OFF")
+  expect_identical(result$ARROW_WITH_ZSTD, "OFF")
+  expect_identical(result$ARROW_WITH_LZ4, "ON")
+  for (feature in setdiff(names(vendored_features), "ARROW_WITH_LZ4")) {
+    expect_null(result[[feature]])
+  }
+  expect_identical(result$EXTRA_CMAKE_FLAGS, "")
+
+  # Parquet (and Dataset) need all of their dependencies
+  result <- turn_off_unvendored_features(
+    env_var_list,
+    c("ARROW_XSIMD_URL", "ARROW_THRIFT_URL", "ARROW_LZ4_URL")
+  )
+  expect_identical(result$ARROW_PARQUET, "OFF")
+  expect_identical(result$ARROW_DATASET, "OFF")
+  expect_identical(result$ARROW_WITH_LZ4, "ON")
+  expect_identical(result$ARROW_WITH_SNAPPY, "OFF")
+  # SIMD is only turned off if xsimd isn't vendored
+  expect_identical(result$EXTRA_CMAKE_FLAGS, "")
+  expect_match(
+    turn_off_unvendored_features(env_var_list, "ARROW_LZ4_URL")$EXTRA_CMAKE_FLAGS,
+    "-DARROW_SIMD_LEVEL=NONE"
   )
 })
