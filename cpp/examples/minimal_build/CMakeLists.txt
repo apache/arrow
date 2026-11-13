@@ -81,7 +81,7 @@ if(ARROW_EXAMPLE_GCS_STATIC_CHECK
                              PRIVATE ARROW_EXAMPLE_GCS_STATIC_CHECK)
   target_link_libraries(arrow-example-gcs-static PRIVATE ArrowGcs::arrow_gcs_static)
 
-  if(TARGET ArrowS3::arrow_s3_static)
+  if(ARROW_EXAMPLE_S3_STATIC_CHECK AND TARGET ArrowS3::arrow_s3_static)
     add_executable(arrow-example-s3-gcs-static example.cc)
     target_compile_definitions(arrow-example-s3-gcs-static
                                PRIVATE ARROW_EXAMPLE_S3_STATIC_CHECK

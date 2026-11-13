@@ -146,8 +146,8 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
   cmake \
     -S "${source_dir}/examples/minimal_build" \
     -B "${build_dir}/examples/minimal_build" \
-    -DARROW_EXAMPLE_S3_STATIC_CHECK=ON \
     -DARROW_EXAMPLE_GCS_STATIC_CHECK=ON \
+    -DARROW_EXAMPLE_S3_STATIC_CHECK=ON \
     -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
   cmake --build "${build_dir}/examples/minimal_build"
   pushd "${source_dir}/examples/minimal_build"
