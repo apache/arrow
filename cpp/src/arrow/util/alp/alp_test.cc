@@ -42,6 +42,8 @@
 
 namespace arrow::util::alp {
 
+constexpr int32_t kVectorSize = 1024;
+
 // Test helpers
 
 // Compares two ranges by bit pattern. ALP must be lossless, and `==` cannot show
@@ -109,14 +111,12 @@ std::vector<uint8_t> EncodeSmallPage(std::vector<T>* input) {
   for (size_t i = 0; i < input->size(); ++i) {
     (*input)[i] = static_cast<T>(i) * static_cast<T>(0.1);
   }
-  EXPECT_OK_AND_ASSIGN(
-      int64_t max_comp_size,
-      AlpCodec<T>::GetMaxCompressedSize(static_cast<int64_t>(input->size()),
-                                        AlpFormatConstants::kDefaultVectorSize));
+  EXPECT_OK_AND_ASSIGN(int64_t max_comp_size,
+                       AlpCodec<T>::GetMaxCompressedSize(
+                           static_cast<int64_t>(input->size()), kVectorSize));
   std::vector<uint8_t> comp_buffer(max_comp_size);
-  EXPECT_OK_AND_ASSIGN(
-      const int64_t comp_size,
-      AlpCodec<T>::Encode(*input, AlpFormatConstants::kDefaultVectorSize, comp_buffer));
+  EXPECT_OK_AND_ASSIGN(const int64_t comp_size,
+                       AlpCodec<T>::Encode(*input, kVectorSize, comp_buffer));
   comp_buffer.resize(comp_size);
   return comp_buffer;
 }
@@ -167,8 +167,7 @@ TEST(AlpEncodingPresetTest, RejectsInvalidPreset) {
     SCOPED_TRACE(expected_message);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr(expected_message),
-        AlpCodec<float>::Encode(input, preset, AlpFormatConstants::kDefaultVectorSize,
-                                output));
+        AlpCodec<float>::Encode(input, preset, kVectorSize, output));
   }
 }
 // AlpInfo Serialization Tests
@@ -757,12 +756,11 @@ class AlpSamplerTest : public ::testing::Test {};
 TYPED_TEST_SUITE(AlpSamplerTest, FloatingTestTypes);
 
 TYPED_TEST(AlpSamplerTest, PresetGenerationDecimalData) {
-  AlpSampler<TypeParam> sampler;
-
   std::vector<TypeParam> data(10000);
   for (size_t i = 0; i < data.size(); ++i) {
     data[i] = static_cast<TypeParam>(100.0 + i * 0.01);
   }
+  AlpSampler<TypeParam> sampler(static_cast<int64_t>(data.size()));
   sampler.AddSample(data);
 
   constexpr size_t kNumValues = 1024;
@@ -776,11 +774,35 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationDecimalData) {
       output, std::vector<TypeParam>(data.begin(), data.begin() + kNumValues)));
 }
 
+TYPED_TEST(AlpSamplerTest, SamplingWindowSize) {
+  constexpr int64_t kChunkSize = AlpSamplingConstants::kChunkSize;
+  const std::vector<TypeParam> nan_chunk(kChunkSize,
+                                         std::numeric_limits<TypeParam>::quiet_NaN());
+  const std::vector<TypeParam> decimal_chunk(kChunkSize, static_cast<TypeParam>(1.25));
+  const auto decimal_preset = AlpCompression<TypeParam>::MakePreset({decimal_chunk});
+
+  // The sampler targets eight chunks per window. An eight-chunk window samples
+  // both inputs, but only decimal_chunk can contribute usable parameters.
+  AlpSampler<TypeParam> every_chunk(/*sampling_window_size=*/8 * kChunkSize);
+  every_chunk.AddSample(nan_chunk);
+  every_chunk.AddSample(decimal_chunk);
+  EXPECT_EQ(decimal_preset.combinations, every_chunk.MakePreset().combinations);
+
+  // A sixteen-chunk window samples every other chunk, skipping decimal_chunk.
+  // With only NaNs sampled, the preset falls back to identity.
+  AlpSampler<TypeParam> every_other_chunk(AlpSamplingConstants::kSampleChunksPerWindow *
+                                          2 * kChunkSize);
+  every_other_chunk.AddSample(nan_chunk);
+  every_other_chunk.AddSample(decimal_chunk);
+  EXPECT_EQ(AlpEncodingPreset::MakeDefault().combinations,
+            every_other_chunk.MakePreset().combinations);
+}
+
 TYPED_TEST(AlpSamplerTest, NoUsableSamplesFallBackToDefault) {
   const std::vector<AlpExponentAndFactor> identity =
       AlpEncodingPreset::MakeDefault().combinations;
 
-  AlpSampler<TypeParam> empty_sampler;
+  AlpSampler<TypeParam> empty_sampler(/*sampling_window_size=*/1);
   EXPECT_EQ(empty_sampler.MakePreset().combinations, identity);
 
   const std::vector<TypeParam> unusable(8, std::numeric_limits<TypeParam>::quiet_NaN());
@@ -860,12 +882,10 @@ TEST(AlpRobustnessTest, TruncatedData) {
 
   const int64_t num_elements = static_cast<int64_t>(input.size());
   ASSERT_OK_AND_ASSIGN(int64_t max_size,
-                       AlpCodec<double>::GetMaxCompressedSize(
-                           num_elements, AlpFormatConstants::kDefaultVectorSize));
+                       AlpCodec<double>::GetMaxCompressedSize(num_elements, kVectorSize));
   std::vector<uint8_t> buffer(max_size);
-  ASSERT_OK_AND_ASSIGN(
-      const int64_t comp_size,
-      AlpCodec<double>::Encode(input, AlpFormatConstants::kDefaultVectorSize, buffer));
+  ASSERT_OK_AND_ASSIGN(const int64_t comp_size,
+                       AlpCodec<double>::Encode(input, kVectorSize, buffer));
 
   const auto page = std::span(buffer).first(static_cast<size_t>(comp_size));
   ASSERT_OK(AlpVectorReader<double>::Open(page, arrow::default_memory_pool()));
@@ -890,12 +910,10 @@ TEST(AlpRobustnessTest, HeaderElementCountMismatch) {
   }
   const int64_t num_elements = static_cast<int64_t>(input.size());
   ASSERT_OK_AND_ASSIGN(int64_t max_size,
-                       AlpCodec<double>::GetMaxCompressedSize(
-                           num_elements, AlpFormatConstants::kDefaultVectorSize));
+                       AlpCodec<double>::GetMaxCompressedSize(num_elements, kVectorSize));
   std::vector<uint8_t> buffer(max_size);
-  ASSERT_OK_AND_ASSIGN(
-      const int64_t comp_size,
-      AlpCodec<double>::Encode(input, AlpFormatConstants::kDefaultVectorSize, buffer));
+  ASSERT_OK_AND_ASSIGN(const int64_t comp_size,
+                       AlpCodec<double>::Encode(input, kVectorSize, buffer));
 
   const auto page = std::span(buffer).first(static_cast<size_t>(comp_size));
   ASSERT_OK_AND_ASSIGN(auto reader,
@@ -915,18 +933,16 @@ TEST(AlpRobustnessTest, HeaderElementCountMismatch) {
 TEST(AlpRobustnessTest, CorruptedOffsetChain) {
   // The spec fixes every offset, so a duplicate, backward or gapped offset has to
   // be rejected rather than used to read the wrong bytes.
-  constexpr int32_t kNumElements = 4 * AlpFormatConstants::kDefaultVectorSize;
+  constexpr int32_t kNumElements = 4 * kVectorSize;
   std::vector<double> input(kNumElements);
   for (size_t i = 0; i < input.size(); ++i) {
     input[i] = static_cast<double>(i) * 0.123;
   }
   ASSERT_OK_AND_ASSIGN(int64_t max_size,
-                       AlpCodec<double>::GetMaxCompressedSize(
-                           kNumElements, AlpFormatConstants::kDefaultVectorSize));
+                       AlpCodec<double>::GetMaxCompressedSize(kNumElements, kVectorSize));
   std::vector<uint8_t> buffer(max_size);
-  ASSERT_OK_AND_ASSIGN(
-      const int64_t comp_size,
-      AlpCodec<double>::Encode(input, AlpFormatConstants::kDefaultVectorSize, buffer));
+  ASSERT_OK_AND_ASSIGN(const int64_t comp_size,
+                       AlpCodec<double>::Encode(input, kVectorSize, buffer));
   const auto page = std::span(buffer).first(static_cast<size_t>(comp_size));
   ASSERT_OK(AlpVectorReader<double>::Open(page, arrow::default_memory_pool()));
 
@@ -971,14 +987,13 @@ TEST(AlpRobustnessTest, ElementCountAboveInt32Max) {
   double one_value = 1.0;
   uint8_t output_byte = 0;
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("exceeds INT32_MAX"),
-                                  AlpCodec<double>::GetMaxCompressedSize(
-                                      kTooMany, AlpFormatConstants::kDefaultVectorSize));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds INT32_MAX"),
+      AlpCodec<double>::GetMaxCompressedSize(kTooMany, kVectorSize));
   // The count is rejected before the input span is read.
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("exceeds INT32_MAX"),
-      AlpCodec<double>::Encode({&one_value, static_cast<size_t>(kTooMany)},
-                               AlpFormatConstants::kDefaultVectorSize,
+      AlpCodec<double>::Encode({&one_value, static_cast<size_t>(kTooMany)}, kVectorSize,
                                {&output_byte, 1}));
 }
 
@@ -990,14 +1005,12 @@ TYPED_TEST(AlpRobustnessTest, RejectsOutOfRangeLogVectorSizeInHeader) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
   }
 
-  ASSERT_OK_AND_ASSIGN(
-      int64_t max_comp_size,
-      AlpCodec<TypeParam>::GetMaxCompressedSize(static_cast<int64_t>(input.size()),
-                                                AlpFormatConstants::kDefaultVectorSize));
+  ASSERT_OK_AND_ASSIGN(int64_t max_comp_size,
+                       AlpCodec<TypeParam>::GetMaxCompressedSize(
+                           static_cast<int64_t>(input.size()), kVectorSize));
   std::vector<uint8_t> comp_buffer(max_comp_size);
   ASSERT_OK_AND_ASSIGN(const int64_t comp_size,
-                       AlpCodec<TypeParam>::Encode(
-                           input, AlpFormatConstants::kDefaultVectorSize, comp_buffer));
+                       AlpCodec<TypeParam>::Encode(input, kVectorSize, comp_buffer));
 
   for (const uint8_t bad : {uint8_t{0}, uint8_t{1}, uint8_t{2}, uint8_t{16}}) {
     SCOPED_TRACE("log_vector_size=" + std::to_string(bad));
@@ -1136,43 +1149,23 @@ TYPED_TEST(AlpRobustnessTest, RejectsNumExceptionsAboveVectorLength) {
                                             arrow::default_memory_pool()));
 }
 
-// The patch step writes output[position] once per exception, so repeated
-// positions have to be rejected.
-TYPED_TEST(AlpRobustnessTest, RejectsDuplicateExceptionPositions) {
+// Exception values must stay paired with their positions, even when unsorted.
+TYPED_TEST(AlpRobustnessTest, AcceptsUnsortedExceptionPositions) {
   constexpr int32_t kNumElements = 64;
-  std::vector<TypeParam> input(kNumElements);
-  for (int32_t i = 0; i < kNumElements; ++i) {
-    input[i] = static_cast<TypeParam>(i);
-  }
-  // Whole numbers encode exactly, so only these two NaNs are exceptions.
-  input[5] = std::numeric_limits<TypeParam>::quiet_NaN();
-  input[40] = std::numeric_limits<TypeParam>::quiet_NaN();
+  const auto infinity = std::numeric_limits<TypeParam>::infinity();
+  const auto encoded = AlpEncodedVector<TypeParam>::Make(
+      AlpInfo(/*exponent=*/0, /*factor=*/0, /*num_exceptions=*/2),
+      AlpForInfo<TypeParam>(/*frame_of_reference=*/0, /*bit_width=*/0), kNumElements,
+      /*packed_values=*/{}, /*exception_positions=*/{40, 5},
+      /*exceptions=*/{-infinity, infinity});
 
-  const auto encoded =
-      AlpCompression<TypeParam>::Compress(input, AlpEncodingPreset::MakeDefault());
-  std::vector<uint8_t> comp_buffer(static_cast<size_t>(encoded.GetStoredSize()));
-  encoded.Store(comp_buffer);
+  std::vector<TypeParam> expected(kNumElements, 0);
+  expected[40] = -infinity;
+  expected[5] = infinity;
 
-  ASSERT_OK_AND_ASSIGN(const AlpInfo alp_info, AlpInfo::Load(comp_buffer));
-  ASSERT_GE(alp_info.num_exceptions(), 2);
-
-  constexpr int64_t kForInfoSize = AlpForInfo<TypeParam>::kStoredSize;
-  const uint8_t bit_width = comp_buffer[AlpInfo::kStoredSize + kForInfoSize - 1];
-  const int64_t position_pos = AlpInfo::kStoredSize + kForInfoSize +
-                               bit_util::BytesForBits(int64_t{kNumElements} * bit_width);
-  constexpr int64_t kPositionSize =
-      static_cast<int64_t>(sizeof(AlpFormatConstants::PositionType));
-  ASSERT_LE(position_pos + 2 * kPositionSize, static_cast<int64_t>(comp_buffer.size()));
-
-  // Copy the second position over the first, so both name the same slot.
-  std::vector<uint8_t> corrupted = comp_buffer;
-  std::memcpy(corrupted.data() + position_pos,
-              corrupted.data() + position_pos + kPositionSize, kPositionSize);
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("exception positions must increase"),
-      AlpEncodedVectorView<TypeParam>::Load({corrupted.data(), corrupted.size()},
-                                            kNumElements, arrow::default_memory_pool()));
+  std::vector<TypeParam> output;
+  ASSERT_NO_FATAL_FAILURE(DecodeEncodedVector(encoded, &output));
+  EXPECT_TRUE(IsBitwiseEqual(output, expected));
 }
 
 // The patch step writes output[position], so a position at or past the end of

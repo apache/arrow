@@ -38,9 +38,6 @@ enum class AlpMode : uint8_t { kAlp = 0 };
 enum class AlpIntegerEncoding : uint8_t { kForBitPack = 0 };
 
 struct AlpFormatConstants {
-  /// Recommended default vector size.
-  static constexpr int32_t kDefaultVectorSize = 1024;
-
   /// Minimum log2(vector size), corresponding to 8 elements.
   static constexpr uint8_t kMinLogVectorSize = 3;
 
@@ -59,18 +56,19 @@ static_assert(sizeof(AlpFormatConstants::PositionType) == 2);
 
 // Sampling and parameter-search tuning
 
-struct AlpSamplingOptions {
+struct AlpSamplingConstants {
   /// Input elements per sampling chunk.
   static constexpr int64_t kChunkSize = 4096;
 
-  /// Elements per sampling interval.
-  static constexpr int64_t kIntervalSize = 122880;
+  /// Sample from the first 1024 values of each selected chunk (or all if shorter).
+  /// With 256 samples per full window, use offsets 0, 4, ..., 1020.
+  static constexpr int64_t kChunkSampleWindowSize = 1024;
 
   /// Samples collected per chunk.
   static constexpr int64_t kSamplesPerChunk = 256;
 
-  /// Chunks sampled per interval.
-  static constexpr int64_t kSampleChunksPerInterval = 8;
+  /// Target number of sampled chunks per window.
+  static constexpr int64_t kSampleChunksPerWindow = 8;
 
   /// Consecutive non-improving combinations before an early exit.
   static constexpr uint8_t kEarlyExitThreshold = 4;
@@ -169,12 +167,12 @@ struct AlpTypedConstants<float> {
   static constexpr float kEncodingLowerLimit = -2147483392.0f;
 
   /// Returns 10^power.
-  static float GetExponent(uint8_t power) {
+  static float GetPowerOfTen(uint8_t power) {
     return AlpPowerOfTen::Float(static_cast<int8_t>(power));
   }
 
   /// Returns 10^(-power).
-  static float GetFactor(uint8_t power) {
+  static float GetInversePowerOfTen(uint8_t power) {
     return AlpPowerOfTen::Float(static_cast<int8_t>(-static_cast<int8_t>(power)));
   }
 
@@ -197,12 +195,12 @@ struct AlpTypedConstants<double> {
   static constexpr double kEncodingLowerLimit = -9223372036854773760.0;
 
   /// Returns 10^power.
-  static double GetExponent(uint8_t power) {
+  static double GetPowerOfTen(uint8_t power) {
     return AlpPowerOfTen::Double(static_cast<int8_t>(power));
   }
 
   /// Returns 10^(-power).
-  static double GetFactor(uint8_t power) {
+  static double GetInversePowerOfTen(uint8_t power) {
     return AlpPowerOfTen::Double(static_cast<int8_t>(-static_cast<int8_t>(power)));
   }
 

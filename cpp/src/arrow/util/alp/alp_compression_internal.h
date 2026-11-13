@@ -79,8 +79,6 @@ class ARROW_EXPORT AlpCompression {
                          std::span<EncodedUnsigned> integer_scratch);
 
  private:
-  static std::vector<T> CreateSample(std::span<const T> inputs);
-
   static AlpExponentAndFactor FindBestExponentAndFactor(
       std::span<const T> inputs, const std::vector<AlpExponentAndFactor>& combinations);
 
@@ -113,7 +111,7 @@ class ARROW_EXPORT AlpCompression {
   static void PatchExceptions(
       std::span<const T> exceptions,
       std::span<const AlpFormatConstants::PositionType> exception_positions,
-      std::span<TargetType> outputs);
+      bool positions_strictly_increasing, std::span<TargetType> outputs);
 };
 
 // The marker on a class template does not reach its member templates: each is

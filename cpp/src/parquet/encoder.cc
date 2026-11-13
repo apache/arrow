@@ -33,7 +33,7 @@
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/alp/alp_codec_internal.h"
-#include "arrow/util/alp/alp_constants_internal.h"
+#include "arrow/util/alp/alp_sampler_internal.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -70,6 +70,30 @@ template <typename T>
 using ArrowPoolVector = std::vector<T, ::arrow::stl::allocator<T>>;
 
 namespace parquet {
+
+void AlpOptions::Validate() const {
+  if (vector_size < 8 || vector_size > 32768 ||
+      !::arrow::bit_util::HasSingleBit(static_cast<uint32_t>(vector_size))) {
+    throw ParquetException("ALP vector size must be a power of two in [8, 32768]");
+  }
+  if (sampling_window_size <= 0) {
+    throw ParquetException("ALP sampling window size must be positive");
+  }
+}
+
+void EncodingOptions::Validate() const {
+  for (const auto& [encoding, value] : options) {
+    switch (encoding) {
+      case Encoding::ALP:
+        Get<AlpOptions>(encoding).Validate();
+        break;
+      default:
+        throw ParquetException("Encoding options are not supported for encoding ",
+                               EncodingToString(encoding));
+    }
+  }
+}
+
 namespace {
 
 // The Parquet spec isn't very clear whether ByteArray lengths are signed or
@@ -1013,40 +1037,39 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
   using T = typename DType::c_type;
   using ArrowType = typename EncodingTraits<DType>::ArrowType;
+  using Codec = ::arrow::util::alp::AlpCodec<T>;
+  using Sampler = ::arrow::util::alp::AlpSampler<T>;
   using TypedEncoder<DType>::Put;
 
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
                 "ALP only supports float and double types");
 
-  explicit AlpEncoder(const ColumnDescriptor* descr,
-                      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
-      : EncoderImpl(descr, Encoding::ALP, pool), sink_{pool} {}
+  explicit AlpEncoder(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
+                      const AlpOptions& alp_options)
+      : EncoderImpl(descr, Encoding::ALP, pool), sink_{pool}, alp_options_(alp_options) {}
 
   // TODO(GH-48701): use a ratio estimate instead of reporting the raw buffer size
   int64_t EstimatedDataEncodedSize() override { return sink_.length(); }
 
   std::shared_ptr<Buffer> FlushValues() override {
-    // TODO(GH-48701): allow configuring the vector size.
-    constexpr auto kVectorSize =
-        ::arrow::util::alp::AlpFormatConstants::kDefaultVectorSize;
-
-    // An all-null optional page still has to produce a header-only page.
     const int64_t num_elements = sink_.length() / static_cast<int64_t>(sizeof(T));
+    const std::span<const T> input{reinterpret_cast<const T*>(sink_.data()),
+                                   static_cast<size_t>(num_elements)};
+
+    Sampler sampler(alp_options_.sampling_window_size);
+    sampler.AddSample(input);
+    const auto preset = sampler.MakePreset();
+
     PARQUET_ASSIGN_OR_THROW(
         int64_t max_comp_size,
-        ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(num_elements, kVectorSize));
-
+        Codec::GetMaxCompressedSize(num_elements, alp_options_.vector_size));
     PARQUET_ASSIGN_OR_THROW(
-        std::shared_ptr<ResizableBuffer> compressed_buffer,
+        auto compressed_buffer,
         ::arrow::AllocateResizableBuffer(max_comp_size, this->memory_pool()));
-
     PARQUET_ASSIGN_OR_THROW(
         const int64_t compressed_size,
-        ::arrow::util::alp::AlpCodec<T>::Encode(
-            {reinterpret_cast<const T*>(sink_.data()), static_cast<size_t>(num_elements)},
-            kVectorSize,
-            {compressed_buffer->mutable_data(), static_cast<size_t>(max_comp_size)}));
-
+        Codec::Encode(input, preset, alp_options_.vector_size,
+                      compressed_buffer->template mutable_span_as<uint8_t>()));
     PARQUET_THROW_NOT_OK(compressed_buffer->Resize(compressed_size));
     sink_.Reset();
 
@@ -1063,12 +1086,18 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
     if (valid_bits != NULLPTR) {
-      PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
-                                                                   this->memory_pool()));
-      T* data = buffer->template mutable_data_as<T>();
-      const int num_valid_values = ::arrow::util::internal::SpacedCompress<T>(
+      const int num_valid_values = static_cast<int>(::arrow::internal::CountSetBits(
+          valid_bits, valid_bits_offset, static_cast<int64_t>(num_values)));
+      if (num_valid_values == 0) {
+        return;
+      }
+      const int64_t num_bytes = num_valid_values * static_cast<int64_t>(sizeof(T));
+      PARQUET_THROW_NOT_OK(sink_.Reserve(num_bytes));
+      T* data = reinterpret_cast<T*>(sink_.mutable_data() + sink_.length());
+      const int compacted_values = ::arrow::util::internal::SpacedCompress<T>(
           src, num_values, valid_bits, valid_bits_offset, data);
-      Put(data, num_valid_values);
+      ARROW_DCHECK_EQ(compacted_values, num_valid_values);
+      sink_.UnsafeAdvance(num_bytes);
     } else {
       Put(src, num_values);
     }
@@ -1087,6 +1116,7 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
  private:
   ::arrow::BufferBuilder sink_;
+  const AlpOptions alp_options_;
 };
 
 // ----------------------------------------------------------------------
@@ -1852,7 +1882,7 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
 
 std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encoding,
                                      bool use_dictionary, const ColumnDescriptor* descr,
-                                     MemoryPool* pool) {
+                                     MemoryPool* pool, const EncodingOptions& options) {
   if (use_dictionary) {
     switch (type_num) {
       case Type::INT32:
@@ -1913,11 +1943,12 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
             "and FIXED_LEN_BYTE_ARRAY");
     }
   } else if (encoding == Encoding::ALP) {
+    const auto& alp_options = options.Get<AlpOptions>(encoding);
     switch (type_num) {
       case Type::FLOAT:
-        return std::make_unique<AlpEncoder<FloatType>>(descr, pool);
+        return std::make_unique<AlpEncoder<FloatType>>(descr, pool, alp_options);
       case Type::DOUBLE:
-        return std::make_unique<AlpEncoder<DoubleType>>(descr, pool);
+        return std::make_unique<AlpEncoder<DoubleType>>(descr, pool, alp_options);
       default:
         throw ParquetException("ALP encoding only supports FLOAT and DOUBLE");
     }
