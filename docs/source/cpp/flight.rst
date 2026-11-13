@@ -94,6 +94,227 @@ server stops.
    std::cout << "Server listening on localhost:" << server->port() << std::endl;
    ARROW_CHECK_OK(server->Serve());
 
+.. _cpp-flight-async-server:
+
+Writing an Asynchronous Flight Service
+======================================
+
+A :class:`arrow::flight::FlightServerBase` handler holds a gRPC thread until
+it returns. When the work behind an RPC waits on something else (another
+service, a query engine, storage), derive from
+:class:`arrow::flight::AsyncGenericFlightServerBase` instead: every handler
+returns an :class:`arrow::Future`, and no gRPC thread waits for it.
+
+.. note:: The asynchronous server needs Arrow to be built against gRPC 1.65
+          or later. With an older gRPC,
+          :func:`arrow::flight::AsyncGenericFlightServerBase::Init` returns
+          ``NotImplemented``.
+
+.. code-block:: cpp
+
+   class MyAsyncServer : public arrow::flight::AsyncGenericFlightServerBase {
+    public:
+     explicit MyAsyncServer(std::shared_ptr<Catalog> catalog)
+         : catalog_(std::move(catalog)) {}
+
+     arrow::Future<std::shared_ptr<arrow::flight::FlightInfo>> GetFlightInfoAsync(
+         const arrow::flight::ServerCallContext& context,
+         const arrow::flight::FlightDescriptor& request) override {
+       // `request` is only valid during this call: hand on a copy.
+       return catalog_->LookUp(request);
+     }
+
+    private:
+     std::shared_ptr<Catalog> catalog_;
+   };
+
+Start, serve and stop the server exactly like a synchronous one:
+
+.. code-block:: cpp
+
+   MyAsyncServer server(catalog);
+   ARROW_ASSIGN_OR_RAISE(auto location,
+                         arrow::flight::Location::ForGrpcTcp("0.0.0.0", 0));
+   ARROW_RETURN_NOT_OK(server.Init(arrow::flight::FlightServerOptions(location)));
+   ARROW_RETURN_NOT_OK(server.SetShutdownOnSignals({SIGTERM}));
+   ARROW_RETURN_NOT_OK(server.Serve());
+
+Handlers you do not override answer ``NotImplemented``. Each request argument
+(:class:`arrow::flight::Ticket`, :class:`arrow::flight::FlightDescriptor`,
+:class:`arrow::flight::Criteria`, :class:`arrow::flight::Action`) and the
+:class:`arrow::flight::ServerCallContext` are only valid during the handler
+call. Authentication goes through ``Handshake()`` and ``ValidateToken()``: a
+blocking :class:`arrow::flight::ServerAuthHandler` in the server options is
+rejected by ``Init()``. Server middleware is supported.
+
+The streaming RPCs return a source the transport pulls one future at a time:
+
+=================  =====================================================
+RPC                Handler returns
+=================  =====================================================
+``ListFlights``    :class:`arrow::flight::AsyncFlightListing`
+``DoAction``       :class:`arrow::flight::AsyncResultStream`
+``DoGet``          :class:`arrow::flight::AsyncFlightDataStream`
+``DoPut``          an :class:`arrow::flight::AsyncFlightDataListener`,
+                   from ``CreateDoPutListener()``
+``DoExchange``     a future that completes when the exchange is over;
+                   the handler is given an
+                   :class:`arrow::flight::AsyncFlightMessageReader` and an
+                   :class:`arrow::flight::AsyncFlightMessageWriter`
+=================  =====================================================
+
+Serving DoGet
+-------------
+
+An :class:`arrow::flight::AsyncFlightDataStream` produces IPC payloads (see
+:func:`arrow::ipc::GetSchemaPayload` and
+:func:`arrow::ipc::GetRecordBatchPayload`). The transport asks for the schema
+first, then for one payload at a time, and asks again only once the previous
+payload has been written:
+
+.. code-block:: cpp
+
+   class QueryStream : public arrow::flight::AsyncFlightDataStream {
+    public:
+     explicit QueryStream(std::shared_ptr<Query> query) : query_(std::move(query)) {}
+
+     arrow::Future<arrow::flight::FlightPayload> GetSchemaPayloadAsync() override {
+       return query_->SchemaPayload();
+     }
+
+     arrow::Future<std::optional<arrow::flight::FlightPayload>> NextAsync() override {
+       // Complete with std::nullopt at the end of the stream.
+       return query_->NextPayload();
+     }
+
+     arrow::Status Close() override {
+       // The RPC is over: stop producing and resolve any pending NextAsync().
+       return query_->Stop();
+     }
+
+    private:
+     std::shared_ptr<Query> query_;
+   };
+
+   arrow::Future<std::shared_ptr<arrow::flight::AsyncFlightDataStream>> DoGetAsync(
+       const arrow::flight::ServerCallContext& context,
+       const arrow::flight::Ticket& request) override {
+     return catalog_->Open(request).Then(
+         [](const std::shared_ptr<Query>& query)
+             -> std::shared_ptr<arrow::flight::AsyncFlightDataStream> {
+           return std::make_shared<QueryStream>(query);
+         });
+   }
+
+``Close()`` is called exactly once, however the RPC ends. That includes a
+stream ``DoGetAsync()`` only completes after the client cancelled: such a
+stream is never read from, but it is still closed. ``Close()`` never overlaps
+``GetSchemaPayloadAsync()`` or ``NextAsync()``, and neither is called once
+``Close()`` has started.
+
+Serving DoPut
+-------------
+
+``CreateDoPutListener()`` returns one fresh
+:class:`arrow::flight::AsyncFlightDataListener` per upload, or ``nullptr`` to
+refuse uploads (the client then sees ``NotImplemented``). The transport reads
+the next message only once the future returned by ``OnNext()`` completes.
+:func:`arrow::flight::AsyncFlightDataWriter::WriteMetadataAsync` sends one
+acknowledgement and completes when it has been written, so returning a future
+chained on it holds back the upload until the client has been answered:
+
+.. code-block:: cpp
+
+   class IngestListener : public arrow::flight::AsyncFlightDataListener {
+    public:
+     explicit IngestListener(std::shared_ptr<Sink> sink) : sink_(std::move(sink)) {}
+
+     arrow::Future<> OnNext(arrow::flight::FlightStreamChunk chunk) override {
+       if (chunk.data == nullptr) {
+         return arrow::Future<>::MakeFinished();  // a metadata-only message
+       }
+       return sink_->Append(chunk.data).Then([this](int64_t rows) {
+         const auto ack = arrow::Buffer::FromString(std::to_string(rows));
+         // The next message is read only once this ack has been written.
+         return writer()->WriteMetadataAsync(*ack);
+       });
+     }
+
+     arrow::Future<> OnFinish(arrow::Status status) override {
+       // Called once, however the upload ends. The client is answered only
+       // once this future completes, and a failure here fails the upload.
+       return status.ok() ? sink_->Commit() : sink_->Abort(status);
+     }
+
+    private:
+     std::shared_ptr<Sink> sink_;
+   };
+
+   std::shared_ptr<arrow::flight::AsyncFlightDataListener> CreateDoPutListener(
+       const arrow::flight::ServerCallContext& context) override {
+     return std::make_shared<IngestListener>(catalog_->NewSink());
+   }
+
+Only one acknowledgement is in flight at a time: ``WriteMetadataAsync()``
+returns an already-failed ``Invalid`` future while the previous one is still
+being written. To reject an upload from the server side (a quota, a bad
+batch), call :func:`arrow::flight::AsyncFlightDataListener::Cancel` from any
+thread.
+
+Reacting to Cancellation
+------------------------
+
+When the client cancels, its deadline expires, or the connection drops, the
+transport finishes the RPC without waiting for the handler's pending future,
+and calls ``Close()`` on a DoGet stream. To stop the work behind a pending
+future promptly instead of polling
+:func:`arrow::flight::ServerCallContext::is_cancelled`, register a callback
+with :func:`arrow::flight::AsyncGenericFlightServerBase::AddCancelCallback`:
+
+.. code-block:: cpp
+
+   arrow::Future<std::shared_ptr<arrow::flight::AsyncFlightDataStream>> DoGetAsync(
+       const arrow::flight::ServerCallContext& context,
+       const arrow::flight::Ticket& request) override {
+     std::shared_ptr<Query> query = catalog_->Start(request);
+     ARROW_RETURN_NOT_OK(AddCancelCallback(context, [query] { query->Cancel(); }));
+     return query->Ready().Then(
+         [query]() -> std::shared_ptr<arrow::flight::AsyncFlightDataStream> {
+           return std::make_shared<QueryStream>(query);
+         });
+   }
+
+The callback runs once, on the transport thread that sees the cancellation,
+after the RPC's status is settled. If the RPC is already cancelled, it runs
+before ``AddCancelCallback()`` returns. It never runs when the RPC ends
+normally. It must not block.
+
+Threading
+---------
+
+The transport has no thread or executor of its own. Its continuation on each
+future a handler, stream or listener returns runs on whichever thread
+completes that future, or inline on the gRPC thread that called you if the
+future is already complete. That continuation issues the RPC's next
+operation: the next write, the next read, or the end of the RPC. You choose
+the thread that issues the RPC's I/O by choosing where you complete your
+futures:
+
+.. code-block:: cpp
+
+   arrow::Future<std::optional<arrow::flight::FlightPayload>> NextAsync() override {
+     // Produced on io_executor_, so the next write is issued from that thread.
+     return arrow::DeferNotOk(io_executor_->Submit([this] { return ProduceNext(); }));
+   }
+
+Complete futures promptly and never block inside a handler: a blocked gRPC
+callback thread stalls every other RPC served by it.
+
+Two complete programs ship with the C++ examples:
+``cpp/examples/arrow/flight_async_generic_doget_example.cc`` and
+``cpp/examples/arrow/flight_async_generic_doput_example.cc``. How the
+transport is built is described in :ref:`cpp-flight-async-internals`.
+
 Using the Flight Client
 =======================
 
