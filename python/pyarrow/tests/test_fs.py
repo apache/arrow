@@ -635,6 +635,9 @@ def test_subtree_filesystem():
     assert repr(subfs).startswith('SubTreeFileSystem(base_path=/another/base/,'
                                   ' base_fs=<pyarrow._fs.LocalFileSystem')
 
+    with pytest.raises(TypeError, match="Argument 'base_fs'"):
+        SubTreeFileSystem('/base', None)
+
 
 class _PickleModuleSubTreeFileSystemWrapper:
     def __init__(self, pickle_module):

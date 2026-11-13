@@ -141,6 +141,8 @@ cdef class _ProjectNodeOptions(ExecNodeOptions):
             vector[c_string] c_names
 
         for expr in expressions:
+            if expr is None:
+                raise TypeError("Expression must not be None")
             c_expressions.push_back(expr.unwrap())
 
         if names is not None:

@@ -351,6 +351,12 @@ def test_parquet_sorting_column():
     with pytest.raises(ValueError):
         pq.SortingColumn.from_ordering(schema, (("a", "not a valid sort order")))
 
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        pq.SortingColumn.from_ordering(None, ())
+
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        pq.SortingColumn.to_ordering(None, ())
+
     with pytest.raises(ValueError, match="inconsistent null placement"):
         sorting_cols = (
             pq.SortingColumn(1, nulls_first=True),
@@ -870,6 +876,12 @@ def test_internal_class_instantiation():
 
     with pytest.raises(TypeError, match=msg("FileMetaData")):
         pq.FileMetaData()
+
+    with pytest.raises(TypeError, match="Argument 'container'"):
+        pq.ParquetSchema(None)
+
+    with pytest.raises(TypeError, match="Argument 'schema'"):
+        pq.ColumnSchema(None, 0)
 
 
 def test_read_schema_uuid_extension_type(tmp_path):

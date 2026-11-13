@@ -1205,7 +1205,7 @@ cdef class SubTreeFileSystem(FileSystem):
     For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
     """
 
-    def __init__(self, base_path, FileSystem base_fs):
+    def __init__(self, base_path, FileSystem base_fs not None):
         cdef:
             c_string pathstr
             shared_ptr[CSubTreeFileSystem] wrapped
