@@ -65,14 +65,13 @@ arrow::Future<> ExchangeWriter::BeginAsync(std::shared_ptr<Schema> schema) {
         arrow::Status::Invalid("This writer has already been started."));
   }
   auto sink = std::make_unique<PayloadSink>(this);
-  ARROW_ASSIGN_OR_RAISE(batch_writer_, ipc::internal::OpenRecordBatchWriter(
-                                           std::move(sink), schema, options_));
+  ARROW_ASSIGN_OR_RAISE(batch_writer_,
+                        ipc::internal::OpenRecordBatchWriter(std::move(sink), schema));
   return Flush();
 }
 
 arrow::Future<> ExchangeWriter::WriteRecordBatchAsync(const RecordBatch& batch) {
-  pending_app_metadata_ = nullptr;
-  return WriteBatch(batch);
+  return WriteWithMetadataAsync(batch, nullptr);
 }
 
 arrow::Future<> ExchangeWriter::WriteWithMetadataAsync(
@@ -100,31 +99,24 @@ arrow::Future<> ExchangeWriter::CloseAsync() {
 }
 
 void ExchangeWriter::OnWriteDone(bool ok) {
-  if (!ok) {
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      write_in_flight_ = false;
-    }
-    FailFlush(MakeFlightError(FlightStatusCode::Internal, "Failed to write response"));
-    return;
-  }
   {
     std::lock_guard<std::mutex> lock(mutex_);
     write_in_flight_ = false;
+  }
+  if (!ok) {
+    FailFlush(MakeFlightError(FlightStatusCode::Internal, "Failed to write response"));
+    return;
   }
   Pump();
 }
 
 void ExchangeWriter::OnCancelled() {
-  bool had_write;
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    had_write = write_in_flight_;
     write_in_flight_ = false;
   }
-  if (had_write) {
-    FailFlush(arrow::Status::Cancelled("the client cancelled the exchange"));
-  }
+  // A no-op unless a flush is pending.
+  FailFlush(arrow::Status::Cancelled("the client cancelled the exchange"));
 }
 
 arrow::Future<> ExchangeWriter::WriteBatch(const RecordBatch& batch) {

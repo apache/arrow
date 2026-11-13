@@ -21,7 +21,6 @@
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <utility>
 
 #include "arrow/flight/transport/grpc/async_grpc_service_internal.h"
 #include "arrow/ipc/writer.h"
@@ -36,8 +35,8 @@ namespace arrow::flight::transport::grpc::detail {
 // coupled on purpose -- the reader asks the reactor for the next read, the
 // writer asks it to write a payload, and the reactor drives both from the
 // gRPC callbacks -- so they are declared together here and implemented one
-// per translation unit (async_grpc_exchange_reader.cc,
-// async_grpc_exchange_writer.cc, async_grpc_exchange_reactor.cc).
+// per translation unit (async_grpc_exchange.cc, async_grpc_exchange_reader.cc,
+// async_grpc_exchange_writer.cc).
 
 class ExchangeReactor;
 
@@ -87,16 +86,14 @@ class ExchangeReader final : public AsyncFlightMessageReader,
   /// The decoder's listener: chunks are handed to the reader.
   class ChunkListener;
 
-  void ResolvePending(FlightStreamChunk chunk);
-  void ResolvePending(const Status& status);
+  void ResolvePending(arrow::Result<FlightStreamChunk> result);
 
   /// \brief Decode one message and resolve the demand it satisfies, or keep
   /// reading when the message was read through (a schema or dictionary
   /// message).
   void Consume(internal::FlightData data);
 
-  /// \brief Arm the next read through the reactor, defined in
-  /// async_grpc_exchange_reader.cc, which has the reactor's definition.
+  /// \brief Arm the next read through the reactor.
   void RequestRead();
 
   /// Guarded by mutex_.
@@ -153,8 +150,7 @@ class ExchangeWriter final : public AsyncFlightMessageWriter {
   /// resolves when the queue is empty, or with the first failure.
   arrow::Future<> Flush();
 
-  /// \brief Write queued payloads through the reactor, defined in
-  /// async_grpc_exchange_writer.cc, which has the reactor's definition.
+  /// \brief Write queued payloads through the reactor.
   void Pump();
 
   void FailFlush(Status status);
@@ -162,7 +158,6 @@ class ExchangeWriter final : public AsyncFlightMessageWriter {
   /// Set by the constructor, cleared by DetachReactor(); read under mutex_.
   ExchangeReactor* reactor_;
   std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
-  ipc::IpcWriteOptions options_ = ipc::IpcWriteOptions::Defaults();
   std::shared_ptr<Buffer> pending_app_metadata_;
   std::deque<FlightPayload> queue_;
   arrow::Future<> flush_;
