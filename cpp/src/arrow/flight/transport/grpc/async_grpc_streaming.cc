@@ -43,20 +43,15 @@ class StreamingReactor : public AsyncReactorBase {
       return;
     }
     Start().AddCallback([this, token = hold()](const arrow::Status& status) {
-      if (!finished()) {
-        if (!status.ok()) {
-          FinishOnce(status);
-        } else {
-          WriteNextMessage();
-        }
+      if (!status.ok()) {
+        FinishOnce(status);
+        return;
       }
+      WriteNextMessage();
     });
   }
 
   void OnWriteDone(bool ok) override {
-    if (finished()) {
-      return;
-    }
     if (!ok) {
       FinishOnce(MakeFlightError(FlightStatusCode::Internal, "Failed to write response"));
       return;
@@ -78,14 +73,12 @@ class StreamingReactor : public AsyncReactorBase {
     }
     NextMessage().AddCallback(
         [this, token = hold()](const arrow::Result<bool>& has_next) {
-          if (!finished()) {
-            if (!has_next.ok()) {
-              FinishOnce(has_next.status());
-            } else if (!*has_next) {
-              FinishOnce(arrow::Status::OK());
-            } else {
-              WriteIfLive([this] { StartWrite(&write_buf_); });
-            }
+          if (!has_next.ok()) {
+            FinishOnce(has_next.status());
+          } else if (!*has_next) {
+            FinishOnce(arrow::Status::OK());
+          } else {
+            WriteIfLive([this] { StartWrite(&write_buf_); });
           }
         });
   }
@@ -146,9 +139,6 @@ class DoActionReactor final : public StreamingReactor {
   }
 
   arrow::Future<bool> NextMessage() override {
-    if (stream_ == nullptr) {
-      return arrow::Future<bool>::MakeFinished(false);
-    }
     return stream_->NextAsync().Then(
         [this](const std::shared_ptr<Result>& result) -> arrow::Result<bool> {
           if (result == nullptr) {
