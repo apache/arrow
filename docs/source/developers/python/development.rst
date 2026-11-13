@@ -107,8 +107,11 @@ Type Checking
 PyArrow provides type stubs (``*.pyi`` files) for static type checking. These
 stubs are located in the ``pyarrow-stubs/`` directory, which is laid out as a
 :pep:`561` stub-only package for ``pyarrow``, so type checkers and IDEs pick
-it up from the ``arrow/python`` directory. The stubs aren't included in the
-distributed wheel packages until they are complete (see
+it up from the ``arrow/python`` directory. The stubs are installed alongside
+the package, and the wheel builds add the docstrings of the built modules to
+them with `docstring-adder <https://github.com/astral-sh/docstring-adder>`_
+(``PYARROW_REQUIRE_STUB_DOCSTRINGS=ON``). The ``py.typed`` marker is omitted
+from the wheels until the stubs are complete (see
 `GH-49831 <https://github.com/apache/arrow/issues/49831>`_).
 
 Run all the commands in this section from the ``arrow/python`` directory,
@@ -193,6 +196,13 @@ PyArrow. Run it with:
 Stubs that aren't written yet are skipped. The known mismatches are listed in
 ``pyarrow-stubs-tests/stubtest_allowlist.txt``; remove the entries of the
 mismatches you fix, as stubtest fails on unused entries.
+
+The wheel builds also check the stubs shipped in each wheel against the
+modules in the same wheel, without installing it:
+
+.. code-block::
+
+   $ python scripts/run_stubtest.py --wheel dist/pyarrow-*.whl
 
 Type Checking in an IDE
 -----------------------

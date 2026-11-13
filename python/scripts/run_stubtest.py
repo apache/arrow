@@ -16,49 +16,70 @@
 # under the License.
 
 """
-Check the type stubs in pyarrow-stubs/ against the installed PyArrow with
-mypy's stubtest.
+Check the type stubs against the PyArrow runtime with mypy's stubtest.
 
 Usage:
-    python scripts/run_stubtest.py [stubtest options]
+    python scripts/run_stubtest.py [--wheel WHEEL] [stubtest options]
+
+By default, checks the stubs in pyarrow-stubs/ against the installed PyArrow.
+With --wheel, checks the stubs in a built wheel against the modules in the
+same wheel, without installing it; the wheel builds do this.
 
 Stubs that aren't written yet are skipped (--ignore-missing-stub), and the
 known mismatches are listed in pyarrow-stubs-tests/stubtest_allowlist.txt.
 Pass --generate-allowlist to print the entries for the current mismatches.
 """
 
-import contextlib
+import argparse
 import os
+import shutil
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
 
 from mypy import stubtest
-
-import pyarrow.lib
 
 PYTHON_DIR = Path(__file__).resolve().parents[1]
 STUBS_DIR = PYTHON_DIR / "pyarrow-stubs"
 ALLOWLIST = PYTHON_DIR / "pyarrow-stubs-tests" / "stubtest_allowlist.txt"
 
 
-def main(argv):
-    # The stubs of pyarrow.lib are split into the stub-only pyarrow.__lib
-    # package, one module per .pxi file. Alias those modules to pyarrow.lib,
-    # otherwise stubtest can't import them and skips everything they define.
-    for stub in (STUBS_DIR / "__lib").glob("*.pyi"):
-        name = "pyarrow.__lib"
-        if stub.stem != "__init__":
-            name += f".{stub.stem}"
-        sys.modules[name] = pyarrow.lib
+def _import_pyarrow_from(path):
+    sys.path.insert(0, str(path))
+    import pyarrow
+    if Path(pyarrow.__file__).parent != path / "pyarrow":
+        raise RuntimeError(f"Imported pyarrow from {pyarrow.__file__} "
+                           f"instead of {path}")
 
-    # mypy doesn't look for "-stubs" packages in its search path, so give it
-    # the stubs under the name of the package. Run it from the directory with
-    # the stubs: mypy searches the working directory too, so in python/ it
-    # would read the sources of the modules without stubs, e.g. pyarrow/fs.py,
-    # and stubtest would check them as if they were stubs.
-    with tempfile.TemporaryDirectory() as tmpdir, contextlib.chdir(tmpdir):
-        os.symlink(STUBS_DIR, Path(tmpdir) / "pyarrow")
+
+def main(argv):
+    parser = argparse.ArgumentParser(description=__doc__, add_help=False)
+    parser.add_argument("--wheel", type=Path,
+                        help="check the stubs and modules of this wheel")
+    args, stubtest_args = parser.parse_known_args(argv)
+
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+        tmpdir = Path(tmpdir)
+        stubs_dir = STUBS_DIR
+        if args.wheel:
+            runtime_dir = tmpdir / "runtime"
+            with zipfile.ZipFile(args.wheel) as wheel:
+                wheel.extractall(runtime_dir)
+            _import_pyarrow_from(runtime_dir)
+            stubs_dir = runtime_dir / "pyarrow"
+
+        # mypy doesn't look for "-stubs" packages in its search path, so give
+        # it the stubs under the name of the package, without the sources of
+        # the modules that don't have stubs, e.g. pyarrow/fs.py: stubtest would
+        # check those as if they were stubs. Run it from the directory with
+        # the stubs, as mypy searches the working directory too.
+        mypy_dir = tmpdir / "stubs"
+        for stub in stubs_dir.rglob("*.pyi"):
+            destination = mypy_dir / "pyarrow" / stub.relative_to(stubs_dir)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(stub, destination)
+
         options = stubtest.parse_options([
             "pyarrow",
             "--ignore-missing-stub",
@@ -66,9 +87,14 @@ def main(argv):
             "--ignore-disjoint-bases",
             "--allowlist", str(ALLOWLIST),
             "--mypy-config-file", str(PYTHON_DIR / "pyproject.toml"),
-            *argv,
+            *stubtest_args,
         ])
-        return stubtest.test_stubs(options)
+        cwd = os.getcwd()
+        os.chdir(mypy_dir)
+        try:
+            return stubtest.test_stubs(options)
+        finally:
+            os.chdir(cwd)
 
 
 if __name__ == "__main__":

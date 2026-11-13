@@ -21,10 +21,8 @@
 # current mismatches with
 #   python scripts/run_stubtest.py --generate-allowlist
 
-# Stub-only modules. The pyarrow.__lib modules are checked against
-# pyarrow.lib, which has no __all__.
+# Stub-only module.
 pyarrow\._stubs_typing
-pyarrow\.__lib\.[a-z]+\.__all__
 
 # The __init__ of Cython extension types takes (*args, **kwargs) at runtime.
-pyarrow\.__lib\.[a-z]+\.[A-Za-z_]+\.__init__
+pyarrow\.lib\.[A-Za-z_]+\.__init__

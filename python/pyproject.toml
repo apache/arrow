@@ -19,9 +19,6 @@
 requires = [
     "scikit-build-core >= 1.0",
     "cython >= 3.1",
-    # Needed for build-time stub docstring extraction
-    "libcst>=1.9.0; python_version >= '3.15'",
-    "libcst>=1.8.6; python_version < '3.15'",
     "numpy>=2.0",
     "setuptools_scm[toml]>=8",
 ]
@@ -87,10 +84,9 @@ sdist.include = ["pyarrow/_generated_version.py", "cmake_modules/", "pyarrow-stu
 wheel.packages = ["pyarrow"]
 wheel.install-dir = "pyarrow"
 # TODO(GH-32609): Remove this when stubfiles are complete
-# Withhold the PEP 561 marker until the type stubs are complete. The .pyi files
-# are also temporarily omitted from wheels, so type checkers don't rely on the
-# incomplete stubs and break downstream users (GH-49831). py.typed is kept
-# in-tree for CI type-checking.
+# Withhold the PEP 561 marker until the type stubs are complete, so type
+# checkers don't rely on the incomplete stubs and break downstream users
+# (GH-49831). py.typed is kept in-tree for CI type-checking.
 wheel.exclude = ["pyarrow/py.typed"]
 
 [tool.scikit-build.sdist.force-include]
@@ -126,9 +122,10 @@ warn_unused_ignores = true
 module = ["pyarrow._compute", "pyarrow.compute", "pyarrow.interchange.*"]
 follow_imports = "skip"
 
-# Optional dependencies without type hints.
+# Optional dependencies without type hints, and the ones whose stubs aren't
+# installed in the wheel builds, which run stubtest (scripts/run_stubtest.py).
 [[tool.mypy.overrides]]
-module = ["fsspec", "sparse"]
+module = ["fsspec", "pandas", "pandas.*", "scipy", "scipy.*", "sparse"]
 ignore_missing_imports = true
 
 [tool.pyright]
@@ -166,9 +163,10 @@ include = ["pyarrow-stubs", "pyarrow-stubs-tests"]
 # ty doesn't honor `# type: ignore[<mypy code>]` comments, so disable the
 # rules that those comments suppress for mypy.
 [[tool.ty.overrides]]
-include = ["pyarrow-stubs/__lib/array.pyi"]
+include = ["pyarrow-stubs/lib.pyi"]
 [tool.ty.overrides.rules]
-# Some array classes override methods with a different signature at runtime.
+# Some classes, e.g. arrays, override methods with a different signature at
+# runtime.
 invalid-method-override = "ignore"
 
 [[tool.ty.overrides]]
