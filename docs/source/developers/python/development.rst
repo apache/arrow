@@ -170,7 +170,7 @@ The pyright configuration is in the ``[tool.pyright]`` section of ``pyproject.to
 
 **ty**
 
-To run ty (note: currently only partially configured):
+To run ty:
 
 .. code-block::
 
