@@ -150,11 +150,6 @@ cat "${TOOLCHAIN}/lib/pkgconfig/libcurl.pc"
 # instead of ARROW_CXXFLAGS because ARROW_CXXFLAGS aren't passed to
 # ExternalProjects.
 export CXXFLAGS="${CXXFLAGS:-} -DCURL_STATICLIB"
-# The mingw-w64 11.0 headers in Rtools45 lack the BCrypt algorithm
-# pseudo-handles that the bundled google-cloud-cpp uses, so force-include a
-# header that defines them. See the header for details.
-BCRYPT_COMPAT_WIN="$(cygpath -am "${ARROW_HOME}/ci/scripts/r_windows_bcrypt_compat.h")"
-export CXXFLAGS="${CXXFLAGS} -include ${BCRYPT_COMPAT_WIN}"
 
 rm -rf "${CPP_BUILD_DIR}"
 mkdir -p "${CPP_BUILD_DIR}" "${INSTALL_DIR}"
