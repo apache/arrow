@@ -166,9 +166,10 @@ include = ["pyarrow-stubs", "pyarrow-stubs-tests"]
 # ty doesn't honor `# type: ignore[<mypy code>]` comments, so disable the
 # rules that those comments suppress for mypy.
 [[tool.ty.overrides]]
-include = ["pyarrow-stubs/__lib/array.pyi"]
+include = ["pyarrow-stubs/__lib/array.pyi", "pyarrow-stubs/__lib/scalar.pyi"]
 [tool.ty.overrides.rules]
-# Some array classes override methods with a different signature at runtime.
+# Some array and scalar classes override methods with a different signature at
+# runtime.
 invalid-method-override = "ignore"
 
 [[tool.ty.overrides]]

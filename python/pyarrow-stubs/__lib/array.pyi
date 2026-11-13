@@ -23,9 +23,6 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-# Placeholders (Any) until scalar.pyi is annotated; mypy rejects them as
-# types when imported through pyarrow.lib.
-from pyarrow.__lib.scalar import Int64Scalar, Scalar
 from pyarrow._compute import CastOptions
 from pyarrow._stubs_typing import (
     ArrayLike,
@@ -48,8 +45,10 @@ from pyarrow.lib import (
     Device,
     DeviceAllocationType,
     Field,
+    Int64Scalar,
     MemoryManager,
     MemoryPool,
+    Scalar,
     StructType,
     Tensor,
     _Weakrefable,
@@ -73,9 +72,7 @@ def array(
     memory_pool: MemoryPool | None = None,
 ) -> Array: ...
 @overload
-def asarray(  # type: ignore[overload-overlap]
-    values: ChunkedArray, type: Any | None = None
-) -> ChunkedArray: ...
+def asarray(values: ChunkedArray, type: Any | None = None) -> ChunkedArray: ...
 @overload
 def asarray(
     values: Array | Iterable[Any] | SupportsArrowArray | SupportsArrowDeviceArray,
@@ -195,7 +192,10 @@ class Array(_PandasConvertible):
     def is_nan(self) -> BooleanArray: ...
     def is_valid(self) -> BooleanArray: ...
     def fill_null(self, fill_value: Any) -> Self: ...
-    def __getitem__(self, key: SupportsIndex | builtins.slice) -> Scalar | Self: ...
+    @overload
+    def __getitem__(self, key: SupportsIndex) -> Scalar: ...
+    @overload
+    def __getitem__(self, key: builtins.slice) -> Self: ...
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
     def take(self, indices: Indices) -> Self: ...
     def drop_null(self) -> Self: ...

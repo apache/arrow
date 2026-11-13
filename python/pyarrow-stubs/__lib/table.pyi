@@ -23,10 +23,9 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-# Placeholders (Any) until ipc.pyi and scalar.pyi are annotated; mypy
-# rejects them as types when imported through pyarrow.lib.
+# Placeholder (Any) until ipc.pyi is annotated; mypy rejects it as a type
+# when imported through pyarrow.lib.
 from pyarrow.__lib.ipc import RecordBatchReader
-from pyarrow.__lib.scalar import Int64Scalar, Scalar
 from pyarrow._compute import (
     CastOptions,
     CountOptions,
@@ -55,8 +54,10 @@ from pyarrow.lib import (
     Device,
     DeviceAllocationType,
     Field,
+    Int64Scalar,
     MemoryManager,
     MemoryPool,
+    Scalar,
     Schema,
     StructArray,
     Tensor,
@@ -171,9 +172,10 @@ class ChunkedArray(_PandasConvertible):
     def nbytes(self) -> int: ...
     def get_total_buffer_size(self) -> int: ...
     def __sizeof__(self) -> int: ...
-    def __getitem__(
-        self, key: int | np.integer | builtins.slice
-    ) -> Scalar | ChunkedArray: ...
+    @overload
+    def __getitem__(self, key: int | np.integer) -> Scalar: ...
+    @overload
+    def __getitem__(self, key: builtins.slice) -> ChunkedArray: ...
     __hash__: ClassVar[None]  # type: ignore[assignment]
     def is_null(self, *, nan_is_null: bool = False) -> ChunkedArray: ...
     def is_nan(self) -> ChunkedArray: ...
