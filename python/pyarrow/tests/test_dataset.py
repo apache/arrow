@@ -3156,6 +3156,18 @@ def test_filter_equal_null(tempdir, dataset_reader):
 
 
 @pytest.mark.parquet
+def test_filter_isin_signed_zero(tempdir, dataset_reader):
+    # A column holding only zeros has Parquet statistics min=-0.0 and max=0.0,
+    # which must not make the fragment look like it cannot contain 0.0
+    table = pa.table({"x": [0.0, 0.0]})
+    _, path = _create_single_file(tempdir, table)
+    dataset = ds.dataset(str(path))
+
+    filter_ = ds.field("x").isin([0.0])
+    assert dataset_reader.to_table(dataset, filter=filter_).equals(table)
+
+
+@pytest.mark.parquet
 def test_filter_compute_expression(tempdir, dataset_reader):
     table = pa.table({
         "A": ["a", "b", None, "a", "c"],
