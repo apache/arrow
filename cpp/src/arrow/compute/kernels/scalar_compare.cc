@@ -392,10 +392,17 @@ Status ViewArrayCompareBinaryScalarEqual(KernelContext* ctx, const ArraySpan& ar
     return applicator::OutputAdapter<BooleanType>::Write(ctx, out->array_span_mutable(),
                                                          []() -> bool { return false; });
   }
-  const auto* views0 = arg0.GetValues<BinaryViewType::c_type>(1);
-  const auto* buffers0 = arg0.GetVariadicBuffers().data();
   const auto& scalar = checked_cast<const BaseBinaryScalar&>(arg1);
   std::string_view s = scalar.view();
+
+  if (ARROW_PREDICT_FALSE(s.size() >
+                          static_cast<size_t>(std::numeric_limits<int32_t>::max()))) {
+    return applicator::OutputAdapter<BooleanType>::Write(
+        ctx, out->array_span_mutable(), [&]() -> bool { return !kIsEqual; });
+  }
+
+  const auto* views0 = arg0.GetValues<BinaryViewType::c_type>(1);
+  const auto* buffers0 = arg0.GetVariadicBuffers().data();
   BinaryViewType::c_type s_val = util::ToBinaryView(s, 0, 0);
   const uint8_t* s_data = reinterpret_cast<const uint8_t*>(s.data());
   int32_t s_len = s_val.size();
