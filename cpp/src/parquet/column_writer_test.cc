@@ -18,14 +18,17 @@
 #include <cmath>
 #include <memory>
 #include <optional>
+#include <tuple>
 #include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_primitive.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
+#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
@@ -1758,6 +1761,132 @@ TEST(TestColumnWriter, WriteDataPagesChangeOnRecordBoundariesWithSmallBatches) {
     EXPECT_EQ(expect_num_pages_by_col[i], num_pages_read);
     EXPECT_EQ(num_levels_per_row_by_col[i] * num_rows, num_values_read);
   }
+}
+
+class DictionaryGrowthFailingPool : public ::arrow::ProxyMemoryPool {
+ public:
+  DictionaryGrowthFailingPool() : ProxyMemoryPool(::arrow::system_memory_pool()) {}
+
+  void FailAllocationsAtOrAbove(int64_t size) { failure_threshold_ = size; }
+
+  ::arrow::Status Allocate(int64_t size, int64_t alignment, uint8_t** out) override {
+    if (failure_threshold_ > 0 && size >= failure_threshold_) {
+      return ::arrow::Status::OutOfMemory("injected dictionary allocation failure");
+    }
+    return ProxyMemoryPool::Allocate(size, alignment, out);
+  }
+
+  ::arrow::Status Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                             uint8_t** ptr) override {
+    if (failure_threshold_ > 0 && new_size >= failure_threshold_) {
+      return ::arrow::Status::OutOfMemory("injected dictionary allocation failure");
+    }
+    return ProxyMemoryPool::Reallocate(old_size, new_size, alignment, ptr);
+  }
+
+ private:
+  int64_t failure_threshold_ = 0;
+};
+
+enum class FailedWriteMethod { Batch, Spaced, Arrow };
+
+class FailedColumnWriterTest
+    : public ::testing::TestWithParam<std::tuple<FailedWriteMethod, bool, bool>> {};
+
+TEST_P(FailedColumnWriterTest, DictionaryGrowthOutOfMemory) {
+  const auto [method, close_explicitly, recover_memory] = GetParam();
+  DictionaryGrowthFailingPool pool;
+  auto sink = CreateOutputStream();
+  auto schema = std::static_pointer_cast<GroupNode>(GroupNode::Make(
+      "schema", Repetition::REQUIRED, {schema::Double("value", Repetition::REQUIRED)}));
+  auto properties = WriterProperties::Builder()
+                        .memory_pool(&pool)
+                        ->enable_dictionary()
+                        ->disable_statistics()
+                        ->compression(Compression::UNCOMPRESSED)
+                        ->build();
+  {
+    auto writer = ParquetFileWriter::Open(sink, schema, properties);
+    auto* column =
+        static_cast<DoubleWriter*>(writer->AppendBufferedRowGroup()->column(0));
+    auto arrow_properties = default_arrow_writer_properties();
+    ArrowWriteContext context(&pool, arrow_properties.get());
+    auto write = [&](const double value) -> ::arrow::Status {
+      switch (method) {
+        case FailedWriteMethod::Batch:
+          column->WriteBatch(1, nullptr, nullptr, &value);
+          break;
+        case FailedWriteMethod::Spaced: {
+          const uint8_t valid_bits = 1;
+          column->WriteBatchSpaced(1, nullptr, nullptr, &valid_bits, 0, &value);
+          break;
+        }
+        case FailedWriteMethod::Arrow: {
+          ::arrow::DoubleArray array(1, ::arrow::Buffer::Wrap(&value, 1));
+          return column->WriteArrow(nullptr, nullptr, 1, array, &context, false);
+        }
+      }
+      return ::arrow::Status::OK();
+    };
+    // The dictionary starts with 1024 hash slots and grows on the 512th value.
+    for (int i = 0; i < 511; ++i) {
+      ASSERT_OK(write(static_cast<double>(i)));
+    }
+    // Fail hash table growth, while allowing the smaller indices buffer.
+    pool.FailAllocationsAtOrAbove(64 * 1024);
+    if (method == FailedWriteMethod::Arrow) {
+      ASSERT_FALSE(write(511.0).ok());
+    } else {
+      ASSERT_THROW(static_cast<void>(write(511.0)), ParquetException);
+    }
+
+    pool.FailAllocationsAtOrAbove(recover_memory ? 0 : 1);
+    ASSERT_OK_AND_ASSIGN(const int64_t position, sink->Tell());
+    const int64_t allocations = pool.num_allocations();
+    // Once failed, a writer must reject further writes even if memory recovers.
+    if (method == FailedWriteMethod::Arrow) {
+      ASSERT_RAISES(Invalid, write(0.0));
+    } else {
+      ASSERT_THROW(static_cast<void>(write(0.0)), ParquetException);
+    }
+    if (close_explicitly) {
+      ASSERT_THROW(writer->Close(), ParquetException);
+      ASSERT_NO_THROW(writer->Close());
+    }
+    ASSERT_NO_THROW(writer.reset());
+    ASSERT_OK_AND_ASSIGN(const int64_t final_position, sink->Tell());
+    ASSERT_EQ(final_position, position);
+    ASSERT_EQ(pool.num_allocations(), allocations);
+  }
+  ASSERT_EQ(pool.bytes_allocated(), 0);
+}
+
+INSTANTIATE_TEST_SUITE_P(FailureCleanup, FailedColumnWriterTest,
+                         ::testing::Combine(::testing::Values(FailedWriteMethod::Batch,
+                                                              FailedWriteMethod::Spaced,
+                                                              FailedWriteMethod::Arrow),
+                                            ::testing::Bool(), ::testing::Bool()));
+
+TEST(TestColumnWriter, CloseAfterWriteArrowReturnsError) {
+  auto sink = CreateOutputStream();
+  auto schema = std::static_pointer_cast<GroupNode>(GroupNode::Make(
+      "schema", Repetition::REQUIRED, {schema::Double("value", Repetition::REQUIRED)}));
+  auto writer = ParquetFileWriter::Open(sink, schema);
+  auto* column = writer->AppendBufferedRowGroup()->column(0);
+  auto arrow_properties = default_arrow_writer_properties();
+  ArrowWriteContext context(::arrow::default_memory_pool(), arrow_properties.get());
+  const double value = 0;
+  const uint8_t valid_bits = 0;
+  ::arrow::DoubleArray array(1, ::arrow::Buffer::Wrap(&value, 1),
+                             ::arrow::Buffer::Wrap(&valid_bits, 1), 1);
+  // A returned Status, without a thrown exception, must also mark the writer failed.
+  ASSERT_RAISES(Invalid, column->WriteArrow(nullptr, nullptr, 1, array, &context, false));
+  ASSERT_OK_AND_ASSIGN(const int64_t position, sink->Tell());
+  ASSERT_THROW(writer->Close(), ParquetException);
+  ASSERT_NO_THROW(writer->Close());
+  ASSERT_NO_THROW(writer.reset());
+  ASSERT_OK_AND_ASSIGN(const int64_t final_position, sink->Tell());
+  ASSERT_EQ(final_position, position);
 }
 
 class ColumnWriterTestSizeEstimated : public ::testing::Test {

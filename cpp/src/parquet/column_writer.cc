@@ -762,6 +762,7 @@ class ColumnWriterImpl {
         total_bytes_written_(0),
         total_compressed_bytes_(0),
         closed_(false),
+        failed_(false),
         fallback_(false),
         definition_levels_sink_(allocator_),
         repetition_levels_sink_(allocator_),
@@ -893,6 +894,9 @@ class ColumnWriterImpl {
 
   // Flag to check if the Writer has been closed
   bool closed_;
+
+  // Failed writes may leave the encoder in an invalid state. Do not finalize it.
+  bool failed_;
 
   // Flag to infer if dictionary encoding has fallen back to PLAIN
   bool fallback_;
@@ -1113,6 +1117,9 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
 int64_t ColumnWriterImpl::Close() {
   if (!closed_) {
     closed_ = true;
+    if (failed_) {
+      throw ParquetException("Cannot close a column writer after a failed write");
+    }
     if (has_dictionary_ && !fallback_) {
       WriteDictionaryPage();
     }
@@ -1338,7 +1345,14 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
           "Content-defined chunking is not supported in WriteBatch() or "
           "WriteBatchSpaced(), use WriteArrow() instead.");
     }
-    return WriteBatchInternal(num_values, def_levels, rep_levels, values);
+    if (closed_ || failed_) {
+      throw ParquetException("Cannot write to a closed or failed column writer");
+    }
+    failed_ = true;
+    const int64_t values_written =
+        WriteBatchInternal(num_values, def_levels, rep_levels, values);
+    failed_ = false;
+    return values_written;
   }
 
   int64_t WriteBatchInternal(int64_t num_values, const int16_t* def_levels,
@@ -1381,8 +1395,13 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
           "Content-defined chunking is not supported in WriteBatch() or "
           "WriteBatchSpaced(), use WriteArrow() instead.");
     }
-    return WriteBatchSpacedInternal(num_values, def_levels, rep_levels, valid_bits,
-                                    valid_bits_offset, values);
+    if (closed_ || failed_) {
+      throw ParquetException("Cannot write to a closed or failed column writer");
+    }
+    failed_ = true;
+    WriteBatchSpacedInternal(num_values, def_levels, rep_levels, valid_bits,
+                             valid_bits_offset, values);
+    failed_ = false;
   }
 
   void WriteBatchSpacedInternal(int64_t num_values, const int16_t* def_levels,
@@ -1427,6 +1446,20 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
                     int64_t num_levels, const ::arrow::Array& leaf_array,
                     ArrowWriteContext* ctx, bool leaf_field_nullable) override {
+    if (closed_ || failed_) {
+      return Status::Invalid("Cannot write to a closed or failed column writer");
+    }
+    // Leave failed_ set for both exceptions and non-OK Status returns.
+    failed_ = true;
+    Status status = WriteArrowInternal(def_levels, rep_levels, num_levels, leaf_array,
+                                       ctx, leaf_field_nullable);
+    failed_ = !status.ok();
+    return status;
+  }
+
+  Status WriteArrowInternal(const int16_t* def_levels, const int16_t* rep_levels,
+                            int64_t num_levels, const ::arrow::Array& leaf_array,
+                            ArrowWriteContext* ctx, bool leaf_field_nullable) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
     // Leaf nulls are canonical when there is only a single null element after a list
     // and it is at the leaf.
