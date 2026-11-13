@@ -439,7 +439,7 @@ takes precedence over ccache if a storage backend is configured" ON)
   #   then ENV{CONDA_PREFIX} will be used for dependencies unless
   #   ARROW_DEPENDENCY_SOURCE is set explicitly to one of the other options
   # * VCPKG: Searches for dependencies installed by vcpkg.
-  # * BREW: Use SYSTEM but search for select packages with brew.
+  # * BREW: Use SYSTEM with Homebrew's default prefix as an alternative path.
   if(NOT "$ENV{CONDA_PREFIX}" STREQUAL "")
     set(ARROW_DEPENDENCY_SOURCE_DEFAULT "CONDA")
   else()
