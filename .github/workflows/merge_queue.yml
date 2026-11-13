@@ -1,0 +1,122 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Merge Queue CI
+
+on:
+  pull_request:
+    branches: [main]
+  merge_group:
+    types: [checks_requested]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: merge-queue-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+
+  archery:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/archery.yml
+    secrets: inherit
+
+  cpp:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/cpp.yml
+    secrets: inherit
+
+  dev:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/dev.yml
+    secrets: inherit
+
+  docs:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/docs.yml
+    secrets: inherit
+
+  docs_light:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/docs_light.yml
+    secrets: inherit
+
+  integration:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/integration.yml
+    secrets: inherit
+
+  matlab:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/matlab.yml
+    secrets: inherit
+
+  python:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/python.yml
+    secrets: inherit
+
+  r:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/r.yml
+    secrets: inherit
+
+  ruby:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/ruby.yml
+    secrets: inherit
+    permissions:
+      actions: read
+      contents: read
+      # The existing Windows job caches vcpkg packages in GitHub Packages.
+      packages: write
+
+  required:
+    name: Merge Queue
+    if: always()
+    needs: [archery, cpp, dev, docs, docs_light, integration, matlab, python, r, ruby]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Check every suite result
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          NEEDS: ${{ toJSON(needs) }}
+        shell: python
+        run: |
+          import json
+          import os
+          import sys
+
+          event = os.environ["EVENT_NAME"]
+          results = json.loads(os.environ["NEEDS"])
+          # PRs can enter the queue; the combined commit must pass every suite.
+          if event == "pull_request":
+              expected = "skipped"
+          elif event in ("merge_group", "workflow_dispatch"):
+              expected = "success"
+          else:
+              sys.exit(f"Unexpected event: {event}")
+          print(json.dumps(results, indent=2))
+          if not results or any(job["result"] != expected for job in results.values()):
+              sys.exit(f"Every suite must report {expected}")

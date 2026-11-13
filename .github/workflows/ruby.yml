@@ -18,10 +18,12 @@
 name: C GLib & Ruby
 
 on:
+  workflow_call:
   push:
     branches:
       - '**'
       - '!dependabot/**'
+      - '!gh-readonly-queue/**'
     tags:
       - '**'
     paths:
@@ -55,7 +57,7 @@ on:
       - 'ruby/**'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}-ruby
   cancel-in-progress: true
 
 permissions:
