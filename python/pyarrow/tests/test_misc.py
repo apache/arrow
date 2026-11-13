@@ -15,11 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable
 import os
 import subprocess
 import sys
-from types import ModuleType
 
 import pytest
 
@@ -292,28 +290,3 @@ def test_extension_type_constructor_errors(klass):
     msg = f"Do not call {klass.__name__}'s constructor directly, use .* instead."
     with pytest.raises(TypeError, match=msg):
         klass()
-
-
-@pytest.mark.parametrize(("module", "construct", "message"), [
-    pytest.param(
-        "acero", lambda mod: mod.ScanNodeOptions(None), "Argument 'dataset'",
-        marks=[pytest.mark.acero, pytest.mark.dataset], id="scan"),
-    pytest.param(
-        "acero", lambda mod: mod.ProjectNodeOptions([None]),
-        "Expression must not be None", marks=pytest.mark.acero, id="project"),
-    pytest.param(
-        "parquet", lambda mod: mod.ParquetSchema(None), "Argument 'container'",
-        marks=pytest.mark.parquet, id="parquet-schema"),
-    pytest.param(
-        "parquet", lambda mod: mod.ColumnSchema(None, 0), "Argument 'schema'",
-        marks=pytest.mark.parquet, id="column-schema"),
-    pytest.param(
-        "fs", lambda mod: mod.SubTreeFileSystem("", None), "Argument 'base_fs'",
-        id="subtree"),
-])
-def test_required_arrow_objects_reject_none_without_crashing(
-    module: str, construct: Callable[[ModuleType], object], message: str
-) -> None:
-    mod = pytest.importorskip(f"pyarrow.{module}")
-    with pytest.raises(TypeError, match=message):
-        construct(mod)

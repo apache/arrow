@@ -877,6 +877,12 @@ def test_internal_class_instantiation():
     with pytest.raises(TypeError, match=msg("FileMetaData")):
         pq.FileMetaData()
 
+    with pytest.raises(TypeError, match="Argument 'container'"):
+        pq.ParquetSchema(None)
+
+    with pytest.raises(TypeError, match="Argument 'schema'"):
+        pq.ColumnSchema(None, 0)
+
 
 def test_read_schema_uuid_extension_type(tmp_path):
     # These are the raw 16-byte payloads for

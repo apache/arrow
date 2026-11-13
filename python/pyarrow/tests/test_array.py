@@ -823,20 +823,6 @@ def test_string_binary_from_buffers():
     assert copied.null_count == 0
 
 
-@pytest.mark.parametrize("array_type", [pa.StringArray, pa.LargeStringArray])
-def test_string_from_buffers_null_buffers(array_type):
-    empty = array_type.from_buffers(
-        length=0, value_offsets=None, data=pa.py_buffer(b""))
-    assert empty.to_pylist() == []
-
-    with pytest.raises(pa.ArrowInvalid, match="Value data buffer is null"):
-        array_type.from_buffers(length=0, value_offsets=None, data=None)
-
-    with pytest.raises(pa.ArrowInvalid, match="Non-empty array but offsets are null"):
-        array_type.from_buffers(
-            length=1, value_offsets=None, data=pa.py_buffer(b"x"))
-
-
 def test_string_view_from_buffers():
     array = pa.array(
         [

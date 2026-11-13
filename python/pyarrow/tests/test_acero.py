@@ -247,6 +247,8 @@ def test_project(table_source):
     # input validation
     with pytest.raises(ValueError):
         ProjectNodeOptions([pc.multiply(field("a"), 2)], ["a2", "b2"])
+    with pytest.raises(TypeError, match="Expression must not be None"):
+        ProjectNodeOptions([None])
 
     # no scalar expression
     decl = Declaration.from_sequence([
@@ -597,3 +599,6 @@ def test_scan(tempdir):
     assert result["a"].to_pylist() == [1, 2, 3]
     # "b" is still included, but without data as it will be removed by the projection
     assert pc.all(result["b"].is_null()).as_py()
+
+    with pytest.raises(TypeError, match="Argument 'dataset'"):
+        ScanNodeOptions(None)
