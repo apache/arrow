@@ -1623,6 +1623,43 @@ class ReaderWriterMixin : public ExtensionTypesMixin {
     }
   }
 
+  void TestReadSubsetOfFieldsWithUnions(MetadataVersion metadata_version) {
+    // Union arrays have a validity buffer slot in V4 metadata but not in V5;
+    // reading a subset of fields must use the buffer layout of the message.
+    auto sparse_type = sparse_union({field("i", int32()), field("s", utf8())}, {0, 1});
+    auto dense_type = dense_union({field("i", int32()), field("s", utf8())}, {0, 1});
+    auto a0 = ArrayFromJSON(sparse_type, R"([[0, 11], [1, "x"], [0, 33]])");
+    auto a1 = ArrayFromJSON(dense_type, R"([[1, "y"], [0, 22], [0, 44]])");
+    auto a2 = ArrayFromJSON(int32(), "[1, 2, 3]");
+    auto my_schema =
+        schema({field("a0", sparse_type), field("a1", dense_type), field("a2", int32())});
+    auto batch = RecordBatch::Make(my_schema, a0->length(), {a0, a1, a2});
+
+    auto write_options = IpcWriteOptions::Defaults();
+    write_options.metadata_version = metadata_version;
+    const std::vector<std::vector<int>> subsets = {{0}, {1}, {0, 2}, {1, 2}, {2}};
+    for (const auto& included_fields : subsets) {
+      ARROW_SCOPED_TRACE("included_fields = ", ::testing::PrintToString(included_fields));
+      IpcReadOptions read_options = IpcReadOptions::Defaults();
+      read_options.included_fields = included_fields;
+      WriterHelper writer_helper;
+      RecordBatchVector out_batches;
+      std::shared_ptr<Schema> out_schema;
+      ASSERT_OK(RoundTripHelper(writer_helper, {batch}, write_options, read_options,
+                                &out_batches, &out_schema));
+      FieldVector ex_fields;
+      ArrayVector ex_columns;
+      for (int i : included_fields) {
+        ex_fields.push_back(my_schema->field(i));
+        ex_columns.push_back(batch->column(i));
+      }
+      auto ex_batch = RecordBatch::Make(schema(ex_fields), batch->num_rows(), ex_columns);
+      ASSERT_EQ(out_batches.size(), 1);
+      ASSERT_OK(out_batches[0]->ValidateFull());
+      AssertBatchesEqual(*ex_batch, *out_batches[0]);
+    }
+  }
+
   void TestWriteAfterClose() {
     // Part of GH-35095.
     std::shared_ptr<RecordBatch> batch_ints;
@@ -2138,6 +2175,31 @@ TEST_F(TestStreamFormat, ReadFieldSubset) { TestReadSubsetOfFields(); }
 TEST_F(TestFileFormat, ReadFieldSubset) { TestReadSubsetOfFields(); }
 TEST_F(TestFileFormatGenerator, ReadFieldSubset) { TestReadSubsetOfFields(); }
 TEST_F(TestFileFormatGeneratorCoalesced, ReadFieldSubset) { TestReadSubsetOfFields(); }
+
+TEST_F(TestStreamFormat, ReadFieldSubsetWithUnionsV4RoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(TestReadSubsetOfFieldsWithUnions(MetadataVersion::V4));
+}
+TEST_F(TestStreamFormat, ReadFieldSubsetWithUnionsV5RoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(TestReadSubsetOfFieldsWithUnions(MetadataVersion::V5));
+}
+TEST_F(TestFileFormat, ReadFieldSubsetWithUnionsV4RoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(TestReadSubsetOfFieldsWithUnions(MetadataVersion::V4));
+}
+TEST_F(TestFileFormat, ReadFieldSubsetWithUnionsV5RoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(TestReadSubsetOfFieldsWithUnions(MetadataVersion::V5));
+}
+TEST_F(TestFileFormatGenerator, ReadFieldSubsetWithUnionsV4RoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(TestReadSubsetOfFieldsWithUnions(MetadataVersion::V4));
+}
+TEST_F(TestFileFormatGenerator, ReadFieldSubsetWithUnionsV5RoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(TestReadSubsetOfFieldsWithUnions(MetadataVersion::V5));
+}
+TEST_F(TestFileFormatGeneratorCoalesced, ReadFieldSubsetWithUnionsV4RoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(TestReadSubsetOfFieldsWithUnions(MetadataVersion::V4));
+}
+TEST_F(TestFileFormatGeneratorCoalesced, ReadFieldSubsetWithUnionsV5RoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(TestReadSubsetOfFieldsWithUnions(MetadataVersion::V5));
+}
 
 TEST_F(TestFileFormatGeneratorCoalesced, Errors) {
   std::shared_ptr<RecordBatch> batch;
