@@ -163,6 +163,8 @@ def test_record_batch() -> None:
           pa.RecordBatch)
     check(assert_type(batch.append_column("b", [3, 4]), pa.RecordBatch),
           pa.RecordBatch)
+    check(assert_type(batch.set_column(0, "b", pa.chunked_array([[3, 4]])),
+                      pa.RecordBatch), pa.RecordBatch)
     check(assert_type(batch.equals(batch), bool), bool)
     # Any object can be compared, a non-batch returns False
     check(assert_type(batch.equals(42), bool), bool)
