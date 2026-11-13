@@ -118,7 +118,6 @@ class BatchReader : public arrow::RecordBatchReader {
 /// not touch the stream object after that.  Everything it needs lives here.
 struct WorkerState {
   std::unique_ptr<flight::FlightDataStream> stream;
-  std::shared_ptr<arrow::Schema> schema;
   int32_t delay_ms = 0;
   std::mutex mutex;
   std::condition_variable ready;
@@ -144,9 +143,6 @@ void RunWorker(std::shared_ptr<WorkerState> state) {
   prctl(PR_SET_NAME, "doget_worker", 0, 0, 0);
 #endif
   std::unique_lock<std::mutex> lock(state->mutex);
-  // Read the schema on this thread: it is the only one allowed to touch the
-  // wrapped stream, and the transport asks for the schema first.
-  state->schema = state->stream->schema();
   while (!state->closed) {
     state->ready.wait(lock, [&] { return state->has_pending || state->closed; });
     if (state->closed) {
@@ -217,8 +213,6 @@ class DelayedAsyncStream : public flight::AsyncFlightDataStream {
       }
     }
   }
-
-  std::shared_ptr<arrow::Schema> schema() override { return state_->schema; }
 
   arrow::Future<flight::FlightPayload> GetSchemaPayloadAsync() override {
     // The schema is ready now: no delay, no worker.  This runs before the first

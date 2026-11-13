@@ -74,12 +74,10 @@ class ResolvedStream : public AsyncFlightDataStream {
   explicit ResolvedStream(std::shared_ptr<RecordBatchReader> reader)
       : reader_(std::move(reader)), mapper_(*reader_->schema()) {}
 
-  std::shared_ptr<Schema> schema() override { return reader_->schema(); }
-
   arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
     FlightPayload payload;
-    auto status =
-        ipc::GetSchemaPayload(*schema(), ipc_options_, mapper_, &payload.ipc_message);
+    auto status = ipc::GetSchemaPayload(*reader_->schema(), ipc_options_, mapper_,
+                                        &payload.ipc_message);
     if (!status.ok()) {
       return arrow::Future<FlightPayload>::MakeFinished(status);
     }

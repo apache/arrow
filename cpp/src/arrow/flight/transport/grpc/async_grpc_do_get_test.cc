@@ -114,8 +114,6 @@ class HangingDoGetStream final : public AsyncFlightDataStream {
         next_awaits_(next_awaits),
         close_count_(close_count) {}
 
-  std::shared_ptr<Schema> schema() override { return resolved_->schema(); }
-
   arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
     return resolved_->GetSchemaPayloadAsync();
   }
@@ -358,8 +356,6 @@ class SlowSchemaDoGetStream final : public AsyncFlightDataStream {
         closed_while_asked_(closed_while_asked),
         asked_after_close_(asked_after_close) {}
 
-  std::shared_ptr<Schema> schema() override { return resolved_->schema(); }
-
   arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
     CountDemandAfterClose();
     WaitFor([this] { return context_->is_cancelled(); });
@@ -451,10 +447,6 @@ class ErrorPayloadDoGetStream final : public AsyncFlightDataStream {
  public:
   explicit ErrorPayloadDoGetStream(std::atomic<int>* close_count)
       : close_count_(close_count) {}
-
-  std::shared_ptr<Schema> schema() override {
-    return arrow::schema({arrow::field("value", arrow::int64())});
-  }
 
   arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
     return resolved_->GetSchemaPayloadAsync();
