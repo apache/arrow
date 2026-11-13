@@ -17,7 +17,6 @@
 
 #include "arrow/flight/transport/grpc/async_grpc_service_internal.h"
 
-#include <atomic>
 #include <memory>
 #include <mutex>
 #include <optional>

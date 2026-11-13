@@ -489,10 +489,10 @@ class GrpcServerTransport : public internal::ServerTransport {
                                std::string* peer_identity) {
             return base->ValidateToken(context, token, peer_identity);
           };
-      async_helper_ = std::make_shared<AsyncHelper>(
+      auto async_helper = std::make_shared<AsyncHelper>(
           /*auth_handler=*/nullptr, options.middleware, std::move(validate_token));
       async_service_ = std::make_unique<AsyncGenericFlightService>(
-          async_base_, async_helper_, std::move(handshake));
+          async_base_, std::move(async_helper), std::move(handshake));
       // The else and its body are split by #endif, so cpplint cannot pair the
       // braces; the #if branch above opens the block it closes.
     } else  // NOLINT(readability/braces)
@@ -553,8 +553,6 @@ class GrpcServerTransport : public internal::ServerTransport {
   std::unique_ptr<GrpcServiceHandler> grpc_service_;
 #if ARROW_FLIGHT_HAS_ASYNC_SERVER
   AsyncGenericFlightServerBase* async_base_ = nullptr;
-  std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>
-      async_helper_;
   std::unique_ptr<AsyncGenericFlightService> async_service_;
 #endif
   std::unique_ptr<::grpc::Server> grpc_server_;

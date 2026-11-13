@@ -18,7 +18,6 @@
 #include "arrow/flight/transport/grpc/async_grpc_service_internal.h"
 
 #include <memory>
-#include <optional>
 #include <utility>
 #include <vector>
 

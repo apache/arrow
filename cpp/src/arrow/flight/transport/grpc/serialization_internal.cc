@@ -129,12 +129,7 @@ class GrpcBuffer : public MutableBuffer {
   grpc_slice slice_;
 };
 
-}  // namespace
-
-// Destructor callback for grpc::Slice. Declared here (rather than in the
-// header) so -Wmissing-declarations is happy.
-void ReleaseBuffer(void* buf_ptr);
-
+// Destructor callback for grpc::Slice
 void ReleaseBuffer(void* buf_ptr) {
   delete reinterpret_cast<std::shared_ptr<Buffer>*>(buf_ptr);
 }
@@ -157,6 +152,8 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
   DCHECK_EQ(slice.begin(), (*ptr)->data());
   return slice;
 }
+
+}  // namespace
 
 // Initialize arrow Buffer from gRPC ByteBuffer
 Status WrapGrpcBuffer(::grpc::ByteBuffer* cpp_buf, std::shared_ptr<Buffer>* out) {

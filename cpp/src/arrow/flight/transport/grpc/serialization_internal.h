@@ -39,14 +39,6 @@ namespace grpc {
 
 namespace pb = arrow::flight::protocol;
 
-/// Zero-copy conversion of an Arrow Buffer to a gRPC Slice.
-///
-/// The Buffer lifetime is tied to the Slice (a shared_ptr is attached to the
-/// slice's destructor callback)
-/// \param[in] buf The Arrow Buffer to convert.
-/// \return A gRPC Slice that shares ownership of the Buffer.
-arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf);
-
 /// Zero-copy conversion of a gRPC ByteBuffer into an Arrow Buffer.
 ///
 /// The Arrow Buffer owns a reference to the gRPC slice, so it stays valid

@@ -210,7 +210,6 @@ if has_async_server
             # header, so we must declare it here to avoid a race condition
             flight_proto_grpc_files[1],
         ],
-        cpp_args: grpc_enable_async_args,
         dependencies: [arrow_test_dep, arrow_flight_test_dep],
     )
     # The timeout bounds the tests that would otherwise hang the suite instead
