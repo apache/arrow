@@ -145,6 +145,70 @@ repos:
           (
           ?^python/pyarrow/vendored/|
           )
+  # Linting, formatting and type checking of the type stubs. The type checkers
+  # don't run on commit, only on request (the Lint CI job runs them too):
+  #   pre-commit run --hook-stage manual python-stubs --all-files
+  # The type checkers run with uvx, in the environment of
+  # python/requirements-stubs.txt. They don't need PyArrow installed: the
+  # modules that aren't annotated yet, e.g. pyarrow.compute, are treated as Any
+  # (see python/pyproject.toml).
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.2
+    hooks:
+      - id: ruff-check
+        alias: python-stubs
+        name: Python Stubs Lint (ruff)
+        args:
+          - "--fix"
+        files: >-
+          ^python/pyarrow-stubs/
+        types:
+          - pyi
+      - id: ruff-format
+        alias: python-stubs
+        name: Python Stubs Format (ruff)
+        files: >-
+          ^python/pyarrow-stubs/
+        types:
+          - pyi
+  - repo: local
+    hooks:
+      - id: mypy
+        alias: python-stubs
+        name: Python Stubs Type Check (mypy)
+        stages:
+          - manual
+        language: python
+        entry: bash -c "cd python && exec uvx --with-requirements requirements-stubs.txt mypy"
+        pass_filenames: false
+        files: >-
+          ^python/(pyarrow-stubs(-tests)?/|(pyproject\.toml|requirements-stubs\.txt)$)
+        additional_dependencies: &uv
+          - uv==0.13.7
+      - id: pyright
+        alias: python-stubs
+        name: Python Stubs Type Check (pyright)
+        stages:
+          - manual
+        language: python
+        entry: uvx --with-requirements python/requirements-stubs.txt pyright -p python/pyproject.toml
+        pass_filenames: false
+        files: >-
+          ^python/(pyarrow-stubs(-tests)?/|(pyproject\.toml|requirements-stubs\.txt)$)
+        additional_dependencies: *uv
+      - id: ty
+        alias: python-stubs
+        name: Python Stubs Type Check (ty)
+        stages:
+          - manual
+        language: python
+        # Unset the VIRTUAL_ENV of the hook, so that ty uses the environment
+        # of uvx.
+        entry: env -u VIRTUAL_ENV -u CONDA_PREFIX uvx --with-requirements python/requirements-stubs.txt ty check --project python
+        pass_filenames: false
+        files: >-
+          ^python/(pyarrow-stubs(-tests)?/|(pyproject\.toml|requirements-stubs\.txt)$)
+        additional_dependencies: *uv
   - repo: https://github.com/MarcoGorelli/cython-lint
     rev: v0.21.1
     hooks:

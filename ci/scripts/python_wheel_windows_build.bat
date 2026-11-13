@@ -116,8 +116,7 @@ popd
 
 echo "=== (%PYTHON%) Building wheel ==="
 set PYARROW_BUNDLE_ARROW_CPP=ON
-rem TODO(GH-32609): Re-enable when pyarrow-stubs are shipped in wheels again.
-rem set PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
+set PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
 set PYARROW_WITH_AZURE=%ARROW_AZURE%
 set PYARROW_WITH_DATASET=%ARROW_DATASET%
@@ -154,5 +153,10 @@ echo "Wheel name: %WHEEL_NAME%"
 %PYTHON_CMD% -m delvewheel repair -vv ^
     --ignore-existing --with-mangle ^
     -w repaired_wheels %WHEEL_NAME% || exit /B 1
+
+@REM Check the type stubs against the wheel
+for %%w in (repaired_wheels\pyarrow-*.whl) do (
+    %PYTHON_CMD% scripts\run_stubtest.py --wheel %%w || exit /B 1
+)
 
 popd

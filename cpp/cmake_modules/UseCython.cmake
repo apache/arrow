@@ -145,8 +145,11 @@ function(compile_pyx
             ${no_docstrings_arg}
             ${cython_debug_arg}
             ${CYTHON_FLAGS}
-            # Necessary for autodoc of function arguments
+            # Necessary for autodoc of function arguments. The clinic format
+            # stores the signature in __text_signature__ rather than in
+            # __doc__, which keeps it out of the docstrings of the type stubs.
             --directive embedsignature=True
+            --directive embedsignature.format=clinic
             # Necessary for Cython code coverage
             --working
             ${CMAKE_CURRENT_SOURCE_DIR}

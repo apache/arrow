@@ -24,7 +24,6 @@ cython>=3.1
 cloudpickle
 fsspec
 hypothesis
-libcst>=1.8.6
 numpy>=2.0
 pytest
 pytest-faulthandler

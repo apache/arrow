@@ -168,8 +168,7 @@ check_arrow_visibility
 
 echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUNDLE_ARROW_CPP=ON
-# TODO(GH-32609): Re-enable when pyarrow-stubs are shipped in wheels again.
-# export PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
+export PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
 export PYARROW_WITH_ACERO="${ARROW_ACERO}"
 export PYARROW_WITH_AZURE="${ARROW_AZURE}"
 export PYARROW_WITH_DATASET="${ARROW_DATASET}"
@@ -224,4 +223,7 @@ rm -rf dist/temp-fix-wheel
 
 echo "=== (${PYTHON_VERSION}) Tag the wheel with ${LINUX_WHEEL_KIND}${LINUX_WHEEL_VERSION} ==="
 auditwheel repair dist/pyarrow-*.whl -w repaired_wheels
+
+echo "=== (${PYTHON_VERSION}) Check the type stubs against the wheel ==="
+python scripts/run_stubtest.py --wheel repaired_wheels/pyarrow-*.whl
 popd
