@@ -487,6 +487,7 @@ jobs:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: jni-windows
 
+  # On Linux, link ODBC dynamically to follow general RPM/DEB guidelines
   odbc-linux:
     needs: check-enabled
     if: needs.check-enabled.outputs.is_enabled == 'true'
@@ -529,6 +530,17 @@ jobs:
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ubuntu-cpp-odbc
+      - name: Check ODBC Dependency
+        run: |
+          # The ODBC driver should link Arrow libraries dynamically on Linux
+          lib="$(pwd)/build/cpp/release/libarrow_flight_sql_odbc.so"
+          ldd "${lib}"
+          for arrow_lib in libarrow libarrow_compute libarrow_flight libarrow_flight_sql; do
+            ldd "${lib}" | grep -Fq "${arrow_lib}.so" || {
+              echo "Error: ${arrow_lib} is not dynamically linked to ${lib}"
+              exit 1
+            }
+          done
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
@@ -561,6 +573,7 @@ jobs:
           - { architecture: ARM64, macos-version: "26", build-type : debug }
           - { architecture: ARM64, macos-version: "26", build-type : release }
     env:
+      # on macOS, always link ODBC statically to support sandbox env
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: ${{ matrix.build-type }}
       ARROW_DEPENDENCY_SOURCE: BUNDLED
@@ -801,6 +814,7 @@ jobs:
       contents: read
       packages: write
     env:
+      # on Windows, link ODBC statically and compile into 1 DLL to minimize signing
       ARROW_BUILD_SHARED: OFF
       ARROW_BUILD_STATIC: ON
       ARROW_BUILD_TESTS: ON
