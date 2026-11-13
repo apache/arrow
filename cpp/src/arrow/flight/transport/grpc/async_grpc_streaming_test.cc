@@ -25,15 +25,6 @@
 
 namespace arrow::flight::transport::grpc {
 
-// ---------------------------------------------------------------------------
-// The streaming trio: ListActions (a vector), DoAction (an AsyncResultStream)
-// and ListFlights (an AsyncFlightListing) share StreamingReactor (one request
-// in, N responses out, driven by OnWriteDone -> WriteNext). Each RPC has a
-// happy-path test, the reactor never writing a message must still finish the
-// RPC (the empty tests), and the two iterator-backed ones pin the mid-stream
-// error rule.
-// ---------------------------------------------------------------------------
-
 TEST(AsyncGrpcTest, ListActionsIsServedAsync) {
   TestFlightServer flight_server;
   FlightServerOptions options(LocalhostLocation());
@@ -47,9 +38,7 @@ TEST(AsyncGrpcTest, ListActionsIsServedAsync) {
   ASSERT_EQ(actions[1].type, "fail");
   ASSERT_EQ(actions[1].description, "always fails");
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, ListActionsEmptyFinishesCleanly) {
@@ -65,9 +54,7 @@ TEST(AsyncGrpcTest, ListActionsEmptyFinishesCleanly) {
   ASSERT_OK_AND_ASSIGN(auto actions, client->ListActions());
   ASSERT_TRUE(actions.empty());
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, DoActionIsServedAsync) {
@@ -86,9 +73,7 @@ TEST(AsyncGrpcTest, DoActionIsServedAsync) {
   ASSERT_EQ(end, nullptr);
 
   // Cleanup before looking at the recording: it was written on a gRPC thread.
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   ASSERT_EQ("ping", flight_server.last_action_type());
 }
@@ -105,9 +90,7 @@ TEST(AsyncGrpcTest, DoActionStreamsMultipleResults) {
   ASSERT_OK_AND_ASSIGN(auto bodies, DrainResultBodies(results.get()));
   ASSERT_EQ(bodies, (std::vector<std::string>{"one", "two", "three"}));
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, DoActionMidStreamErrorFinishesTheRpc) {
@@ -130,9 +113,7 @@ TEST(AsyncGrpcTest, DoActionMidStreamErrorFinishesTheRpc) {
   ASSERT_THAT(second.status().message(),
               ::testing::HasSubstr("mid-stream action failure"));
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, DoActionWithNullResultStreamIsCancelled) {
@@ -155,9 +136,7 @@ TEST(AsyncGrpcTest, DoActionWithNullResultStreamIsCancelled) {
     ASSERT_RAISES(Cancelled, results.status());
   }
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, ListFlightsIsServedAsync) {
@@ -174,9 +153,7 @@ TEST(AsyncGrpcTest, ListFlightsIsServedAsync) {
                                                           {"second-listing"}}));
 
   // Cleanup before looking at the recording: it was written on a gRPC thread.
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   ASSERT_EQ("filter-me", flight_server.last_criteria().expression);
 }
@@ -196,9 +173,7 @@ TEST(AsyncGrpcTest, ListFlightsEmptyFinishesCleanly) {
   // (empty) Criteria, exactly as the sync handler does.
   ASSERT_EQ("", flight_server.last_criteria().expression);
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, ListFlightsMidStreamErrorFinishesTheRpc) {
@@ -215,9 +190,7 @@ TEST(AsyncGrpcTest, ListFlightsMidStreamErrorFinishesTheRpc) {
   ASSERT_THAT(listing.status().message(),
               ::testing::HasSubstr("mid-stream listing failure"));
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, ListFlightsAsyncCompletesOnAnotherThread) {
@@ -231,12 +204,8 @@ TEST(AsyncGrpcTest, ListFlightsAsyncCompletesOnAnotherThread) {
       std::thread([out]() mutable {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         std::vector<FlightInfo> flights;
-        auto info = MakeTestFlightInfo(FlightDescriptor::Path({"deferred"}));
-        if (!info.ok()) {
-          out.MarkFinished(info.status());
-          return;
-        }
-        flights.push_back(std::move(**info));
+        flights.push_back(
+            std::move(*MakeTestFlightInfo(FlightDescriptor::Path({"deferred"}))));
         out.MarkFinished(std::make_shared<SimpleListingAdapter>(std::move(flights)));
       }).detach();
       return out;
@@ -258,9 +227,7 @@ TEST(AsyncGrpcTest, ListFlightsAsyncCompletesOnAnotherThread) {
   }
   ASSERT_EQ(1, seen);
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 // A ListFlights handler whose future never resolves.
@@ -288,14 +255,9 @@ TEST(AsyncGrpcTest, ListFlightsDeadlineWithPendingHandlerFinishes) {
   auto listing = client->ListFlights(impatient, Criteria("hang"));
   EXPECT_FALSE(listing.ok()) << "the deadline must expire while the handler hangs";
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
-  EXPECT_TRUE(WaitFor([&] {
-    return detail::AsyncReactorBase::live_reactors() == before;
-  })) << "a reactor leaked: still alive after the server stopped (before="
-      << before << ", now=" << detail::AsyncReactorBase::live_reactors() << ")";
+  ExpectNoReactorLeak(before);
 }
 
 }  // namespace arrow::flight::transport::grpc

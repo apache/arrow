@@ -24,10 +24,6 @@
 
 namespace arrow::flight::transport::grpc {
 
-// ---------------------------------------------------------------------------
-// Handshake + per-RPC token auth on the async generic service.
-// ---------------------------------------------------------------------------
-
 // Counters shared between the server callbacks and the test thread.
 struct AsyncAuthState {
   std::mutex mutex;
@@ -150,9 +146,7 @@ TEST(AsyncGrpcTest, HandshakeWithoutHookIsUnimplemented) {
   ASSERT_FALSE(status.ok()) << "handshake must not succeed without a hook";
   EXPECT_THAT(status.ToString(), ::testing::HasSubstr("authentication mechanism"));
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, AsyncGenericFlightServerBaseImpliesAsyncTransport) {
@@ -181,9 +175,7 @@ TEST(AsyncGrpcTest, AsyncGenericFlightServerBaseImpliesAsyncTransport) {
   EXPECT_THAT(status.ToString(), ::testing::HasSubstr("no listener available"))
       << "the async generic service must have served this call, not the sync path";
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, HandshakeAuthenticatesAndTokenIsRequired) {
@@ -293,9 +285,7 @@ TEST(AsyncGrpcTest, HandshakePayloadIsBinarySafe) {
   ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
   EXPECT_NE(nullptr, chunk.data);
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(server.Shutdown());
-  ASSERT_OK(server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &server));
 }
 
 TEST(AsyncGrpcTest, EmptyHandshakeRequestIsRejectedNotHung) {
@@ -443,9 +433,7 @@ TEST(AsyncGrpcTest, LateHandshakeResponseLeavesServerUsable) {
       {}, std::make_unique<TestClientAuthHandler>("user", "p4ssw0rd")));
 
   ASSERT_OK(second_client->Close());
-  ASSERT_OK(client->Close());
-  ASSERT_OK(server.Shutdown());
-  ASSERT_OK(server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &server));
 }
 
 TEST(AsyncGrpcTest, EmptyHandshakeResponseIsDelivered) {
@@ -470,9 +458,7 @@ TEST(AsyncGrpcTest, EmptyHandshakeResponseIsDelivered) {
   ASSERT_OK(client->Authenticate({}, std::move(handler)));
   EXPECT_EQ(std::string(), observed->response());
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(server.Shutdown());
-  ASSERT_OK(server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &server));
 }
 
 TEST(AsyncGrpcTest, RehandshakeOnTheSameChannelWorks) {

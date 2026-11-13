@@ -58,13 +58,12 @@ namespace arrow::flight::transport::grpc {
 constexpr const char* kSchemaOnlyTicket = "schema-only-do-get-ticket";
 
 // One canned FlightInfo, `descriptor` names it for the assertions.
-inline arrow::Result<std::unique_ptr<FlightInfo>> MakeTestFlightInfo(
-    FlightDescriptor descriptor) {
-  ARROW_ASSIGN_OR_RAISE(
-      auto made, FlightInfo::Make(*arrow::schema({arrow::field("value", arrow::int64())}),
-                                  std::move(descriptor), std::vector<FlightEndpoint>{},
-                                  /*total_records=*/-1, /*total_bytes=*/-1));
-  return std::make_unique<FlightInfo>(std::move(made));
+inline std::unique_ptr<FlightInfo> MakeTestFlightInfo(FlightDescriptor descriptor) {
+  return std::make_unique<FlightInfo>(
+      FlightInfo::Make(*arrow::schema({arrow::field("value", arrow::int64())}),
+                       std::move(descriptor), std::vector<FlightEndpoint>{},
+                       /*total_records=*/-1, /*total_bytes=*/-1)
+          .ValueOrDie());
 }
 
 // An AsyncFlightDataStream over an in-memory RecordBatchReader: every payload is
@@ -194,25 +193,17 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
     if (request.ticket == kSchemaOnlyTicket) {
       // An empty reader still carries the schema, NextAsync() reports the end
       // of stream right away.
-      auto reader = arrow::RecordBatchReader::Make({}, schema);
-      if (!reader.ok()) {
-        return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
-            reader.status());
-      }
       return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
-          std::make_shared<ResolvedStream>(std::move(*reader)));
+          std::make_shared<ResolvedStream>(
+              arrow::RecordBatchReader::Make({}, schema).ValueOrDie()));
     }
     auto batch = arrow::RecordBatch::Make(
         schema, 5,
         {arrow::ArrayFromJSON(arrow::int64(), "[1, 2, 3, 4, 5]"),
          arrow::ArrayFromJSON(arrow::int64(), "[10, 20, 30, 40, 50]")});
-    auto reader = arrow::RecordBatchReader::Make({batch, batch, batch});
-    if (!reader.ok()) {
-      return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
-          reader.status());
-    }
     return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
-        std::make_shared<ResolvedStream>(std::move(*reader)));
+        std::make_shared<ResolvedStream>(
+            arrow::RecordBatchReader::Make({batch, batch, batch}).ValueOrDie()));
   }
 
   // The unary trio: canned responses. `last_descriptor_` records the request
@@ -232,26 +223,20 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
       return arrow::Future<std::shared_ptr<FlightInfo>>::MakeFinished(
           std::shared_ptr<FlightInfo>{});
     }
-    auto made =
-        FlightInfo::Make(*arrow::schema({arrow::field("value", arrow::int64())}),
-                         FlightDescriptor{}, std::vector<FlightEndpoint>{}, -1, -1);
-    if (!made.ok()) {
-      return arrow::Future<std::shared_ptr<FlightInfo>>::MakeFinished(made.status());
-    }
     return arrow::Future<std::shared_ptr<FlightInfo>>::MakeFinished(
-        std::make_shared<FlightInfo>(std::move(*made)));
+        std::make_shared<FlightInfo>(
+            FlightInfo::Make(*arrow::schema({arrow::field("value", arrow::int64())}),
+                             FlightDescriptor{}, std::vector<FlightEndpoint>{}, -1, -1)
+                .ValueOrDie()));
   }
 
   arrow::Future<std::shared_ptr<SchemaResult>> GetSchemaAsync(
       const ServerCallContext&, const FlightDescriptor& request) override {
     last_descriptor_ = request;
-    auto made =
-        SchemaResult::Make(*arrow::schema({arrow::field("value", arrow::int64())}));
-    if (!made.ok()) {
-      return arrow::Future<std::shared_ptr<SchemaResult>>::MakeFinished(made.status());
-    }
     return arrow::Future<std::shared_ptr<SchemaResult>>::MakeFinished(
-        std::shared_ptr<SchemaResult>(std::move(*made)));
+        std::shared_ptr<SchemaResult>(
+            SchemaResult::Make(*arrow::schema({arrow::field("value", arrow::int64())}))
+                .ValueOrDie()));
   }
 
   arrow::Future<std::shared_ptr<PollInfo>> PollFlightInfoAsync(
@@ -311,11 +296,9 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
     if (expression == "fail-mid-stream") {
       return arrow::Future<std::shared_ptr<AsyncFlightListing>>::MakeFinished(
           std::make_shared<MidStreamErrorAsyncListing>(
-              []() -> arrow::Result<FlightInfo> {
-                ARROW_ASSIGN_OR_RAISE(
-                    auto info,
-                    MakeTestFlightInfo(FlightDescriptor::Path({"first-listing"})));
-                return std::move(*info);
+              [] {
+                return std::move(
+                    *MakeTestFlightInfo(FlightDescriptor::Path({"first-listing"})));
               },
               "mid-stream listing failure"));
     }
@@ -328,12 +311,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
     }
     std::vector<FlightInfo> flights;
     for (const auto& name : {"first-listing", "second-listing"}) {
-      auto info = MakeTestFlightInfo(FlightDescriptor::Path({name}));
-      if (!info.ok()) {
-        return arrow::Future<std::shared_ptr<AsyncFlightListing>>::MakeFinished(
-            info.status());
-      }
-      flights.push_back(std::move(**info));
+      flights.push_back(std::move(*MakeTestFlightInfo(FlightDescriptor::Path({name}))));
     }
     return arrow::Future<std::shared_ptr<AsyncFlightListing>>::MakeFinished(
         std::make_shared<SimpleListingAdapter>(std::move(flights)));
@@ -771,6 +749,62 @@ inline ::grpc::Status CallUnknownMethod(int port) {
   return status;
 }
 
+// Upload `messages` over a raw generic DoPut call to the server listening on
+// `port`, half-close, and return the server's status. Only a raw call can send
+// FlightData the FlightClient would refuse to build. The 10 s deadline bounds
+// the call: were a bad upload ever accepted, the client would wait forever for
+// an acknowledgement, turning a logic error into a hung suite.
+inline ::grpc::Status CallDoPutRaw(int port,
+                                   const std::vector<::grpc::ByteBuffer>& messages) {
+  std::shared_ptr<::grpc::Channel> channel =
+      ::grpc::CreateChannel(std::string(kLoopbackHost) + ":" + std::to_string(port),
+                            ::grpc::InsecureChannelCredentials());
+  ::grpc::GenericStub stub(channel);
+  ::grpc::ClientContext context;
+  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(10));
+  ::grpc::CompletionQueue cq;
+  std::unique_ptr<::grpc::GenericClientAsyncReaderWriter> call =
+      stub.PrepareCall(&context, "/arrow.flight.protocol.FlightService/DoPut", &cq);
+  void* tag = nullptr;
+  bool ok = false;
+  call->StartCall(reinterpret_cast<void*>(1));
+  EXPECT_TRUE(cq.Next(&tag, &ok)) << "the call never started";
+  for (const auto& message : messages) {
+    call->Write(message, reinterpret_cast<void*>(2));
+    EXPECT_TRUE(cq.Next(&tag, &ok)) << "the message was never written";
+  }
+  call->WritesDone(reinterpret_cast<void*>(3));
+  EXPECT_TRUE(cq.Next(&tag, &ok)) << "WritesDone never completed";
+  ::grpc::Status status;
+  call->Finish(&status, reinterpret_cast<void*>(4));
+  EXPECT_TRUE(cq.Next(&tag, &ok)) << "the call never finished";
+  return status;
+}
+
+// The generic service and the server a test registered it on by hand, with the
+// port the server bound. `service` is declared first so it outlives `server`.
+struct HandBuiltServer {
+  std::unique_ptr<AsyncGenericFlightService> service;
+  std::unique_ptr<::grpc::Server> server;
+  int port = 0;
+};
+
+// Serve `base` on kListenAddress from a hand-built grpc::ServerBuilder. The
+// caller checks `server` is non-null and `port` non-zero.
+inline HandBuiltServer StartHandBuilt(
+    AsyncGenericFlightServerBase* base,
+    std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>> helper =
+        MakeAsyncHelper()) {
+  HandBuiltServer out;
+  out.service = std::make_unique<AsyncGenericFlightService>(base, std::move(helper));
+  ::grpc::ServerBuilder builder;
+  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(),
+                           &out.port);
+  builder.RegisterCallbackGenericService(out.service.get());
+  out.server = builder.BuildAndStart();
+  return out;
+}
+
 // The single int64 column ("a") the upload tests use.
 inline std::shared_ptr<Schema> OneColumnSchema() {
   return arrow::schema({arrow::field("a", arrow::int64())});
@@ -807,13 +841,6 @@ inline std::shared_ptr<RecordBatch> TwoColumnBatch(
   return arrow::RecordBatch::Make(schema, 3,
                                   {arrow::ArrayFromJSON(arrow::int64(), "[1, 2, 3]"),
                                    arrow::ArrayFromJSON(arrow::int64(), "[10, 20, 30]")});
-}
-
-inline void AssertTwoColumnSchema(const std::shared_ptr<Schema>& schema) {
-  ASSERT_NE(schema, nullptr);
-  ASSERT_EQ(schema->num_fields(), 2);
-  ASSERT_EQ(schema->field(0)->name(), "a");
-  ASSERT_EQ(schema->field(1)->name(), "b");
 }
 
 // Drain a DoAction result stream, projecting each Result to a string.
@@ -854,6 +881,27 @@ inline bool WaitFor(Predicate predicate,
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
   }
   return predicate();
+}
+
+// Expect every reactor alive after `before` was sampled to be gone, within
+// WaitFor's bound: a leaked reactor would hold its call's state forever.
+inline void ExpectNoReactorLeak(int64_t before) {
+  EXPECT_TRUE(WaitFor([&] {
+    return detail::AsyncReactorBase::live_reactors() == before;
+  })) << "a reactor leaked: still alive after the server stopped (before="
+      << before << ", now=" << detail::AsyncReactorBase::live_reactors() << ")";
+}
+
+// Close the client and stop the server, all three unconditionally, and return
+// the first error.
+inline Status StopClientAndServer(FlightClient* client,
+                                  AsyncGenericFlightServerBase* server) {
+  Status status = client->Close();
+  Status shutdown = server->Shutdown();
+  Status wait = server->Wait();
+  if (status.ok()) status = shutdown;
+  if (status.ok()) status = wait;
+  return status;
 }
 
 // Upload one batch and report whichever surface first reports an error: the
