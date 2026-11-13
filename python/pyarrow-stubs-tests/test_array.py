@@ -268,3 +268,59 @@ def test_buffer_constructors_invalid_usage() -> None:
         # Fields are passed as `fields`, `names` only takes strings
         pa.StructArray.from_arrays(
             children, names=[pa.field("a", pa.int64())])
+
+
+def test_array_arguments_without_cast() -> None:
+    import numpy as np
+
+    # pa.array() is annotated as returning the base Array, so parameters
+    # must accept it without requiring a cast to the exact subclass
+    values = pa.array([1, 2, 3])
+    offsets = pa.array([0, 1, 3], pa.int32())
+    sizes = pa.array([1, 2], pa.int32())
+    check(assert_type(pa.ListArray.from_arrays(offsets, values), pa.ListArray),
+          pa.ListArray)
+    # Offsets and sizes of another integer type are cast at runtime
+    check(assert_type(pa.ListArray.from_arrays(pa.array([0, 1, 3]), values),
+                      pa.ListArray),
+          pa.ListArray)
+    check(assert_type(pa.ListArray.from_arrays(np.array([0, 1, 3]), values),
+                      pa.ListArray),
+          pa.ListArray)
+    check(assert_type(pa.ListArray.from_arrays([0, None, 3], values),
+                      pa.ListArray),
+          pa.ListArray)
+    check(assert_type(pa.LargeListArray.from_arrays(offsets, values),
+                      pa.LargeListArray),
+          pa.LargeListArray)
+    check(assert_type(pa.ListViewArray.from_arrays(offsets[:2], sizes, values),
+                      pa.ListViewArray),
+          pa.ListViewArray)
+    check(assert_type(pa.LargeListViewArray.from_arrays(offsets[:2], sizes, values),
+                      pa.LargeListViewArray),
+          pa.LargeListViewArray)
+    check(assert_type(pa.MapArray.from_arrays(offsets, values, values), pa.MapArray),
+          pa.MapArray)
+
+    type_codes = pa.array([0, 0], pa.int8())
+    value_offsets = pa.array([0, 1], pa.int32())
+    children = [pa.array([1, 2])]
+    check(assert_type(pa.UnionArray.from_dense(type_codes, value_offsets, children),
+                      pa.UnionArray),
+          pa.UnionArray)
+    check(assert_type(pa.UnionArray.from_sparse(type_codes, children),
+                      pa.UnionArray),
+          pa.UnionArray)
+
+    mask = pa.array([True, False])
+    check(assert_type(pa.StructArray.from_arrays(children, names=["a"], mask=mask),
+                      pa.StructArray),
+          pa.StructArray)
+    check(assert_type(pa.RunEndEncodedArray.from_arrays(pa.array([1, 3]), ["a", "b"]),
+                      pa.RunEndEncodedArray),
+          pa.RunEndEncodedArray)
+    check(assert_type(pa.RunEndEncodedArray.from_arrays(np.array([1, 3]), ["a", "b"]),
+                      pa.RunEndEncodedArray),
+          pa.RunEndEncodedArray)
+    check(assert_type(pa.Bool8Array.from_storage(type_codes), pa.Bool8Array),
+          pa.Bool8Array)
