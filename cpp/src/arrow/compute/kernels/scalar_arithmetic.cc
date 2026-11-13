@@ -1235,9 +1235,16 @@ class IntervalLocalizer {
     return localizer;
   }
 
+  // The bundled date library only represents years in [-32767, 32767], and
+  // throws when asked to convert an instant outside that range.  Clamp to a
+  // slightly smaller range (about year +/-31700) before calling get_info().
+  static constexpr int64_t kMaxTzSeconds = 1000000000000;
+  static constexpr int64_t kMaxTzDays = kMaxTzSeconds / 86400;
+
   // UTC offset in effect at the given UTC instant
   int64_t OffsetAtSys(int64_t sys_seconds) const {
     if (zone_ == nullptr) return fixed_offset_;
+    sys_seconds = std::clamp(sys_seconds, -kMaxTzSeconds, kMaxTzSeconds);
     const auto st = sys_time<std::chrono::seconds>{std::chrono::seconds{sys_seconds}};
     return zone_->get_info(st).offset.count();
   }
@@ -1248,14 +1255,12 @@ class IntervalLocalizer {
   // ZonedLocalizer::ConvertLocalToSys, reject ambiguous and nonexistent times.
   int64_t OffsetForLocal(int64_t day, int64_t seconds_of_day, Status* st) const {
     if (zone_ == nullptr) return fixed_offset_;
-    constexpr int64_t kMinSeconds = std::numeric_limits<int64_t>::min();
-    constexpr int64_t kMaxSeconds = std::numeric_limits<int64_t>::max();
-    // The transition table is finite: near the int64-second bounds, use its
-    // first/last UTC offset without forming an out-of-range local timestamp.
-    // Keep a whole day of headroom because get_info(local_time) also subtracts
-    // offsets internally, which can overflow even if local seconds fit.
-    if (day <= kMinSeconds / 86400 + 1) return OffsetAtSys(kMinSeconds);
-    if (day >= kMaxSeconds / 86400 - 1) return OffsetAtSys(kMaxSeconds);
+    // The transition table is finite: beyond the range the date library can
+    // represent, use its first/last UTC offset without forming an out-of-range
+    // local timestamp.  Keep a whole day of headroom because
+    // get_info(local_time) also subtracts offsets internally.
+    if (day <= -kMaxTzDays + 1) return OffsetAtSys(-kMaxTzSeconds);
+    if (day >= kMaxTzDays - 1) return OffsetAtSys(kMaxTzSeconds);
     const auto lt = local_time<std::chrono::seconds>{
         std::chrono::seconds{day * 86400 + seconds_of_day}};
     const auto info = zone_->get_info(lt);
@@ -1286,26 +1291,39 @@ struct TimestampIntervalArithmeticImpl {
   static constexpr int64_t kNanosPerUnit = 1000000000 / kUnitsPerSecond;
 
   // Overflow-aware helpers: in unchecked mode, results wrap around.
+  // Compute the wrapped value explicitly: the generic overflow helpers only
+  // guarantee that `out` is written when there is no overflow, so relying on
+  // it would return uninitialized memory on platforms that use the SafeInt
+  // fallback (e.g. MSVC).
   static int64_t Add(int64_t a, int64_t b, Status* st) {
     int64_t out;
-    if (ARROW_PREDICT_FALSE(AddWithOverflow(a, b, &out)) && kChecked) {
-      *st = Status::Invalid("overflow");
+    if (ARROW_PREDICT_FALSE(AddWithOverflow(a, b, &out))) {
+      if (kChecked) {
+        *st = Status::Invalid("overflow");
+      }
+      return static_cast<int64_t>(static_cast<uint64_t>(a) + static_cast<uint64_t>(b));
     }
     return out;
   }
 
   static int64_t Multiply(int64_t a, int64_t b, Status* st) {
     int64_t out;
-    if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(a, b, &out)) && kChecked) {
-      *st = Status::Invalid("overflow");
+    if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(a, b, &out))) {
+      if (kChecked) {
+        *st = Status::Invalid("overflow");
+      }
+      return static_cast<int64_t>(static_cast<uint64_t>(a) * static_cast<uint64_t>(b));
     }
     return out;
   }
 
   static int64_t Subtract(int64_t a, int64_t b, Status* st) {
     int64_t out;
-    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(a, b, &out)) && kChecked) {
-      *st = Status::Invalid("overflow");
+    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(a, b, &out))) {
+      if (kChecked) {
+        *st = Status::Invalid("overflow");
+      }
+      return static_cast<int64_t>(static_cast<uint64_t>(a) - static_cast<uint64_t>(b));
     }
     return out;
   }
