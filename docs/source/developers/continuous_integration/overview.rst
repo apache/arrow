@@ -53,7 +53,8 @@ The ``.yml`` files in ``.github/workflows`` are workflows which are run on GitHu
   - ``@github-actions crossbow submit ...`` - runs the specified Crossbow command
   - ``@github-actions rebase`` - rebases the PR onto the main branch
 - ``dev.yml`` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
-- ``dev_pr.yml`` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds assignee to the appropriate GitHub issue if needed (or adds a comment requesting the user to include the issue id in the title), and adds any relevant GitHub labels
+
+PR housekeeping (component labels, PR title validation and the GitHub issue link in the PR description) is handled by the `Boring Cyborg <https://github.com/kaxil/boring-cyborg>`_ GitHub App, configured in ``.github/boring-cyborg.yml``.
 
 Extended builds
 -----------------------
