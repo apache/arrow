@@ -216,14 +216,15 @@ Expression$op <- function(FUN, ..., args = list(...)) {
     }
     return(out)
   } else if (FUN == "%%") {
-    # Prefer `modulo` over rewriting through `%/%` (which goes via float64).
-    int_type_ids <- Type[toupper(INTEGER_TYPES)]
-    is_int <- function(x) {
+    # Prefer `modulo` for exact types over rewriting through `%/%`, which goes
+    # via float64 and loses int64/decimal precision.
+    exact_type_ids <- .exact_arithmetic_type_ids()
+    is_exact <- function(x) {
       is.integer(x) ||
-        (inherits(x, "ArrowObject") && x$type_id() %in% int_type_ids)
+        (inherits(x, "ArrowObject") && x$type_id() %in% exact_type_ids)
     }
 
-    if (is_int(args[[1]]) && is_int(args[[2]])) {
+    if (is_exact(args[[1]]) && is_exact(args[[2]])) {
       if (inherits(args[[1]], "ArrowObject")) {
         out_type <- args[[1]]$type()
       } else {
@@ -250,7 +251,7 @@ Expression$op <- function(FUN, ..., args = list(...)) {
         rem
       ))
     }
-    return(Expression$create("modulo", args = args))
+    return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
   }
 
   Expression$create(.operator_map[[FUN]], args = args)

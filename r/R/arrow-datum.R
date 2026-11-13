@@ -201,14 +201,14 @@ eval_array_expression <- function(FUN, ..., args = list(...), options = empty_na
       return(eval_array_expression("floor", out))
     }
   } else if (FUN == "%%") {
-    # Use Arrow's floored `modulo` kernel (R `%%` / Python `%` semantics) so
-    # int64 and decimal keep their native precision. The previous rewrite via
-    # `%/%` cast both sides through float64.
-    int_type_ids <- Type[toupper(INTEGER_TYPES)]
-    numerator_is_int <- args[[1]]$type_id() %in% int_type_ids
-    denominator_is_int <- args[[2]]$type_id() %in% int_type_ids
+    # Use Arrow's floored `modulo` kernel (R `%%` / Python `%` semantics) for
+    # exact types so int64 and decimal keep their native precision. The rewrite
+    # below casts both sides through float64, which loses that precision.
+    exact_type_ids <- .exact_arithmetic_type_ids()
+    numerator_is_exact <- args[[1]]$type_id() %in% exact_type_ids
+    denominator_is_exact <- args[[2]]$type_id() %in% exact_type_ids
 
-    if (numerator_is_int && denominator_is_int) {
+    if (numerator_is_exact && denominator_is_exact) {
       # `modulo` errors on divide-by-zero; R returns NA for integer `%% 0`.
       # Replace zero divisors before calling the kernel, then restore NA.
       zero <- eval_array_expression("equal", args[[2]], 0L)
@@ -226,7 +226,15 @@ eval_array_expression <- function(FUN, ..., args = list(...), options = empty_na
         rem
       ))
     }
-    return(call_function("modulo", args = args))
+    # We can't simply do {e1 - e2 * ( e1 %/% e2 )} since Ops.Array evaluates
+    # eagerly, but we can build that up. Floating-point `%%` therefore keeps
+    # R's float division semantics, and the result keeps the numerator's type.
+    quotient <- eval_array_expression("%/%", args = args)
+    base <- eval_array_expression("*", quotient, args[[2]])
+    # this cast is to ensure that the result of this and e1 are the same
+    # (autocasting only applies to scalars)
+    base <- base$cast(args[[1]]$type)
+    return(eval_array_expression("-", args[[1]], base))
   }
 
   call_function(
@@ -241,6 +249,18 @@ eval_array_expression <- function(FUN, ..., args = list(...), options = empty_na
     arg <- Scalar$create(arg)
   }
   arg
+}
+
+# Type ids whose values are exact integers, so `%/%` and `%%` can use Arrow's
+# integer/decimal kernels instead of dividing through float64.
+.exact_arithmetic_type_ids <- function() {
+  Type[c(
+    toupper(INTEGER_TYPES),
+    "DECIMAL32",
+    "DECIMAL64",
+    "DECIMAL128",
+    "DECIMAL256"
+  )]
 }
 
 #' @export
