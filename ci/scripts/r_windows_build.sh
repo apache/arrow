@@ -265,6 +265,12 @@ done
 # every library that needs Winsock etc. must come before -lws2_32, and
 # pkg-config's own ordering doesn't guarantee that (Rtools43's libcurl.pc
 # lists -lcrypto after the last -lws2_32).
+#
+# libcurl.pc repeats libraries, and with static linking a library must come
+# after everything that needs it, so when removing the duplicates keep the
+# last occurrence of each flag, not the first (Rtools45's libcurl.pc has -lz
+# and -lunistring both before and after the -lcrypto and -lpsl that need
+# them).
 CURL_LIBS=""
 CURL_SYS_LIBS=""
 while read -r flag; do
@@ -284,7 +290,9 @@ while read -r flag; do
   esac
   CURL_LIBS="${CURL_LIBS} ${flag}"
 done < <(grep -E '^Libs(\.private)?:' "${TOOLCHAIN}/lib/pkgconfig/libcurl.pc" |
-  grep -o -E '\-l[A-Za-z0-9_+.-]+' | awk '!seen[$0]++')
+  grep -o -E '\-l[A-Za-z0-9_+.-]+' |
+  awk '{ flag[NR] = $0; last[$0] = NR }
+       END { for (i = 1; i <= NR; i++) if (last[flag[i]] == i) print flag[i] }')
 case " ${CURL_LIBS} " in
   *" -lcurl "*) ;;
   *)
