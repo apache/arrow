@@ -33,8 +33,34 @@ committer.
 
 ## How to Merge a Pull Request
 
-Please don't merge PRs using the GitHub Web interface. Instead, run
-the following command:
+Use the "Squash and merge" button of the GitHub Web interface. Before
+you merge, check that:
+
+* The pull request title is what you want as the commit title:
+  `GH-XXX: [Component] Title` or `MINOR: [Component] Title`. The
+  merge is blocked by the "PR Title" status of the Boring Cyborg app
+  (`.github/boring-cyborg.yml`) unless the title starts with `GH-XXX`
+  or `MINOR: `.
+* The pull request description is what you want as the commit
+  message. Remove leftovers of the pull request template in the
+  merge dialog if needed. You must remove CI directives such as
+  `[skip ci]`: GitHub doesn't run the workflow below for a commit
+  with them and you need to close the issue manually.
+
+After the merge, the "Dev PR merged" GitHub Actions workflow assigns
+the issue `GH-XXX` to the pull request author if it isn't assigned to
+anyone, sets its milestone, closes it and comments which pull request
+resolved the issue. The milestone is the milestone of the pull request:
+set it before you merge if the pull request isn't released in the next
+major release. If the pull request doesn't have a milestone, the
+milestone of the issue is kept or the next major release is used. This
+is only done for pull requests to `main`.
+
+### Merge script
+
+The merge script is still available for now. It additionally adds
+`Authored-by:`, `Co-authored-by:` and `Signed-off-by:` trailers to the
+commit message. Run the following command:
 
 ```bash
 dev/merge_arrow_pr.sh
