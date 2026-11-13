@@ -3747,10 +3747,17 @@ function(build_google_cloud_cpp_storage)
   find_program(PATCH patch)
   if(MINGW)
     include(CheckCXXSymbolExists)
+    include(CMakePushCheckState)
+    cmake_push_check_state()
+    # MinGW-w64 headers that have these macros only define them for
+    # Windows 10+, so check with the same _WIN32_WINNT that google-cloud-cpp
+    # is built with below.
+    list(APPEND CMAKE_REQUIRED_DEFINITIONS -D_WIN32_WINNT=0x0A01)
     check_cxx_symbol_exists(BCRYPT_RSA_ALG_HANDLE "windows.h;bcrypt.h"
                             ARROW_HAVE_BCRYPT_RSA_HANDLE)
     check_cxx_symbol_exists(BCRYPT_MD5_ALG_HANDLE "windows.h;bcrypt.h"
                             ARROW_HAVE_BCRYPT_MD5_HANDLE)
+    cmake_pop_check_state()
   endif()
   if(MINGW AND NOT (ARROW_HAVE_BCRYPT_RSA_HANDLE AND ARROW_HAVE_BCRYPT_MD5_HANDLE))
     # This is for the MinGW-w64 headers in RTools 40 to 45.
