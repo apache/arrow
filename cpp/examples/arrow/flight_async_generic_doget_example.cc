@@ -15,15 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifdef _WIN32
-#  include <windows.h>
-#else
-#  include <unistd.h>
-#endif
 #include <csignal>
-#if defined(__linux__)
-#  include <sys/prctl.h>
-#endif
 
 #include <chrono>
 #include <condition_variable>
@@ -73,15 +65,6 @@ DEFINE_int32(batch_delay_ms, 50,
 DEFINE_bool(demo, false, "Run the DoGet self-check against the server, then exit");
 
 namespace flight = arrow::flight;
-
-/// \brief The current process' id, portably.
-int64_t CurrentPid() {
-#ifdef _WIN32
-  return static_cast<int64_t>(::GetCurrentProcessId());
-#else
-  return static_cast<int64_t>(::getpid());
-#endif
-}
 
 /// \brief A reader with `num_batches` batches of three int64 values.
 class BatchReader : public arrow::RecordBatchReader {
@@ -133,15 +116,6 @@ struct WorkerState {
 /// \brief The worker: wait for a payload request, sleep delay_ms, produce it,
 /// complete the future the transport holds.
 void RunWorker(std::shared_ptr<WorkerState> state) {
-#if defined(__linux__)
-  // Name the thread, so /proc/<pid>/task/*/comm distinguishes this server's own
-  // per-stream workers (doget_worker) from gRPC's pool threads (event_engine /
-  // lifeguard / grpc_global_timer).  Thread names are inherited, and gRPC names
-  // its threads, so an anonymous thread created from a gRPC callback would
-  // otherwise show up as another "event_engine".  comm is capped at 15
-  // characters.
-  prctl(PR_SET_NAME, "doget_worker", 0, 0, 0);
-#endif
   std::unique_lock<std::mutex> lock(state->mutex);
   while (!state->closed) {
     state->ready.wait(lock, [&] { return state->has_pending || state->closed; });
@@ -292,39 +266,22 @@ class ExampleServer : public flight::AsyncGenericFlightServerBase {
 };
 
 /// \brief The --demo self-check: drain one DoGet stream and count its batches.
-bool RunDemo(int port) {
-  auto location = flight::Location::ForGrpcTcp("127.0.0.1", port);
-  if (!location.ok()) {
-    std::cerr << "Failed to build client location: " << location.status() << std::endl;
-    return false;
-  }
-  auto client = flight::FlightClient::Connect(*location);
-  if (!client.ok()) {
-    std::cerr << "Failed to connect: " << client.status() << std::endl;
-    return false;
-  }
-  auto reader = (*client)->DoGet(flight::Ticket("demo"));
-  if (!reader.ok()) {
-    std::cerr << "DoGet failed: " << reader.status() << std::endl;
-    return false;
-  }
+arrow::Status RunDemo(int port) {
+  ARROW_ASSIGN_OR_RAISE(auto location, flight::Location::ForGrpcTcp("127.0.0.1", port));
+  ARROW_ASSIGN_OR_RAISE(auto client, flight::FlightClient::Connect(location));
+  ARROW_ASSIGN_OR_RAISE(auto reader, client->DoGet(flight::Ticket("demo")));
   int64_t num_batches = 0;
   while (true) {
-    auto chunk = (*reader)->Next();
-    if (!chunk.ok()) {
-      std::cerr << "DoGet drain failed: " << chunk.status() << std::endl;
-      return false;
-    }
-    if (chunk->data == nullptr) break;  // end of stream
+    ARROW_ASSIGN_OR_RAISE(auto chunk, reader->Next());
+    if (chunk.data == nullptr) break;  // end of stream
     ++num_batches;
   }
-  if (num_batches == FLAGS_batches) {
-    std::cout << "PASS: DoGet streamed " << num_batches << " batches" << std::endl;
-    return true;
+  if (num_batches != FLAGS_batches) {
+    return arrow::Status::Invalid("DoGet streamed ", num_batches, " batches, expected ",
+                                  FLAGS_batches);
   }
-  std::cout << "FAIL: DoGet streamed " << num_batches << " batches, expected "
-            << FLAGS_batches << std::endl;
-  return false;
+  std::cout << "PASS: DoGet streamed " << num_batches << " batches" << std::endl;
+  return arrow::Status::OK();
 }
 
 int main(int argc, char** argv) {
@@ -350,13 +307,16 @@ int main(int argc, char** argv) {
     return EXIT_FAILURE;
   }
   std::cout << "Serving Flight on " << server.location().ToString() << std::endl;
-  std::cout << "Server pid " << CurrentPid() << ", port " << server.port() << std::endl;
 
   if (FLAGS_demo) {
-    bool ok = RunDemo(server.port());
+    status = RunDemo(server.port());
     ARROW_WARN_NOT_OK(server.Shutdown(), "Error shutting down server");
     ARROW_WARN_NOT_OK(server.Wait(), "Error waiting for server shutdown");
-    return ok ? EXIT_SUCCESS : EXIT_FAILURE;
+    if (!status.ok()) {
+      std::cout << "FAIL: " << status.ToString() << std::endl;
+      return EXIT_FAILURE;
+    }
+    return EXIT_SUCCESS;
   }
 
   status = server.SetShutdownOnSignals({SIGINT, SIGTERM});
