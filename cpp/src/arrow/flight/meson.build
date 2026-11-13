@@ -124,11 +124,8 @@ if has_async_server
         'transport/grpc/async_grpc_exchange_writer.cc',
         'transport/grpc/async_grpc_handshake.cc',
         'transport/grpc/async_grpc_streaming.cc',
-        'transport/grpc/async_grpc_unary.cc',
     ]
 endif
-
-
 
 thread_dep = dependency('threads')
 

@@ -28,6 +28,7 @@ namespace arrow::flight::transport::grpc {
 namespace {
 
 namespace detail = arrow::flight::transport::grpc::detail;
+namespace pb = arrow::flight::protocol;
 
 constexpr std::string_view kPrefix = "/arrow.flight.protocol.FlightService/";
 constexpr std::string_view kHandshakeMethod = "Handshake";
@@ -110,11 +111,23 @@ AsyncGenericFlightService::AsyncGenericFlightService(
       }
       return detail::MakeHandshakeReactor(std::move(flight_context), handshake_handler_);
     case FlightMethod::GetFlightInfo:
-      return detail::MakeGetFlightInfoReactor(std::move(flight_context), base_);
+      return new detail::UnaryReactor<FlightInfo, pb::FlightInfo>(
+          std::move(flight_context), [base = base_](const ServerCallContext& context,
+                                                    const FlightDescriptor& descriptor) {
+            return base->GetFlightInfoAsync(context, descriptor);
+          });
     case FlightMethod::GetSchema:
-      return detail::MakeGetSchemaReactor(std::move(flight_context), base_);
+      return new detail::UnaryReactor<SchemaResult, pb::SchemaResult>(
+          std::move(flight_context), [base = base_](const ServerCallContext& context,
+                                                    const FlightDescriptor& descriptor) {
+            return base->GetSchemaAsync(context, descriptor);
+          });
     case FlightMethod::PollFlightInfo:
-      return detail::MakePollFlightInfoReactor(std::move(flight_context), base_);
+      return new detail::UnaryReactor<PollInfo, pb::PollInfo>(
+          std::move(flight_context), [base = base_](const ServerCallContext& context,
+                                                    const FlightDescriptor& descriptor) {
+            return base->PollFlightInfoAsync(context, descriptor);
+          });
     case FlightMethod::ListActions:
       return detail::MakeListActionsReactor(std::move(flight_context), base_);
     case FlightMethod::DoAction:

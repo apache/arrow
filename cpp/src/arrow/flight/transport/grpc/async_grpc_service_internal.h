@@ -255,14 +255,61 @@ class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
   inline static std::atomic<int64_t> live_reactors_{0};
 };
 
+/// \brief A unary RPC: read one FlightDescriptor, write the handler's response.
+///
+/// T is the type of the response object, and PbT is the corresponding protobuf type.
+template <typename T, typename PbT>
+class UnaryReactor final : public AsyncReactorBase {
+ public:
+  using HandlerFn = std::function<arrow::Future<std::shared_ptr<T>>(
+      const ServerCallContext&, const FlightDescriptor&)>;
+
+  UnaryReactor(AsyncCallContext flight_context, HandlerFn handler)
+      : AsyncReactorBase(std::move(flight_context)), handler_(std::move(handler)) {
+    StartRead(&request_buf_);
+  }
+
+  void OnReadDone(bool ok) override {
+    if (!ok) {
+      FinishOnce(MakeFlightError(FlightStatusCode::Internal, "Failed to read request"));
+      return;
+    }
+    const auto descriptor = ParseProtoRequest<pb::FlightDescriptor, FlightDescriptor>(
+        request_buf_, "FlightDescriptor");
+    if (!descriptor.ok()) {
+      FinishOnce(descriptor.status());
+      return;
+    }
+    arrow::Future<std::shared_ptr<T>> future = handler_(flight_context(), *descriptor);
+    future.AddCallback(
+        [this, token = hold()](const arrow::Result<std::shared_ptr<T>>& result) mutable {
+          if (!result.ok()) {
+            FinishOnce(result.status());
+            return;
+          }
+          PbT response;
+          const auto status = SerializeOrNotFound(*result, &response);
+          if (!status.ok()) {
+            FinishOnce(status);
+            return;
+          }
+          write_buf_ = MakeWriteBuffer(response);
+          WriteIfLive([this] { StartWrite(&write_buf_); });
+        });
+  }
+
+  void OnWriteDone(bool ok) override {
+    FinishOnce(
+        ok ? arrow::Status::OK()
+           : MakeFlightError(FlightStatusCode::Internal, "Failed to write response"));
+  }
+
+ private:
+  HandlerFn handler_;
+};
+
 ::grpc::ServerGenericBidiReactor* MakeHandshakeReactor(AsyncCallContext flight_context,
                                                        HandshakeFn handshake_handler);
-::grpc::ServerGenericBidiReactor* MakeGetFlightInfoReactor(
-    AsyncCallContext flight_context, AsyncGenericFlightServerBase* base);
-::grpc::ServerGenericBidiReactor* MakeGetSchemaReactor(
-    AsyncCallContext flight_context, AsyncGenericFlightServerBase* base);
-::grpc::ServerGenericBidiReactor* MakePollFlightInfoReactor(
-    AsyncCallContext flight_context, AsyncGenericFlightServerBase* base);
 ::grpc::ServerGenericBidiReactor* MakeDoGetReactor(AsyncCallContext flight_context,
                                                    AsyncGenericFlightServerBase* base);
 ::grpc::ServerGenericBidiReactor* MakeDoPutReactor(
