@@ -205,7 +205,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-        - { rtools: 40, arch: 'ucrt64' }
+        - { rtools: 45, arch: 'ucrt64' }
     steps:
       - run: git config --global core.autocrlf false
       - name: Checkout Arrow
@@ -213,30 +213,16 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Setup ccache
-        shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
-          echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
-      - name: Cache ccache
-        uses: actions/cache@v6
-        with:
-          path: ccache
-          key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
-          restore-keys: |
-            r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-
-            r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-
       - uses: r-lib/actions/setup-r@v2
         with:
-          # Note: we need Rtools40 here because Rtools40 + ucrt is how we build the Arrow C++
-          # static library. R itself is not used, but setup-r picks the Rtools version from
-          # r-version, and R 4.1 was the last R to use Rtools40, so this must stay at 4.1.
-          r-version: "4.1"
+          # R itself is not used here, but setup-r picks the Rtools version
+          # from r-version. R 4.5 gets Rtools45, which is what builds the
+          # Arrow C++ static library, so this must stay at 4.5.
+          r-version: "4.5"
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
         env:
-          MINGW_ARCH: ${{ matrix.config.arch }}
           RTOOLS_VERSION: ${{ matrix.config.rtools }}
         run: ci/scripts/r_windows_build.sh
       - name: Rename libarrow.zip
@@ -283,14 +269,15 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: |
-          # RTools 40 uses GCC 8.x which does not support C++20 chrono timezones,
-          # so Arrow uses the vendored date library which requires tzdata
+          # The R libarrow is built with ARROW_USE_STD_CHRONO=0 (see
+          # ci/scripts/r_windows_build.sh), so Arrow uses the vendored date
+          # library, which requires tzdata
           ci/scripts/download_tz_database.sh
       - run: mkdir r/windows
       - name: Download artifacts
         uses: actions/download-artifact@v8
         with:
-          name: libarrow-rtools40-ucrt64.zip
+          name: libarrow-rtools45-ucrt64.zip
           path: r/windows
       - name: Unzip and rezip libarrows
         shell: bash

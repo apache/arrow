@@ -79,6 +79,27 @@ function configure_binaries() {
     RWINLIB="../windows/$(ls windows/ | grep ^r-libarrow- | tail -n 1)"
   fi
 
+  # The libarrow zip has one of two layouts, depending on which flow in
+  # ci/scripts/r_windows_build.sh built it:
+  #
+  # * Rtools40 (ci/scripts/PKGBUILD): snappy, utf8proc and re2 are separate
+  #   libraries in the zip, and cURL's link dependencies are the fixed
+  #   GCS_LIBS above.
+  # * Rtools42 or later: snappy, utf8proc and re2 are built as part of
+  #   arrow_bundled_dependencies, so they aren't linked separately. cURL's
+  #   link dependencies depend on which Rtools built the zip, so they are
+  #   recorded in libcurl.libs in the zip. -ldbghelp is for google-cloud-cpp.
+  #   The Rtools Brotli libraries are never included: cURL's Brotli symbols
+  #   come from the bundled Brotli in arrow_bundled_dependencies (GH-55165).
+  UTF8PROC_SNAPPY_LIBS="-lutf8proc -lsnappy"
+  RE2_LIBS="-lre2"
+  CURL_LIBS_FILE="${RWINLIB#../}/lib/x64-ucrt/libcurl.libs"
+  if [ -f "${CURL_LIBS_FILE}" ]; then
+    UTF8PROC_SNAPPY_LIBS=""
+    RE2_LIBS=""
+    GCS_LIBS="$(cat "${CURL_LIBS_FILE}") -ldbghelp"
+  fi
+
   # NOTE: If you make changes to the libraries below, you should also change
   # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
   PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DARROW_COMPUTE_STATIC -DPARQUET_STATIC \
@@ -90,8 +111,8 @@ function configure_binaries() {
   PKG_LIBS="$PKG_LIBS -L${RWINLIB}/lib"'$(R_ARCH)$(CRT) '
   PKG_LIBS="$PKG_LIBS -larrow_dataset -larrow_acero -lparquet -larrow_compute -larrow_s3 \
             -larrow_gcs -larrow -larrow_bundled_dependencies \
-            -lutf8proc -lsnappy -lz -lzstd -llz4 -lbz2 -lole32 \
-            ${MIMALLOC_LIBS} ${OPENSSL_LIBS} -lre2 ${AWS_LIBS} ${GCS_LIBS}" # ${AZURE_LIBS}
+            ${UTF8PROC_SNAPPY_LIBS} -lz -lzstd -llz4 -lbz2 -lole32 \
+            ${MIMALLOC_LIBS} ${OPENSSL_LIBS} ${RE2_LIBS} ${AWS_LIBS} ${GCS_LIBS}" # ${AZURE_LIBS}
 
 }
 

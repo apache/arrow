@@ -55,10 +55,21 @@
 // On non-Windows, we use the vendored date library due to a GCC libstdc++ bug
 // where DST state is incorrectly reset during timezone rule transitions.
 // See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
-#if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
-#  define ARROW_USE_STD_CHRONO 1
-#else
-#  define ARROW_USE_STD_CHRONO 0
+//
+// The selection can be overridden by defining ARROW_USE_STD_CHRONO on the
+// command line (e.g. via ARROW_CXXFLAGS). The R package's Windows build sets
+// it to 0 because the R package provides the time zone database through
+// arrow::Initialize(), which only the vendored date library honours.
+#ifndef ARROW_USE_STD_CHRONO
+#  if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
+#    define ARROW_USE_STD_CHRONO 1
+#  else
+#    define ARROW_USE_STD_CHRONO 0
+#  endif
+#endif
+
+#if ARROW_USE_STD_CHRONO && !(defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L)
+#  error "ARROW_USE_STD_CHRONO=1 requires C++20 chrono time zone support"
 #endif
 
 #if ARROW_USE_STD_CHRONO
