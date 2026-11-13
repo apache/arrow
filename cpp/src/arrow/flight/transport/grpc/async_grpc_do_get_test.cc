@@ -21,18 +21,12 @@ namespace arrow::flight::transport::grpc {
 
 TEST(AsyncGrpcTest, BasicDoGet) {
   TestFlightServer flight_server;
-  AsyncGenericFlightService service(&flight_server, MakeAsyncHelper());
-
-  int port = 0;
-  ::grpc::ServerBuilder builder;
-  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
-  builder.RegisterCallbackGenericService(&service);
-  auto server = builder.BuildAndStart();
-  ASSERT_NE(server, nullptr);
-  ASSERT_NE(port, 0);
+  HandBuiltServer hand_built = StartHandBuilt(&flight_server);
+  ASSERT_NE(hand_built.server, nullptr);
+  ASSERT_NE(hand_built.port, 0);
 
   // Connect the existing arrow::flight::FlightClient implementation.
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(hand_built.port));
 
   // Call DoGet: the ticket must reach TestFlightServer::DoGetAsync.
   Ticket ticket{"basic-do-get-ticket"};
@@ -59,25 +53,19 @@ TEST(AsyncGrpcTest, BasicDoGet) {
   // Cleanup. The ticket is asserted only after the server stopped, so the
   // DoGet callback cannot race with the read.
   ASSERT_OK(client->Close());
-  server->Shutdown();
-  server->Wait();
+  hand_built.server->Shutdown();
+  hand_built.server->Wait();
 
   ASSERT_EQ(flight_server.ticket(), "basic-do-get-ticket");
 }
 
 TEST(AsyncGrpcTest, SchemaOnlyDoGet) {
   TestFlightServer flight_server;
-  AsyncGenericFlightService service(&flight_server, MakeAsyncHelper());
+  HandBuiltServer hand_built = StartHandBuilt(&flight_server);
+  ASSERT_NE(hand_built.server, nullptr);
+  ASSERT_NE(hand_built.port, 0);
 
-  int port = 0;
-  ::grpc::ServerBuilder builder;
-  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
-  builder.RegisterCallbackGenericService(&service);
-  auto server = builder.BuildAndStart();
-  ASSERT_NE(server, nullptr);
-  ASSERT_NE(port, 0);
-
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(hand_built.port));
 
   // This ticket is served as a stream with no batches at all.
   Ticket ticket{kSchemaOnlyTicket};
@@ -96,8 +84,8 @@ TEST(AsyncGrpcTest, SchemaOnlyDoGet) {
   // Cleanup. The ticket is asserted only after the server stopped, so the
   // DoGet callback cannot race with the read.
   ASSERT_OK(client->Close());
-  server->Shutdown();
-  server->Wait();
+  hand_built.server->Shutdown();
+  hand_built.server->Wait();
 
   ASSERT_EQ(flight_server.ticket(), kSchemaOnlyTicket);
 }
@@ -197,18 +185,12 @@ TEST(AsyncGrpcTest, DoGetClientCancelWithPendingPayloadFinishes) {
 
   reader->Cancel();
   reader.reset();
-  ASSERT_OK(client->Close());
-
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   // The producer was told to stop, exactly once.
   EXPECT_EQ(1, flight_server.stream_closes.load());
   // And the reactor is gone even though its payload future never completed.
-  EXPECT_TRUE(WaitFor([&] {
-    return detail::AsyncReactorBase::live_reactors() == before;
-  })) << "a reactor leaked: still alive after the server stopped (before="
-      << before << ", now=" << detail::AsyncReactorBase::live_reactors() << ")";
+  ExpectNoReactorLeak(before);
   // And the call reported completion exactly once (the CAS in FinishOnce).
   std::lock_guard<std::mutex> guard(trace->mutex);
   EXPECT_EQ(1, trace->call_completed);
@@ -233,9 +215,7 @@ TEST(AsyncGrpcTest, DoGetClientDeadlineWhilePreparingFinishes) {
   auto reader = client->DoGet(impatient, Ticket{"hang"});
   EXPECT_FALSE(reader.ok()) << "the deadline must expire while the server prepares";
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   EXPECT_EQ(0, flight_server.stream_closes.load())
       << "no stream was ever prepared, so there is nothing to Close";
@@ -328,16 +308,11 @@ TEST(AsyncGrpcTest, DoGetCancelCallbackReachesPendingHandler) {
   EXPECT_EQ(0, flight_server.next_awaits.load())
       << "a stream that arrives after the RPC ended must not be read from";
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   EXPECT_EQ(1, flight_server.cancel_callbacks.load())
       << "the cancel callback must run exactly once";
-  EXPECT_TRUE(WaitFor([&] {
-    return detail::AsyncReactorBase::live_reactors() == before;
-  })) << "a reactor leaked: still alive after the server stopped (before="
-      << before << ", now=" << detail::AsyncReactorBase::live_reactors() << ")";
+  ExpectNoReactorLeak(before);
 }
 
 /// A DoGet stream asked for its schema while the RPC dies: GetSchemaPayloadAsync()
@@ -426,19 +401,14 @@ TEST(AsyncGrpcTest, DoGetNeverClosesAStreamItIsAskingForAPayload) {
   EXPECT_FALSE(client->DoGet(impatient, Ticket{"slow-schema"}).ok())
       << "the deadline must expire while the stream is asked for its schema";
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   EXPECT_FALSE(flight_server.closed_while_asked.load())
       << "Close() ran while the transport was inside GetSchemaPayloadAsync()";
   EXPECT_EQ(0, flight_server.asked_after_close.load())
       << "the stream was asked for a payload after Close()";
   EXPECT_EQ(1, flight_server.closes.load()) << "Close() must be delivered exactly once";
-  EXPECT_TRUE(WaitFor([&] {
-    return detail::AsyncReactorBase::live_reactors() == before;
-  })) << "a reactor leaked: still alive after the server stopped (before="
-      << before << ", now=" << detail::AsyncReactorBase::live_reactors() << ")";
+  ExpectNoReactorLeak(before);
 }
 
 /// A DoGet stream whose first payload is an error: the transport must fail the
@@ -506,9 +476,7 @@ TEST(AsyncGrpcTest, DoGetPumpErrorStillClosesTheStream) {
     }
   }
   reader.reset();
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   EXPECT_EQ(1, flight_server.stream_closes.load())
       << "the producer was never told the RPC is over";

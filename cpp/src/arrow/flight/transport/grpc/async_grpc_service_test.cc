@@ -39,22 +39,16 @@ TEST(AsyncGrpcTest, MiddlewareCallCompletedRunsOnUnknownMethod) {
           /*auth_handler=*/nullptr,
           MiddlewareFactoryList{
               {"recording", std::make_shared<RecordingServerMiddlewareFactory>(trace)}});
-  AsyncGenericFlightService service(&flight_server, helper);
+  HandBuiltServer hand_built = StartHandBuilt(&flight_server, helper);
+  ASSERT_NE(hand_built.server, nullptr);
+  ASSERT_NE(hand_built.port, 0);
 
-  int port = 0;
-  ::grpc::ServerBuilder builder;
-  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
-  builder.RegisterCallbackGenericService(&service);
-  auto server = builder.BuildAndStart();
-  ASSERT_NE(server, nullptr);
-  ASSERT_NE(port, 0);
-
-  const ::grpc::Status status = CallUnknownMethod(port);
+  const ::grpc::Status status = CallUnknownMethod(hand_built.port);
   ASSERT_EQ(::grpc::StatusCode::UNIMPLEMENTED, status.error_code())
       << status.error_message();
 
-  server->Shutdown();
-  server->Wait();
+  hand_built.server->Shutdown();
+  hand_built.server->Wait();
 
   std::lock_guard<std::mutex> guard(trace->mutex);
   EXPECT_EQ(1, trace->start_call) << "the middleware must have started for the call";
@@ -62,40 +56,7 @@ TEST(AsyncGrpcTest, MiddlewareCallCompletedRunsOnUnknownMethod) {
       << "CallCompleted must run for an UNIMPLEMENTED reply too";
 }
 
-TEST(AsyncGrpcTest, OtherMethodsAreUnimplemented) {
-  TestFlightServer flight_server;
-  auto listener = std::make_shared<RecordingListener>();
-  flight_server.set_listener(listener);
-  AsyncGenericFlightService service(&flight_server, MakeAsyncHelper());
-
-  int port = 0;
-  ::grpc::ServerBuilder builder;
-  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
-  builder.RegisterCallbackGenericService(&service);
-  auto server = builder.BuildAndStart();
-  ASSERT_NE(server, nullptr);
-  ASSERT_NE(port, 0);
-
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
-
-  // Every typed FlightService method is served now, the fallback reactor is
-  // still reachable through a method name no stub knows (which maps to
-  // FlightMethod::Invalid in MethodFromName), and that is the only pin left
-  // that an unknown method cannot be answered by a typed path.
-  const ::grpc::Status status = CallUnknownMethod(port);
-  ASSERT_FALSE(status.ok()) << "an unknown method must not be served";
-  ASSERT_EQ(::grpc::StatusCode::UNIMPLEMENTED, status.error_code())
-      << status.error_message();
-
-  ASSERT_OK(client->Close());
-  server->Shutdown();
-  server->Wait();
-}
-
 TEST(AsyncGrpcTest, UseAsyncGrpcFlag) {
-  ASSERT_OK_AND_ASSIGN(auto default_location, Location::Parse(kServerUri));
-  FlightServerOptions default_options(default_location);
-
   // Same adapter as the tests above, but now started through the async
   // server's own Init instead of a hand-built grpc::ServerBuilder.
   TestFlightServer flight_server;
@@ -145,57 +106,9 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlag) {
 
   // Cleanup. The ticket is asserted only after the server stopped, so the
   // DoGet callback cannot race with the read.
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   ASSERT_EQ(flight_server.ticket(), "flag-path-do-get-ticket");
-}
-
-TEST(AsyncGrpcTest, UseAsyncGrpcFlagServesDoPut) {
-  // The async server serves uploads because the server class hands out the
-  // per-RPC listener through CreateDoPutListener(), instead of the RPC falling
-  // through to UNIMPLEMENTED.
-  TestFlightServer flight_server;
-  auto listener = std::make_shared<RecordingListener>();
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
-  FlightServerOptions options(location);
-  flight_server.set_listener(listener);
-  ASSERT_OK(flight_server.Init(options));
-  ASSERT_GT(flight_server.port(), 0);
-
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
-
-  auto schema = arrow::schema(
-      {arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64())});
-  auto batch =
-      arrow::RecordBatch::Make(schema, 3,
-                               {arrow::ArrayFromJSON(arrow::int64(), "[1, 2, 3]"),
-                                arrow::ArrayFromJSON(arrow::int64(), "[10, 20, 30]")});
-
-  const FlightDescriptor descriptor = FlightDescriptor::Path({"wave", "h2"});
-  auto [surface, status] = UploadOneBatch(client.get(), descriptor, schema, batch);
-  ASSERT_TRUE(status.ok()) << "upload failed on " << surface << ": " << status;
-
-  // Cleanup before looking at the listener: its callbacks run on a gRPC
-  // thread, and nothing may read the recordings while that thread writes.
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
-
-  // The listener saw the descriptor the client sent, the schema, and the batch.
-  ASSERT_EQ(listener->descriptor_count(), 1);
-  ASSERT_EQ(listener->descriptors()[0], descriptor);
-  ASSERT_EQ(listener->schema_count(), 1);
-  ASSERT_EQ(listener->schema()->num_fields(), 2);
-  ASSERT_EQ(listener->schema()->field(0)->name(), "a");
-  ASSERT_EQ(listener->schema()->field(1)->name(), "b");
-  ASSERT_EQ(listener->batches().size(), 1);
-  const std::shared_ptr<arrow::RecordBatch> chunk = listener->batches()[0];
-  ASSERT_EQ(chunk->num_rows(), 3);
-  ASSERT_EQ(chunk->num_columns(), 2);
-  ASSERT_OK_AND_ASSIGN(auto value, chunk->column(0)->GetScalar(0));
-  ASSERT_TRUE(value->Equals(*arrow::MakeScalar(int64_t(1))));
 }
 
 TEST(AsyncGrpcTest, UseAsyncGrpcFlagRefusesBlockingAuthHandler) {
@@ -235,9 +148,7 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagAllowsMiddleware) {
     if (!chunk.data) break;
   }
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   std::lock_guard<std::mutex> guard(trace->mutex);
   EXPECT_EQ(1, trace->start_call);
@@ -258,9 +169,7 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagMiddlewareCanRejectCall) {
   EXPECT_FALSE(status.ok());
   EXPECT_THAT(status.ToString(), ::testing::HasSubstr("rejected by middleware"));
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 /// A ServerCallContext no async server handed out, as a synchronous

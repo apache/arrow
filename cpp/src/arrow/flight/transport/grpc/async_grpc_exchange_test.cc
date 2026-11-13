@@ -25,12 +25,6 @@
 
 namespace arrow::flight::transport::grpc {
 
-// ---------------------------------------------------------------------------
-// DoExchange: the bidirectional RPC. Its handler is DoExchangeAsync, which
-// awaits the reader's demand and each write before the next one, so reads and
-// writes are interleaved without blocking the callback thread.
-// ---------------------------------------------------------------------------
-
 TEST(AsyncGrpcTest, DoExchangeEchoesBatches) {
   // Two batches up, two batches back, in order: this is the case that needs a
   // read and a write outstanding at the same time.
@@ -67,9 +61,7 @@ TEST(AsyncGrpcTest, DoExchangeEchoesBatches) {
   ASSERT_OK(exchange.writer->Close());
 
   // Cleanup before looking at the recording: it was written on a gRPC thread.
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   ASSERT_EQ(1, flight_server.exchange_count());
   ASSERT_EQ(0, flight_server.exchanges_in_flight());
@@ -101,9 +93,7 @@ TEST(AsyncGrpcTest, DoExchangeMetadataOnlyDoesNotHang) {
   ASSERT_EQ(nullptr, end.data);
   ASSERT_OK(exchange.writer->Close());
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   ASSERT_EQ(1, flight_server.exchange_count());
   ASSERT_EQ(0, flight_server.exchanges_in_flight());
@@ -183,15 +173,9 @@ TEST(AsyncGrpcTest, DoExchangeClientCancelWithPendingHandlerFinishes) {
   exchange.reader->Cancel();
   exchange.writer.reset();
   exchange.reader.reset();
-  ASSERT_OK(client->Close());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
-
-  EXPECT_TRUE(WaitFor([&] {
-    return detail::AsyncReactorBase::live_reactors() == before;
-  })) << "a reactor leaked: still alive after the server stopped (before="
-      << before << ", now=" << detail::AsyncReactorBase::live_reactors() << ")";
+  ExpectNoReactorLeak(before);
 }
 
 }  // namespace arrow::flight::transport::grpc

@@ -25,12 +25,6 @@
 
 namespace arrow::flight::transport::grpc {
 
-// ---------------------------------------------------------------------------
-// The unary trio: GetFlightInfo, GetSchema and PollFlightInfo share the
-// UnaryReactor (one request in, one response out), so the trio has one
-// happy-path test each plus one error-path test that pins the base class.
-// ---------------------------------------------------------------------------
-
 TEST(AsyncGrpcTest, GetFlightInfoIsServedAsync) {
   TestFlightServer flight_server;
   FlightServerOptions options(LocalhostLocation());
@@ -45,9 +39,7 @@ TEST(AsyncGrpcTest, GetFlightInfoIsServedAsync) {
   ASSERT_EQ("value", schema->field(0)->name());
 
   // Cleanup before looking at the recording: it was written on a gRPC thread.
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   ASSERT_EQ("ping", flight_server.last_descriptor().cmd);
 }
@@ -66,9 +58,7 @@ TEST(AsyncGrpcTest, GetFlightInfoWithNullResponseIsNotFound) {
   ASSERT_RAISES(KeyError, status);
   ASSERT_THAT(status.message(), ::testing::HasSubstr("Flight not found"));
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, GetSchemaIsServedAsync) {
@@ -85,9 +75,7 @@ TEST(AsyncGrpcTest, GetSchemaIsServedAsync) {
   ASSERT_EQ("value", schema->field(0)->name());
 
   // Cleanup before looking at the recording: it was written on a gRPC thread.
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   ASSERT_EQ("ping", flight_server.last_descriptor().cmd);
 }
@@ -106,9 +94,7 @@ TEST(AsyncGrpcTest, PollFlightInfoIsServedAsync) {
   ASSERT_EQ("poll-next", poll_info->descriptor->cmd);
 
   // Cleanup before looking at the recording: it was written on a gRPC thread.
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   ASSERT_EQ("ping", flight_server.last_descriptor().cmd);
 }
@@ -140,14 +126,9 @@ TEST(AsyncGrpcTest, GetFlightInfoDeadlineWithPendingHandlerFinishes) {
       client->GetFlightInfo(impatient, FlightDescriptor::Command("hang")).status();
   EXPECT_FALSE(status.ok()) << "the deadline must expire while the handler hangs";
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
-  EXPECT_TRUE(WaitFor([&] {
-    return detail::AsyncReactorBase::live_reactors() == before;
-  })) << "a reactor leaked: still alive after the server stopped (before="
-      << before << ", now=" << detail::AsyncReactorBase::live_reactors() << ")";
+  ExpectNoReactorLeak(before);
 }
 
 TEST(AsyncGrpcTest, UnaryReactorPropagatesServerError) {
@@ -165,9 +146,7 @@ TEST(AsyncGrpcTest, UnaryReactorPropagatesServerError) {
   ASSERT_EQ(arrow::StatusCode::KeyError, status.code());
   ASSERT_THAT(status.message(), ::testing::HasSubstr("no such flight"));
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 TEST(AsyncGrpcTest, GetFlightInfoAsyncCompletesOnAnotherThread) {
@@ -207,9 +186,7 @@ TEST(AsyncGrpcTest, GetFlightInfoAsyncCompletesOnAnotherThread) {
   ASSERT_EQ(1, schema->num_fields());
   ASSERT_EQ("value", schema->field(0)->name());
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 }  // namespace arrow::flight::transport::grpc

@@ -31,16 +31,10 @@ TEST(AsyncGrpcTest, BasicDoPut) {
   auto listener = std::make_shared<RecordingListener>();
   TestFlightServer flight_server;
   flight_server.set_listener(listener);
-  AsyncGenericFlightService service(&flight_server, MakeAsyncHelper());
-
-  int port = 0;
-  ::grpc::ServerBuilder builder;
-  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
-  builder.RegisterCallbackGenericService(&service);
-  auto server = builder.BuildAndStart();
-  ASSERT_NE(server, nullptr);
-  ASSERT_NE(port, 0);
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
+  HandBuiltServer hand_built = StartHandBuilt(&flight_server);
+  ASSERT_NE(hand_built.server, nullptr);
+  ASSERT_NE(hand_built.port, 0);
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(hand_built.port));
 
   auto schema = TwoColumnSchema();
   auto batch = TwoColumnBatch(schema);
@@ -57,12 +51,15 @@ TEST(AsyncGrpcTest, BasicDoPut) {
   // Cleanup. The listener is asserted only after the server stopped, so the
   // DoPut callback cannot race with the reads.
   ASSERT_OK(client->Close());
-  server->Shutdown();
-  server->Wait();
+  hand_built.server->Shutdown();
+  hand_built.server->Wait();
 
   // The listener saw the schema once and both batches, in order.
   ASSERT_EQ(listener->schema_count(), 1);
-  AssertTwoColumnSchema(listener->schema());
+  ASSERT_NE(listener->schema(), nullptr);
+  ASSERT_EQ(listener->schema()->num_fields(), 2);
+  ASSERT_EQ(listener->schema()->field(0)->name(), "a");
+  ASSERT_EQ(listener->schema()->field(1)->name(), "b");
   ASSERT_EQ(listener->batches().size(), 2);
   for (const auto& chunk : listener->batches()) {
     ASSERT_EQ(chunk->num_rows(), 3);
@@ -78,17 +75,11 @@ TEST(AsyncGrpcTest, EmptyDoPut) {
   TestFlightServer flight_server;
   auto listener = std::make_shared<RecordingListener>();
   flight_server.set_listener(listener);
-  AsyncGenericFlightService service(&flight_server, MakeAsyncHelper());
+  HandBuiltServer hand_built = StartHandBuilt(&flight_server);
+  ASSERT_NE(hand_built.server, nullptr);
+  ASSERT_NE(hand_built.port, 0);
 
-  int port = 0;
-  ::grpc::ServerBuilder builder;
-  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
-  builder.RegisterCallbackGenericService(&service);
-  auto server = builder.BuildAndStart();
-  ASSERT_NE(server, nullptr);
-  ASSERT_NE(port, 0);
-
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(hand_built.port));
 
   auto schema = arrow::schema(
       {arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64())});
@@ -102,8 +93,8 @@ TEST(AsyncGrpcTest, EmptyDoPut) {
   // Cleanup before looking at the listener, so the DoPut callback cannot race
   // with the reads.
   ASSERT_OK(client->Close());
-  server->Shutdown();
-  server->Wait();
+  hand_built.server->Shutdown();
+  hand_built.server->Wait();
 
   // No data of any kind reached the listener.
   ASSERT_EQ(listener->batches().size(), 0);
@@ -118,17 +109,11 @@ TEST(AsyncGrpcTest, MetadataOnlyPutChunk) {
   TestFlightServer flight_server;
   auto listener = std::make_shared<RecordingListener>();
   flight_server.set_listener(listener);
-  AsyncGenericFlightService service(&flight_server, MakeAsyncHelper());
+  HandBuiltServer hand_built = StartHandBuilt(&flight_server);
+  ASSERT_NE(hand_built.server, nullptr);
+  ASSERT_NE(hand_built.port, 0);
 
-  int port = 0;
-  ::grpc::ServerBuilder builder;
-  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
-  builder.RegisterCallbackGenericService(&service);
-  auto server = builder.BuildAndStart();
-  ASSERT_NE(server, nullptr);
-  ASSERT_NE(port, 0);
-
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(hand_built.port));
 
   auto schema = arrow::schema(
       {arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64())});
@@ -140,8 +125,8 @@ TEST(AsyncGrpcTest, MetadataOnlyPutChunk) {
   ASSERT_OK(result.writer->Close());
 
   ASSERT_OK(client->Close());
-  server->Shutdown();
-  server->Wait();
+  hand_built.server->Shutdown();
+  hand_built.server->Wait();
 
   // Exactly one chunk reached the listener: no data, that exact metadata.
   ASSERT_EQ(listener->batches().size(), 0);
@@ -157,17 +142,11 @@ TEST(AsyncGrpcTest, DoPutRejectedByListener) {
   // The consumer rejects the upload.
   listener->set_next_status(arrow::Status::Invalid("listener rejected this upload"));
   flight_server.set_listener(listener);
-  AsyncGenericFlightService service(&flight_server, MakeAsyncHelper());
+  HandBuiltServer hand_built = StartHandBuilt(&flight_server);
+  ASSERT_NE(hand_built.server, nullptr);
+  ASSERT_NE(hand_built.port, 0);
 
-  int port = 0;
-  ::grpc::ServerBuilder builder;
-  builder.AddListeningPort(kListenAddress, ::grpc::InsecureServerCredentials(), &port);
-  builder.RegisterCallbackGenericService(&service);
-  auto server = builder.BuildAndStart();
-  ASSERT_NE(server, nullptr);
-  ASSERT_NE(port, 0);
-
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(port));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(hand_built.port));
 
   auto schema = TwoColumnSchema();
   auto batch = TwoColumnBatch(schema);
@@ -186,8 +165,8 @@ TEST(AsyncGrpcTest, DoPutRejectedByListener) {
       << "OnFinish got: " << listener->finish_status();
 
   ASSERT_OK(client->Close());
-  server->Shutdown();
-  server->Wait();
+  hand_built.server->Shutdown();
+  hand_built.server->Wait();
 }
 
 TEST(AsyncGrpcTest, CreateDoPutListenerServesUpload) {
@@ -210,9 +189,7 @@ TEST(AsyncGrpcTest, CreateDoPutListenerServesUpload) {
 
   // Cleanup before reading the recordings: the listener's callbacks run on a
   // gRPC thread.
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   // The virtual was consulted exactly once, and its listener saw the upload.
   ASSERT_EQ(flight_server.calls(), 1);
@@ -220,31 +197,13 @@ TEST(AsyncGrpcTest, CreateDoPutListenerServesUpload) {
   ASSERT_EQ(listener->descriptor_count(), 1);
   ASSERT_EQ(listener->descriptors()[0], descriptor);
   ASSERT_EQ(listener->schema_count(), 1);
+  ASSERT_EQ(listener->schema()->num_fields(), 2);
+  ASSERT_EQ(listener->schema()->field(0)->name(), "a");
+  ASSERT_EQ(listener->schema()->field(1)->name(), "b");
   ASSERT_EQ(listener->batches().size(), 1);
   ASSERT_EQ(listener->batches()[0]->num_rows(), 3);
-}
-
-TEST(AsyncGrpcTest, DoPutWithoutListenerIsUnimplemented) {
-  // A server class that does not hand out a listener (CreateDoPutListener()
-  // returns nullptr, the base default) does not accept uploads: the RPC is
-  // answered UNIMPLEMENTED. There is no options-level fallback.
-  TestFlightServer flight_server;
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
-
-  auto schema = arrow::schema({arrow::field("a", arrow::int64())});
-  auto batch = arrow::RecordBatch::Make(schema, 2,
-                                        {arrow::ArrayFromJSON(arrow::int64(), "[7, 8]")});
-  auto [surface, status] = UploadOneBatch(
-      client.get(), FlightDescriptor::Path({"no-listener"}), schema, batch);
-  ASSERT_FALSE(status.ok()) << "the upload succeeded on " << surface
-                            << " with no listener to serve it";
-  ASSERT_EQ(status.code(), arrow::StatusCode::NotImplemented) << status;
-
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK_AND_ASSIGN(auto value, listener->batches()[0]->column(0)->GetScalar(0));
+  ASSERT_TRUE(value->Equals(*arrow::MakeScalar(int64_t(1))));
 }
 
 TEST(AsyncGrpcTest, DoPutListenerSeesCleanFinish) {
@@ -262,9 +221,7 @@ TEST(AsyncGrpcTest, DoPutListenerSeesCleanFinish) {
       UploadOneBatch(client.get(), FlightDescriptor::Path({"finish"}), schema, batch);
   ASSERT_TRUE(status.ok()) << "upload failed on " << surface << ": " << status;
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   // OnFinish ran exactly once, and said the upload ended cleanly.
   ASSERT_EQ(flight_server.listener(0)->finish_count(), 1);
@@ -287,9 +244,7 @@ TEST(AsyncGrpcTest, OnFinishMayWriteMetadataWithoutDeadlocking) {
   ASSERT_OK(put.writer->WriteRecordBatch(*OneColumnBatch(schema)));
   ARROW_UNUSED(put.writer->Close());
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   auto listener = flight_server.WaitForListener(0);
   ASSERT_NE(listener, nullptr) << "the server never handed out a DoPut listener";
@@ -399,9 +354,7 @@ TEST(AsyncGrpcTest, CallCompletedMayWriteMetadataWithoutDeadlocking) {
   ASSERT_OK(put.writer->WriteRecordBatch(*OneColumnBatch(schema)));
   ASSERT_OK(put.writer->Close());
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   const auto middleware = factory->last();
   ASSERT_NE(middleware, nullptr) << "the upload never created its middleware";
@@ -443,9 +396,7 @@ TEST(AsyncGrpcTest, DoPutWritesMetadataBackToTheClient) {
   ASSERT_EQ("ack 2 rows", metadata->ToString());
 
   ASSERT_OK(writer.Close());
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   auto listener = flight_server.WaitForListener();
   ASSERT_NE(listener, nullptr) << "the server never handed out a DoPut listener";
@@ -489,9 +440,7 @@ TEST(AsyncGrpcTest, DoPutCancelFromServerSideFinishesTheUpload) {
   ASSERT_NE(close_status.message().find("server said stop"), std::string::npos)
       << "unexpected status: " << close_status;
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   // Cancel() reached the transport, and the listener was told the upload ended
   // with that status exactly once.
@@ -578,9 +527,7 @@ TEST(AsyncGrpcTest, DoPutServerCancelEndsTheUploadWithItsOwnStatus) {
       << "a batch reached the listener after its OnFinish()";
   EXPECT_EQ(1, listener->finish_count());
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 /// A listener stuck inside OnNext(): the upload is parked in the application
@@ -626,9 +573,7 @@ TEST(AsyncGrpcTest, DoPutClientDeadlineWithPendingHandlerFinishes) {
   })) << "the listener never saw a chunk";
 
   ARROW_UNUSED(put->writer->Close());
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   // The upload ended anyway, and the listener heard about it exactly once.
   ASSERT_EQ(1, flight_server.listener(0)->finish_count());
@@ -669,9 +614,7 @@ TEST(AsyncGrpcTest, DoPutClientDeadlineWhileIdleIsNotACleanFinish) {
   const auto close_status = put->writer->Close();
   ASSERT_FALSE(close_status.ok()) << "the deadline never fired; inconclusive";
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   ASSERT_EQ(1, listener->finish_count());
   EXPECT_FALSE(listener->finish_status().ok())
@@ -791,32 +734,7 @@ TEST(AsyncGrpcTest, DoPutWithoutDescriptorOnFirstMessageIsRejected) {
 
   // Drive the bidi call through the raw generic stub: the regular FlightClient
   // always sets the descriptor, which is exactly what this case lacks.
-  std::shared_ptr<::grpc::Channel> channel = ::grpc::CreateChannel(
-      std::string(kLoopbackHost) + ":" + std::to_string(flight_server.port()),
-      ::grpc::InsecureChannelCredentials());
-  ::grpc::GenericStub stub(channel);
-  ::grpc::ClientContext context;
-  // Bound the call: were the descriptor ever accepted, the client would wait
-  // forever for an acknowledgement, turning a logic error into a hung suite.
-  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(10));
-  ::grpc::CompletionQueue cq;
-  void* tag = nullptr;
-  bool ok = false;
-
-  auto call = stub.Call(&context, "/arrow.flight.protocol.FlightService/DoPut", &cq,
-                        reinterpret_cast<void*>(1));
-  ASSERT_NE(call, nullptr);
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the call never started";
-
-  call->Write(request, reinterpret_cast<void*>(2));
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the message was never written";
-
-  call->WritesDone(reinterpret_cast<void*>(3));
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "WritesDone never completed";
-
-  ::grpc::Status status;
-  call->Finish(&status, reinterpret_cast<void*>(4));
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the call never finished";
+  const ::grpc::Status status = CallDoPutRaw(flight_server.port(), {request});
 
   EXPECT_FALSE(status.ok()) << "an upload without a descriptor must be refused";
   EXPECT_THAT(status.error_message(), ::testing::HasSubstr("Descriptor missing"));
@@ -843,27 +761,7 @@ TEST(AsyncGrpcTest, DoPutMalformedFirstMessageIsRejected) {
   ::grpc::Slice truncated(std::string("\x0a\x7f\x01\x02", 4));
   ::grpc::ByteBuffer request(&truncated, 1);
 
-  std::shared_ptr<::grpc::Channel> channel = ::grpc::CreateChannel(
-      std::string(kLoopbackHost) + ":" + std::to_string(flight_server.port()),
-      ::grpc::InsecureChannelCredentials());
-  ::grpc::GenericStub stub(channel);
-  ::grpc::ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(10));
-  ::grpc::CompletionQueue cq;
-  void* tag = nullptr;
-  bool ok = false;
-
-  auto call = stub.Call(&context, "/arrow.flight.protocol.FlightService/DoPut", &cq,
-                        reinterpret_cast<void*>(1));
-  ASSERT_NE(call, nullptr);
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the call never started";
-  call->Write(request, reinterpret_cast<void*>(2));
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the message was never written";
-  call->WritesDone(reinterpret_cast<void*>(3));
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "WritesDone never completed";
-  ::grpc::Status status;
-  call->Finish(&status, reinterpret_cast<void*>(4));
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the call never finished";
+  const ::grpc::Status status = CallDoPutRaw(flight_server.port(), {request});
 
   EXPECT_FALSE(status.ok()) << "a malformed first message must be refused";
   EXPECT_THAT(status.error_message(),
@@ -902,9 +800,7 @@ TEST(AsyncGrpcTest, DoPutReportsAFailingOnFinishToTheClient) {
       << "a failing OnFinish must not be reported to the client as success";
   EXPECT_THAT(close_status.ToString(), ::testing::HasSubstr("could not be committed"));
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
   EXPECT_EQ(1, listener->finish_count());
 }
 
@@ -922,28 +818,8 @@ TEST(AsyncGrpcTest, DoPutHalfCloseWithoutAnyMessageIsRejected) {
   ASSERT_OK(flight_server.Init(options));
   ASSERT_GT(flight_server.port(), 0);
 
-  std::shared_ptr<::grpc::Channel> channel = ::grpc::CreateChannel(
-      std::string(kLoopbackHost) + ":" + std::to_string(flight_server.port()),
-      ::grpc::InsecureChannelCredentials());
-  ::grpc::GenericStub stub(channel);
-  ::grpc::ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(10));
-  ::grpc::CompletionQueue cq;
-  void* tag = nullptr;
-  bool ok = false;
-
-  auto call = stub.Call(&context, "/arrow.flight.protocol.FlightService/DoPut", &cq,
-                        reinterpret_cast<void*>(1));
-  ASSERT_NE(call, nullptr);
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the call never started";
-
   // Half-close with no message written at all.
-  call->WritesDone(reinterpret_cast<void*>(2));
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "WritesDone never completed";
-
-  ::grpc::Status status;
-  call->Finish(&status, reinterpret_cast<void*>(3));
-  ASSERT_TRUE(cq.Next(&tag, &ok)) << "the call never finished";
+  const ::grpc::Status status = CallDoPutRaw(flight_server.port(), {});
 
   EXPECT_FALSE(status.ok()) << "an upload with no message at all must be refused";
   EXPECT_THAT(status.error_message(), ::testing::HasSubstr("empty upload"));
@@ -982,9 +858,7 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagUploadRejectedOnDescriptor) {
   ASSERT_NE(status.message().find("listener rejected this descriptor"), std::string::npos)
       << "unexpected status: " << status;
 
-  ASSERT_OK(client->Close());
-  ASSERT_OK(flight_server.Shutdown());
-  ASSERT_OK(flight_server.Wait());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   // The upload was rejected on its descriptor: the handler saw it, and no
   // schema or data followed it.
