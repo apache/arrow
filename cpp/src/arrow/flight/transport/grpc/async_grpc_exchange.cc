@@ -98,12 +98,12 @@ void ExchangeReactor::OnDone() {
 }
 
 void ExchangeReactor::StartReadNext() {
+  WriteIfLive([this] { StartRead(&request_buf_); });
 }
 
 arrow::Status ExchangeReactor::WritePayload(FlightPayload payload) {
   bool own_buffer = false;
   const ::grpc::Status serialize = FlightDataSerialize(payload, &write_buf_, &own_buffer);
-  (void)own_buffer;
   if (!serialize.ok()) {
     return MakeFlightError(FlightStatusCode::Internal, serialize.error_message());
   }

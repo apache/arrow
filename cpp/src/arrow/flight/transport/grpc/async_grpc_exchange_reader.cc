@@ -41,14 +41,6 @@ class ExchangeReader::ChunkListener final : public AsyncFlightDataListener {
     return arrow::Future<>::MakeFinished();
   }
 
-  arrow::Future<> OnDescriptor(const FlightDescriptor&) override {
-    return arrow::Future<>::MakeFinished();
-  }
-
-  arrow::Status OnSchemaDecoded(std::shared_ptr<Schema>) override {
-    return arrow::Status::OK();
-  }
-
  private:
   ExchangeReader* reader_;
 };
@@ -156,7 +148,7 @@ void ExchangeReader::OnCancelled() {
   ResolvePending(arrow::Status::Cancelled("the client cancelled the exchange"));
 }
 
-void ExchangeReader::ResolvePending(FlightStreamChunk chunk) {
+void ExchangeReader::ResolvePending(arrow::Result<FlightStreamChunk> result) {
   arrow::Future<FlightStreamChunk> pending;
   {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -166,20 +158,7 @@ void ExchangeReader::ResolvePending(FlightStreamChunk chunk) {
     pending = std::move(pending_);
     pending_ = arrow::Future<FlightStreamChunk>();
   }
-  pending.MarkFinished(std::move(chunk));
-}
-
-void ExchangeReader::ResolvePending(const Status& status) {
-  arrow::Future<FlightStreamChunk> pending;
-  {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!pending_.is_valid() || pending_.is_finished()) {
-      return;
-    }
-    pending = std::move(pending_);
-    pending_ = arrow::Future<FlightStreamChunk>();
-  }
-  pending.MarkFinished(status);
+  pending.MarkFinished(std::move(result));
 }
 
 void ExchangeReader::Consume(internal::FlightData data) {
