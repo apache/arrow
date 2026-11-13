@@ -212,8 +212,7 @@ if(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.65")
        transport/grpc/async_grpc_exchange_reader.cc
        transport/grpc/async_grpc_exchange_writer.cc
        transport/grpc/async_grpc_handshake.cc
-       transport/grpc/async_grpc_streaming.cc
-       transport/grpc/async_grpc_unary.cc)
+       transport/grpc/async_grpc_streaming.cc)
 endif()
 
 # Handle Unity build header conflicts on Windows.
