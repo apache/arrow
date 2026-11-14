@@ -3725,6 +3725,19 @@ TEST(Cast, ListViewToListKeepsContiguousValues) {
   }
 
   {
+    // An empty view references no values: neither its offset nor its position
+    // can force the values to be gathered.
+    ASSERT_OK_AND_ASSIGN(
+        auto empty_view,
+        ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0, 0, 2]"),
+                                  *ArrayFromJSON(int32(), "[2, 0, 2]"), *values));
+    check("empty view", empty_view, values,
+          ArrayFromJSON(list(int32()), "[[1, 2], [], [3, 4]]"));
+    check("empty view", empty_view, values,
+          ArrayFromJSON(large_list(int32()), "[[1, 2], [], [3, 4]]"));
+  }
+
+  {
     // A null view keeps no value: the values that only it references are
     // dropped, which narrows the kept values without copying them.
     ASSERT_OK_AND_ASSIGN(auto lv, ListViewArray::FromArrays(
@@ -3814,9 +3827,8 @@ TEST(Cast, ListViewToListWithNestedExtensionChild) {
   }
 }
 
-// A run-end encoded storage is the only storage type whose builder checks the
-// type of the array it appends, so an extension type over it exercises the
-// storage-typed gathering of a list-view (GH-51612).
+// An extension type over a run-end encoded storage, to check that packing the
+// values of a list-view goes through the extension's storage (GH-51612).
 class RunEndEncodedExtensionArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
@@ -3877,8 +3889,7 @@ TEST(Cast, ListViewToListWithRunEndEncodedChild) {
   ASSERT_OK_AND_ASSIGN(out, Cast(list_view, expected_large->type()));
   AssertDatumsEqual(expected_large, out);
 
-  // An extension child is gathered through its storage type, which the run-end
-  // encoded builder compares with its own type.
+  // An extension child is gathered through its storage type.
   ASSERT_OK_AND_ASSIGN(
       auto expected_ext,
       ListArray::FromArrays(*list_offsets,
@@ -3908,35 +3919,32 @@ TEST(Cast, ListViewToListWithNestedRunEndEncodedChild) {
                            ExtensionType::WrapArray(
                                smallint_type, ArrayFromJSON(int16(), "[1, 2, 3, 4]"))));
 
-  // The same views as above, gathering [3, 4, 1, 2, 2] in list order
-  auto offsets = ArrayFromJSON(int32(), "[2, 0, 1]");
-  auto sizes = ArrayFromJSON(int32(), "[2, 2, 1]");
-  auto list_offsets = ArrayFromJSON(int32(), "[0, 2, 4, 5]");
-  ASSERT_OK_AND_ASSIGN(
-      auto gathered_ree,
-      RunEndEncodedArray::Make(
-          5, ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]"),
-          ExtensionType::WrapArray(smallint_type,
-                                   ArrayFromJSON(int16(), "[3, 4, 1, 2, 2]"))));
-
-  // The extension type is nested in the value type of the runs.
-  ASSERT_OK_AND_ASSIGN(auto expected,
-                       ListArray::FromArrays(*list_offsets, *gathered_ree));
-  ASSERT_OK_AND_ASSIGN(auto list_view,
-                       ListViewArray::FromArrays(*offsets, *sizes, *ree_values));
-  ASSERT_OK_AND_ASSIGN(Datum out, Cast(list_view, expected->type()));
-  AssertDatumsEqual(expected, out);
-
-  // ... and behind a struct, which the struct builder forwards to the run-end
-  // encoded field builder.
   ASSERT_OK_AND_ASSIGN(auto nested, StructArray::Make({ree_values}, {"e"}));
-  ASSERT_OK_AND_ASSIGN(auto gathered_nested, StructArray::Make({gathered_ree}, {"e"}));
-  ASSERT_OK_AND_ASSIGN(auto expected_nested,
-                       ListArray::FromArrays(*list_offsets, *gathered_nested));
-  ASSERT_OK_AND_ASSIGN(auto nested_view,
-                       ListViewArray::FromArrays(*offsets, *sizes, *nested));
-  ASSERT_OK_AND_ASSIGN(out, Cast(nested_view, expected_nested->type()));
-  AssertDatumsEqual(expected_nested, out);
+
+  // Contiguous views are sliced, so they cast whatever the value type of the
+  // runs: views = [[1, 2], [3, 4]].
+  auto offsets = ArrayFromJSON(int32(), "[0, 2]");
+  auto sizes = ArrayFromJSON(int32(), "[2, 2]");
+  auto list_offsets = ArrayFromJSON(int32(), "[0, 2, 4]");
+  for (const auto& values : ArrayVector{ree_values, nested}) {
+    ARROW_SCOPED_TRACE(values->type()->ToString());
+    ASSERT_OK_AND_ASSIGN(auto expected, ListArray::FromArrays(*list_offsets, *values));
+    ASSERT_OK_AND_ASSIGN(auto list_view,
+                         ListViewArray::FromArrays(*offsets, *sizes, *values));
+    ASSERT_OK_AND_ASSIGN(Datum out, Cast(list_view, expected->type()));
+    AssertDatumsEqual(expected, out);
+  }
+
+  // Out-of-order views are packed with Concatenate, which cannot build run-end
+  // encoded arrays whose runs have an extension type yet.
+  offsets = ArrayFromJSON(int32(), "[2, 0, 1]");
+  sizes = ArrayFromJSON(int32(), "[2, 2, 1]");
+  for (const auto& values : ArrayVector{ree_values, nested}) {
+    ARROW_SCOPED_TRACE(values->type()->ToString());
+    ASSERT_OK_AND_ASSIGN(auto list_view,
+                         ListViewArray::FromArrays(*offsets, *sizes, *values));
+    ASSERT_RAISES(NotImplemented, Cast(list_view, list(values->type())));
+  }
 }
 
 TEST(Cast, ListViewToListEdgeCases) {

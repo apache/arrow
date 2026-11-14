@@ -30,7 +30,6 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/int_util.h"
-#include "arrow/util/list_util.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {
@@ -106,37 +105,45 @@ struct CastList {
     return Status::OK();
   }
 
-  /// \brief Cast a list-view array to a (large)list array
+  /// \brief Pack the values referenced by list-views in sequence
   ///
-  /// The values referenced by a list-view have to be gathered according to the
-  /// views' offsets and sizes, so the views' offsets buffer cannot be reused as
-  /// a list-offsets buffer (GH-51612).
-  static Status ExecListView(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const CastOptions& options = CastState::Get(ctx);
-    auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
+  /// The views may be out of order, overlap or leave gaps between them, so
+  /// their offsets cannot be reused as list offsets (GH-51612). The values
+  /// referenced by the valid views are packed in sequence instead (contiguous
+  /// views are sliced rather than copied), and the list offsets are computed
+  /// from the views' sizes.
+  static Status HandleListViewOffsets(KernelContext* ctx, const ArraySpan& in_array,
+                                      ArrayData* out_array,
+                                      std::shared_ptr<ArrayData>* values) {
+    using ListViewArrayType = typename TypeTraits<SrcType>::ArrayType;
+    const ListViewArrayType list_view_array(in_array.ToArrayData());
 
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> list_data,
-                          list_util::internal::ListFromListView(
-                              batch[0].array, DestType::type_id, ctx->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto packed_values,
+                          list_view_array.Flatten(ctx->memory_pool()));
+    if constexpr (is_downcast) {
+      if (packed_values->length() > std::numeric_limits<dest_offset_type>::max()) {
+        return Status::Invalid("Array of type ", in_array.type->ToString(),
+                               " too large to convert to ", out_array->type->ToString());
+      }
+    }
 
-    ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(list_data->child_data[0], child_type,
-                                                  options, ctx->exec_context()));
-    DCHECK(cast_values.is_array());
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[1], ctx->Allocate(sizeof(dest_offset_type) *
+                                                               (in_array.length + 1)));
+    auto* out_offsets = out_array->GetMutableValues<dest_offset_type>(1);
+    dest_offset_type offset = 0;
+    for (int64_t i = 0; i < in_array.length; ++i) {
+      out_offsets[i] = offset;
+      if (list_view_array.IsValid(i)) {
+        offset += static_cast<dest_offset_type>(list_view_array.value_length(i));
+      }
+    }
+    out_offsets[in_array.length] = offset;
 
-    ArrayData* out_array = out->array_data().get();
-    out_array->buffers[0] = std::move(list_data->buffers[0]);
-    out_array->buffers[1] = std::move(list_data->buffers[1]);
-    out_array->null_count.store(list_data->null_count.load());
-    out_array->offset = list_data->offset;
-    out_array->child_data.push_back(cast_values.array());
+    *values = packed_values->data();
     return Status::OK();
   }
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    if constexpr (is_list_view(SrcType::type_id)) {
-      return ExecListView(ctx, batch, out);
-    }
-
     const CastOptions& options = CastState::Get(ctx);
 
     auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
@@ -146,11 +153,15 @@ struct CastList {
     ArrayData* out_array = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
                           GetOrCopyNullBitmapBuffer(in_array, ctx->memory_pool()));
-    out_array->buffers[1] = in_array.GetBuffer(1);
 
-    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
-
-    RETURN_NOT_OK(HandleOffsets(ctx, in_array, out_array, &values));
+    std::shared_ptr<ArrayData> values;
+    if constexpr (is_list_view(SrcType::type_id)) {
+      RETURN_NOT_OK(HandleListViewOffsets(ctx, in_array, out_array, &values));
+    } else {
+      out_array->buffers[1] = in_array.GetBuffer(1);
+      values = in_array.child_data[0].ToArrayData();
+      RETURN_NOT_OK(HandleOffsets(ctx, in_array, out_array, &values));
+    }
 
     // Handle values
     ARROW_ASSIGN_OR_RAISE(Datum cast_values,

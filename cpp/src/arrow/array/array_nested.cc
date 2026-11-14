@@ -42,7 +42,6 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/list_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/unreachable.h"
 
@@ -279,9 +278,11 @@ Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_v
   }
 
   // If the list array is *all* nulls, then just return an empty array.
+  // Slicing (rather than MakeEmptyArray) also works for value types that have
+  // no builder, such as extension types nested in a struct.
   if constexpr (HasNulls) {
     if (list_view_array.null_count() == list_view_array.length()) {
-      return MakeEmptyArray(value_array->type(), memory_pool);
+      return SliceArrayWithOffsets(*value_array, 0, 0);
     }
   }
 
@@ -305,7 +306,7 @@ Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_v
   }
   // If all list-views are empty, return an empty array.
   if (first_i == list_view_array_length) {
-    return MakeEmptyArray(value_array->type(), memory_pool);
+    return SliceArrayWithOffsets(*value_array, 0, 0);
   }
 
   std::vector<std::shared_ptr<Array>> slices;
@@ -415,8 +416,39 @@ Result<std::shared_ptr<ArrayData>> ListFromListViewImpl(
       std::is_same<typename SrcListViewType::offset_type,
                    typename DestListType::offset_type>::value,
       "Offset types between list type and list-view type are expected to match");
-  return list_util::internal::ListFromListView(ArraySpan{*list_view_data},
-                                               DestListType::type_id, pool);
+  using offset_type = typename DestListType::offset_type;
+  using ListViewArrayType = typename TypeTraits<SrcListViewType>::ArrayType;
+
+  const ListViewArrayType list_view_array(list_view_data);
+  const int64_t length = list_view_array.length();
+
+  // The views may be out of order, overlap or leave gaps, so the values they
+  // reference are packed in list order. Contiguous views are sliced, not copied.
+  ARROW_ASSIGN_OR_RAISE(auto values, list_view_array.Flatten(pool));
+
+  ARROW_ASSIGN_OR_RAISE(auto offsets_buffer,
+                        AllocateBuffer(sizeof(offset_type) * (length + 1), pool));
+  auto* offsets = offsets_buffer->mutable_data_as<offset_type>();
+  offset_type offset = 0;
+  for (int64_t i = 0; i < length; ++i) {
+    offsets[i] = offset;
+    if (list_view_array.IsValid(i)) {
+      offset += list_view_array.value_length(i);
+    }
+  }
+  offsets[length] = offset;
+
+  std::shared_ptr<Buffer> null_bitmap = list_view_data->buffers[0];
+  if (null_bitmap && list_view_data->offset != 0) {
+    ARROW_ASSIGN_OR_RAISE(null_bitmap, CopyBitmap(pool, null_bitmap->data(),
+                                                  list_view_data->offset, length));
+  }
+
+  const auto& list_view_type =
+      checked_cast<const SrcListViewType&>(*list_view_data->type);
+  return ArrayData::Make(std::make_shared<DestListType>(list_view_type.value_type()),
+                         length, {std::move(null_bitmap), std::move(offsets_buffer)},
+                         {values->data()}, list_view_array.null_count());
 }
 
 }  // namespace
