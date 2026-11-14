@@ -193,6 +193,20 @@ cdef class NativeFile(_Weakrefable):
                 else:
                     check_status(self.output_stream.get().Close())
 
+    def abort(self):
+        """
+        Close the stream abruptly.
+
+        The stream is always closed, but whether written data is flushed or
+        discarded depends on the implementation.
+        """
+        if not self.closed:
+            with nogil:
+                if self.is_readable:
+                    check_status(self.input_stream.get().Abort())
+                else:
+                    check_status(self.output_stream.get().Abort())
+
     cdef set_random_access_file(self, shared_ptr[CRandomAccessFile] handle):
         self.input_stream = <shared_ptr[CInputStream]> handle
         self.random_access = handle

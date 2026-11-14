@@ -1750,8 +1750,13 @@ class ObjectOutputStream final : public io::OutputStream {
       return Status::OK();
     }
 
+    // Close even if the abort request fails
+    auto holder = std::move(holder_);
+    current_part_.reset();
+    closed_ = true;
+
     if (IsMultipartCreated()) {
-      ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+      ARROW_ASSIGN_OR_RAISE(auto client_lock, holder->Lock());
 
       S3Model::AbortMultipartUploadRequest req;
       req.SetBucket(ToAwsString(path_.bucket));
@@ -1766,10 +1771,6 @@ class ObjectOutputStream final : public io::OutputStream {
             "AbortMultipartUpload", outcome.GetError());
       }
     }
-
-    current_part_.reset();
-    holder_ = nullptr;
-    closed_ = true;
 
     return Status::OK();
   }
