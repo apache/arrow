@@ -41,6 +41,11 @@ class LLJIT;
 
 namespace gandiva {
 
+/// \brief Rewrite a "darwin<kernel version>" host triple to "macosx<version>".
+/// LLVM only enables macOS libcalls (e.g. __exp10) for the "macosx" OS name.
+/// Non-Darwin triples are returned unchanged.
+GANDIVA_EXPORT llvm::Triple NormalizeDarwinTriple(llvm::Triple triple);
+
 /// \brief LLVM Execution engine wrapper.
 class GANDIVA_EXPORT Engine {
  public:

@@ -28,6 +28,10 @@ using add_vector_func_t = int64_t (*)(int64_t*, int);
 
 class TestEngine : public ::testing::Test {
  protected:
+  static std::string Normalize(const std::string& triple) {
+    return NormalizeDarwinTriple(llvm::Triple(triple)).str();
+  }
+
   std::string BuildVecAdd(Engine* gdv_engine) {
     auto types = gdv_engine->types();
     llvm::IRBuilder<>* builder = gdv_engine->ir_builder();
@@ -131,6 +135,56 @@ TEST_F(TestEngine, TestAddOptimised) {
 
   int64_t my_array[] = {1, 3, -5, 8, 10};
   EXPECT_EQ(add_func(my_array, 5), 17);
+}
+
+TEST_F(TestEngine, NormalizeDarwinTripleDarwinBecomesMacOSX) {
+  llvm::Triple arm = NormalizeDarwinTriple(llvm::Triple("arm64-apple-darwin27.2.0"));
+  EXPECT_EQ(arm.getOS(), llvm::Triple::MacOSX);
+  EXPECT_TRUE(arm.isAArch64());
+  llvm::VersionTuple v;
+  ASSERT_TRUE(arm.getMacOSXVersion(v));
+  EXPECT_GE(v, llvm::VersionTuple(11, 0));
+
+  EXPECT_EQ(Normalize("x86_64-apple-darwin19.0.0"), "x86_64-apple-macosx10.15");
+}
+
+TEST_F(TestEngine, NormalizeDarwinTripleUnversionedOrOldUsesFloor) {
+  EXPECT_EQ(Normalize("arm64-apple-darwin"), "arm64-apple-macosx11.0");
+  EXPECT_EQ(Normalize("arm64-apple-darwin8.0.0"), "arm64-apple-macosx11.0");
+  EXPECT_EQ(Normalize("x86_64-apple-darwin3.0.0"), "x86_64-apple-macosx10.15");
+}
+
+TEST_F(TestEngine, NormalizeDarwinTripleOtherTriplesUnchanged) {
+  // Already-macosx triples are left as-is
+  EXPECT_EQ(Normalize("arm64-apple-macosx26.0.0"), "arm64-apple-macosx26.0.0");
+  // Non-Darwin Apple OSes
+  EXPECT_EQ(Normalize("arm64-apple-ios17.0.0"), "arm64-apple-ios17.0.0");
+  // Linux
+  EXPECT_EQ(Normalize("x86_64-unknown-linux-gnu"), "x86_64-unknown-linux-gnu");
+  EXPECT_EQ(Normalize("aarch64-unknown-linux-musl"), "aarch64-unknown-linux-musl");
+  // Windows
+  EXPECT_EQ(Normalize("x86_64-pc-windows-msvc"), "x86_64-pc-windows-msvc");
+}
+
+TEST_F(TestEngine, NormalizeDarwinTripleFloorBoundary) {
+  // darwin19 is macOS 10.15: x86 stays at its floor, arm64 is raised to 11.0
+  EXPECT_EQ(Normalize("x86_64-apple-darwin19.0.0"), "x86_64-apple-macosx10.15");
+  EXPECT_EQ(Normalize("arm64-apple-darwin19.0.0"), "arm64-apple-macosx11.0");
+  EXPECT_EQ(Normalize("arm64-apple-darwin20.0.0"), "arm64-apple-macosx11.0");
+}
+
+TEST_F(TestEngine, NormalizeDarwinTripleArchAliases) {
+  EXPECT_EQ(Normalize("aarch64-apple-darwin"), "aarch64-apple-macosx11.0");
+  EXPECT_EQ(Normalize("arm64e-apple-darwin"), "arm64e-apple-macosx11.0");
+  EXPECT_EQ(Normalize("i386-apple-darwin"), "i386-apple-macosx10.15");
+}
+
+TEST_F(TestEngine, NormalizeDarwinTripleIdempotent) {
+  for (const char* triple : {"arm64-apple-darwin23.1.0", "arm64-apple-darwin",
+                             "x86_64-apple-darwin8", "x86_64-unknown-linux-gnu"}) {
+    std::string once = Normalize(triple);
+    EXPECT_EQ(Normalize(once), once) << triple;
+  }
 }
 
 }  // namespace gandiva
