@@ -18,7 +18,11 @@
 set(CANONICAL_EXTENSION_TESTS bool8_test.cc json_test.cc uuid_test.cc)
 
 if(ARROW_JSON)
-  list(APPEND CANONICAL_EXTENSION_TESTS tensor_extension_array_test.cc opaque_test.cc)
+  list(APPEND
+       CANONICAL_EXTENSION_TESTS
+       tensor_extension_array_test.cc
+       opaque_test.cc
+       range_test.cc)
 endif()
 
 add_arrow_test(test
