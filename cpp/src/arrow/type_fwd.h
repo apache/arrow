@@ -678,6 +678,17 @@ std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type
                                      const std::shared_ptr<DataType>& dict_type,
                                      bool ordered = false);
 
+/// \brief Create a DictionaryType with metadata for its values
+///
+/// Unregistered extension annotations and other value metadata are preserved
+/// independently of the enclosing Field's metadata. If dict_type is an extension
+/// type, its extension annotations take precedence over those in value_metadata.
+ARROW_EXPORT
+std::shared_ptr<DataType> dictionary(
+    const std::shared_ptr<DataType>& index_type,
+    const std::shared_ptr<DataType>& dict_type, bool ordered,
+    std::shared_ptr<const KeyValueMetadata> value_metadata);
+
 /// @}
 
 /// \defgroup schema-factories Factory functions for fields and schemas
