@@ -16,6 +16,7 @@
 # under the License.
 
 import codecs
+import datetime
 import decimal
 from functools import partial
 import itertools
@@ -281,6 +282,75 @@ class BuiltinsGenerator(object):
         assert len(dicts) == n
         return dicts
 
+    def generate_date_list(self, n, none_prob=DEFAULT_NONE_PROB):
+        """
+        Generate a list of datetime.date objects with *none_prob*
+        probability of an entry being None.
+        """
+        # Generate dates uniformly between year 1 and 9999 using epoch-based day offsets
+        epoch = datetime.date(1970, 1, 1)
+        min_days = (datetime.date(1, 1, 1) - epoch).days
+        max_days = (datetime.date(9999, 12, 31) - epoch).days
+        days = self.rnd.randint(min_days, max_days + 1, size=n)
+        data = [epoch + datetime.timedelta(days=int(d)) for d in days]
+        assert len(data) == n
+        self.sprinkle_nones(data, none_prob)
+        return data
+
+    def generate_timestamp_list(self, n, none_prob=DEFAULT_NONE_PROB):
+        """
+        Generate a list of datetime.datetime objects with *none_prob*
+        probability of an entry being None.
+        """
+        # Generate timestamps uniformly between year 1 and 9999 using
+        # epoch-based second offsets
+        min_datetime = datetime.datetime(1, 1, 1)
+        max_datetime = datetime.datetime(9999, 12, 31, 23, 59, 59, 999999)
+        epoch = datetime.datetime(1970, 1, 1)
+        min_seconds = int((min_datetime - epoch).total_seconds())
+        max_seconds = int((max_datetime - epoch).total_seconds())
+        seconds = self.rnd.randint(min_seconds, max_seconds + 1, size=n)
+        data = [epoch + datetime.timedelta(seconds=int(s)) for s in seconds]
+        assert len(data) == n
+        self.sprinkle_nones(data, none_prob)
+        return data
+
+    def generate_time_list(self, n, none_prob=DEFAULT_NONE_PROB):
+        """
+        Generate a list of datetime.time objects with *none_prob*
+        probability of an entry being None.
+        """
+        # Generate times uniformly between 00:00:00 and
+        # 23:59:59.999999 using random microseconds
+        microseconds = self.rnd.randint(0, 86400000000, size=n)
+        data = []
+        for us in microseconds:
+            us = int(us)
+            hours = us // 3600000000
+            us %= 3600000000
+            minutes = us // 60000000
+            us %= 60000000
+            seconds = us // 1000000
+            microsecond = us % 1000000
+            data.append(datetime.time(hours, minutes, seconds, microsecond))
+        assert len(data) == n
+        self.sprinkle_nones(data, none_prob)
+        return data
+
+    def generate_duration_list(self, n, none_prob=DEFAULT_NONE_PROB):
+        """
+        Generate a list of datetime.timedelta objects with *none_prob*
+        probability of an entry being None.
+        """
+        # Generate durations uniformly within 96,000 days (safe range for duration[us])
+        min_seconds = -96_000 * 86400
+        max_seconds = 96_000 * 86400
+        seconds = self.rnd.randint(min_seconds, max_seconds + 1, size=n)
+        data = [datetime.timedelta(seconds=int(s)) for s in seconds]
+        assert len(data) == n
+        self.sprinkle_nones(data, none_prob)
+        return data
+
     def get_type_and_builtins(self, n, type_name):
         """
         Return a `(arrow type, list)` tuple where the arrow type
@@ -290,7 +360,8 @@ class BuiltinsGenerator(object):
         """
         size = None
 
-        if type_name in ('bool', 'decimal', 'ascii', 'unicode', 'int64 list'):
+        if type_name in ('bool', 'decimal', 'ascii', 'unicode', 'int64 list',
+                         'date32', 'timestamp', 'time64', 'duration'):
             kind = type_name
         elif type_name.startswith(('int', 'uint')):
             kind = 'int'
@@ -325,6 +396,14 @@ class BuiltinsGenerator(object):
             ty = pa.struct([pa.field('u', pa.int64()),
                             pa.field('v', pa.float64()),
                             pa.field('w', pa.bool_())])
+        elif kind == 'date32':
+            ty = pa.date32()
+        elif kind == 'timestamp':
+            ty = pa.timestamp('us')
+        elif kind == 'time64':
+            ty = pa.time64('us')
+        elif kind == 'duration':
+            ty = pa.duration('us')
 
         factories = {
             'int': self.generate_int_list,
@@ -343,6 +422,10 @@ class BuiltinsGenerator(object):
                                   min_size=0, max_size=20),
             'struct': self.generate_dict_list,
             'struct from tuples': self.generate_tuple_list,
+            'date32': self.generate_date_list,
+            'timestamp': self.generate_timestamp_list,
+            'time64': self.generate_time_list,
+            'duration': self.generate_duration_list,
         }
         data = factories[kind](n)
         return ty, data
