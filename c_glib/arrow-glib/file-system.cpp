@@ -17,9 +17,9 @@
  * under the License.
  */
 
-#include <mutex>
 #include <string>
-#include <unordered_map>
+
+#include <gio/gio.h>
 
 #include <arrow-glib/enums.h>
 
@@ -549,24 +549,38 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
 
 /* arrow::fs::FileSystem */
 
-struct GArrowFileSystemTypeRegistry
-{
-  std::mutex mutex;
-  std::unordered_map<std::string, GType> types = {
-    {"local", GARROW_TYPE_LOCAL_FILE_SYSTEM},
-    {"hdfs", GARROW_TYPE_HDFS_FILE_SYSTEM},
-    {"s3", GARROW_TYPE_S3_FILE_SYSTEM},
-    {"gcs", GARROW_TYPE_GCS_FILE_SYSTEM},
-    {"abfs", GARROW_TYPE_AZURE_FILE_SYSTEM},
-    {"mock", GARROW_TYPE_MOCK_FILE_SYSTEM},
-  };
-};
+static const gchar garrow_file_system_extension_point_name[] = "arrow-file-system";
 
-static GArrowFileSystemTypeRegistry &
-garrow_file_system_get_type_registry(void)
+// GIO's extension lists need synchronization; lazy module loading may reenter.
+static GRecMutex garrow_file_system_extension_point_mutex;
+
+static GIOExtensionPoint *
+garrow_file_system_get_extension_point(void)
 {
-  static GArrowFileSystemTypeRegistry registry;
-  return registry;
+  static auto extension_point = [] {
+    auto point = g_io_extension_point_register(garrow_file_system_extension_point_name);
+    g_io_extension_point_set_required_type(point, GARROW_TYPE_FILE_SYSTEM);
+    const struct
+    {
+      const gchar *name;
+      GType gtype;
+    } builtins[] = {
+      {"local", GARROW_TYPE_LOCAL_FILE_SYSTEM},
+      {"hdfs", GARROW_TYPE_HDFS_FILE_SYSTEM},
+      {"s3", GARROW_TYPE_S3_FILE_SYSTEM},
+      {"gcs", GARROW_TYPE_GCS_FILE_SYSTEM},
+      {"abfs", GARROW_TYPE_AZURE_FILE_SYSTEM},
+      {"mock", GARROW_TYPE_MOCK_FILE_SYSTEM},
+    };
+    for (const auto &builtin : builtins) {
+      g_io_extension_point_implement(garrow_file_system_extension_point_name,
+                                     builtin.gtype,
+                                     builtin.name,
+                                     0);
+    }
+    return point;
+  }();
+  return extension_point;
 }
 
 typedef struct GArrowFileSystemPrivate_
@@ -648,6 +662,7 @@ garrow_file_system_class_init(GArrowFileSystemClass *klass)
  * is copied and the registration lasts for the lifetime of the process.
  * Built-in file system wrapper types are registered automatically.
  * Registering a name that is already registered is an error.
+ * Each wrapper type can be registered under only one name.
  *
  * This function is thread-safe.
  *
@@ -676,15 +691,35 @@ garrow_file_system_register_type(const gchar *type_name, GType gtype, GError **e
     return FALSE;
   }
 
-  auto &registry = garrow_file_system_get_type_registry();
-  std::lock_guard<std::mutex> lock(registry.mutex);
-  if (!registry.types.emplace(type_name, gtype).second) {
+  auto extension_point = garrow_file_system_get_extension_point();
+  g_rec_mutex_lock(&garrow_file_system_extension_point_mutex);
+  const auto duplicate =
+    g_io_extension_point_get_extension_by_name(extension_point, type_name) != NULL;
+  GIOExtension *extension = NULL;
+  if (!duplicate) {
+    extension = g_io_extension_point_implement(garrow_file_system_extension_point_name,
+                                               gtype,
+                                               type_name,
+                                               0);
+  }
+  g_rec_mutex_unlock(&garrow_file_system_extension_point_mutex);
+
+  if (duplicate) {
     g_set_error(error,
                 GARROW_ERROR,
                 GARROW_ERROR_KEY,
                 "%s file system type is already registered: %s",
                 context,
                 type_name);
+    return FALSE;
+  }
+  if (g_strcmp0(g_io_extension_get_name(extension), type_name) != 0) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_KEY,
+                "%s wrapper type is already registered under another name: %s",
+                context,
+                g_io_extension_get_name(extension));
     return FALSE;
   }
   return TRUE;
@@ -1674,14 +1709,14 @@ garrow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_sy
   const auto &type_name = (*arrow_file_system)->type_name();
 
   GType file_system_type = GARROW_TYPE_FILE_SYSTEM;
-  auto &registry = garrow_file_system_get_type_registry();
-  {
-    std::lock_guard<std::mutex> lock(registry.mutex);
-    auto it = registry.types.find(type_name);
-    if (it != registry.types.end()) {
-      file_system_type = it->second;
-    }
+  auto extension_point = garrow_file_system_get_extension_point();
+  g_rec_mutex_lock(&garrow_file_system_extension_point_mutex);
+  auto extension =
+    g_io_extension_point_get_extension_by_name(extension_point, type_name.c_str());
+  if (extension) {
+    file_system_type = g_io_extension_get_type(extension);
   }
+  g_rec_mutex_unlock(&garrow_file_system_extension_point_mutex);
 
   // Wrapper class initialization may register additional types.
   return GARROW_FILE_SYSTEM(

@@ -16,17 +16,32 @@
 # under the License.
 
 class TestFileSystem < Test::Unit::TestCase
+  class RegisteredFileSystem < Arrow::FileSystem
+    type_register
+  end
+
+  class DuplicateFileSystem < Arrow::FileSystem
+    type_register
+  end
+
   sub_test_case("register_type") do
     def test_valid
       assert_true(Arrow::FileSystem.register_type("test-file-system-valid",
-                                                  Arrow::MockFileSystem.gtype))
+                                                  RegisteredFileSystem.gtype))
     end
 
     def test_duplicate
       type_name = "test-file-system-duplicate"
-      Arrow::FileSystem.register_type(type_name, Arrow::MockFileSystem.gtype)
+      Arrow::FileSystem.register_type(type_name, DuplicateFileSystem.gtype)
       assert_raise(Arrow::Error::Key) do
         Arrow::FileSystem.register_type(type_name, Arrow::LocalFileSystem.gtype)
+      end
+    end
+
+    def test_type_alias
+      assert_raise(Arrow::Error::Key) do
+        Arrow::FileSystem.register_type("test-file-system-alias",
+                                        Arrow::MockFileSystem.gtype)
       end
     end
 

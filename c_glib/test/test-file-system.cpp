@@ -21,6 +21,8 @@
 #include <string>
 #include <utility>
 
+#include <gio/gio.h>
+
 #include <arrow/filesystem/localfs.h>
 
 #include <arrow-glib/error.h>
@@ -79,6 +81,37 @@ namespace {
   }
 
   void
+  test_gio_registered()
+  {
+    std::shared_ptr<arrow::fs::FileSystem> file_system =
+      std::make_shared<TestFileSystem>("test-gio-registered");
+    auto fallback = garrow_file_system_new_raw(&file_system);
+    g_assert_true(G_OBJECT_TYPE(fallback) == GARROW_TYPE_FILE_SYSTEM);
+    g_object_unref(fallback);
+
+    auto point = g_io_extension_point_lookup("arrow-file-system");
+    g_assert_nonnull(point);
+    g_assert_true(g_io_extension_point_get_required_type(point) ==
+                  GARROW_TYPE_FILE_SYSTEM);
+    auto wrapper_type = g_type_register_static_simple(GARROW_TYPE_FILE_SYSTEM,
+                                                      "TestGIORegisteredFileSystem",
+                                                      sizeof(GArrowFileSystemClass),
+                                                      nullptr,
+                                                      sizeof(GArrowFileSystem),
+                                                      nullptr,
+                                                      static_cast<GTypeFlags>(0));
+    g_io_extension_point_implement("arrow-file-system",
+                                   wrapper_type,
+                                   "test-gio-registered",
+                                   0);
+
+    auto wrapper = garrow_file_system_new_raw(&file_system);
+    g_assert_true(G_OBJECT_TYPE(wrapper) == wrapper_type);
+    g_assert_true(garrow_file_system_get_raw(wrapper) == file_system);
+    g_object_unref(wrapper);
+  }
+
+  void
   test_fallback()
   {
     std::shared_ptr<arrow::fs::FileSystem> file_system =
@@ -124,6 +157,7 @@ main(int argc, char **argv)
   g_test_init(&argc, &argv, nullptr);
   g_test_add_func("/file-system/builtin", test_builtin);
   g_test_add_func("/file-system/registered", test_registered);
+  g_test_add_func("/file-system/gio-registered", test_gio_registered);
   g_test_add_func("/file-system/fallback", test_fallback);
   g_test_add_func("/file-system/abstract-type", test_abstract_type);
   return g_test_run();
