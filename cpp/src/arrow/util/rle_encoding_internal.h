@@ -928,12 +928,16 @@ auto RleBitPackedDecoder<T>::ProcessValues(Callable&& func,
 
   // Remaining from a previous call that would have left some unread data from a run.
   if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
+    const auto run_available = run_remaining();
     const auto processed =
         std::visit([&](auto& decoder) { return func(decoder, batch_size); }, decoder_);
     values_processed += processed;
 
-    // Either we fulfilled all the batch to be read or we finished remaining run.
-    if (ARROW_PREDICT_FALSE(values_processed == batch_size)) {
+    // Either we fulfilled all the batch to be read, or the run stopped short
+    // because of invalid data (e.g. an out-of-bounds dictionary index), in which
+    // case we must not resume with the next run.
+    if (ARROW_PREDICT_FALSE(values_processed == batch_size ||
+                            processed < run_available)) {
       return values_processed;
     }
     ARROW_DCHECK(run_remaining() == 0);
@@ -946,11 +950,14 @@ auto RleBitPackedDecoder<T>::ProcessValues(Callable&& func,
     ARROW_DCHECK_LT(values_processed, batch_size);
     // Local decoder to keep its type transparent to the compiler.
     RunDecoder decoder(run, value_bit_width_);
+    const auto run_available = decoder.remaining();
     const auto read = func(decoder, batch_size - values_processed);
     ARROW_DCHECK_LE(read, batch_size - values_processed);
     values_processed += read;
 
-    if (ARROW_PREDICT_FALSE(values_processed == batch_size || read == 0)) {
+    // Stop if the batch is full, or if the run was not entirely consumed although
+    // the batch is not full, which means invalid data.
+    if (ARROW_PREDICT_FALSE(values_processed == batch_size || read < run_available)) {
       // Stop reading and store remaining decoder
       decoder_ = std::move(decoder);
       return ControlFlow::Break;
@@ -1277,6 +1284,7 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
 
   // Remaining from a previous call that would have left some unread data from a run.
   if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
+    const auto run_available = run_remaining();
     const auto read = internal::RunGetSpaced(&converter, out, batch.total_remaining(),
                                              batch.null_remaining(), value_bit_width_,
                                              &validity_reader, &validity_run, &decoder_);
@@ -1292,6 +1300,12 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
       return batch.total_read();
     }
 
+    // Or the run stopped short because of invalid data (e.g. an out-of-bounds
+    // dictionary index), in which case we must not resume with the next run.
+    if (ARROW_PREDICT_FALSE(read.values_read < run_available)) {
+      return batch.total_read();
+    }
+
     // We finished the remaining run
     ARROW_DCHECK(run_remaining() == 0);
   }
@@ -1301,6 +1315,7 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
         typename RleBitPackedDecoderGetRunDecoder<value_type, decltype(run)>::type;
 
     RunDecoder decoder(run, value_bit_width_);
+    const auto run_available = decoder.remaining();
 
     const auto read = internal::RunGetSpaced(&converter, out, batch.total_remaining(),
                                              batch.null_remaining(), value_bit_width_,
@@ -1310,8 +1325,11 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
     batch.AccrueReadValues(read.values_read);
     out += read.values_read + read.null_read;
 
-    // Stop reading and store remaining decoder
-    if (ARROW_PREDICT_FALSE(read.values_read == 0 || batch.values_remaining() == 0)) {
+    // Stop reading and store remaining decoder if the batch values are all read,
+    // or if the run was not entirely consumed although some batch values remain,
+    // which means invalid data.
+    if (ARROW_PREDICT_FALSE(batch.values_remaining() == 0 ||
+                            read.values_read < run_available)) {
       decoder_ = std::move(decoder);
       return ControlFlow::Break;
     }
