@@ -708,7 +708,7 @@ class TypeInferrer {
         key = internal::PyBytes_AsStdString(key_obj);
       } else {
         return Status::TypeError("Expected dict key of type str or bytes, got '",
-                                 Py_TYPE(key_obj)->tp_name, "'");
+                                 internal::PyObject_StdStringTypeName(key_obj), "'");
       }
       // Get or create visitor for this key
       TypeInferrer* visitor;
