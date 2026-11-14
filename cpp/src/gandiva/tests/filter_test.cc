@@ -449,4 +449,65 @@ TEST_F(TestFilter, TestLike) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
 }
 
+// Two schemas that differ only in the nullability of a field are different cache
+// entries, and a batch must match the schema the filter was built with.
+TEST_F(TestFilter, TestCacheSchemasDifferingInNullability) {
+  auto nullable_field = field("filter_cache_nullability_f0", int32(), true);
+  auto required_field = field("filter_cache_nullability_f0", int32(), false);
+  auto nullable_schema = arrow::schema({nullable_field});
+  auto required_schema = arrow::schema({required_field});
+
+  // The same condition on each schema's own field: f0 < 3.
+  auto make_condition = [](const FieldPtr& input) {
+    return TreeExprBuilder::MakeCondition(TreeExprBuilder::MakeFunction(
+        "less_than", {TreeExprBuilder::MakeField(input), TreeExprBuilder::MakeLiteral(3)},
+        boolean()));
+  };
+  auto configuration = TestConfiguration();
+
+  std::shared_ptr<Filter> nullable_filter;
+  ASSERT_OK(Filter::Make(nullable_schema, make_condition(nullable_field), configuration,
+                         &nullable_filter));
+  EXPECT_FALSE(nullable_filter->GetBuiltFromCache());
+  std::shared_ptr<Filter> required_filter;
+  ASSERT_OK(Filter::Make(required_schema, make_condition(required_field), configuration,
+                         &required_filter));
+  EXPECT_FALSE(required_filter->GetBuiltFromCache());
+
+  std::shared_ptr<Filter> nullable_again;
+  ASSERT_OK(Filter::Make(nullable_schema, make_condition(nullable_field), configuration,
+                         &nullable_again));
+  EXPECT_TRUE(nullable_again->GetBuiltFromCache());
+  std::shared_ptr<Filter> required_again;
+  ASSERT_OK(Filter::Make(required_schema, make_condition(required_field), configuration,
+                         &required_again));
+  EXPECT_TRUE(required_again->GetBuiltFromCache());
+
+  // Each filter selects the right rows on a batch of its own schema. Row 1 is null.
+  auto nullable_batch = arrow::RecordBatch::Make(
+      nullable_schema, 4, {MakeArrowArrayInt32({1, 2, 3, 4}, {true, false, true, true})});
+  auto required_batch =
+      arrow::RecordBatch::Make(required_schema, 4, {MakeArrowArrayInt32({1, 2, 3, 4})});
+  for (const auto& filter : {nullable_filter, nullable_again}) {
+    std::shared_ptr<SelectionVector> selection_vector;
+    ASSERT_OK(SelectionVector::MakeInt16(4, pool_, &selection_vector));
+    ASSERT_OK(filter->Evaluate(*nullable_batch, selection_vector));
+    EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayUint16({0}), selection_vector->ToArray());
+  }
+  for (const auto& filter : {required_filter, required_again}) {
+    std::shared_ptr<SelectionVector> selection_vector;
+    ASSERT_OK(SelectionVector::MakeInt16(4, pool_, &selection_vector));
+    ASSERT_OK(filter->Evaluate(*required_batch, selection_vector));
+    EXPECT_ARROW_ARRAY_EQUALS(MakeArrowArrayUint16({0, 1}), selection_vector->ToArray());
+  }
+
+  // A batch of the other schema is rejected, in both directions.
+  std::shared_ptr<SelectionVector> selection_vector;
+  ASSERT_OK(SelectionVector::MakeInt16(4, pool_, &selection_vector));
+  auto status = nullable_filter->Evaluate(*required_batch, selection_vector);
+  EXPECT_TRUE(status.IsInvalid()) << status.ToString();
+  status = required_filter->Evaluate(*nullable_batch, selection_vector);
+  EXPECT_TRUE(status.IsInvalid()) << status.ToString();
+}
+
 }  // namespace gandiva
