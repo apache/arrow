@@ -68,6 +68,23 @@ def test_parquet_invalid_version(tempdir):
                      data_page_version="2.2")
 
 
+def test_cast_struct_with_null_child_from_parquet(tempdir):
+    struct_type = pa.struct([
+        pa.field('a', pa.int64(), nullable=False),
+        pa.field('n', pa.null()),
+    ])
+    array = pa.array([None, [{'a': 1, 'n': None}, {'a': 2, 'n': None}]],
+                     type=pa.list_(struct_type))
+    path = tempdir / 'struct_null_child.parquet'
+    _write_table(pa.table({'x': array}), path, row_group_size=1)
+
+    schema = pq.read_schema(path)
+    parquet_file = pq.ParquetFile(path)
+    for batch in parquet_file.iter_batches(batch_size=1):
+        casted = batch.cast(schema)
+        assert casted.column(0).validate(full=True) is None
+
+
 def test_set_data_page_size():
     arr = pa.array([1, 2, 3] * 100000)
     t = pa.Table.from_arrays([arr], names=['f0'])
