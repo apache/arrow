@@ -516,6 +516,18 @@ TEST(TestBuffer, ToHexString) {
   ASSERT_EQ(buf.ToHexString(), std::string("073068657820737472696E67A9"));
 }
 
+TEST(TestBuffer, SliceNullBuffer) {
+  auto null_buffer = std::make_shared<Buffer>(nullptr, 16);
+  auto sliced = SliceBuffer(null_buffer, 8, 8);
+  EXPECT_EQ(sliced->data(), nullptr);
+  EXPECT_EQ(sliced->size(), 8);
+
+  auto null_mutable = std::make_shared<MutableBuffer>(nullptr, 16);
+  auto sliced_mutable = SliceMutableBuffer(null_mutable, 8, 8);
+  EXPECT_EQ(sliced_mutable->mutable_data(), nullptr);
+  EXPECT_EQ(sliced_mutable->size(), 8);
+}
+
 TEST(TestBuffer, SliceBuffer) {
   std::string data_str = "some data to slice";
   auto data = reinterpret_cast<const uint8_t*>(data_str.c_str());
