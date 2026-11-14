@@ -1009,7 +1009,7 @@ cdef class StringViewScalar(StringScalar):
     pass
 
 
-cdef class ListScalar(Scalar, Sequence):
+cdef class ListScalar(Scalar):
     """
     Concrete class for list-like scalars.
     """
@@ -1062,6 +1062,21 @@ cdef class ListScalar(Scalar, Sequence):
         return None if arr is None else arr.to_pylist(maps_as_pydicts=maps_as_pydicts)
 
 
+# Under Py_LIMITED_API these extension types are created as heap types via
+# PyType_Spec, and CPython >= 3.14 rejects heap types whose metaclass defines
+# a custom tp_new (ABCMeta), so the Sequence/Mapping ABCs cannot be C-level
+# base classes. The ABC membership is established at the Python layer instead:
+# the mixin methods the ABC used to provide via inheritance are assigned
+# explicitly, and the classes are registered as virtual subclasses (this
+# propagates to the subclasses defined below), so isinstance/issubclass keep
+# working exactly as before.
+ListScalar.__contains__ = Sequence.__contains__
+ListScalar.count = Sequence.count
+ListScalar.index = Sequence.index
+ListScalar.__reversed__ = Sequence.__reversed__
+Sequence.register(ListScalar)
+
+
 cdef class FixedSizeListScalar(ListScalar):
     pass
 
@@ -1078,7 +1093,7 @@ cdef class LargeListViewScalar(ListScalar):
     pass
 
 
-cdef class StructScalar(Scalar, Mapping):
+cdef class StructScalar(Scalar):
     """
     Concrete class for struct scalars.
     """
@@ -1177,7 +1192,13 @@ cdef class StructScalar(Scalar, Mapping):
         return str(self._as_py_tuple())
 
 
-cdef class MapScalar(ListScalar, Mapping):
+StructScalar.keys = Mapping.keys
+StructScalar.values = Mapping.values
+StructScalar.get = Mapping.get
+Mapping.register(StructScalar)
+
+
+cdef class MapScalar(ListScalar):
     """
     Concrete class for map scalars.
     """
@@ -1270,6 +1291,11 @@ cdef class MapScalar(ListScalar, Mapping):
             return []
         key_field = self.type.key_field.name
         return [k.as_py() for k in arr.field(key_field)]
+
+
+MapScalar.get = Mapping.get
+MapScalar.items = Mapping.items
+Mapping.register(MapScalar)
 
 
 cdef class DictionaryScalar(Scalar):
