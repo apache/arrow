@@ -268,6 +268,16 @@ std::vector<SearchSortedSmokeCase> SupportedTypeSmokeCases() {
        R"(["a", "c", "bb", "z"])", "[0, 3, 1, 5]", "[0, 3, 3, 5]"},
       {"StringView", utf8_view(), R"(["aa", "bb", "bb", "dd", "ff"])",
        R"(["a", "c", "bb", "z"])", "[0, 3, 1, 5]", "[0, 3, 3, 5]"},
+      {"FixedSizeBinary", fixed_size_binary(2), R"(["aa", "bb", "bb", "dd", "ff"])",
+       R"(["ab", "cc", "bb", "zz"])", "[1, 3, 1, 5]", "[1, 3, 3, 5]"},
+      {"Decimal32", decimal32(5, 2), R"(["-12.50", "-1.00", "-1.00", "0.00", "3.25"])",
+       R"(["-20.00", "-1.00", "1.00", "5.00"])", "[0, 1, 4, 5]", "[0, 3, 4, 5]"},
+      {"Decimal64", decimal64(10, 2), R"(["-12.50", "-1.00", "-1.00", "0.00", "3.25"])",
+       R"(["-20.00", "-1.00", "1.00", "5.00"])", "[0, 1, 4, 5]", "[0, 3, 4, 5]"},
+      {"Decimal128", decimal128(20, 2), R"(["-12.50", "-1.00", "-1.00", "0.00", "3.25"])",
+       R"(["-20.00", "-1.00", "1.00", "5.00"])", "[0, 1, 4, 5]", "[0, 3, 4, 5]"},
+      {"Decimal256", decimal256(40, 2), R"(["-12.50", "-1.00", "-1.00", "0.00", "3.25"])",
+       R"(["-20.00", "-1.00", "1.00", "5.00"])", "[0, 1, 4, 5]", "[0, 3, 4, 5]"},
   };
 }
 
@@ -538,6 +548,15 @@ TEST(SearchSorted, RunEndEncodedDate32Values) {
   auto needles = ArrayFromJSON(date32(), "[2]");
 
   CheckSearchSorted(Datum(values), Datum(needles), "[2]", "[2]");
+}
+
+TEST(SearchSorted, RunEndEncodedDecimalValues) {
+  auto values_type = run_end_encoded(int16(), decimal128(10, 2));
+  ASSERT_OK_AND_ASSIGN(auto values,
+                       REEFromJSON(values_type, R"([null, "-1.00", "-1.00", "2.50"])"));
+  auto needles = ArrayFromJSON(decimal128(10, 2), R"(["-1.00", "0.00", null])");
+
+  CheckSearchSorted(Datum(values), Datum(needles), "[1, 3, null]", "[3, 3, null]");
 }
 
 TEST(SearchSorted, RunEndEncodedNulls) {
