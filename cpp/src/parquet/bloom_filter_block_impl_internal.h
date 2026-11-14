@@ -30,8 +30,11 @@ inline bool FindHashBlockImpl(
     uint32_t key) {
   uint32_t miss = 0;
   for (int i = 0; i < BlockSplitBloomFilter::kBitsSetPerBlock; ++i) {
+    const uint32_t bitset_word =
+        ::arrow::bit_util::FromLittleEndian(block[i]);
+
     const uint32_t mask = static_cast<uint32_t>(1) << ((key * salt[i]) >> 27);
-    miss |= (~block[i] & mask);
+    miss |= (~bitset_word & mask);
   }
   return miss == 0;
 }
