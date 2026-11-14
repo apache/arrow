@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <limits>
 #include <memory>
@@ -23,8 +24,12 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/array_binary.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/buffer.h"
+#include "arrow/c/abi.h"
+#include "arrow/c/bridge.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
@@ -35,7 +40,9 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 
@@ -69,6 +76,42 @@ Result<std::shared_ptr<Array>> FilterFromJSON(
   } else {
     return ArrayFromJSON(filter_type, json);
   }
+}
+
+std::shared_ptr<Array> MakeViewArrayWithMultiplePayloadBuffers(
+    const std::shared_ptr<DataType>& type) {
+  auto payload0 = Buffer::FromString("prefix-first-long-value-suffix");
+  auto payload1 = Buffer::FromString("header-second-long-value-tail");
+  constexpr int32_t first_offset = 7;
+  constexpr int32_t second_offset = 7;
+  constexpr int32_t first_size = sizeof("first-long-value") - 1;
+  constexpr int32_t second_size = sizeof("second-long-value") - 1;
+
+  // Null slots may contain an out-of-line view, but must not retain its payload.
+  auto null_view = util::ToNonInlineBinaryView(payload0->data() + first_offset,
+                                               first_size, 0, first_offset);
+  std::vector<BinaryViewType::c_type> views = {
+      util::ToInlineBinaryView(""),
+      util::ToInlineBinaryView("tiny"),
+      util::ToNonInlineBinaryView(payload0->data() + first_offset, first_size, 0,
+                                  first_offset),
+      null_view,
+      util::ToNonInlineBinaryView(payload1->data() + second_offset, second_size, 1,
+                                  second_offset),
+      util::ToInlineBinaryView("z")};
+
+  std::shared_ptr<Buffer> null_bitmap;
+  BitmapFromVector<bool>({true, true, true, false, true, true}, &null_bitmap);
+  BufferVector data_buffers{payload0, payload1};
+  auto views_buffer = Buffer::FromVector(views);
+  if (type->id() == Type::STRING_VIEW) {
+    return std::make_shared<StringViewArray>(type, static_cast<int64_t>(views.size()),
+                                             views_buffer, data_buffers, null_bitmap,
+                                             /*null_count=*/1);
+  }
+  return std::make_shared<BinaryViewArray>(type, static_cast<int64_t>(views.size()),
+                                           views_buffer, data_buffers, null_bitmap,
+                                           /*null_count=*/1);
 }
 
 Result<std::shared_ptr<Array>> REEncode(const std::shared_ptr<Array>& array) {
@@ -665,12 +708,65 @@ class TestFilterKernelWithString : public TestFilterKernel {
   }
 };
 
-TYPED_TEST_SUITE(TestFilterKernelWithString, BaseBinaryArrowTypes);
+TYPED_TEST_SUITE(TestFilterKernelWithString, BaseBinaryOrBinaryViewLikeArrowTypes);
 
 TYPED_TEST(TestFilterKernelWithString, FilterString) {
   this->AssertFilter(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["b"])");
   this->AssertFilter(R"([null, "b", "c"])", "[0, 1, 0]", R"(["b"])");
   this->AssertFilter(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b"])");
+  this->AssertFilter(R"(["a", "long-value-over-inline-limit", null, "z"])",
+                     "[1, 0, null, 1]", R"(["a", null, "z"])");
+  this->AssertFilter(R"(["a", null, "z"])", "[0, 1, 1]", R"([null, "z"])");
+}
+
+TEST_F(TestFilterKernel, FilterBinaryViewMultiplePayloadBuffers) {
+  for (const auto& value_type : BinaryViewTypes()) {
+    ARROW_SCOPED_TRACE(value_type->ToString());
+    auto values = MakeViewArrayWithMultiplePayloadBuffers(value_type);
+    auto filter = ArrayFromJSON(boolean(), "[false, false, true, true, true, false]");
+    auto expected =
+        ArrayFromJSON(value_type, R"(["first-long-value", null, "second-long-value"])");
+    this->AssertFilter(values, filter, expected);
+
+    ASSERT_OK_AND_ASSIGN(Datum actual_datum,
+                         CallFunction("array_filter", {values, filter}, &this->drop_));
+    auto actual = actual_datum.make_array();
+    ValidateOutput(*actual);
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter));
+    ASSERT_OK_AND_ASSIGN(
+        Datum ree_actual_datum,
+        CallFunction("array_filter", {values, ree_filter}, &this->drop_));
+    auto ree_actual = ree_actual_datum.make_array();
+    ValidateOutput(*ree_actual);
+    AssertArraysEqual(*expected, *ree_actual, /*verbose=*/true);
+  }
+}
+
+TEST_F(TestFilterKernel, FilterViewDropsUnusedPayloadBuffers) {
+  for (const auto& value_type : BinaryViewTypes()) {
+    auto values = MakeViewArrayWithMultiplePayloadBuffers(value_type)->Slice(1, 4);
+    auto filter = ArrayFromJSON(boolean(), "[true, false, null, true, true]")->Slice(1);
+    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter));
+    for (const auto& options : {drop_, emit_null_}) {
+      auto expected =
+          ArrayFromJSON(value_type, options.null_selection_behavior == FilterOptions::DROP
+                                        ? R"([null, "second-long-value"])"
+                                        : R"([null, null, "second-long-value"])");
+      for (const auto& selection : {filter, ree_filter}) {
+        ASSERT_OK_AND_ASSIGN(auto actual_datum, Filter(values, selection, options));
+        auto actual = actual_datum.make_array();
+        ValidateOutput(*actual);
+        AssertArraysEqual(*expected, *actual);
+        ASSERT_EQ(actual->data()->buffers.size(), 4);
+        ASSERT_NE(actual->data()->buffers[2], nullptr);
+        ASSERT_EQ(actual->data()->buffers[2]->size(), 0);
+        ASSERT_EQ(actual->data()->buffers[2]->parent(), nullptr);
+        ASSERT_EQ(actual->data()->buffers[3], values->data()->buffers[3]);
+      }
+    }
+  }
 }
 
 TYPED_TEST(TestFilterKernelWithString, FilterDictionary) {
@@ -1656,12 +1752,19 @@ class TestTakeKernelWithString : public TestTakeKernelTyped<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestTakeKernelWithString, BaseBinaryArrowTypes);
+TYPED_TEST_SUITE(TestTakeKernelWithString, BaseBinaryOrBinaryViewLikeArrowTypes);
 
 TYPED_TEST(TestTakeKernelWithString, TakeString) {
   this->CheckTakeXA(R"(["a", "b", "c"])", "[0, 1, 0]", R"(["a", "b", "a"])");
   this->CheckTakeXA(R"([null, "b", "c"])", "[0, 1, 0]", "[null, \"b\", null]");
   this->CheckTakeXA(R"(["a", "b", "c"])", "[null, 1, 0]", R"([null, "b", "a"])");
+  this->CheckTakeXA(
+      R"(["", "a", "long-value-over-inline-limit", null, "z"])", "[2, 0, 2, 4, 1]",
+      R"(["long-value-over-inline-limit", "", "long-value-over-inline-limit", "z", "a"])");
+  this->CheckTakeXA(R"(["a", null, "long-value-over-inline-limit"])", "[0, 1, null, 2]",
+                    R"(["a", null, null, "long-value-over-inline-limit"])");
+  this->CheckTakeXA("[]", "[]", "[]");
+  this->CheckTakeXA(R"(["a", "long-value-over-inline-limit"])", "[]", "[]");
 
   this->TestNoValidityBitmapButUnknownNullCount(R"(["a", "b", "c"])", "[0, 1, 0]");
 
@@ -1673,6 +1776,139 @@ TYPED_TEST(TestTakeKernelWithString, TakeString) {
   Datum chunked_arr;
   ASSERT_RAISES(IndexError, TakeCAC(type, {kABC, kABC}, "[0, 9, 0]").Value(&chunked_arr));
   ASSERT_RAISES(IndexError, TakeCAC(type, {kABC, kABC}, "[4, 10]").Value(&chunked_arr));
+}
+
+TEST_F(TestTakeKernel, TakeViewMultiplePayloadBuffers) {
+  for (const auto& value_type : BinaryViewTypes()) {
+    ARROW_SCOPED_TRACE(value_type->ToString());
+    auto values = MakeViewArrayWithMultiplePayloadBuffers(value_type);
+    auto indices = ArrayFromJSON(int32(), "[2, 4, 0, 5]");
+    auto expected = ArrayFromJSON(
+        value_type, R"(["first-long-value", "second-long-value", "", "z"])");
+
+    DoCheckTakeAAA(values, indices, expected);
+
+    ASSERT_OK_AND_ASSIGN(Datum actual_datum,
+                         CallFunction("array_take", {values, indices}));
+    auto actual = actual_datum.make_array();
+    ValidateOutput(*actual);
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+    ASSERT_EQ(actual->data()->buffers.size(), values->data()->buffers.size());
+    ASSERT_EQ(values->data()->buffers[2].get(), actual->data()->buffers[2].get());
+    ASSERT_EQ(values->data()->buffers[3].get(), actual->data()->buffers[3].get());
+
+    auto sliced_values = values->Slice(1, 4);
+    auto sliced_indices = ArrayFromJSON(int32(), "[1, 3, 0]");
+    auto sliced_expected =
+        ArrayFromJSON(value_type, R"(["first-long-value", "second-long-value", "tiny"])");
+    DoAssertTakeAAA(sliced_values, sliced_indices, sliced_expected);
+
+    auto indices_with_offset = ArrayFromJSON(int32(), "[0, 4, null, 2, 5]")->Slice(1, 3);
+    auto expected_with_offset =
+        ArrayFromJSON(value_type, R"(["second-long-value", null, "first-long-value"])");
+    DoAssertTakeAAA(values, indices_with_offset, expected_with_offset);
+  }
+}
+
+TEST_F(TestTakeKernel, TakeViewDropsUnusedPayloadBuffers) {
+  struct TestCase {
+    const char* indices;
+    const char* expected;
+    bool uses_first;
+    bool uses_second;
+  };
+  const TestCase cases[] = {
+      {"[4, 3, 4, null, 1]",
+       R"(["second-long-value", null, "second-long-value", null, "tiny"])", false, true},
+      {"[2, 1, 2]", R"(["first-long-value", "tiny", "first-long-value"])", true, false},
+      {"[4, 2]", R"(["second-long-value", "first-long-value"])", true, true},
+      {"[0, 1, 5, null, 3]", R"(["", "tiny", "z", null, null])", false, false},
+      {"[3, null, 3]", "[null, null, null]", false, false},
+      {"[]", "[]", false, false},
+  };
+  for (const auto& value_type : BinaryViewTypes()) {
+    for (const auto& test : cases) {
+      ARROW_SCOPED_TRACE(value_type->ToString(), " indices = ", test.indices);
+      auto values = MakeViewArrayWithMultiplePayloadBuffers(value_type);
+      auto indices = ArrayFromJSON(int32(), test.indices);
+      auto expected = ArrayFromJSON(value_type, test.expected);
+      std::weak_ptr<Buffer> first = values->data()->buffers[2];
+      std::weak_ptr<Buffer> second = values->data()->buffers[3];
+
+      ASSERT_OK_AND_ASSIGN(auto actual, TakeAAA(*values, *indices));
+      ValidateOutput(*actual);
+      AssertArraysEqual(*expected, *actual);
+      const auto& buffers = actual->data()->buffers;
+      ASSERT_EQ(buffers.size(), test.uses_second ? 4 : (test.uses_first ? 3 : 2));
+      if (test.uses_first) {
+        ASSERT_EQ(buffers[2], first.lock());
+      } else if (test.uses_second) {
+        ASSERT_NE(buffers[2], nullptr);
+        ASSERT_EQ(buffers[2]->size(), 0);
+        ASSERT_EQ(buffers[2]->parent(), nullptr);
+      }
+      if (test.uses_second) {
+        ASSERT_EQ(buffers[3], second.lock());
+      }
+      values.reset();
+      ASSERT_EQ(first.expired(), !test.uses_first);
+      ASSERT_EQ(second.expired(), !test.uses_second);
+
+      // Empty placeholders must also be safe to export and import.
+      ArrowArray c_array{};
+      ASSERT_OK(ExportArray(*actual, &c_array));
+      ASSERT_OK_AND_ASSIGN(auto imported, ImportArray(&c_array, value_type));
+      ValidateOutput(*imported);
+      AssertArraysEqual(*expected, *imported);
+    }
+  }
+}
+
+TEST_F(TestTakeKernel, TakeViewValidityFollowsIndices) {
+  for (const auto& value_type : BinaryViewTypes()) {
+    for (const auto& index_type : IntTypes()) {
+      for (bool source_has_nulls : {false, true}) {
+        for (int64_t offset : {0, 1, 7, 8}) {
+          ARROW_SCOPED_TRACE(value_type->ToString(),
+                             " indices = ", index_type->ToString(),
+                             " source nulls = ", source_has_nulls, " offset = ", offset);
+          auto values = ArrayFromJSON(
+              value_type,
+              source_has_nulls
+                  ? R"(["unused", "a", null, "long-value-over-inline-limit", "z"])"
+                  : R"(["unused", "a", "b", "long-value-over-inline-limit", "z"])");
+          values = values->Slice(1);
+          // Cross bitmap word boundaries with all-valid, all-null and mixed blocks.
+          std::vector<std::string> index_json(offset, "0");
+          std::vector<std::string> expected_json;
+          const char* source_json[] = {R"("a")", source_has_nulls ? "null" : R"("b")",
+                                       R"("long-value-over-inline-limit")", R"("z")"};
+          for (int64_t i = 0; i < 193; ++i) {
+            const int64_t index = (i * 3 + 2) % 4;
+            const bool is_null = (i >= 64 && i < 128) || (i >= 128 && i % 3 == 0);
+            index_json.push_back(is_null ? "null" : std::to_string(index));
+            expected_json.push_back(is_null ? "null" : source_json[index]);
+          }
+          auto indices = ArrayFromJSON(
+              index_type, "[" + ::arrow::internal::JoinStrings(index_json, ",") + "]");
+          // A null index's payload is unspecified and must never be dereferenced.
+          auto* index_bytes = indices->data()->buffers[1]->mutable_data();
+          for (int64_t i = 0; i < indices->length(); ++i) {
+            if (indices->IsNull(i)) {
+              std::memset(index_bytes + i * index_type->byte_width(), 0xff,
+                          index_type->byte_width());
+            }
+          }
+          indices = indices->Slice(offset);
+          values->data()->null_count = kUnknownNullCount;
+          indices->data()->null_count = kUnknownNullCount;
+          auto expected = ArrayFromJSON(
+              value_type, "[" + ::arrow::internal::JoinStrings(expected_json, ",") + "]");
+          DoAssertTakeAAA(values, indices, expected);
+        }
+      }
+    }
+  }
 }
 
 TYPED_TEST(TestTakeKernelWithString, TakeDictionary) {
@@ -2470,7 +2706,7 @@ class TestDropNullKernelWithString : public TestDropNullKernelTyped<TypeClass> {
   }
 };
 
-TYPED_TEST_SUITE(TestDropNullKernelWithString, BaseBinaryArrowTypes);
+TYPED_TEST_SUITE(TestDropNullKernelWithString, BaseBinaryOrBinaryViewLikeArrowTypes);
 
 TYPED_TEST(TestDropNullKernelWithString, DropNullString) {
   this->AssertDropNull(R"(["a", "b", "c"])", R"(["a", "b", "c"])");
@@ -2660,6 +2896,23 @@ TEST_F(TestDropNullKernelWithRecordBatch, DropNullRecordBatch) {
   this->AssertDropNull(schm, R"([])", R"([])");
 }
 
+TEST_F(TestDropNullKernelWithRecordBatch, DropNullRecordBatchWithView) {
+  for (const auto& value_type : BinaryViewTypes()) {
+    ARROW_SCOPED_TRACE(value_type->ToString());
+    auto schm = schema({field("a", value_type), field("b", int32())});
+    auto batch_json = R"([
+      {"a": "a", "b": 1},
+      {"a": null, "b": 2},
+      {"a": "c", "b": null},
+      {"a": "long-value-over-inline-limit", "b": 4}
+    ])";
+    this->AssertDropNull(schm, batch_json, R"([
+      {"a": "a", "b": 1},
+      {"a": "long-value-over-inline-limit", "b": 4}
+    ])");
+  }
+}
+
 class TestDropNullKernelWithChunkedArray : public TestDropNullKernelTyped<ChunkedArray> {
  public:
   TestDropNullKernelWithChunkedArray()
@@ -2715,6 +2968,14 @@ TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArray) {
   this->AssertDropNull(int8(), {"[null]", "[null, null]"}, {"[]"});
   this->AssertDropNull(int8(), {"[7]", "[8, 9]"}, {"[7]", "[8, 9]"});
   this->AssertDropNull(int8(), {"[]", "[]"}, {"[]", "[]"});
+
+  for (const auto& value_type : BinaryViewTypes()) {
+    ARROW_SCOPED_TRACE(value_type->ToString());
+    this->AssertDropNull(
+        value_type,
+        {R"(["a", null])", R"([null, "long-value-over-inline-limit"])", R"([""])"},
+        {R"(["a"])", R"(["long-value-over-inline-limit"])", R"([""])"});
+  }
 }
 
 TEST_F(TestDropNullKernelWithChunkedArray, DropNullChunkedArrayWithSlices) {
@@ -2834,6 +3095,26 @@ TEST_F(TestDropNullKernelWithTable, DropNullTable) {
     ASSERT_OK(this->DoDropNull(schm, table_json, &actual));
     AssertSchemaEqual(schm, actual->schema());
     ASSERT_EQ(actual->num_rows(), 0);
+  }
+
+  for (const auto& value_type : BinaryViewTypes()) {
+    ARROW_SCOPED_TRACE(value_type->ToString());
+    auto view_schm = schema({field("a", value_type), field("b", int32())});
+    std::vector<std::string> table_json = {R"([
+      {"a": "a", "b": 1},
+      {"a": null, "b": 2}
+    ])",
+                                           R"([
+      {"a": "c", "b": null},
+      {"a": "long-value-over-inline-limit", "b": 4}
+    ])"};
+    std::vector<std::string> expected_table_json = {R"([
+      {"a": "a", "b": 1}
+    ])",
+                                                    R"([
+      {"a": "long-value-over-inline-limit", "b": 4}
+    ])"};
+    this->AssertDropNull(view_schm, table_json, expected_table_json);
   }
 }
 
