@@ -99,7 +99,7 @@ cdef class RowGroupMetaData(_Weakrefable):
         CRowGroupMetaData* metadata
         FileMetaData parent
 
-    cdef inline init(self, FileMetaData parent, int index):
+    cdef inline init(self, FileMetaData parent, int index) except *:
         if index < 0 or index >= parent.num_row_groups:
             raise IndexError('{0} out of bounds'.format(index))
         self.up_metadata = parent._metadata.RowGroup(index)
@@ -114,7 +114,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         CColumnChunkMetaData* metadata
         RowGroupMetaData parent
 
-    cdef inline init(self, RowGroupMetaData parent, int i):
+    cdef inline init(self, RowGroupMetaData parent, int i) except *:
         self.up_metadata = parent.metadata.ColumnChunk(i)
         self.metadata = self.up_metadata.get()
         self.parent = parent
