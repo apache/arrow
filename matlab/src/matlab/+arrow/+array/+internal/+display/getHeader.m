@@ -15,24 +15,24 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function header = getHeader(className, numElements, numNulls)
+function header = getHeader(fullClassName, numElements, numNulls)
     import arrow.internal.display.pluralizeStringIfNeeded
+    import arrow.internal.display.getClassNameForDisplay
+    import arrow.internal.display.getNumString
+
+    className = getClassNameForDisplay(fullClassName);
     elementString = pluralizeStringIfNeeded(numElements, "element");
-
     nullString = pluralizeStringIfNeeded(numNulls, "null value");
-    
-    numString = "%d";
-    if usejava("desktop")
-        % Bold the number of elements and nulls if the desktop is enabled
-        numString = compose("<strong>%s</strong>", numString);
-    end
 
-    formatSpec = "  %s with " + numString + " %s and " + numString + " %s";
+    numElementString = getNumString(numElements);
+    numNullString = getNumString(numNulls);
+
+    formatSpec = "  %s with %s %s and %s %s";
     if numElements > 0
         formatSpec = formatSpec + ":";
     end
     formatSpec = formatSpec + newline;
-    
-    header = compose(formatSpec, className, numElements, elementString, numNulls, nullString);
+
+    header = compose(formatSpec, className, numElementString, elementString, numNullString, nullString);
     header = char(header);
 end
