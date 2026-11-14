@@ -331,6 +331,74 @@ TEST(TestExpressionCacheKey, RepeatedNamesAndTypesStayDistinct) {
             MakeKey(Function("f", {Field("a", i32), Field("a", i32)}, i64), i64));
 }
 
+TEST(TestExpressionCacheKey, NullChildNodes) {
+  // The builder refuses null children, but some node constructors do not. The key is
+  // built before validation, so it must handle them and leave the error to the
+  // validator. FunctionNode is not covered: its constructor reads every child.
+  auto i32 = arrow::int32();
+  auto a = Field("a", i32);
+  auto b = Field("b", i32);
+  auto boolean = arrow::boolean();
+  const NodePtr null_node;
+  std::vector<ExpressionCacheKey> keys;
+  auto add = [&](const NodePtr& node, const DataTypePtr& type) {
+    keys.push_back(MakeKey(node, type));
+  };
+
+  add(std::make_shared<IfNode>(null_node, a, b, i32), i32);
+  add(std::make_shared<IfNode>(a, null_node, b, i32), i32);
+  add(std::make_shared<IfNode>(a, b, null_node, i32), i32);
+  add(std::make_shared<IfNode>(a, b, b, i32), i32);
+  add(std::make_shared<BooleanNode>(BooleanNode::AND, NodeVector{null_node, a}), boolean);
+  add(std::make_shared<BooleanNode>(BooleanNode::AND, NodeVector{a, null_node}), boolean);
+  add(std::make_shared<BooleanNode>(BooleanNode::OR, NodeVector{null_node, a}), boolean);
+  add(std::make_shared<InExpressionNode<int32_t>>(null_node,
+                                                  std::unordered_set<int32_t>{1}),
+      boolean);
+  add(std::make_shared<InExpressionNode<int32_t>>(null_node,
+                                                  std::unordered_set<int32_t>{2}),
+      boolean);
+  add(std::make_shared<InExpressionNode<int32_t>>(a, std::unordered_set<int32_t>{1}),
+      boolean);
+  add(std::make_shared<InExpressionNode<int64_t>>(null_node,
+                                                  std::unordered_set<int64_t>{1}),
+      boolean);
+  add(std::make_shared<InExpressionNode<float>>(null_node, std::unordered_set<float>{1}),
+      boolean);
+  add(std::make_shared<InExpressionNode<double>>(null_node,
+                                                 std::unordered_set<double>{1}),
+      boolean);
+  add(std::make_shared<InExpressionNode<std::string>>(
+          null_node, std::unordered_set<std::string>{"a"}),
+      boolean);
+  std::unordered_set<DecimalScalar128> decimals{DecimalScalar128("1", 10, 2)};
+  add(std::make_shared<InExpressionNode<DecimalScalar128>>(null_node, decimals, 10, 2),
+      boolean);
+  add(null_node, i32);
+  ExpectAllDistinct(keys);
+
+  // The same tree built twice gives the same key.
+  EXPECT_EQ(MakeKey(std::make_shared<IfNode>(null_node, a, b, i32), i32),
+            MakeKey(std::make_shared<IfNode>(null_node, a, b, i32), i32));
+  EXPECT_EQ(MakeKey(std::make_shared<InExpressionNode<std::string>>(
+                        null_node, std::unordered_set<std::string>{"a"}),
+                    boolean),
+            MakeKey(std::make_shared<InExpressionNode<std::string>>(
+                        null_node, std::unordered_set<std::string>{"a"}),
+                    boolean));
+
+  // A null expression and a null result field are also keyed without a crash.
+  auto key_of = [](const ExpressionPtr& expression) {
+    return ExpressionCacheKey(arrow::schema({}),
+                              ConfigurationBuilder::DefaultConfiguration(), {expression},
+                              SelectionVector::MODE_NONE);
+  };
+  auto without_result = key_of(std::make_shared<Expression>(a, nullptr));
+  auto without_expression = key_of(nullptr);
+  EXPECT_NE(without_result, without_expression);
+  EXPECT_NE(without_result, MakeKey(a, i32));
+}
+
 TEST(TestExpressionCacheKey, LikeThreadUniquifier) {
   auto literal = TreeExprBuilder::MakeStringLiteral("text like(");
   auto like = TreeExprBuilder::MakeFunction(
