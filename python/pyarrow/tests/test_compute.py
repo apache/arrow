@@ -3417,6 +3417,86 @@ def test_sort_indices_table():
         pc.sort_indices(table, sort_keys=[("a", "nonscending", "at_end")])
 
 
+@pytest.mark.parametrize("order", ["ascending", "descending"])
+@pytest.mark.parametrize("null_placement", ["at_start", "at_end"])
+def test_sort_indices_dictionary(order, null_placement):
+    # Chunks carry different, overlapping dictionaries, including null
+    # dictionary values and NaNs.
+    d_type = pa.dictionary(pa.int32(), pa.string())
+    d = pa.chunked_array([
+        pa.DictionaryArray.from_arrays(
+            pa.array([0, 1, None, 2, 1], pa.int32()), pa.array(["b", "a", "c"])),
+        pa.DictionaryArray.from_arrays(
+            pa.array([3, 0, 1, 2], pa.int32()), pa.array(["c", "d", "a", None])),
+    ], type=d_type)
+    f_type = pa.dictionary(pa.int8(), pa.float64())
+    f = pa.chunked_array([
+        pa.DictionaryArray.from_arrays(
+            pa.array([0, 1, 2, 3, 1], pa.int8()),
+            pa.array([1.0, float("nan"), 0.5, None])),
+        pa.DictionaryArray.from_arrays(
+            pa.array([1, 0, None, 1], pa.int8()), pa.array([float("nan"), 2.0])),
+    ], type=f_type)
+    i = pa.chunked_array([[1, 0, 1, 0, 1], [0, None, 1, 0]])
+
+    def decode(chunked):
+        return chunked.cast(chunked.type.value_type)
+
+    for column in (d, f):
+        expected = pc.array_sort_indices(
+            decode(column), order=order, null_placement=null_placement)
+        result = pc.array_sort_indices(
+            column, order=order, null_placement=null_placement)
+        assert result.equals(expected)
+        for chunk in column.chunks:
+            expected = pc.array_sort_indices(
+                chunk.dictionary_decode(), order=order,
+                null_placement=null_placement)
+            result = pc.array_sort_indices(
+                chunk, order=order, null_placement=null_placement)
+            assert result.equals(expected)
+
+    table = pa.table({"d": d, "f": f, "i": i})
+    decoded_table = pa.table({"d": decode(d), "f": decode(f), "i": i})
+    cases = [(table, decoded_table),
+             *zip(table.to_batches(), decoded_table.to_batches())]
+    for keys in (["d"], ["f"], ["d", "i"], ["i", "d"], ["f", "d"], ["d", "f", "i"]):
+        sort_keys = [(key, order, null_placement) for key in keys]
+        for data, decoded in cases:
+            result = pc.sort_indices(data, sort_keys=sort_keys)
+            expected = pc.sort_indices(decoded, sort_keys=sort_keys)
+            assert result.equals(expected), (type(data), keys)
+
+
+@pytest.mark.parametrize("value_type", [
+    pa.timestamp("us", tz="UTC"),
+    pa.date32(),
+    pa.binary(16),
+])
+def test_sort_indices_dictionary_value_types(value_type):
+    raw = [3, 1, None, 2, 1, 7]
+    if pa.types.is_fixed_size_binary(value_type):
+        raw = [None if v is None else bytes([v]) * 16 for v in raw]
+    values = pa.array(raw, value_type)
+    chunks = [values.slice(0, 3), values.slice(3)]
+    d = pa.chunked_array([c.dictionary_encode() for c in chunks])
+    table = pa.table({"d": d, "i": [1, 0, 1, 0, 1, 0]})
+    decoded = pa.table({"d": pa.chunked_array(chunks), "i": table["i"]})
+    for sort_keys in ([("d", "ascending")],
+                      [("d", "descending", "at_start"), ("i", "ascending")]):
+        result = pc.sort_indices(table, sort_keys=sort_keys)
+        assert result.equals(pc.sort_indices(decoded, sort_keys=sort_keys))
+
+
+def test_sort_indices_dictionary_nan():
+    arr = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 2, 3, 4]), pa.array([1.0, float("nan"), 0.5, None, 2.0]))
+    result = pc.array_sort_indices(arr, order="ascending", null_placement="at_start")
+    assert result.to_pylist() == [3, 1, 2, 0, 4]
+    result = pc.array_sort_indices(arr, order="descending", null_placement="at_end")
+    assert result.to_pylist() == [4, 0, 2, 1, 3]
+
+
 def test_is_in():
     arr = pa.array([1, 2, None, 1, 2, 3])
 

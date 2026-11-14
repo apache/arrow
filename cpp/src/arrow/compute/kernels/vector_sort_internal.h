@@ -455,6 +455,16 @@ using ArraySortFunc = std::function<Result<NullLikePartition>(
 
 Result<ArraySortFunc> GetArraySorter(const DataType& type);
 
+// Convert dictionary-encoded values to an equivalent non-dictionary representation
+// so they can be sorted naturally. Orders are consistent across chunks, even when
+// chunks carry different dictionaries, so the result can be merged chunk-wise.
+// Logical nulls are unaltered.
+Result<std::shared_ptr<ChunkedArray>> DictionaryToSortable(const ChunkedArray& values,
+                                                           ExecContext* ctx);
+
+Result<std::shared_ptr<Array>> DictionaryToSortable(const std::shared_ptr<Array>& values,
+                                                    ExecContext* ctx);
+
 Result<NullLikePartition> SortChunkedArray(ExecContext* ctx, std::span<uint64_t> indices,
                                            const ChunkedArray& chunked_array,
                                            SortOrder sort_order,
@@ -521,22 +531,25 @@ Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
   return resolved;
 }
 
-template <typename ResolvedSortKey, typename TableOrBatch>
+template <typename ResolvedSortKey>
 Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
-    const TableOrBatch& table_or_batch, const std::vector<SortKey>& sort_keys) {
+    const RecordBatch& batch, const std::vector<SortKey>& sort_keys, ExecContext* ctx) {
   return ResolveSortKeys<ResolvedSortKey>(
-      *table_or_batch.schema(), sort_keys,
-      [&](const SortField& f) -> Result<ResolvedSortKey> {
+      *batch.schema(), sort_keys, [&](const SortField& f) -> Result<ResolvedSortKey> {
+        std::shared_ptr<Array> column;
         if (f.is_nested()) {
           // TODO: Some room for improvement here, as we potentially duplicate some of the
           // null-flattening work for nested sort keys. For instance, given two keys with
           // paths [0,0,0,0] and [0,0,0,1], we shouldn't need to flatten the first three
           // components more than once.
-          ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(table_or_batch));
-          return ResolvedSortKey{std::move(child), f.order, f.null_placement};
+          ARROW_ASSIGN_OR_RAISE(column, f.path.GetFlattened(batch));
+        } else {
+          column = batch.column(f.path[0]);
         }
-        return ResolvedSortKey{table_or_batch.column(f.path[0]), f.order,
-                               f.null_placement};
+        if (column->type()->id() == Type::DICTIONARY) {
+          ARROW_ASSIGN_OR_RAISE(column, DictionaryToSortable(column, ctx));
+        }
+        return ResolvedSortKey{std::move(column), f.order, f.null_placement};
       });
 }
 
@@ -761,18 +774,30 @@ struct ResolvedTableSortKey {
   // `batches` must be a chunking of `table`.
   static Result<std::vector<ResolvedTableSortKey>> Make(
       const Table& table, const RecordBatchVector& batches,
-      const std::vector<SortKey>& sort_keys) {
+      const std::vector<SortKey>& sort_keys, ExecContext* ctx) {
     auto factory = [&](const SortField& f) -> Result<ResolvedTableSortKey> {
       // We must expose a homogenous chunking for all ResolvedSortKey,
       // so we can't simply access the column from the table directly.
       ArrayVector chunks;
       chunks.reserve(batches.size());
-      auto physical_type = GetPhysicalType(f.type->GetSharedPtr());
-      int64_t null_count = 0;
       for (const auto& batch : batches) {
         ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(*batch));
-        null_count += child->null_count();
-        chunks.push_back(GetPhysicalArray(*child, physical_type));
+        chunks.push_back(std::move(child));
+      }
+      auto type = f.type->GetSharedPtr();
+      if (type->id() == Type::DICTIONARY) {
+        // Convert all batches at once so that orders agree when batches are merged
+        ARROW_ASSIGN_OR_RAISE(
+            auto sortable,
+            DictionaryToSortable(ChunkedArray(std::move(chunks), type), ctx));
+        type = sortable->type();
+        chunks = sortable->chunks();
+      }
+      auto physical_type = GetPhysicalType(type);
+      int64_t null_count = 0;
+      for (auto& chunk : chunks) {
+        null_count += chunk->null_count();
+        chunk = GetPhysicalArray(*chunk, physical_type);
       }
 
       return ResolvedTableSortKey(physical_type, std::move(chunks), f.order,
