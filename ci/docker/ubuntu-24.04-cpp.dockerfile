@@ -165,6 +165,9 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
+# Azurite requires Node.js >= 22 but Ubuntu 24.04 ships Node.js 18.
+RUN npx --yes n 22
+
 COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_azurite.sh
 
