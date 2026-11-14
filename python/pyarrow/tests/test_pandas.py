@@ -2505,6 +2505,23 @@ class TestConvertListTypes:
                 s, pd.Series([["aa", "bb"], None, ["cc"], []]),
                 check_names=False)
 
+    @pytest.mark.parametrize(("value_type", "values"), [
+        (pa.string_view(), ["aa", None, "bb"]),
+        (pa.binary_view(), [b"aa", None, b"bb"]),
+        (pa.binary(2), [b"aa", None, b"bb"]),
+        (pa.decimal32(3, 1), [decimal.Decimal("1.5"), None, decimal.Decimal("-2.0")]),
+        (pa.decimal64(3, 1), [decimal.Decimal("1.5"), None, decimal.Decimal("-2.0")]),
+    ])
+    def test_list_of_view_decimal_and_fixed_size_binary(self, value_type, values):
+        # GH-55298
+        expected = [values, None, []]
+        for list_type_factory in (pa.list_, pa.large_list, pa.list_view):
+            arr = pa.array(expected, type=list_type_factory(value_type))
+            tm.assert_series_equal(arr.to_pandas(), pd.Series(expected),
+                                   check_names=False)
+            tm.assert_frame_equal(pa.table({"a": arr}).to_pandas(),
+                                  pd.DataFrame({"a": expected}))
+
     def test_list_of_dictionary(self):
         child = pa.array(["foo", "bar", None, "foo"]).dictionary_encode()
         arr = pa.ListArray.from_arrays([0, 1, 3, 3, 4], child)
