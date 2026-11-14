@@ -21,6 +21,7 @@
 #include <climits>
 #include <cstdint>
 #include <limits>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -39,6 +40,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/visit_type_inline.h"
@@ -358,18 +360,27 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
                              dictionary.type()->ToString());
     }
     const ArrayType& values = checked_cast<const ArrayType&>(dictionary);
+    // The half float memo table is keyed on `util::Float16`, whose converting
+    // constructor would read the raw uint16_t storage value as a number.
+    auto get_key = [&](int64_t i) {
+      if constexpr (std::is_same_v<T, HalfFloatType>) {
+        return ::arrow::util::Float16::FromBits(values.GetView(i));
+      } else {
+        return values.GetView(i);
+      }
+    };
     if (out != nullptr) {
       ARROW_ASSIGN_OR_RAISE(auto result,
                             AllocateBuffer(dictionary.length() * sizeof(int32_t), pool_));
       auto result_raw = reinterpret_cast<int32_t*>(result->mutable_data());
       for (int64_t i = 0; i < values.length(); ++i) {
-        RETURN_NOT_OK(memo_table_.GetOrInsert(values.GetView(i), &result_raw[i]));
+        RETURN_NOT_OK(memo_table_.GetOrInsert(get_key(i), &result_raw[i]));
       }
       *out = std::move(result);
     } else {
       for (int64_t i = 0; i < values.length(); ++i) {
         int32_t unused_memo_index;
-        RETURN_NOT_OK(memo_table_.GetOrInsert(values.GetView(i), &unused_memo_index));
+        RETURN_NOT_OK(memo_table_.GetOrInsert(get_key(i), &unused_memo_index));
       }
     }
     return Status::OK();

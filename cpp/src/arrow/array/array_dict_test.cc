@@ -1655,6 +1655,29 @@ TEST(TestDictionaryUnifier, Numeric) {
   CheckTransposeMap(*b3, {3, 5});
 }
 
+TEST(TestDictionaryUnifier, HalfFloat) {
+  // The unified dictionary must keep the values, not their bit patterns read as numbers
+  auto dict_ty = float16();
+  auto d1 = ArrayFromJSON(dict_ty, "[1.0, 2.5, 65504.0]");
+  auto d2 = ArrayFromJSON(dict_ty, "[0.5, 65504.0, 1.0]");
+  auto expected = dictionary(int8(), dict_ty);
+  auto expected_dict = ArrayFromJSON(dict_ty, "[1.0, 2.5, 65504.0, 0.5]");
+
+  ASSERT_OK_AND_ASSIGN(auto unifier, DictionaryUnifier::Make(dict_ty));
+  std::shared_ptr<Buffer> b1, b2;
+  ASSERT_OK(unifier->Unify(*d1, &b1));
+  ASSERT_OK(unifier->Unify(*d2, &b2));
+
+  std::shared_ptr<DataType> out_type;
+  std::shared_ptr<Array> out_dict;
+  ASSERT_OK(unifier->GetResult(&out_type, &out_dict));
+  ASSERT_TRUE(out_type->Equals(*expected));
+  AssertArraysEqual(*expected_dict, *out_dict, /*verbose=*/true);
+
+  CheckTransposeMap(*b1, {0, 1, 2});
+  CheckTransposeMap(*b2, {3, 2, 0});
+}
+
 TEST(TestDictionaryUnifier, String) {
   auto dict_ty = utf8();
 
