@@ -1030,14 +1030,14 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
                         FragmentsToBatches(std::move(fragment_gen), scan_options));
 
   AsyncGenerator<EnumeratedRecordBatch> merged_batch_gen;
-  if (require_sequenced_output) {
-    if (scan_options->fragment_readahead > 1) {
-      ARROW_ASSIGN_OR_RAISE(merged_batch_gen, MakeSequencedMergedGenerator(
-                                                  std::move(batch_gen_gen),
-                                                  scan_options->fragment_readahead));
-    } else {
-      merged_batch_gen = MakeConcatenatedGenerator(std::move(batch_gen_gen));
-    }
+  if (scan_options->fragment_readahead <= 1) {
+    // No fragment readahead: scan one fragment at a time.  MakeMergedGenerator
+    // would never subscribe to any fragment if fragment_readahead is 0.
+    merged_batch_gen = MakeConcatenatedGenerator(std::move(batch_gen_gen));
+  } else if (require_sequenced_output) {
+    ARROW_ASSIGN_OR_RAISE(merged_batch_gen,
+                          MakeSequencedMergedGenerator(std::move(batch_gen_gen),
+                                                       scan_options->fragment_readahead));
   } else {
     merged_batch_gen =
         MakeMergedGenerator(std::move(batch_gen_gen), scan_options->fragment_readahead);
