@@ -17,6 +17,8 @@
 
 #include "arrow/array/util.h"
 
+#include <arrow/compute/kernels/base_arithmetic_internal.h>
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -938,48 +940,39 @@ Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step,
                            " would produce an array that is too large");
   };
 
-  int64_t size;
+  uint64_t size;
   if (step > 0 && stop > start) {
-    // size = (stop - start + step - 1) / step
-    int64_t range;
-    if (internal::SubtractWithOverflow(stop, start, &range)) {
-      return error();
-    }
-    int64_t range_adjusted;
-    if (internal::AddWithOverflow(range, step, &range_adjusted) ||
-        internal::SubtractWithOverflow(range_adjusted, 1, &range_adjusted)) {
-      return error();
-    }
-    size = range_adjusted / step;
-
+    const uint64_t range = static_cast<uint64_t>(stop) - static_cast<uint64_t>(start);
+    const auto step_u = static_cast<uint64_t>(step);
+    size = (range - 1) / step_u + 1;
   } else if (step < 0 && stop < start) {
-    if (step == INT64_MIN) {
-      return Status::Invalid("Arange step cannot be INT64_MIN");
-    }
-    // size = (start - stop - step - 1) / -step
-    int64_t range;
-    if (internal::SubtractWithOverflow(start, stop, &range)) {
-      return error();
-    }
-    int64_t range_adjusted;
-    if (internal::SubtractWithOverflow(range, step, &range_adjusted) ||
-        internal::SubtractWithOverflow(range_adjusted, 1, &range_adjusted)) {
-      return error();
-    }
-    size = range_adjusted / -step;
-
+    const uint64_t range = static_cast<uint64_t>(start) - static_cast<uint64_t>(stop);
+    const uint64_t step_u = 0 - static_cast<uint64_t>(step);
+    size = (range - 1) / step_u + 1;
   } else {
     return MakeEmptyArray(int64(), pool);
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto data_buffer, AllocateBuffer(size * sizeof(int64_t), pool));
+  uint64_t buffer_size_u;
+  if (MultiplyWithOverflow(size, sizeof(int64_t), &buffer_size_u) ||
+      buffer_size_u > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+    return error();
+  }
+  const auto size_i64 = static_cast<int64_t>(size);
+  const auto buffer_size = static_cast<int64_t>(buffer_size_u);
+
+  ARROW_ASSIGN_OR_RAISE(auto data_buffer, AllocateBuffer(buffer_size, pool));
 
   auto values = reinterpret_cast<int64_t*>(data_buffer->mutable_data());
-  for (int64_t i = 0; i < size; ++i) {
-    values[i] = start + i * step;
+  int64_t value = start;
+  int64_t i = 0;
+  for (; i < size_i64 - 1; ++i) {
+    values[i] = value;
+    value += step;
   }
+  values[i] = value;
 
-  auto data = ArrayData::Make(int64(), size, {nullptr, std::move(data_buffer)}, 0);
+  auto data = ArrayData::Make(int64(), size_i64, {nullptr, std::move(data_buffer)}, 0);
   return MakeArray(data);
 }
 
