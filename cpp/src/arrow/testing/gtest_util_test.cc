@@ -38,6 +38,19 @@
 
 namespace arrow::util {
 
+TEST(TestAssertionReporting, ArrayEqualityFailure) {
+#if defined(_WIN32) && !defined(ARROW_TESTING_STATIC) && \
+    (!defined(GTEST_LINKED_AS_SHARED_LIBRARY) || !GTEST_LINKED_AS_SHARED_LIBRARY)
+  GTEST_SKIP() << "Static GoogleTest and shared ArrowTesting have separate failure "
+                  "reporters on Windows";
+#else
+  // The exported helper must report to the same GoogleTest runtime as this test.
+  EXPECT_FATAL_FAILURE(
+      AssertArraysEqual(*ArrayFromJSON(int32(), "[1]"), *ArrayFromJSON(int32(), "[2]")),
+      "");
+#endif
+}
+
 // Test basic cases for contains NaN.
 class TestAssertContainsNaN : public ::testing::Test {};
 
@@ -206,8 +219,8 @@ TEST(AssertTestWithinUlp, Basics) {
                   std::numeric_limits<double>::quiet_NaN(), 2);
   AssertWithinUlp(std::numeric_limits<Float16>::quiet_NaN(),
                   std::numeric_limits<Float16>::quiet_NaN(), 2);
-#ifndef _WIN32
-  // GH-47442
+#if !defined(_WIN32) || defined(ARROW_TESTING_STATIC) || \
+    (defined(GTEST_LINKED_AS_SHARED_LIBRARY) && GTEST_LINKED_AS_SHARED_LIBRARY)
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.4567, 123.45670000000015, 10),
                        "not within 10 ulps");
   EXPECT_FATAL_FAILURE(AssertWithinUlp(123.456f, 123.456085f, 10), "not within 10 ulps");
