@@ -251,7 +251,7 @@ class InExpressionNode : public Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << eval_expr_->ToString() << " IN (";
+    ss << (eval_expr_ ? eval_expr_->ToString() : std::string("null")) << " IN (";
     bool add_comma = false;
     for (auto& value : values_) {
       if (add_comma) {
@@ -295,7 +295,7 @@ class InExpressionNode<gandiva::DecimalScalar128> : public Node {
 
   std::string ToString() const override {
     std::stringstream ss;
-    ss << eval_expr_->ToString() << " IN (";
+    ss << (eval_expr_ ? eval_expr_->ToString() : std::string("null")) << " IN (";
     bool add_comma = false;
     for (auto& value : values_) {
       if (add_comma) {
