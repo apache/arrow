@@ -33,6 +33,7 @@ from pyarrow._fs import (  # noqa
     PyFileSystem,
     _copy_files,
     _copy_files_selector,
+    _is_likely_uri,
 )
 
 # For backward compatibility.
@@ -174,13 +175,17 @@ def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
             filesystem, path = FileSystem.from_uri(path)
         except ValueError as e:
             msg = str(e)
-            if "empty scheme" in msg or "Cannot parse URI" in msg:
-                # neither an URI nor a locally existing path, so assume that
-                # local path was given and propagate a nicer file not found
-                # error instead of a more confusing scheme parsing error
+            if "empty scheme" in msg:
+                # No scheme at all — treat as a local path and propagate
+                # a nicer "file not found" error later.
+                pass
+            elif "Cannot parse URI" in msg and not _is_likely_uri(path):
+                # Path doesn't look like a URI (no valid scheme prefix),
+                # so treat it as a local path rather than surfacing a
+                # confusing URI-parsing error.
                 pass
             else:
-                raise e
+                raise
     else:
         path = filesystem.normalize_path(path)
 
