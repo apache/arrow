@@ -375,4 +375,50 @@ TEST_F(TestIfExpr, TestBigNested) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+namespace {
+
+template <typename ArrowType, typename CType>
+void CheckNegativeConstantResults(arrow::MemoryPool* pool, bool optimize) {
+  auto type = arrow::TypeTraits<ArrowType>::type_singleton();
+  SCOPED_TRACE(type->ToString());
+  auto key_field = field("k", type);
+  auto schema = arrow::schema({key_field});
+  auto key = TreeExprBuilder::MakeField(key_field);
+  auto is_zero = TreeExprBuilder::MakeFunction(
+      "equal", {key, TreeExprBuilder::MakeLiteral(CType{0})}, boolean());
+  auto ten = TreeExprBuilder::MakeLiteral(CType{10});
+  auto minus_five = TreeExprBuilder::MakeLiteral(CType{-5});
+
+  // if (k == 0) 10 else -5, and if (k == 0) -5 else 10
+  auto negative_else = TreeExprBuilder::MakeIf(is_zero, ten, minus_five, type);
+  auto negative_then = TreeExprBuilder::MakeIf(is_zero, minus_five, ten, type);
+
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(Projector::Make(
+      schema,
+      {TreeExprBuilder::MakeExpression(negative_else, field("negative_else", type)),
+       TreeExprBuilder::MakeExpression(negative_then, field("negative_then", type))},
+      ConfigurationBuilder().build(optimize), &projector));
+
+  auto input = MakeArrowArray<ArrowType, CType>({0, 1, 2});
+  auto batch = arrow::RecordBatch::Make(schema, 3, {input});
+  arrow::ArrayVector outputs;
+  ASSERT_OK(projector->Evaluate(*batch, pool, &outputs));
+  EXPECT_ARROW_ARRAY_EQUALS((MakeArrowArray<ArrowType, CType>({10, -5, -5})),
+                            outputs.at(0));
+  EXPECT_ARROW_ARRAY_EQUALS((MakeArrowArray<ArrowType, CType>({-5, 10, 10})),
+                            outputs.at(1));
+}
+
+}  // namespace
+
+TEST_F(TestIfExpr, TestNegativeConstants) {
+  for (bool optimize : {false, true}) {
+    SCOPED_TRACE(optimize);
+    CheckNegativeConstantResults<arrow::Int32Type, int32_t>(pool_, optimize);
+    CheckNegativeConstantResults<arrow::Int16Type, int16_t>(pool_, optimize);
+    CheckNegativeConstantResults<arrow::Int64Type, int64_t>(pool_, optimize);
+  }
+}
+
 }  // namespace gandiva

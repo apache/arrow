@@ -58,4 +58,21 @@ TEST_F(TestLLVMTypes, TestNotFound) {
   EXPECT_EQ(types_->DataVecType(arrow::null()), nullptr);
 }
 
+TEST_F(TestLLVMTypes, SignedIntegerConstants) {
+  auto value = [](llvm::Constant* constant) -> const llvm::APInt& {
+    return llvm::cast<llvm::ConstantInt>(constant)->getValue();
+  };
+  EXPECT_EQ(255U, value(types_->i8_constant(-1)).getZExtValue());
+  EXPECT_EQ(32768U, value(types_->i16_constant(-32768)).getZExtValue());
+  EXPECT_EQ(static_cast<uint32_t>(-447906508),
+            value(types_->i32_constant(-447906508)).getZExtValue());
+  EXPECT_EQ(int64_t{-447906508}, value(types_->i32_constant(-447906508)).getSExtValue());
+  EXPECT_TRUE(value(types_->i64_constant(-1)).isAllOnes());
+  EXPECT_TRUE(value(types_->i128_constant(-1)).isAllOnes());
+  EXPECT_EQ(int64_t{-447906508}, value(types_->i128_constant(-447906508)).getSExtValue());
+  EXPECT_EQ(0U, value(types_->i128_constant(1)).getHiBits(64).getZExtValue());
+  EXPECT_TRUE(value(types_->true_constant()).isOne());
+  EXPECT_TRUE(value(types_->false_constant()).isZero());
+}
+
 }  // namespace gandiva
