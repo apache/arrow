@@ -145,6 +145,7 @@ def test_example_using_json(filename, datadir):
     check_example_file(path, table, need_fix=True)
 
 
+@pytest.mark.processes
 def test_timezone_database_absent(datadir):
     # Example file relies on the timezone "US/Pacific". It should gracefully
     # fail, not crash, if the timezone database is not found.
@@ -165,6 +166,7 @@ def test_timezone_database_absent(datadir):
     subprocess.run([sys.executable, "-c", code], check=True)
 
 
+@pytest.mark.processes
 def test_timezone_absent(datadir, tmpdir):
     # Example file relies on the timezone "US/Pacific". It should gracefully
     # fail, not crash, if the timezone database is present but the timezone
