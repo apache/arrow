@@ -39,6 +39,19 @@ void AssertCountNonZero(const Tensor& t, int64_t expected) {
   ASSERT_EQ(count, expected);
 }
 
+TEST(TestTensorPermutation, Validity) {
+  for (const auto& permutation :
+       std::vector<std::vector<int64_t>>{{}, {0}, {0, 1, 2}, {2, 0, 1}}) {
+    SCOPED_TRACE(::testing::PrintToString(permutation));
+    ASSERT_OK(internal::IsPermutationValid(permutation));
+  }
+  for (const auto& permutation :
+       std::vector<std::vector<int64_t>>{{-1}, {1}, {0, 0}, {0, 2}, {-1, 0}}) {
+    SCOPED_TRACE(::testing::PrintToString(permutation));
+    ASSERT_RAISES(Invalid, internal::IsPermutationValid(permutation));
+  }
+}
+
 TEST(TestComputeRowMajorStrides, ZeroDimension) {
   std::vector<int64_t> strides;
 
