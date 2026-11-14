@@ -128,6 +128,10 @@ cdef class DictionaryMemo(_Weakrefable):
         # it on the heap so as to avoid C++ ABI issues with Python wheels.
         shared_ptr[CDictionaryMemo] sp_memo
         CDictionaryMemo* memo
+        object _parent
+
+    @staticmethod
+    cdef DictionaryMemo wrap(CDictionaryMemo* memo, object parent)
 
 
 cdef class DictionaryType(DataType):

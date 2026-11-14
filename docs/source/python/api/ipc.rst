@@ -34,6 +34,8 @@ Inter-Process Communication
    ipc.open_stream
    ipc.read_message
    ipc.read_record_batch
+   ipc.read_dictionary_message
+   ipc.serialize_dictionaries
    ipc.get_record_batch_size
    ipc.read_tensor
    ipc.write_tensor
