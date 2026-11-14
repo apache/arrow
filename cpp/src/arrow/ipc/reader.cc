@@ -2285,6 +2285,7 @@ Result<std::shared_ptr<Schema>> ReadSchema(io::InputStream* stream,
 
 Result<std::shared_ptr<Schema>> ReadSchema(const Message& message,
                                            DictionaryMemo* dictionary_memo) {
+  CHECK_MESSAGE_TYPE(MessageType::SCHEMA, message.type());
   std::shared_ptr<Schema> result;
   RETURN_NOT_OK(internal::GetSchema(message.header(), dictionary_memo, &result));
   return result;
