@@ -24,9 +24,14 @@ namespace gandiva {
 
 namespace {
 
-inline Status ValidateInExpression(size_t number_of_values,
-                                   const DataTypePtr& in_expr_return_type,
-                                   const DataTypePtr& types_of_values) {
+inline Status ValidateInExpression(const NodePtr& eval_expr, size_t number_of_values,
+                                   const DataTypePtr& types_of_values,
+                                   ExprValidator& validator) {
+  ARROW_RETURN_IF(eval_expr == nullptr || eval_expr->return_type() == nullptr,
+                  Status::ExpressionValidationError(
+                      "IN evaluation expression and type cannot be null"));
+  ARROW_RETURN_NOT_OK(eval_expr->Accept(validator));
+  const auto& in_expr_return_type = eval_expr->return_type();
   ARROW_RETURN_IF(number_of_values == 0,
                   Status::ExpressionValidationError(
                       "IN Expression needs a non-empty constant list to match."));
@@ -41,9 +46,11 @@ inline Status ValidateInExpression(size_t number_of_values,
 
 template <typename InExpressionNode>
 inline Status ValidateInExpression(const InExpressionNode& node,
-                                   const DataTypePtr& types_of_values_default) {
-  return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
-                              node.type() ? node.type() : types_of_values_default);
+                                   const DataTypePtr& types_of_values_default,
+                                   ExprValidator& validator) {
+  return ValidateInExpression(node.eval_expr(), node.values().size(),
+                              node.type() ? node.type() : types_of_values_default,
+                              validator);
 }
 
 }  // namespace
@@ -173,26 +180,27 @@ Status ExprValidator::Visit(const BooleanNode& node) {
  * 2. Expression returns of the same type as the constants.
  */
 Status ExprValidator::Visit(const InExpressionNode<int32_t>& node) {
-  return ValidateInExpression(node, arrow::int32());
+  return ValidateInExpression(node, arrow::int32(), *this);
 }
 
 Status ExprValidator::Visit(const InExpressionNode<int64_t>& node) {
-  return ValidateInExpression(node, arrow::int64());
+  return ValidateInExpression(node, arrow::int64(), *this);
 }
 Status ExprValidator::Visit(const InExpressionNode<float>& node) {
-  return ValidateInExpression(node, arrow::float32());
+  return ValidateInExpression(node, arrow::float32(), *this);
 }
 Status ExprValidator::Visit(const InExpressionNode<double>& node) {
-  return ValidateInExpression(node, arrow::float64());
+  return ValidateInExpression(node, arrow::float64(), *this);
 }
 
 Status ExprValidator::Visit(const InExpressionNode<gandiva::DecimalScalar128>& node) {
-  return ValidateInExpression(node.values().size(), node.eval_expr()->return_type(),
-                              arrow::decimal128(node.get_precision(), node.get_scale()));
+  return ValidateInExpression(node.eval_expr(), node.values().size(),
+                              arrow::decimal128(node.get_precision(), node.get_scale()),
+                              *this);
 }
 
 Status ExprValidator::Visit(const InExpressionNode<std::string>& node) {
-  return ValidateInExpression(node, arrow::utf8());
+  return ValidateInExpression(node, arrow::utf8(), *this);
 }
 
 }  // namespace gandiva
