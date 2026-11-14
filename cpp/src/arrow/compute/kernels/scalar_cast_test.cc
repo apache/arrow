@@ -2792,6 +2792,47 @@ TEST_F(CastTimezone, TimestampWithZoneToString) {
         ArrayFromJSON(
             string_type,
             R"(["1968-11-30 13:30:44.123456789-0700", "2016-02-29 10:42:23.456789246-0700"])"));
+
+    struct SubminuteTestCase {
+      TimeUnit::type unit;
+      std::string monrovia_val;
+      std::string paris_val;
+      std::string monrovia_str;
+      std::string paris_str;
+    };
+    for (const auto& tc : {
+             SubminuteTestCase{TimeUnit::SECOND, "[-302443200]", "[-2195899200]",
+                               R"(["1960-06-01 12:00:00Z"])",
+                               R"(["1900-06-01 12:00:00Z"])"},
+             SubminuteTestCase{TimeUnit::MILLI, "[-302443200000]", "[-2195899200000]",
+                               R"(["1960-06-01 12:00:00.000Z"])",
+                               R"(["1900-06-01 12:00:00.000Z"])"},
+             SubminuteTestCase{TimeUnit::MICRO, "[-302443200000000]",
+                               "[-2195899200000000]",
+                               R"(["1960-06-01 12:00:00.000000Z"])",
+                               R"(["1900-06-01 12:00:00.000000Z"])"},
+             SubminuteTestCase{TimeUnit::NANO, "[-302443200000000000]",
+                               "[-2195899200000000000]",
+                               R"(["1960-06-01 12:00:00.000000000Z"])",
+                               R"(["1900-06-01 12:00:00.000000000Z"])"},
+         }) {
+      auto monrovia_arr =
+          ArrayFromJSON(timestamp(tc.unit, "Africa/Monrovia"), tc.monrovia_val);
+      auto monrovia_str_arr = ArrayFromJSON(string_type, tc.monrovia_str);
+      CheckCast(monrovia_arr, monrovia_str_arr);
+
+      auto paris_arr = ArrayFromJSON(timestamp(tc.unit, "Europe/Paris"), tc.paris_val);
+      auto paris_str_arr = ArrayFromJSON(string_type, tc.paris_str);
+      CheckCast(paris_arr, paris_str_arr);
+
+      // Round-trip back to UTC timestamp and check stored value
+      if (string_type->id() != Type::STRING_VIEW) {
+        CheckCast(monrovia_str_arr,
+                  ArrayFromJSON(timestamp(tc.unit, "UTC"), tc.monrovia_val));
+        CheckCast(paris_str_arr,
+                  ArrayFromJSON(timestamp(tc.unit, "UTC"), tc.paris_val));
+      }
+    }
   }
 }
 
