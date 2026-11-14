@@ -243,6 +243,11 @@ class ParquetFile:
         performs readahead (e.g. fsspec's S3FS), disable readahead for best
         results. Set to False if you want to prioritize minimal memory usage
         over maximum speed.
+    cache_options : pyarrow.CacheOptions, default None
+        Cache options used when pre_buffer is enabled. The default values
+        should be good for most use cases. You may want to adjust these
+        for example if you have exceptionally high latency to the file
+        system.
     coerce_int96_timestamp_unit : str, default None
         Cast timestamps that are stored in INT96 format to a particular
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
@@ -321,6 +326,7 @@ class ParquetFile:
     def __init__(self, source, *, metadata=None, common_metadata=None,
                  read_dictionary=None, binary_type=None, list_type=None,
                  memory_map=False, buffer_size=0, pre_buffer=True,
+                 cache_options=None,
                  coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, schema_depth_limit=None,
@@ -340,6 +346,7 @@ class ParquetFile:
         self.reader.open(
             source, use_memory_map=memory_map,
             buffer_size=buffer_size, pre_buffer=pre_buffer,
+            cache_options=cache_options,
             read_dictionary=read_dictionary, metadata=metadata,
             binary_type=binary_type, list_type=list_type,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
