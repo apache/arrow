@@ -1237,9 +1237,9 @@ class IntervalLocalizer {
 
   // The bundled date library only represents years in [-32767, 32767], and
   // throws when asked to convert an instant outside that range.  Clamp to a
-  // slightly smaller range (about year +/-31700) before calling get_info().
-  static constexpr int64_t kMaxTzSeconds = 1000000000000;
-  static constexpr int64_t kMaxTzDays = kMaxTzSeconds / 86400;
+  // safely smaller range (about year +/-30100) before calling get_info().
+  static constexpr int64_t kMaxTzDays = 11000000;
+  static constexpr int64_t kMaxTzSeconds = kMaxTzDays * 86400;
 
   // UTC offset in effect at the given UTC instant
   int64_t OffsetAtSys(int64_t sys_seconds) const {
