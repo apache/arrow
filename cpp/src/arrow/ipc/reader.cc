@@ -1606,9 +1606,12 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
             stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
             ARROW_ASSIGN_OR_RAISE(FileBlock block, GetRecordBatchBlock(index));
             ARROW_ASSIGN_OR_RAISE(
-                std::shared_ptr<Buffer> metadata,
+                auto metadata,
                 metadata_cache_->Read({block.offset, block.metadata_length}));
-            return ReadMessage(std::move(metadata), nullptr);
+            if (!metadata) {
+              return Status::Invalid("ReadRangeCache did not find matching cache entry");
+            }
+            return ReadMessage(std::move(*metadata), nullptr);
           });
       cached_metadata_.emplace(index, metadata_loaded);
     }
@@ -1849,7 +1852,10 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       std::vector<std::shared_ptr<Buffer>> buffers;
       for (const auto& range_to_read : loader.read_request().ranges_to_read()) {
         ARROW_ASSIGN_OR_RAISE(auto buffer, cache.Read(range_to_read));
-        buffers.push_back(std::move(buffer));
+        if (!buffer) {
+          return Status::Invalid("ReadRangeCache did not find matching cache entry");
+        }
+        buffers.push_back(std::move(*buffer));
       }
       loader.read_request().FulfillRequest(buffers);
 
@@ -2056,7 +2062,10 @@ Future<std::shared_ptr<Message>> WholeIpcFileRecordBatchGenerator::ReadBlock(
     return cached_source->WaitFor({range}).Then(
         [cached_source, pool, range]() -> Result<std::shared_ptr<Message>> {
           ARROW_ASSIGN_OR_RAISE(auto buffer, cached_source->Read(range));
-          io::BufferReader stream(std::move(buffer));
+          if (!buffer) {
+            return Status::Invalid("ReadRangeCache did not find matching cache entry");
+          }
+          io::BufferReader stream(std::move(*buffer));
           return ReadMessage(&stream, pool);
         });
   } else {
