@@ -316,18 +316,19 @@ def test_to_pandas_zero_copy():
         series.sum()
 
 
-@pytest.mark.nopandas
-@pytest.mark.pandas
+@pytest.mark.numpy
 def test_asarray():
-    # ensure this is tested both when pandas is present or not (ARROW-6564)
+    # no pandas mark: this must run both when pandas is present and when it
+    # is not (ARROW-6564)
 
     arr = pa.array(range(4))
 
-    # The iterator interface gives back an array of Int64Value's
+    # Iteration gives Scalar objects, preserved by NumPy's object array.
     np_arr = np.asarray([_ for _ in arr])
-    assert np_arr.tolist() == [0, 1, 2, 3]
+    assert np_arr.tolist() == list(arr)
+    assert [value.as_py() for value in np_arr] == [0, 1, 2, 3]
     assert np_arr.dtype == np.dtype('O')
-    assert isinstance(np_arr[0], pa.lib.Int64Value)
+    assert isinstance(np_arr[0], pa.Int64Scalar)
 
     # Calling with the arrow array gives back an array with 'int64' dtype
     np_arr = np.asarray(arr)
