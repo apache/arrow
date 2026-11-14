@@ -375,4 +375,35 @@ TEST_F(TestIfExpr, TestBigNested) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestIfExpr, CacheKeepsStringLiteralBoundaries) {
+  auto field_condition = field("cache_key_condition", boolean());
+  auto schema = arrow::schema({field_condition});
+  auto field_result = field("res", arrow::utf8());
+  auto condition = TreeExprBuilder::MakeField(field_condition);
+
+  // Both expressions print as the same text, but the literals split in different places.
+  const std::string delimiter = "' } else { (const string) '";
+  auto first = TreeExprBuilder::MakeIf(
+      condition, TreeExprBuilder::MakeStringLiteral("x" + delimiter + "y"),
+      TreeExprBuilder::MakeStringLiteral("z"), arrow::utf8());
+  auto second = TreeExprBuilder::MakeIf(
+      condition, TreeExprBuilder::MakeStringLiteral("x"),
+      TreeExprBuilder::MakeStringLiteral("y" + delimiter + "z"), arrow::utf8());
+  ASSERT_EQ(first->ToString(), second->ToString());
+
+  auto batch = arrow::RecordBatch::Make(schema, 1, {MakeArrowArrayBool({true}, {true})});
+  auto configuration = TestConfiguration();
+  auto evaluate = [&](const NodePtr& node,
+                      const std::shared_ptr<arrow::Array>& expected) {
+    std::shared_ptr<Projector> projector;
+    auto expr = TreeExprBuilder::MakeExpression(node, field_result);
+    ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*batch, pool_, &outputs));
+    EXPECT_ARROW_ARRAY_EQUALS(expected, outputs.at(0));
+  };
+  evaluate(first, MakeArrowArrayUtf8({"x" + delimiter + "y"}, {true}));
+  evaluate(second, MakeArrowArrayUtf8({"x"}, {true}));
+}
+
 }  // namespace gandiva

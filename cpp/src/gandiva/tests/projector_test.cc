@@ -4047,4 +4047,71 @@ TEST_F(TestProjector, TestRandIntegerWithMinMax) {
   }
 }
 
+// Two schemas that differ only in the nullability of a field must not share a cached
+// projector, and a batch must match the schema the projector was built with. This
+// records the current behavior end to end, through the shared compiled-expression cache.
+TEST_F(TestProjector, TestProjectCacheSchemasDifferingInNullability) {
+  auto nullable_field = field("cache_nullability_f0", int32(), true);
+  auto required_field = field("cache_nullability_f0", int32(), false);
+  auto nullable_schema = arrow::schema({nullable_field});
+  auto required_schema = arrow::schema({required_field});
+  ASSERT_FALSE(nullable_schema->Equals(*required_schema));
+
+  // The same expression on each schema's own field: f0 + 10.
+  auto make_expression = [](const FieldPtr& input) {
+    auto node = TreeExprBuilder::MakeFunction(
+        "add", {TreeExprBuilder::MakeField(input), TreeExprBuilder::MakeLiteral(10)},
+        int32());
+    return TreeExprBuilder::MakeExpression(node, field("res", int32()));
+  };
+  auto configuration = TestConfiguration();
+
+  std::shared_ptr<Projector> nullable_projector;
+  ASSERT_OK(Projector::Make(nullable_schema, {make_expression(nullable_field)},
+                            configuration, &nullable_projector));
+  EXPECT_FALSE(nullable_projector->GetBuiltFromCache());
+
+  // The other schema is a different cache entry, not a hit on the first one.
+  std::shared_ptr<Projector> required_projector;
+  ASSERT_OK(Projector::Make(required_schema, {make_expression(required_field)},
+                            configuration, &required_projector));
+  EXPECT_FALSE(required_projector->GetBuiltFromCache());
+
+  // Building each one again is a hit on its own entry.
+  std::shared_ptr<Projector> nullable_again;
+  ASSERT_OK(Projector::Make(nullable_schema, {make_expression(nullable_field)},
+                            configuration, &nullable_again));
+  EXPECT_TRUE(nullable_again->GetBuiltFromCache());
+  std::shared_ptr<Projector> required_again;
+  ASSERT_OK(Projector::Make(required_schema, {make_expression(required_field)},
+                            configuration, &required_again));
+  EXPECT_TRUE(required_again->GetBuiltFromCache());
+
+  // Each projector evaluates correctly on a batch of its own schema, including a null.
+  auto nullable_batch = arrow::RecordBatch::Make(
+      nullable_schema, 3, {MakeArrowArrayInt32({1, 2, 3}, {true, false, true})});
+  auto required_batch =
+      arrow::RecordBatch::Make(required_schema, 3, {MakeArrowArrayInt32({1, 2, 3})});
+  auto expected_nullable = MakeArrowArrayInt32({11, 0, 13}, {true, false, true});
+  auto expected_required = MakeArrowArrayInt32({11, 12, 13});
+
+  for (const auto& projector : {nullable_projector, nullable_again}) {
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*nullable_batch, pool_, &outputs));
+    EXPECT_ARROW_ARRAY_EQUALS(expected_nullable, outputs.at(0));
+  }
+  for (const auto& projector : {required_projector, required_again}) {
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*required_batch, pool_, &outputs));
+    EXPECT_ARROW_ARRAY_EQUALS(expected_required, outputs.at(0));
+  }
+
+  // A batch of the other schema is rejected, in both directions.
+  arrow::ArrayVector outputs;
+  auto status = nullable_projector->Evaluate(*required_batch, pool_, &outputs);
+  EXPECT_TRUE(status.IsInvalid()) << status.ToString();
+  status = required_projector->Evaluate(*nullable_batch, pool_, &outputs);
+  EXPECT_TRUE(status.IsInvalid()) << status.ToString();
+}
+
 }  // namespace gandiva
