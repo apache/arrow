@@ -43,6 +43,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/visit_data_inline.h"
@@ -51,6 +52,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::MultiplyWithOverflow;
 
 // ----------------------------------------------------------------------
 // Loading from ArrayData
@@ -852,6 +854,19 @@ class RepeatedArrayFactory {
 
   template <typename OffsetType>
   Status CreateOffsetsBuffer(OffsetType value_length, std::shared_ptr<Buffer>* out) {
+    // The only thing that must fit in OffsetType is the total data size
+    // (value_length * length_), not length_ or value_length individually — e.g. an
+    // empty string repeated far more than OffsetType::max() times is perfectly valid,
+    // since every offset stays 0. Compute the product in int64_t (wide enough for a
+    // 32-bit OffsetType) and compare against OffsetType::max() directly, per
+    // https://github.com/apache/arrow/pull/38504#discussion_r1394400239.
+    int64_t total_size;
+    if (MultiplyWithOverflow(static_cast<int64_t>(value_length), length_, &total_size) ||
+        total_size > static_cast<int64_t>(std::numeric_limits<OffsetType>::max())) {
+      return Status::Invalid("length exceeds the maximum value of offset_type: ",
+                              std::to_string(total_size), " is greater than ",
+                              std::to_string(std::numeric_limits<OffsetType>::max()));
+    }
     TypedBufferBuilder<OffsetType> builder(pool_);
     RETURN_NOT_OK(builder.Resize(length_ + 1));
     OffsetType offset = 0;
@@ -904,6 +919,9 @@ Result<std::shared_ptr<Array>> MakeArrayOfNull(const std::shared_ptr<DataType>& 
 
 Result<std::shared_ptr<Array>> MakeArrayFromScalar(const Scalar& scalar, int64_t length,
                                                    MemoryPool* pool) {
+  if (length < 0) {
+    return Status::Invalid("length cannot be negative: ", length);
+  }
   // Null union scalars still have a type code associated
   if (!scalar.is_valid && !is_union(scalar.type->id())) {
     return MakeArrayOfNull(scalar.type, length, pool);
