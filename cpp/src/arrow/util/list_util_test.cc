@@ -205,6 +205,41 @@ TEST(TestListFromListView, KeepsContiguousViewsValues) {
   ASSERT_EQ(list.values()->data()->buffers[1].get(), values->data()->buffers[1].get());
 }
 
+TEST(TestListFromListView, IgnoresOffsetsOfEmptyViews) {
+  // An empty view references no value, so neither its offset nor its position
+  // can break the contiguity of the other views.
+  auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
+
+  auto check = [&](const std::string& offsets, const std::string& sizes,
+                   const std::string& expected) {
+    ARROW_SCOPED_TRACE("offsets = " + offsets + ", sizes = " + sizes);
+    ASSERT_OK_AND_ASSIGN(
+        auto view, ListViewArray::FromArrays(*ArrayFromJSON(int32(), offsets),
+                                             *ArrayFromJSON(int32(), sizes), *values));
+    ASSERT_OK_AND_ASSIGN(auto data,
+                         list_util::internal::ListFromListView(*view->data(), Type::LIST,
+                                                               default_memory_pool()));
+    auto result = MakeArray(data);
+    ASSERT_OK(result->ValidateFull());
+    AssertArraysEqual(*ArrayFromJSON(list(int32()), expected), *result,
+                      /*verbose=*/true);
+    const auto& list = checked_cast<const ListArray&>(*result);
+    ASSERT_EQ(list.values()->data()->offset, 0);
+    ASSERT_EQ(list.values()->data()->buffers[1].get(), values->data()->buffers[1].get());
+  };
+
+  // The empty view is in the middle and its offset is not where the previous
+  // view ended.
+  check("[0, 0, 2]", "[2, 0, 2]", "[[1, 2], [], [3, 4]]");
+  // A leading empty view must not shift the range of the kept values.
+  check("[4, 0, 2]", "[0, 2, 2]", "[[], [1, 2], [3, 4]]");
+  // An empty view may point at the end of the values as well.
+  check("[0, 4, 2]", "[2, 0, 2]", "[[1, 2], [], [3, 4]]");
+  // When every view is empty, nothing is referenced, but nothing is gathered
+  // either.
+  check("[4, 0, 3]", "[0, 0, 0]", "[[], [], []]");
+}
+
 TEST(TestListFromListView, SkipsValuesOfNullViews) {
   // A null view must not contribute any values, whatever size it declares.
   ASSERT_OK_AND_ASSIGN(auto validity, AllocateEmptyBitmap(3));

@@ -57,11 +57,12 @@ ARROW_EXPORT Result<int64_t> SumOfLogicalListSizes(const ArraySpan& input);
 /// list order. The value type is the input's, so that callers may cast the
 /// child afterwards.
 ///
-/// When the views are contiguous, i.e. when every valid view starts where the
-/// previous one ended, the values are not copied: the child array is a slice of
-/// the input's child, narrowed down to the values that the valid views
-/// reference. Otherwise the referenced values are gathered into a new child
-/// array.
+/// When the views are contiguous, i.e. when every valid view with values starts
+/// where the previous valid view with values ended, the values are not copied:
+/// the child array is a slice of the input's child, narrowed down to the values
+/// that the valid views reference. Empty views reference no value and their
+/// offsets are ignored. Otherwise the referenced values are gathered into a new
+/// child array.
 ///
 /// \param input The input list-view array
 /// \param dest_type_id Either `Type::LIST` or `Type::LARGE_LIST`

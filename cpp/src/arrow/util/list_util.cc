@@ -337,11 +337,12 @@ void ApplyStorageType(ArraySpan* span, const std::shared_ptr<DataType>& storage_
 /// \brief The range of values a list-view references, when its views are contiguous
 ///
 /// A list-view describes a list without moving any value when its valid views
-/// are in order and contiguous, i.e. when every valid view starts where the
-/// previous one ended. Such a view is a list in disguise: the values it
-/// references are a slice of its child array, and the values that only null
-/// views reference (before the first and after the last valid view) are not
-/// part of that slice.
+/// are in order and contiguous, i.e. when every valid view with values starts
+/// where the previous valid view with values ended. Empty views reference no
+/// value, so their offsets are ignored. Such a view is a list in disguise: the
+/// values it references are a slice of its child array, and the values that
+/// only null views reference (before the first and after the last valid view)
+/// are not part of that slice.
 ///
 /// \return The range of the child array to keep, or `std::nullopt` when the
 ///         views are out of order, overlapping or have gaps in between
@@ -367,6 +368,11 @@ std::optional<std::pair<int64_t, int64_t>> ContiguousValuesRange(
     if (offset < 0 || size < 0 || offset > values_length ||
         size > values_length - offset) {
       return std::nullopt;
+    }
+    // An empty view references no value, so neither its offset nor its
+    // position can break the contiguity of the other views.
+    if (size == 0) {
+      continue;
     }
     if (!has_valid_view) {
       range_start = offset;

@@ -3725,6 +3725,19 @@ TEST(Cast, ListViewToListKeepsContiguousValues) {
   }
 
   {
+    // An empty view references no values: neither its offset nor its position
+    // can force the values to be gathered.
+    ASSERT_OK_AND_ASSIGN(
+        auto empty_view,
+        ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0, 0, 2]"),
+                                  *ArrayFromJSON(int32(), "[2, 0, 2]"), *values));
+    check("empty view", empty_view, values,
+          ArrayFromJSON(list(int32()), "[[1, 2], [], [3, 4]]"));
+    check("empty view", empty_view, values,
+          ArrayFromJSON(large_list(int32()), "[[1, 2], [], [3, 4]]"));
+  }
+
+  {
     // A null view keeps no value: the values that only it references are
     // dropped, which narrows the kept values without copying them.
     ASSERT_OK_AND_ASSIGN(auto lv, ListViewArray::FromArrays(
