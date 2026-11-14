@@ -74,6 +74,20 @@ def test_declaration():
     assert result.equals(table.slice(1, 2))
 
 
+@pytest.mark.parametrize("invalid_declaration", [0.0, None])
+def test_declaration_from_sequence_invalid_type(invalid_declaration):
+    with pytest.raises(TypeError, match="Expected a Declaration"):
+        Declaration.from_sequence([invalid_declaration])
+
+
+@pytest.mark.parametrize("invalid_declaration", [0, 0.0, None])
+def test_declaration_invalid_input(invalid_declaration: object) -> None:
+    with pytest.raises(TypeError, match="Expected a Declaration"):
+        Declaration(
+            "filter", options=FilterNodeOptions(field("a") > 1),
+            inputs=[invalid_declaration])
+
+
 def test_declaration_repr(table_source):
 
     assert "TableSourceNode" in str(table_source)
