@@ -23,6 +23,7 @@
 
 #include <arrow/table.h>
 #include <parquet/arrow/reader.h>
+#include <parquet/arrow/schema.h>
 #include <parquet/arrow/writer.h>
 #include <parquet/exception.h>
 
@@ -189,6 +190,42 @@ r_vec_size parquet___arrow___FileReader__num_rows(
 int parquet___arrow___FileReader__num_columns(
     const std::shared_ptr<parquet::arrow::FileReader>& reader) {
   return reader->parquet_reader()->metadata()->num_columns();
+}
+
+namespace {
+
+// Append the Parquet leaf column indices below `field` to `out`
+void AppendLeafColumnIndices(const parquet::arrow::SchemaField& field,
+                             std::vector<int>* out) {
+  if (field.is_leaf()) {
+    out->push_back(field.column_index);
+    return;
+  }
+  for (const auto& child : field.children) {
+    AppendLeafColumnIndices(child, out);
+  }
+}
+
+}  // namespace
+
+// Translate 0-based indices of top-level fields in the Arrow schema to the 0-based
+// Parquet leaf column indices that FileReader::ReadTable() etc. expect. The two
+// differ whenever the file has nested columns.
+// [[parquet::export]]
+std::vector<int> parquet___arrow___FileReader__FieldIndicesToColumnIndices(
+    const std::shared_ptr<parquet::arrow::FileReader>& reader,
+    const std::vector<int>& field_indices) {
+  const auto& schema_fields = reader->manifest().schema_fields;
+  const int num_fields = static_cast<int>(schema_fields.size());
+
+  std::vector<int> column_indices;
+  for (int field_index : field_indices) {
+    if (field_index < 0 || field_index >= num_fields) {
+      cpp11::stop("Field index %d is not valid", field_index);
+    }
+    AppendLeafColumnIndices(schema_fields[field_index], &column_indices);
+  }
+  return column_indices;
 }
 
 // [[parquet::export]]

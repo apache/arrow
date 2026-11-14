@@ -1708,6 +1708,10 @@ parquet___arrow___FileReader__num_columns <- function(reader) {
   .Call(`_arrow_parquet___arrow___FileReader__num_columns`, reader)
 }
 
+parquet___arrow___FileReader__FieldIndicesToColumnIndices <- function(reader, field_indices) {
+  .Call(`_arrow_parquet___arrow___FileReader__FieldIndicesToColumnIndices`, reader, field_indices)
+}
+
 parquet___arrow___FileReader__num_row_groups <- function(reader) {
   .Call(`_arrow_parquet___arrow___FileReader__num_row_groups`, reader)
 }
