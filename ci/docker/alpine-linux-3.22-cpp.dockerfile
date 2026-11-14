@@ -55,7 +55,6 @@ RUN apk add \
         py3-pip \
         py3-numpy-dev \
         python3-dev \
-        rapidjson-dev \
         re2-dev \
         rsync \
         samurai \

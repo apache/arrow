@@ -39,6 +39,5 @@ RUN apt-get update -y -q && \
       libzstd-dev \
       pkg-config \
       protobuf-compiler \
-      rapidjson-dev \
       zlib1g-dev && \
     apt-get clean && rm -rf /var/lib/apt/lists*
