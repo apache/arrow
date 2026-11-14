@@ -348,6 +348,56 @@ TEST_F(TestSchemaMetadata, NestedDictionaryFields) {
   }
 }
 
+// ARROW-XXXXX: DictionaryEncoding.indexType may be null per the Arrow format
+// spec, in which case indices must be signed int32. JavaScript arrow already
+// relies on this when writing dictionary-encoded fields.
+TEST_F(TestSchemaMetadata, DictionaryEncodingWithoutIndexType) {
+  // Manually construct a flatbuffer Schema containing a DictionaryEncoding
+  // whose indexType field is absent (null offset), then verify that the C++
+  // reader defaults the index type to signed int32.
+
+  flatbuffers::FlatBufferBuilder fbb;
+
+  // value type: utf8
+  auto utf8_type_offset = flatbuf::CreateUtf8(fbb);
+
+  // dictionary encoding with no indexType (offset 0)
+  auto dict_encoding_offset =
+      flatbuf::CreateDictionaryEncoding(fbb, /*id=*/42,
+                                        /*indexType=*/0,
+                                        /*isOrdered=*/false);
+
+  // field: nullable utf8 with dictionary encoding (no indexType)
+  auto field_name = fbb.CreateString("dict_field");
+  auto field_offset = flatbuf::CreateField(fbb, field_name, /*nullable=*/true,
+                                           flatbuf::Type_Utf8,
+                                           utf8_type_offset.Union(),
+                                           dict_encoding_offset);
+
+  auto fields = fbb.CreateVector<flatbuffers::Offset<flatbuf::Field>>({field_offset});
+  auto schema_offset = flatbuf::CreateSchema(fbb, flatbuf::Endianness_Little, fields);
+  fbb.Finish(schema_offset);
+
+  // Extract the flatbuffer Schema root and go through metadata_internal's
+  // GetSchema, which is the function used by the IPC reader
+  const auto* fb_root_schema = flatbuf::GetSchema(fbb.GetBufferPointer());
+  DictionaryMemo memo;
+  std::shared_ptr<Schema> schema;
+  ASSERT_OK(internal::GetSchema(fb_root_schema, &memo, &schema));
+
+  ASSERT_EQ(schema->num_fields(), 1);
+  const auto& dict_field = schema->field(0);
+  const auto& dict_type = checked_cast<const DictionaryType&>(*dict_field->type());
+
+  // The format-spec default must be signed int32
+  EXPECT_TRUE(dict_type.index_type()->Equals(*int32()));
+  // The value type must be preserved
+  EXPECT_TRUE(dict_type.value_type()->Equals(*utf8()));
+  // Nullability and ordered flag should round-trip
+  EXPECT_TRUE(dict_field->nullable());
+  EXPECT_FALSE(dict_type.ordered());
+}
+
 TEST_F(TestSchemaMetadata, KeyValueMetadata) {
   auto field_metadata = key_value_metadata({{"key", "value"}});
   auto schema_metadata = key_value_metadata({{"foo", "bar"}, {"bizz", "buzz"}});
