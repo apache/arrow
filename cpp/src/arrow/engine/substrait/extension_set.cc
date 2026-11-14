@@ -1079,9 +1079,9 @@ ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
             }
             int ddof;
             if (prefs[0] == "POPULATION") {
-              ddof = 1;
-            } else if (prefs[0] == "SAMPLE") {
               ddof = 0;
+            } else if (prefs[0] == "SAMPLE") {
+              ddof = 1;
             } else {
               return Status::Invalid("unknown distribution preference ", prefs[0]);
             }
