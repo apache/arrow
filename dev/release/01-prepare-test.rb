@@ -229,6 +229,34 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "ci/pixi/asan/cpp/pixi.toml",
+        hunks: [
+          ["-version = \"#{@release_version}a0\"",
+            "+version = \"#{@release_version}\""],
+        ],
+      },
+      {
+        path: "ci/pixi/asan/python/pixi.toml",
+        hunks: [
+          ["-version = \"#{@release_version}a0\"",
+            "+version = \"#{@release_version}\""],
+        ],
+      },
+      {
+        path: "ci/pixi/default/cpp/pixi.toml",
+        hunks: [
+          ["-version = \"#{@release_version}a0\"",
+            "+version = \"#{@release_version}\""],
+        ],
+      },
+      {
+        path: "ci/pixi/default/python/pixi.toml",
+        hunks: [
+          ["-version = \"#{@release_version}a0\"",
+            "+version = \"#{@release_version}\""],
+        ],
+      },
+      {
         path: "python/CMakeLists.txt",
         hunks: [
           ["-set(PYARROW_VERSION \"#{@snapshot_version}\")",
