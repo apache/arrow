@@ -1052,6 +1052,9 @@ Status ResultStream::Drain() {
 }
 
 FlightStreamChunk::FlightStreamChunk() noexcept = default;
+FlightStreamChunk::FlightStreamChunk(std::shared_ptr<RecordBatch> data,
+                                     std::shared_ptr<Buffer> app_metadata) noexcept
+    : data(std::move(data)), app_metadata(std::move(app_metadata)) {}
 FlightStreamChunk::~FlightStreamChunk() = default;
 
 arrow::Result<std::vector<std::shared_ptr<RecordBatch>>>

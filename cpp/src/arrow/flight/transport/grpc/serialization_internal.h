@@ -21,6 +21,8 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <string_view>
 
 #include "arrow/flight/protocol_internal.h"
 #include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
@@ -28,11 +30,31 @@
 #include "arrow/result.h"
 
 namespace arrow {
+
+class Buffer;
+
 namespace flight {
 namespace transport {
 namespace grpc {
 
 namespace pb = arrow::flight::protocol;
+
+/// Zero-copy conversion of a gRPC ByteBuffer into an Arrow Buffer.
+///
+/// The Arrow Buffer owns a reference to the gRPC slice, so it stays valid
+/// after the ByteBuffer goes away.
+/// \param[in] cpp_buf The gRPC ByteBuffer to wrap.
+/// \param[out] out The resulting Arrow Buffer that shares ownership of the gRPC slices.
+/// \return Status indicating success or failure.
+Status WrapGrpcBuffer(::grpc::ByteBuffer* cpp_buf, std::shared_ptr<Buffer>* out);
+
+/// Copy a gRPC ByteBuffer's slices into one contiguous string.
+/// \param[in] buffer The gRPC ByteBuffer to copy from.
+/// \param[in] error_message The error message to use if the buffer cannot be dumped.
+/// \return The buffer's bytes, or an IOError carrying FlightStatusCode::Internal
+/// on failure.
+ARROW_FLIGHT_EXPORT arrow::Result<std::string> BytesFromBuffer(
+    const ::grpc::ByteBuffer& buffer, std::string_view error_message);
 
 /// Write Flight message on gRPC stream with zero-copy optimizations.
 // Returns Invalid if the payload is ill-formed
