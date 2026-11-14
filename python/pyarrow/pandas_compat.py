@@ -726,6 +726,17 @@ def get_datetimetz_type(values, dtype, type_):
 # Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
+def _reconstruct_categorical(item, indices):
+    categories = item['dictionary']
+    if 'dictionary_timezone' in item and categories.dtype.kind == 'M':
+        unit, _ = np.datetime_data(categories.dtype)
+        dtype = make_datetimetz(unit, item['dictionary_timezone'])
+        categories = _pandas_api.pd.array(
+            categories.view('int64'), dtype=dtype, copy=False)
+    return _pandas_api.categorical_type.from_codes(
+        indices, categories=categories, ordered=item['ordered'])
+
+
 def _reconstruct_block(item, columns=None, extension_columns=None, return_block=True):
     """
     Construct a pandas Block from the `item` dictionary coming from pyarrow's
@@ -759,9 +770,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
     block_arr = item.get('block', None)
     placement = item['placement']
     if 'dictionary' in item:
-        arr = _pandas_api.categorical_type.from_codes(
-            block_arr, categories=item['dictionary'],
-            ordered=item['ordered'])
+        arr = _reconstruct_categorical(item, block_arr)
     elif 'timezone' in item:
         unit, _ = np.datetime_data(block_arr.dtype)
         dtype = make_datetimetz(unit, item['timezone'])
