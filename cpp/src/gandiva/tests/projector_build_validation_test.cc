@@ -284,4 +284,20 @@ TEST_F(ValidationTestProjector, TestAndBooleanArgType) {
   EXPECT_TRUE(status.IsExpressionValidationError());
 }
 
+TEST_F(ValidationTestProjector, TestCachedOutputTypeValidation) {
+  auto schema = arrow::schema({field("cached_output_type", int32())});
+  auto configuration = TestConfiguration();
+  auto node = TreeExprBuilder::MakeLiteral(int32_t{1});
+
+  // Same expression tree, compiled once with its own output type.
+  std::shared_ptr<Projector> projector;
+  auto valid = TreeExprBuilder::MakeExpression(node, field("res", int32()));
+  ASSERT_OK(Projector::Make(schema, {valid}, configuration, &projector));
+
+  // A different output type must not reuse the cached code and skip validation.
+  auto invalid = TreeExprBuilder::MakeExpression(node, field("res", arrow::int64()));
+  auto status = Projector::Make(schema, {invalid}, configuration, &projector);
+  EXPECT_TRUE(status.IsExpressionValidationError()) << status.ToString();
+}
+
 }  // namespace gandiva
