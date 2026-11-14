@@ -16,6 +16,8 @@
 # under the License.
 
 from datetime import datetime as dt
+import struct
+import sys
 import pyarrow as pa
 import pytest
 
@@ -30,7 +32,8 @@ from pyarrow.interchange.column import (
     ColumnNullType,
     DtypeKind,
 )
-from pyarrow.interchange.from_dataframe import _from_dataframe
+from pyarrow.interchange.buffer import _PyArrowBuffer
+from pyarrow.interchange.from_dataframe import _from_dataframe, buffers_to_array
 
 try:
     import pandas as pd
@@ -104,6 +107,154 @@ def test_offset_of_sliced_array():
 
     # tm.assert_series_equal(df["arr"][2:4], df_sliced["arr_sliced"],
     #                        check_index=False, check_names=False)
+
+
+def test_buffers_to_array_non_native_endian_numeric():
+    endianness = ">" if sys.byteorder == "little" else "<"
+    raw = struct.pack(f"{endianness}3i", 1, -2, 300)
+    dtype = (DtypeKind.INT, 32, "i", endianness)
+    buffers = {
+        "data": (_PyArrowBuffer(pa.py_buffer(raw)), dtype),
+        "validity": None,
+        "offsets": None,
+    }
+
+    result = buffers_to_array(
+        buffers, dtype, 3, (ColumnNullType.NON_NULLABLE, None)
+    )
+    assert result.to_pylist() == [1, -2, 300]
+
+    with pytest.raises(RuntimeError, match="requires a copy"):
+        buffers_to_array(
+            buffers, dtype, 3, (ColumnNullType.NON_NULLABLE, None),
+            allow_copy=False,
+        )
+
+
+def test_buffers_to_array_non_native_endian_sentinel_null():
+    endianness = ">" if sys.byteorder == "little" else "<"
+    raw = struct.pack(f"{endianness}3i", 1, -1, 300)
+    dtype = (DtypeKind.INT, 32, "i", endianness)
+    buffers = {
+        "data": (_PyArrowBuffer(pa.py_buffer(raw)), dtype),
+        "validity": None,
+        "offsets": None,
+    }
+
+    result = buffers_to_array(
+        buffers, dtype, 3, (ColumnNullType.USE_SENTINEL, -1)
+    )
+    assert result.to_pylist() == [1, None, 300]
+
+
+def test_buffers_to_array_non_native_endian_int16():
+    endianness = ">" if sys.byteorder == "little" else "<"
+    raw = struct.pack(f"{endianness}2h", 1, -2)
+    dtype = (DtypeKind.INT, 16, "s", endianness)
+    buffers = {
+        "data": (_PyArrowBuffer(pa.py_buffer(raw)), dtype),
+        "validity": None,
+        "offsets": None,
+    }
+
+    result = buffers_to_array(
+        buffers, dtype, 2, (ColumnNullType.NON_NULLABLE, None)
+    )
+    assert result.to_pylist() == [1, -2]
+
+
+def test_buffers_to_array_non_native_endian_int64():
+    endianness = ">" if sys.byteorder == "little" else "<"
+    raw = struct.pack(f"{endianness}2q", 1, -2)
+    dtype = (DtypeKind.INT, 64, "l", endianness)
+    buffers = {
+        "data": (_PyArrowBuffer(pa.py_buffer(raw)), dtype),
+        "validity": None,
+        "offsets": None,
+    }
+
+    result = buffers_to_array(
+        buffers, dtype, 2, (ColumnNullType.NON_NULLABLE, None)
+    )
+    assert result.to_pylist() == [1, -2]
+
+
+def test_buffers_to_array_int8_endianness_is_ignored():
+    endianness = ">" if sys.byteorder == "little" else "<"
+    raw = struct.pack(f"{endianness}2b", 1, -2)
+    dtype = (DtypeKind.INT, 8, "c", endianness)
+    buffers = {
+        "data": (_PyArrowBuffer(pa.py_buffer(raw)), dtype),
+        "validity": None,
+        "offsets": None,
+    }
+
+    result = buffers_to_array(
+        buffers, dtype, 2, (ColumnNullType.NON_NULLABLE, None),
+        allow_copy=False,
+    )
+    assert result.to_pylist() == [1, -2]
+
+
+@pytest.mark.pandas
+def test_from_dataframe_non_native_endian_numeric():
+    df = pd.DataFrame({"value": np.array([1, 2, 300], dtype=">i4")})
+
+    table = pi.from_dataframe(df)
+
+    assert table["value"].to_pylist() == [1, 2, 300]
+
+
+def test_buffers_to_array_unsupported_endianness():
+    dtype = (DtypeKind.INT, 32, "i", "?")
+    buffers = {
+        "data": (_PyArrowBuffer(pa.py_buffer(b"\x00" * 4)), dtype),
+        "validity": None,
+        "offsets": None,
+    }
+
+    with pytest.raises(ValueError, match="Unsupported endianness"):
+        buffers_to_array(
+            buffers, dtype, 1, (ColumnNullType.NON_NULLABLE, None)
+        )
+
+
+def test_buffers_to_array_misaligned_buffer_size():
+    endianness = ">" if sys.byteorder == "little" else "<"
+    dtype = (DtypeKind.INT, 32, "i", endianness)
+    buffers = {
+        "data": (_PyArrowBuffer(pa.py_buffer(b"\x00" * 3)), dtype),
+        "validity": None,
+        "offsets": None,
+    }
+
+    with pytest.raises(ValueError, match="not a multiple of dtype width"):
+        buffers_to_array(
+            buffers, dtype, 1, (ColumnNullType.NON_NULLABLE, None)
+        )
+
+
+def test_buffers_to_array_non_native_endian_string_offsets():
+    endianness = ">" if sys.byteorder == "little" else "<"
+    offsets = struct.pack(f"{endianness}3i", 0, 1, 4)
+    data_dtype = (DtypeKind.STRING, 8, "u", "|")
+    offset_dtype = (DtypeKind.INT, 32, "i", endianness)
+    buffers = {
+        "data": (_PyArrowBuffer(pa.py_buffer(b"afoo")), data_dtype),
+        "validity": None,
+        "offsets": (_PyArrowBuffer(pa.py_buffer(offsets)), offset_dtype),
+    }
+
+    result = buffers_to_array(
+        buffers, data_dtype, 2, (ColumnNullType.NON_NULLABLE, None)
+    )
+    assert result.to_pylist() == ["a", "foo"]
+
+    with pytest.raises(RuntimeError, match="requires a copy"):
+        buffers_to_array(
+            buffers, data_dtype, 2,
+            (ColumnNullType.NON_NULLABLE, None), allow_copy=False,
+        )
 
 
 @pytest.mark.pandas
