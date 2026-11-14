@@ -432,7 +432,7 @@ template <>
 struct UnboxScalar<HalfFloatType> {
   using T = Float16;
   static T Unbox(const Scalar& val) {
-    return T(checked_cast<const HalfFloatScalar&>(val).value);
+    return T::FromBits(checked_cast<const HalfFloatScalar&>(val).value);
   }
 };
 

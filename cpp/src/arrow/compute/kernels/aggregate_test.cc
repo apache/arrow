@@ -1194,6 +1194,15 @@ TEST_F(TestCountDistinctKernel, AllScalarTypesWithNulls) {
   Check(decimal256(13, 3), sample);
 }
 
+TEST_F(TestCountDistinctKernel, HalfFloat) {
+  // 1.0, 1.0009765625 and 1.001953125 have the consecutive bit patterns
+  // 0x3C00, 0x3C01 and 0x3C02 and must be counted as distinct values.
+  Check(float16(), "[1.0, 1.0009765625, 1.001953125, 1.0, null]", 4);
+  Check(float16(), "[1.0, 1.0009765625, 1.001953125, 1.0]", 3, /*has_nulls=*/false);
+  CheckChunkedArr(float16(), {"[1.0, 1.0009765625]", "[1.001953125, null]"}, 4);
+  Check(float16(), "1.5");
+}
+
 TEST_F(TestCountDistinctKernel, Random) {
   UInt32Builder builder;
   std::unordered_set<uint32_t> memo;
