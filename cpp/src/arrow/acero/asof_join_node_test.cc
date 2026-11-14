@@ -1824,5 +1824,65 @@ TEST(AsofJoinTest, OneSideTsAllGreaterThanTheOther) {
   }
 }
 
+// GH-45876: NormalizeTime must preserve order across the epoch.
+//
+// A time column whose values cross zero used to appear to jump to ~2^63 and
+// then fall back to small values, because the negative half of the domain was
+// folded onto the non-negative half. The plan failed with an out-of-order
+// error.
+TEST(AsofJoinTest, TimesStraddlingEpochAreOrdered) {
+  auto left_schema = arrow::schema({field("on", int64())});
+  auto right_schema = arrow::schema({field("on", int64()), field("v", int64())});
+
+  auto l_on = ArrayFromJSON(int64(), "[-1000, 0, 1000]");
+  auto r_on = ArrayFromJSON(int64(), "[-1000, 0, 1000]");
+  auto r_v = ArrayFromJSON(int64(), "[1, 2, 3]");
+
+  ExecBatch left_batch({l_on}, l_on->length());
+  ExecBatch right_batch({r_on, r_v}, r_on->length());
+  ExecBatch exp_batch({l_on, r_v}, l_on->length());
+
+  AsofJoinNodeOptions opts({{{"on"}, {}}, {{"on"}, {}}}, /*tolerance=*/0);
+  auto left = Declaration("exec_batch_source",
+                          ExecBatchSourceNodeOptions(left_schema, {left_batch}));
+  auto right = Declaration("exec_batch_source",
+                           ExecBatchSourceNodeOptions(right_schema, {right_batch}));
+  auto asof_join = Declaration{"asofjoin", {left, right}, opts};
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(asof_join)));
+  AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+}
+
+// GH-45876: a tolerance window that straddles the epoch must accept the same
+// rows it would accept anywhere else.
+//
+// This is the quieter half of the bug. TolType::Accepts compares differences of
+// normalized values, and under the old encoding differences were exact only
+// when both operands had the same sign. So a right-side row within tolerance
+// of a left-side row was silently dropped when the pair straddled zero, with
+// no error raised. Each side is monotone on its own here, so the ordering
+// check never fires and only the tolerance arithmetic is under test.
+TEST(AsofJoinTest, ToleranceWindowStraddlingEpoch) {
+  auto left_schema = arrow::schema({field("on", int64())});
+  auto right_schema = arrow::schema({field("on", int64()), field("v", int64())});
+
+  // 60 apart, on opposite sides of the epoch, with a backward tolerance of 60.
+  auto l_on = ArrayFromJSON(int64(), "[30]");
+  auto r_on = ArrayFromJSON(int64(), "[-30]");
+  auto r_v = ArrayFromJSON(int64(), "[7]");
+
+  ExecBatch left_batch({l_on}, l_on->length());
+  ExecBatch right_batch({r_on, r_v}, r_on->length());
+  ExecBatch exp_batch({l_on, r_v}, l_on->length());
+
+  AsofJoinNodeOptions opts({{{"on"}, {}}, {{"on"}, {}}}, /*tolerance=*/-60);
+  auto left = Declaration("exec_batch_source",
+                          ExecBatchSourceNodeOptions(left_schema, {left_batch}));
+  auto right = Declaration("exec_batch_source",
+                           ExecBatchSourceNodeOptions(right_schema, {right_batch}));
+  auto asof_join = Declaration{"asofjoin", {left, right}, opts};
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(asof_join)));
+  AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+}
+
 }  // namespace acero
 }  // namespace arrow
