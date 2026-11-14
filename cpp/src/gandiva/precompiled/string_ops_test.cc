@@ -1209,7 +1209,8 @@ TEST(TestStringOps, TestQuote) {
   EXPECT_STREQ(out_str, "");
   ctx.Reset();
 
-  bad_in_len = std::numeric_limits<int32_t>::max() / 2 + 20;
+  // Multiplication fits, but adding the surrounding quotes does not.
+  bad_in_len = std::numeric_limits<int32_t>::max() / 2;
   out_str = quote_utf8(ctx_ptr, "ABCDE", bad_in_len, &out_len);
   EXPECT_EQ(ctx.get_error(), "Memory allocation size too large.");
   EXPECT_EQ(out_len, 0);
@@ -2431,6 +2432,52 @@ TEST(TestStringOps, TestConvertToBigEndian) {
     EXPECT_EQ(out_str[i], out_str_big_endian[i]);
   }
 #endif
+}
+
+TEST(TestStringOps, TestConcatWsInvalidLengths) {
+  gandiva::ExecutionContext ctx;
+  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+  int32_t out_len = 42;
+  bool out_valid = true;
+
+  for (int32_t invalid_len : {-1, std::numeric_limits<int32_t>::min()}) {
+    for (bool invalid_first : {false, true}) {
+      const char* out = concat_ws_utf8_utf8(
+          ctx_ptr, "-", 1, true, "a", invalid_first ? invalid_len : 1, true, "b",
+          invalid_first ? 1 : invalid_len, true, &out_valid, &out_len);
+      EXPECT_STREQ(out, "");
+      EXPECT_EQ(out_len, 0);
+      EXPECT_FALSE(out_valid);
+      EXPECT_EQ(ctx.get_error(), "Invalid word length.");
+      ctx.Reset();
+
+      // A null word's length is ignored, even when it is negative.
+      out = concat_ws_utf8_utf8(
+          ctx_ptr, "-", 1, true, "a", invalid_first ? invalid_len : 1, !invalid_first,
+          "b", invalid_first ? 1 : invalid_len, invalid_first, &out_valid, &out_len);
+      EXPECT_EQ(std::string(out, out_len), invalid_first ? "b" : "a");
+      EXPECT_TRUE(out_valid);
+      EXPECT_FALSE(ctx.has_error());
+      ctx.Reset();
+    }
+
+    const char* out = concat_ws_utf8_utf8(ctx_ptr, "-", invalid_len, true, "", 0, false,
+                                          "", 0, false, &out_valid, &out_len);
+    EXPECT_STREQ(out, "");
+    EXPECT_EQ(out_len, 0);
+    EXPECT_FALSE(out_valid);
+    EXPECT_EQ(ctx.get_error(), "Separator length cannot be negative");
+    ctx.Reset();
+
+    // A null separator returns null without inspecting any input lengths.
+    out = concat_ws_utf8_utf8(ctx_ptr, "-", invalid_len, false, "a", invalid_len, true,
+                              "b", invalid_len, true, &out_valid, &out_len);
+    EXPECT_STREQ(out, "");
+    EXPECT_EQ(out_len, 0);
+    EXPECT_FALSE(out_valid);
+    EXPECT_FALSE(ctx.has_error());
+    ctx.Reset();
+  }
 }
 
 TEST(TestStringOps, TestConcatWs) {
