@@ -27,6 +27,9 @@ function check_arrow_visibility {
     if [[ "${ARROW_GCS}" == "ON" ]]; then
         libs+=(libarrow_gcs.so)
     fi
+    if [[ "${ARROW_AZURE}" == "ON" ]]; then
+        libs+=(libarrow_azure.so)
+    fi
     for lib in "${libs[@]}"; do
         nm --demangle --dynamic "/tmp/arrow-dist/lib/${lib}"
     done > nm_arrow.log

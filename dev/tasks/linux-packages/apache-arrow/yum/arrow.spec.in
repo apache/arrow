@@ -392,6 +392,38 @@ Libraries and header files for Apache Arrow GCS filesystem.
 %{_libdir}/pkgconfig/arrow-gcs.pc
 %endif
 
+%package -n %{name}%{so_version}-azure-libs
+Summary:	C++ library for the Azure filesystem
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-libs = %{version}-%{release}
+
+%description -n %{name}%{so_version}-azure-libs
+This package contains the libraries for Apache Arrow Azure filesystem.
+
+%files -n %{name}%{so_version}-azure-libs
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_azure.so.*
+
+%package azure-devel
+Summary:	Libraries and header files for Apache Arrow Azure filesystem
+License:	Apache-2.0
+Requires:	%{name}%{so_version}-azure-libs = %{version}-%{release}
+Requires:	%{name}-devel = %{version}-%{release}
+
+%description azure-devel
+Libraries and header files for Apache Arrow Azure filesystem.
+
+%files azure-devel
+%defattr(-,root,root,-)
+%doc README.md
+%license LICENSE.txt NOTICE.txt
+%{_libdir}/cmake/ArrowAzure/
+%{_libdir}/libarrow_azure.a
+%{_libdir}/libarrow_azure.so
+%{_libdir}/pkgconfig/arrow-azure.pc
+
 %package -n %{name}%{so_version}-acero-libs
 Summary:	C++ library to execute a query in streaming
 License:	Apache-2.0
