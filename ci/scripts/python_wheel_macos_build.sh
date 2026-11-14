@@ -193,3 +193,11 @@ fi
 # Move the verified wheels
 mkdir -p "${source_dir}/python/repaired_wheels"
 mv "${source_dir}"/python/dist/*.whl "${source_dir}"/python/repaired_wheels/
+
+if [ "${ARROW_S3}" == "ON" ]; then
+  echo "=== (${PYTHON_VERSION}) Building pyarrow-s3 wheel ==="
+  # CMake pulls libarrow_s3 from the Arrow install via CMAKE_PREFIX_PATH.
+  python -m build --wheel --no-isolation \
+    --outdir "${source_dir}/python/repaired_wheels" \
+    "${source_dir}/python/pyarrow-s3"
+fi
