@@ -138,6 +138,19 @@ stubPath = "pyarrow-stubs"
 typeCheckingMode = "basic"
 
 # TODO: Enable type checking once stubs are merged
+[tool.pyrefly]
+project-includes = ["pyarrow-stubs"]
+project-excludes = [
+    "pyarrow",
+    "benchmarks",
+    "examples",
+    "scripts",
+    "build",
+]
+search-path = ["pyarrow-stubs"]
+python-version = "3.11"
+
+# TODO: Enable type checking once stubs are merged
 [tool.ty.environment]
 extra-paths = ["pyarrow-stubs"]
 
