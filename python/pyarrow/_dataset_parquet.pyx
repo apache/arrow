@@ -242,7 +242,8 @@ cdef class ParquetFileFormat(FileFormat):
         return f"<ParquetFileFormat read_options={self.read_options}>"
 
     def make_fragment(self, file, filesystem=None,
-                      Expression partition_expression=None, row_groups=None, *, file_size=None):
+                      Expression partition_expression=None, row_groups=None, *,
+                      file_size=None, FileMetaData metadata=None):
         """
         Make a FileFragment from a given file.
 
@@ -261,6 +262,14 @@ cdef class ParquetFileFormat(FileFormat):
         file_size : int, optional
             The size of the file in bytes. Can improve performance with high-latency filesystems
             when file size needs to be known before reading.
+        metadata : pyarrow.parquet.FileMetaData, optional
+            The already loaded metadata of `file`. The fragment is then created
+            without any I/O, and scanning it uses this metadata instead of
+            reading the file footer again. Row group statistics are still used
+            to skip row groups. To get the metadata of one file from a combined
+            ``_metadata`` file, use :meth:`pyarrow.parquet.FileMetaData.subset`
+            with the indices of that file's row groups. If `row_groups` is also
+            given, its indices refer to the row groups of `metadata`.
 
         Returns
         -------
@@ -269,8 +278,21 @@ cdef class ParquetFileFormat(FileFormat):
         """
         cdef:
             vector[int] c_row_groups
+            optional[vector[int]] c_opt_row_groups
         if partition_expression is None:
             partition_expression = _true
+        if metadata is not None:
+            c_source = _make_file_source(file, filesystem, file_size)
+            if row_groups is not None:
+                c_row_groups = [<int> row_group for row_group in set(row_groups)]
+                c_opt_row_groups = c_row_groups
+            c_fragment = <shared_ptr[CFragment]> GetResultValue(
+                self.parquet_format.MakeFragment(move(c_source),
+                                                 partition_expression.unwrap(),
+                                                 <shared_ptr[CSchema]>nullptr,
+                                                 move(c_opt_row_groups),
+                                                 metadata.sp_metadata))
+            return Fragment.wrap(move(c_fragment))
         if row_groups is None:
             return super().make_fragment(file, filesystem,
                                          partition_expression, file_size=file_size)

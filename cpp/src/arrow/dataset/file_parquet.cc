@@ -681,6 +681,37 @@ Result<std::shared_ptr<FileFragment>> ParquetFileFormat::MakeFragment(
       std::move(physical_schema), std::nullopt));
 }
 
+Result<std::shared_ptr<ParquetFileFragment>> ParquetFileFormat::MakeFragment(
+    FileSource source, compute::Expression partition_expression,
+    std::shared_ptr<Schema> physical_schema, std::optional<std::vector<int>> row_groups,
+    std::shared_ptr<parquet::FileMetaData> metadata) {
+  if (metadata == nullptr) {
+    return Status::Invalid("ParquetFileFormat::MakeFragment: metadata must not be null");
+  }
+
+  auto properties = MakeArrowReaderProperties(*this, *metadata);
+  std::shared_ptr<Schema> metadata_schema;
+  RETURN_NOT_OK(parquet::arrow::FromParquetSchema(
+      metadata->schema(), properties, metadata->key_value_metadata(), &metadata_schema));
+  if (physical_schema && !physical_schema->Equals(*metadata_schema)) {
+    return Status::Invalid("Fragment initialized with physical schema ", *physical_schema,
+                           " but the provided metadata for ", source.path(),
+                           " has schema ", *metadata_schema);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto manifest, GetSchemaManifest(*metadata, properties));
+
+  if (!row_groups) {
+    row_groups = Iota(metadata->num_row_groups());
+  }
+
+  std::shared_ptr<ParquetFileFragment> fragment(new ParquetFileFragment(
+      std::move(source), shared_from_this(), std::move(partition_expression),
+      std::move(metadata_schema), std::move(row_groups)));
+  // `metadata` owns the SchemaDescriptor referenced by `manifest`.
+  RETURN_NOT_OK(fragment->SetMetadata(std::move(metadata), std::move(manifest)));
+  return fragment;
+}
+
 //
 // ParquetFileWriter, ParquetFileWriteOptions
 //
@@ -834,7 +865,7 @@ Status ParquetFileFragment::SetMetadata(
 
   for (int row_group : *row_groups_) {
     // Ensure RowGroups are indexing valid RowGroups before augmenting.
-    if (row_group < metadata_->num_row_groups()) continue;
+    if (row_group >= 0 && row_group < metadata_->num_row_groups()) continue;
 
     return Status::IndexError("ParquetFileFragment references row group ", row_group,
                               " but ", source_.path(), " only has ",
