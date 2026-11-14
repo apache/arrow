@@ -142,12 +142,14 @@ static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
 //
 // The libc++ in the macOS 11.3 SDK used by CRAN only has the pre-standard
 // name std::log2p1. __apple_build_version__ should be defined only on Apple
-// clang.
+// clang. The macOS 12 SDKs have std::bit_width but leave __cpp_lib_bitops
+// undefined, so the check uses __cpp_lib_int_pow2, the feature-test macro for
+// std::bit_width and std::has_single_bit.
 // TODO: We can remove this condition once CRAN upgrades its macOS SDK from 11.3.
 template <typename T>
 constexpr int BitWidth(T x) noexcept {
   static_assert(std::is_unsigned_v<T>, "BitWidth requires an unsigned integer type");
-#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
+#if defined(__apple_build_version__) && !defined(__cpp_lib_int_pow2)
   return static_cast<int>(std::log2p1(x));
 #else
   return static_cast<int>(std::bit_width(x));
@@ -160,7 +162,7 @@ constexpr int BitWidth(T x) noexcept {
 template <typename T>
 constexpr bool HasSingleBit(T x) noexcept {
   static_assert(std::is_unsigned_v<T>, "HasSingleBit requires an unsigned integer type");
-#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
+#if defined(__apple_build_version__) && !defined(__cpp_lib_int_pow2)
   return std::ispow2(x);
 #else
   return std::has_single_bit(x);
