@@ -90,3 +90,9 @@ cp "${ARROW_ROOT}"/testing/data/csv/*.csv "${CORPUS_DIR}"
 # Add examples from Pandas test suite
 find "${PANDAS_DIR}/" -name "*.csv" -exec cp --backup=numbered '{}' "${CORPUS_DIR}" \;
 "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/arrow-csv-fuzz_seed_corpus.zip"
+
+# Compute kernels
+
+rm -rf "${CORPUS_DIR}"
+"${OUT}/arrow-compute-generate-fuzz-corpus" "${CORPUS_DIR}"
+"${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/arrow-compute-fuzz_seed_corpus.zip"
