@@ -60,7 +60,7 @@ def validate_wheel(path):
         ), "pyarrow/py.typed is present in the wheel."
 
         source_root = Path(__file__).resolve().parents[2]
-        stubs_dir = source_root / "python" / "pyarrow-stubs" / "pyarrow"
+        stubs_dir = source_root / "python" / "pyarrow-stubs"
         assert stubs_dir.exists(), f"Stub source directory not found: {stubs_dir}"
 
         expected_stub_files = {
@@ -75,7 +75,7 @@ def validate_wheel(path):
         }
 
         assert not (wheel_stub_files == expected_stub_files), (
-            "Wheel .pyi files do not differ from python/pyarrow-stubs/pyarrow.\n"
+            "Wheel .pyi files do not differ from python/pyarrow-stubs.\n"
             f"Missing in wheel: {sorted(expected_stub_files - wheel_stub_files)}\n"
             f"Unexpected in wheel: {sorted(wheel_stub_files - expected_stub_files)}"
         )

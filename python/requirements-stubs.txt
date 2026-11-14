@@ -1,0 +1,20 @@
+# Type checkers and the type stubs of PyArrow's dependencies, pinned so that
+# everyone gets the same results; see the "Type Checking" section of
+# docs/source/developers/python/development.rst. The python-stubs hooks in
+# .pre-commit-config.yaml and ci/scripts/python_test_type_annotations.sh
+# install them from this file.
+fsspec==2026.9.0
+mypy==2.4.0
+pandas-stubs==3.0.5.260914
+pyright==1.1.414
+# The scipy extra installs the matching scipy, which the type stub tests import.
+scipy-stubs[scipy]==1.17.1.5
+ty==0.0.99
+types-cffi==2.1.0.20260827
+types-psutil==7.2.2.20260906
+types-python-dateutil==2.9.0.20261021
+types-requests==2.33.0.20261006
+# Annotated dependencies of the type stub tests, usually installed already.
+numpy
+pytest
+typing_extensions>=4.12.0

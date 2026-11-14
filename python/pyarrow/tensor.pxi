@@ -1376,14 +1376,14 @@ shape: {self.shape}"""
         ----------
         data : numpy.ndarray
             Data used to populate the sparse tensor.
-        indptr : numpy.ndarray
+        indptr : list or tuple of numpy.ndarray
             The sparsity structure.
             Each two consecutive dimensions in a tensor correspond to
             a buffer in indices.
             A pair of consecutive values at `indptr[dim][i]`
             `indptr[dim][i + 1]` signify a range of nodes in
             `indices[dim + 1]` who are children of `indices[dim][i]` node.
-        indices : numpy.ndarray
+        indices : list or tuple of numpy.ndarray
             Stores values of nodes.
             Each tensor dimension corresponds to a buffer in indptr.
         shape : tuple
