@@ -17,6 +17,7 @@
 
 #include <gtest/gtest.h>
 #include "arrow/memory_pool.h"
+#include "gandiva/filter.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -282,6 +283,95 @@ TEST_F(ValidationTestProjector, TestAndBooleanArgType) {
   std::shared_ptr<Projector> projector;
   auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
   EXPECT_TRUE(status.IsExpressionValidationError());
+}
+
+TEST_F(ValidationTestProjector, TestInExpressionValidatesEvalExpression) {
+  auto schema = arrow::schema({field("f0", int32())});
+  auto decimal_type = arrow::decimal128(10, 0);
+
+  // An IF with an int32 condition is invalid, but its return type matches the IN values.
+  auto invalid_if = [](const NodePtr& value, const DataTypePtr& type) {
+    return TreeExprBuilder::MakeIf(TreeExprBuilder::MakeLiteral(int32_t{1}), value, value,
+                                   type);
+  };
+  std::unordered_set<DecimalScalar128> decimals{DecimalScalar128("1", 10, 0)};
+  NodeVector invalid = {
+      TreeExprBuilder::MakeInExpressionInt32(
+          invalid_if(TreeExprBuilder::MakeLiteral(int32_t{1}), int32()), {1}),
+      TreeExprBuilder::MakeInExpressionInt64(
+          invalid_if(TreeExprBuilder::MakeLiteral(int64_t{1}), arrow::int64()), {1}),
+      TreeExprBuilder::MakeInExpressionFloat(
+          invalid_if(TreeExprBuilder::MakeLiteral(1.0f), float32()), {1.0f}),
+      TreeExprBuilder::MakeInExpressionDouble(
+          invalid_if(TreeExprBuilder::MakeLiteral(1.0), arrow::float64()), {1.0}),
+      TreeExprBuilder::MakeInExpressionString(
+          invalid_if(TreeExprBuilder::MakeStringLiteral("a"), arrow::utf8()), {"a"}),
+      TreeExprBuilder::MakeInExpressionBinary(
+          invalid_if(TreeExprBuilder::MakeBinaryLiteral("a"), arrow::binary()), {"a"}),
+      TreeExprBuilder::MakeInExpressionDecimal(
+          invalid_if(TreeExprBuilder::MakeDecimalLiteral(DecimalScalar128("1", 10, 0)),
+                     decimal_type),
+          decimals)};
+
+  for (size_t i = 0; i < invalid.size(); ++i) {
+    SCOPED_TRACE(i);
+    std::shared_ptr<Projector> projector;
+    auto expr = TreeExprBuilder::MakeExpression(invalid[i], field("res", boolean()));
+    auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+    EXPECT_TRUE(status.IsExpressionValidationError()) << status.ToString();
+
+    std::shared_ptr<Filter> filter;
+    status = Filter::Make(schema, TreeExprBuilder::MakeCondition(invalid[i]),
+                          TestConfiguration(), &filter);
+    EXPECT_TRUE(status.IsExpressionValidationError()) << status.ToString();
+  }
+}
+
+TEST_F(ValidationTestProjector, TestInExpressionNullEvalExpression) {
+  auto schema = arrow::schema({field("f0", int32())});
+  NodeVector invalid = {std::make_shared<InExpressionNode<int32_t>>(
+                            nullptr, std::unordered_set<int32_t>{1}),
+                        std::make_shared<InExpressionNode<std::string>>(
+                            nullptr, std::unordered_set<std::string>{"a"})};
+
+  for (size_t i = 0; i < invalid.size(); ++i) {
+    SCOPED_TRACE(i);
+    std::shared_ptr<Projector> projector;
+    auto expr = TreeExprBuilder::MakeExpression(invalid[i], field("res", boolean()));
+    auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+    EXPECT_TRUE(status.IsExpressionValidationError()) << status.ToString();
+
+    std::shared_ptr<Filter> filter;
+    status = Filter::Make(schema, TreeExprBuilder::MakeCondition(invalid[i]),
+                          TestConfiguration(), &filter);
+    EXPECT_TRUE(status.IsExpressionValidationError()) << status.ToString();
+  }
+}
+
+TEST_F(ValidationTestProjector, TestInExpressionUntypedEvalExpression) {
+  auto schema = arrow::schema({field("f0", int32())});
+  auto untyped = std::make_shared<LiteralNode>(nullptr, LiteralHolder(int32_t{1}), false);
+  auto in = TreeExprBuilder::MakeInExpressionInt32(untyped, {1});
+
+  std::shared_ptr<Projector> projector;
+  auto expr = TreeExprBuilder::MakeExpression(in, field("res", boolean()));
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.IsExpressionValidationError()) << status.ToString();
+}
+
+TEST_F(ValidationTestProjector, TestInExpressionValid) {
+  auto field0 = field("f0", int32());
+  auto schema = arrow::schema({field0});
+  auto in =
+      TreeExprBuilder::MakeInExpressionInt32(TreeExprBuilder::MakeField(field0), {1, 2});
+
+  std::shared_ptr<Projector> projector;
+  auto expr = TreeExprBuilder::MakeExpression(in, field("res", boolean()));
+  ASSERT_OK(Projector::Make(schema, {expr}, TestConfiguration(), &projector));
+
+  std::shared_ptr<Filter> filter;
+  ASSERT_OK(Filter::Make(schema, TreeExprBuilder::MakeCondition(in), TestConfiguration(),
+                         &filter));
 }
 
 }  // namespace gandiva
