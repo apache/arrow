@@ -3491,8 +3491,9 @@ def test_quantile():
     result = pc.quantile(arr, [0.25, 0.5, 0.75], interpolation='linear')
     assert result.to_pylist() == [1.25, 1.5, 1.75]
 
-    with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
-        pc.quantile(arr, q=1.1)
+    for q in (1.1, float('nan')):
+        with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
+            pc.quantile(arr, q=q)
     with pytest.raises(ValueError, match="not a valid quantile interpolation"):
         pc.quantile(arr, interpolation='zzz')
 
@@ -3513,6 +3514,14 @@ def test_tdigest():
     arr = pa.chunked_array([pa.array([1, 2]), pa.array([3, 4])])
     result = pc.tdigest(arr, [0, 0.5, 1])  # positional `q`
     assert result.to_pylist() == [1, 2.5, 4]
+
+    table = pa.table({'k': [1, 1], 'v': [1.0, 2.0]})
+    for q in (1.5, float('nan')):
+        with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
+            pc.tdigest(arr, q=q)
+        options = pc.TDigestOptions(q=q)
+        with pytest.raises(ValueError, match="Quantile must be between 0 and 1"):
+            table.group_by('k').aggregate([('v', 'tdigest', options)])
 
 
 def test_fill_null_segfault():
