@@ -279,40 +279,26 @@ ARROW_EXPORT Result<bool> IsJsonNull(simdjson::ondemand::value& value);
 
 template <typename SimdjsonValueType>
 Result<SimdjsonValueType> GetJsonAs(simdjson::ondemand::value& value) {
-  SimdjsonValueType typed_value{};
-  simdjson::error_code error_code;
-
-  if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
-    // simdjson has no get<>() for null; probe it explicitly
-    bool is_null;
-    error_code = value.is_null().get(is_null);
-    if (error_code == simdjson::SUCCESS && !is_null) {
-      error_code = simdjson::INCORRECT_TYPE;
-    }
-  } else {
-    error_code = value.get(typed_value);
+  simdjson::ondemand::json_type json_type;
+  if (value.type().get(json_type) != simdjson::SUCCESS) {
+    return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
+                           ", got malformed JSON value");
   }
 
-  if (error_code != simdjson::SUCCESS) {
-    simdjson::ondemand::json_type json_type;
-    if (value.type().get(json_type) != simdjson::SUCCESS) {
-      if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
-        return Status::Invalid("Expected null, got malformed JSON value");
-      } else {
-        return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
-                               ", got malformed JSON value");
-      }
+  if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
+    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(value));
+    if (is_null) {
+      return SimdjsonNull{};
     }
-
-    if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
-      return Status::Invalid("Expected null, got JSON type ", JsonTypeName(json_type));
-    } else {
+    return Status::Invalid("Expected null, got JSON type ", JsonTypeName(json_type));
+  } else {
+    SimdjsonValueType typed_value{};
+    if (value.get(typed_value) != simdjson::SUCCESS) {
       return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
                              ", got JSON type ", JsonTypeName(json_type));
     }
+    return typed_value;
   }
-
-  return typed_value;
 }
 
 template <typename T>

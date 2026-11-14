@@ -365,6 +365,17 @@ TEST(TestNullFromString, Errors) {
   ASSERT_RAISES(Invalid, ArrayFromJSONString(type, "[NaN]"));
 }
 
+TEST(TestNullFromString, MalformedNull) {
+  for (const auto& type : {null(), boolean(), int32(), timestamp(TimeUnit::SECOND),
+                           struct_({field("a", int32())})}) {
+    SCOPED_TRACE(type->ToString());
+    for (const auto* json : {"[nul]", "[nullx]"}) {
+      SCOPED_TRACE(json);
+      ASSERT_RAISES(Invalid, ArrayFromJSONString(type, json));
+    }
+  }
+}
+
 TEST(TestBooleanFromString, Basics) {
   std::shared_ptr<DataType> type = boolean();
 
@@ -1208,6 +1219,22 @@ TEST(TestStructFromString, NestedStruct) {
   ArrayFromVector<DoubleType>(is_valid, {0.0, 0.0, -300.0}, &children[1]);
   BitmapFromVector<bool>({false, true, true}, &null_bitmap);
   expected = std::make_shared<StructArray>(type, 3, children, null_bitmap, 1);
+  AssertArraysEqual(*expected, *actual);
+}
+
+TEST(TestStructFromString, NestedStructObjectNotation) {
+  auto type =
+      struct_({field("c1", struct_({field("c11", int32()),
+                                    field("c12", struct_({field("c121", int32())}))})),
+               field("c2", int64())});
+  constexpr auto json = R"([
+    [{"c11": null, "c12": {"c121": -1}}, 1],
+    [{"c11": 2, "c12": {"c121": null}}, 2]
+  ])";
+  ASSERT_OK_AND_ASSIGN(auto actual, ArrayFromJSONString(type, json));
+  ASSERT_OK(actual->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(
+      auto expected, ArrayFromJSONString(type, "[[[null, [-1]], 1], [[2, [null]], 2]]"));
   AssertArraysEqual(*expected, *actual);
 }
 
