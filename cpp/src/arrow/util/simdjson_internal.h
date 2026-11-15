@@ -274,16 +274,18 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
 
 ARROW_EXPORT const char* JsonTypeName(simdjson::ondemand::json_type type);
 
+// Inspect the type without consuming the value or validating its contents.
+inline Result<simdjson::ondemand::json_type> GetJsonType(
+    simdjson::ondemand::value& value) {
+  return ResolveSimdjsonResult(value.type(), "Failed to determine JSON type");
+}
+
 // Result<bool> because peeking the nonRootScalar can fail (parsed lazily)
 ARROW_EXPORT Result<bool> IsJsonNull(simdjson::ondemand::value& value);
 
 template <typename SimdjsonValueType>
 Result<SimdjsonValueType> GetJsonAs(simdjson::ondemand::value& value) {
-  simdjson::ondemand::json_type json_type;
-  if (value.type().get(json_type) != simdjson::SUCCESS) {
-    return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
-                           ", got malformed JSON value");
-  }
+  ARROW_ASSIGN_OR_RAISE(auto json_type, GetJsonType(value));
 
   if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
     ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(value));
