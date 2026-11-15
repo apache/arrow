@@ -37,7 +37,8 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
   }
 
   // With any ambiguity, we need to materialize the R6 instance and call its
-  // ExtensionEquals method. We can't do this on the non-R thread.
+  // ExtensionEquals method. This is only possible from the R thread or from
+  // inside RunWithCapturedR().
   arrow::Result<bool> result = SafeCallIntoR<bool>(
       [&]() {
         cpp11::environment instance = r6_instance();
@@ -52,8 +53,14 @@ bool RExtensionType::ExtensionEquals(const arrow::ExtensionType& other) const {
       },
       "RExtensionType$ExtensionEquals()");
 
+  // An error here means R could not be called from this thread (e.g., when a
+  // Dataset is scanned on worker threads). Throwing would terminate the process,
+  // because this is not the R thread (GH-55605). Fall back to the default
+  // ExtensionEquals() behaviour instead: the serialized metadata differs, so the
+  // types are not equal. If the R method itself errored, RunWithCapturedR()
+  // re-raises that error.
   if (!result.ok()) {
-    throw std::runtime_error(result.status().message());
+    return false;
   }
 
   return result.ValueUnsafe();

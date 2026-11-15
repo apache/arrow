@@ -172,6 +172,32 @@ test_that("extension subclasses can override the ExtensionEquals method", {
   unregister_extension_type("some_extension_subclass")
 })
 
+test_that("comparing extension types on a non-R thread does not abort (GH-55605)", {
+  skip_if_not_available("dataset")
+
+  unit_type <- function(unit) {
+    new_extension_type(int32(), "arrow.test.unit", charToRaw(unit))
+  }
+  register_extension_type(unit_type("m"))
+  on.exit(unregister_extension_type("arrow.test.unit"))
+
+  tf <- tempfile()
+  dir.create(tf)
+  on.exit(unlink(tf, recursive = TRUE), add = TRUE)
+
+  for (unit in c("m", "km")) {
+    write_ipc_file(
+      arrow_table(x = unit_type(unit)$WrapArray(Array$create(1:3))),
+      file.path(tf, paste0(unit, ".arrow"))
+    )
+  }
+  ds <- open_dataset(tf, format = "arrow")
+
+  # The parts have different extension metadata, so they can't be combined
+  expect_error(dplyr::collect(ds), "not permitted")
+  expect_error(Scanner$create(ds)$ToTable(), "not permitted")
+})
+
 test_that("vctrs extension type works", {
   custom_vctr <- vctrs::new_vctr(
     1:4,
