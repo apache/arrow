@@ -17,8 +17,6 @@
 
 #include "arrow/array/util.h"
 
-#include <arrow/compute/kernels/base_arithmetic_internal.h>
-
 #include <algorithm>
 #include <array>
 #include <cstdint>
@@ -954,7 +952,7 @@ Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step,
   }
 
   uint64_t buffer_size_u;
-  if (MultiplyWithOverflow(size, sizeof(int64_t), &buffer_size_u) ||
+  if (internal::MultiplyWithOverflow(size, sizeof(int64_t), &buffer_size_u) ||
       buffer_size_u > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
     return error();
   }
