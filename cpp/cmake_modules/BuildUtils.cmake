@@ -176,24 +176,34 @@ function(arrow_create_merged_static_lib output_target)
       set(ar_tool ${CMAKE_CXX_COMPILER_AR})
     endif()
 
-    set(BUNDLE_COMMAND ${ar_tool} -M < ${ar_script_path})
+    set(ar_script_runner "${CMAKE_CURRENT_BINARY_DIR}/${ARG_NAME}-merge.cmake")
+    file(WRITE "${ar_script_runner}"
+         "execute_process(COMMAND \"${ar_tool}\" -M INPUT_FILE \"${ar_script_path}\" RESULT_VARIABLE result)\n"
+         "if(NOT \"\${result}\" STREQUAL \"0\")\n"
+         "  message(FATAL_ERROR \"Failed to merge ${ARG_NAME}: \${result}\")\n"
+         "endif()\n")
+    set(BUNDLE_COMMAND ${CMAKE_COMMAND} -P ${ar_script_runner})
   else()
     message(FATAL_ERROR "Unknown bundle scenario!")
   endif()
 
-  add_custom_target(${output_target}_merge ALL
-                    ${BUNDLE_COMMAND}
-                    DEPENDS ${ARG_ROOT} ${ARG_TO_MERGE}
-                    BYPRODUCTS ${output_lib_path}
-                    COMMENT "Bundling ${output_lib_path}"
-                    VERBATIM)
+  set(dummy_source "${CMAKE_CURRENT_BINARY_DIR}/${output_target}.cc")
+  file(WRITE "${dummy_source}" "void ${output_target}_anchor() {}\n")
 
-  message(STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
-  )
+  add_library(${output_target} STATIC "${dummy_source}")
+  set_target_properties(${output_target}
+                        PROPERTIES ARCHIVE_OUTPUT_DIRECTORY
+                                   "${BUILD_OUTPUT_ROOT_DIRECTORY}" OUTPUT_NAME
+                                                                    "${ARG_NAME}")
+  set_property(TARGET ${output_target} PROPERTY LINK_DEPENDS "${all_library_paths}")
 
-  add_library(${output_target} STATIC IMPORTED GLOBAL)
-  set_target_properties(${output_target} PROPERTIES IMPORTED_LOCATION ${output_lib_path})
-  add_dependencies(${output_target} ${output_target}_merge)
+  add_dependencies(${output_target} ${ARG_ROOT} ${ARG_TO_MERGE})
+
+  add_custom_command(TARGET ${output_target}
+                     POST_BUILD
+                     COMMAND ${BUNDLE_COMMAND}
+                     COMMENT "Bundling ${output_lib_path}"
+                     VERBATIM)
 endfunction()
 
 function(arrow_install_cmake_package PACKAGE_NAME EXPORT_NAME)
