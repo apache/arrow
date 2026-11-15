@@ -765,10 +765,26 @@ std::string Decimal128::ToString(int32_t scale) const {
   return str;
 }
 
+// Computes out = out * multiple + addend, where out is an unsigned integer
+// stored as out_size little-endian 64-bit words.
+// Returns false if the result does not fit in out_size words.
+static inline bool MultiplyAndAdd(uint64_t multiple, uint64_t addend, uint64_t out[],
+                                  size_t out_size) {
+  for (size_t i = 0; i < out_size; ++i) {
+    uint128_t tmp = out[i];
+    tmp *= multiple;
+    tmp += addend;
+    out[i] = static_cast<uint64_t>(tmp & 0xFFFFFFFFFFFFFFFFULL);
+    addend = static_cast<uint64_t>(tmp >> 64);
+  }
+  return addend == 0;
+}
+
 // Iterates over input and for each group of kInt64DecimalDigits multiple out by
 // the appropriate power of 10 necessary to add source parsed as uint64 and
 // then adds the parsed value of source.
-static inline void ShiftAndAdd(std::string_view input, uint64_t out[], size_t out_size) {
+// Returns false if the result does not fit in out_size words.
+static inline bool ShiftAndAdd(std::string_view input, uint64_t out[], size_t out_size) {
   for (size_t posn = 0; posn < input.size();) {
     const size_t group_size = std::min(kInt64DecimalDigits, input.size() - posn);
     const uint64_t multiple = kUInt64PowersOfTen[group_size];
@@ -776,15 +792,40 @@ static inline void ShiftAndAdd(std::string_view input, uint64_t out[], size_t ou
     ARROW_CHECK(
         internal::ParseValue<UInt64Type>(input.data() + posn, group_size, &chunk));
 
-    for (size_t i = 0; i < out_size; ++i) {
-      uint128_t tmp = out[i];
-      tmp *= multiple;
-      tmp += chunk;
-      out[i] = static_cast<uint64_t>(tmp & 0xFFFFFFFFFFFFFFFFULL);
-      chunk = static_cast<uint64_t>(tmp >> 64);
+    if (!MultiplyAndAdd(multiple, chunk, out, out_size)) {
+      return false;
     }
     posn += group_size;
   }
+  return true;
+}
+
+// Multiplies out by 10^exponent.
+// Returns false if the result does not fit in out_size words.
+static inline bool MultiplyByPowerOfTen(int32_t exponent, uint64_t out[],
+                                        size_t out_size) {
+  while (exponent > 0) {
+    const auto step = std::min(static_cast<size_t>(exponent), kInt64DecimalDigits);
+    if (!MultiplyAndAdd(kUInt64PowersOfTen[step], 0, out, out_size)) {
+      return false;
+    }
+    exponent -= static_cast<int32_t>(step);
+  }
+  return true;
+}
+
+// Returns whether the absolute value stored as num_words little-endian 64-bit words
+// is representable as a signed integer of the same width.
+static inline bool FitsInSignedWords(const uint64_t words[], size_t num_words,
+                                     bool negative) {
+  const uint64_t high = words[num_words - 1];
+  if ((high >> 63) == 0) {
+    return true;
+  }
+  // The only representable value whose absolute value has the top bit set
+  // is the minimum value -2^(bit width - 1)
+  return negative && high == (uint64_t{1} << 63) &&
+         std::all_of(words, words + num_words - 1, [](uint64_t w) { return w == 0; });
 }
 
 namespace {
@@ -892,12 +933,24 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
     parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
   }
 
+  // A negative scale is forced to zero below, to avoid negative scales (due to
+  // compatibility issues with external systems such as databases)
+  if (-parsed_scale > Decimal::kMaxScale) {
+    return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+  }
+
   if (out != nullptr) {
     static_assert(Decimal::kBitWidth % 64 == 0, "decimal bit-width not a multiple of 64");
     std::array<uint64_t, Decimal::kBitWidth / 64> little_endian_array{};
-    ShiftAndAdd(dec.whole_digits, little_endian_array.data(), little_endian_array.size());
-    ShiftAndAdd(dec.fractional_digits, little_endian_array.data(),
-                little_endian_array.size());
+    uint64_t* words = little_endian_array.data();
+    const size_t num_words = little_endian_array.size();
+    // Compute the absolute value, failing if the result is not representable
+    if (!ShiftAndAdd(dec.whole_digits, words, num_words) ||
+        !ShiftAndAdd(dec.fractional_digits, words, num_words) ||
+        !MultiplyByPowerOfTen(-parsed_scale, words, num_words) ||
+        !FitsInSignedWords(words, num_words, dec.sign == '-')) {
+      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+    }
     *out = Decimal(bit_util::little_endian::ToNative(little_endian_array));
     if (dec.sign == '-') {
       out->Negate();
@@ -905,14 +958,6 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
   }
 
   if (parsed_scale < 0) {
-    // Force the scale to zero, to avoid negative scales (due to compatibility issues
-    // with external systems such as databases)
-    if (-parsed_scale > Decimal::kMaxScale) {
-      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
-    }
-    if (out != nullptr) {
-      *out *= Decimal::GetScaleMultiplier(-parsed_scale);
-    }
     parsed_precision -= parsed_scale;
     parsed_scale = 0;
   }
@@ -960,11 +1005,19 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
     parsed_scale = static_cast<int32_t>(dec.fractional_digits.size());
   }
 
+  // A negative scale is forced to zero below, to avoid negative scales (due to
+  // compatibility issues with external systems such as databases)
+  if (-parsed_scale > DecimalClass::kMaxScale) {
+    return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
+  }
+
   if (out != nullptr) {
+    // Compute the absolute value, failing if the result is not representable
     uint64_t value{0};
-    ShiftAndAdd(dec.whole_digits, &value, 1);
-    ShiftAndAdd(dec.fractional_digits, &value, 1);
-    if (value > static_cast<uint64_t>(
+    if (!ShiftAndAdd(dec.whole_digits, &value, 1) ||
+        !ShiftAndAdd(dec.fractional_digits, &value, 1) ||
+        !MultiplyByPowerOfTen(-parsed_scale, &value, 1) ||
+        value > static_cast<uint64_t>(
                     std::numeric_limits<typename DecimalClass::ValueType>::max())) {
       return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
     }
@@ -976,14 +1029,6 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
   }
 
   if (parsed_scale < 0) {
-    // Force the scale to zero, to avoid negative scales (due to compatibility issues
-    // with external systems such as databases)
-    if (-parsed_scale > DecimalClass::kMaxScale) {
-      return Status::Invalid("The string '", s, "' cannot be represented as ", type_name);
-    }
-    if (out != nullptr) {
-      *out *= DecimalClass::GetScaleMultiplier(-parsed_scale);
-    }
     parsed_precision -= parsed_scale;
     parsed_scale = 0;
   }
