@@ -40,6 +40,7 @@
 #include "arrow/ipc/reader_internal.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -368,6 +369,27 @@ TEST_F(TestSchemaMetadata, MetadataVersionForwardCompatibility) {
 
   DictionaryMemo placeholder_memo;
   ASSERT_RAISES(Invalid, ReadSchema(schema_v6_file.get(), &placeholder_memo));
+}
+
+TEST_F(TestSchemaMetadata, SerializeSchemaUsesGivenMemoryPool) {
+  // GH-55623: SerializeSchema() must allocate only from the given pool
+  auto metadata = key_value_metadata({{"foo", "bar"}});
+  Schema schema({field("f0", int64()), field("f1", utf8())}, metadata);
+
+  // A pool with its own statistics, distinct from default_memory_pool() even when
+  // both use the same allocator
+  std::unique_ptr<MemoryPool> pool = MemoryPool::CreateDefault();
+  MemoryPool* default_pool = default_memory_pool();
+  const int64_t default_allocated_before = default_pool->total_bytes_allocated();
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buffer,
+                       SerializeSchema(schema, pool.get()));
+  ASSERT_EQ(default_pool->total_bytes_allocated(), default_allocated_before);
+  ASSERT_GT(pool->total_bytes_allocated(), 0);
+
+  io::BufferReader reader(buffer);
+  DictionaryMemo in_memo;
+  ASSERT_OK_AND_ASSIGN(auto actual_schema, ReadSchema(&reader, &in_memo));
+  AssertSchemaEqual(schema, *actual_schema, /*check_metadata=*/true);
 }
 
 const std::vector<test::MakeRecordBatch*> kBatchCases = {
