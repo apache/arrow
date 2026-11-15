@@ -79,18 +79,11 @@ function configure_binaries() {
     RWINLIB="../windows/$(ls windows/ | grep ^r-libarrow- | tail -n 1)"
   fi
 
-  # The libarrow zip has one of two layouts, depending on which flow in
-  # ci/scripts/r_windows_build.sh built it:
-  #
-  # * Rtools40 (ci/scripts/PKGBUILD): snappy, utf8proc and re2 are separate
-  #   libraries in the zip, and cURL's link dependencies are the fixed
-  #   GCS_LIBS above.
-  # * Rtools42 or later: snappy, utf8proc and re2 are built as part of
-  #   arrow_bundled_dependencies, so they aren't linked separately. cURL's
-  #   link dependencies depend on which Rtools built the zip, so they are
-  #   recorded in libcurl.libs in the zip. -ldbghelp is for google-cloud-cpp.
-  #   The Rtools Brotli libraries are never included: cURL's Brotli symbols
-  #   come from the bundled Brotli in arrow_bundled_dependencies (GH-55165).
+  # A libarrow zip built with Rtools42+ (see ci/scripts/r_windows_build.sh)
+  # contains libcurl.libs. In that zip snappy, utf8proc and re2 are in
+  # arrow_bundled_dependencies, and libcurl.libs has cURL's link flags.
+  # -ldbghelp is for google-cloud-cpp. The Rtools Brotli is never linked:
+  # cURL uses the bundled Brotli (GH-55165).
   UTF8PROC_SNAPPY_LIBS="-lutf8proc -lsnappy"
   RE2_LIBS="-lre2"
   CURL_LIBS_FILE="${RWINLIB#../}/lib/x64-ucrt/libcurl.libs"

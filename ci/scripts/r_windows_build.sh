@@ -17,23 +17,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Build the static libarrow that r/configure.win downloads for Windows users,
-# using the Rtools toolchain that r-lib/actions/setup-r installs.
+# Build the static libarrow that r/configure.win downloads on Windows.
 #
-# There are two flows, chosen by RTOOLS_VERSION:
+# * Rtools40 (MSYS2): makepkg-mingw with ci/scripts/PKGBUILD.
+# * Rtools42+ (MXE, no pacman/makepkg): call CMake directly against the
+#   toolchain's static libraries.
 #
-# * Rtools40 is MSYS2-based, so libarrow is built with makepkg-mingw from
-#   ci/scripts/PKGBUILD, with its dependencies installed by pacman.
-# * Rtools42 and later are MXE-based: there is no pacman/makepkg, and the
-#   compiler plus a fixed set of static libraries live in
-#   ${RTOOLS_HOME}/x86_64-w64-mingw32.static.posix. So we call CMake directly
-#   and point it at that directory. Libraries Rtools doesn't ship (snappy,
-#   utf8proc) or ships in a form we don't want to depend on (re2, which needs
-#   abseil; abseil and protobuf, where Arrow bundles newer versions) are built
-#   from source via Arrow's bundled dependency mechanism.
-#
-# The two flows produce zips with different contents; r/configure.win handles
-# both.
+# The two zips differ in contents; r/configure.win handles both.
 
 set -ex
 
@@ -117,8 +107,6 @@ fi
 
 : "${RTOOLS_HOME:=/c/rtools${RTOOLS_VERSION}}"
 TOOLCHAIN="${RTOOLS_HOME}/x86_64-w64-mingw32.static.posix"
-# setup-r adds these to PATH already, but be explicit so this also works
-# from a non-Rtools bash.
 export PATH="${TOOLCHAIN}/bin:${RTOOLS_HOME}/usr/bin:${PATH}"
 
 # CMake is a native Windows program, so give it Windows-style paths
@@ -128,8 +116,7 @@ CPP_BUILD_DIR="${BUILD_DIR}/cpp"
 INSTALL_DIR="${BUILD_DIR}/install"
 INSTALL_DIR_WIN="$(cygpath -am "${INSTALL_DIR}")"
 
-# Prefer the CMake installed on the runner (as the old PKGBUILD did): the
-# CMake inside older Rtools toolchains can predate Arrow's minimum (3.25).
+# Prefer the runner's CMake: the one in older Rtools can be too old for Arrow
 CMAKE="cmake"
 if [ -x "${PROGRAMFILES}/CMake/bin/cmake.exe" ]; then
   CMAKE="${PROGRAMFILES}/CMake/bin/cmake.exe"
@@ -141,43 +128,26 @@ g++ --version
 "${CMAKE}" --version
 make --version | head -n 1
 ls "${TOOLCHAIN}/lib"
-# Logged for debugging; parsed below to generate libcurl.libs for r/configure.win
 cat "${TOOLCHAIN}/lib/pkgconfig/libcurl.pc"
 
-# We use static cURL in google-cloud-cpp. If we can use cURL's CMake
-# package, we don't need to specify CURL_STATICLIB explicitly. But
-# we don't have cURL's CMake package. We need to use CXXFLAGS
-# instead of ARROW_CXXFLAGS because ARROW_CXXFLAGS aren't passed to
-# ExternalProjects.
+# google-cloud-cpp links static cURL. CXXFLAGS, not ARROW_CXXFLAGS, because
+# ARROW_CXXFLAGS aren't passed to ExternalProjects.
 export CXXFLAGS="${CXXFLAGS:-} -DCURL_STATICLIB"
 
 rm -rf "${CPP_BUILD_DIR}"
 mkdir -p "${CPP_BUILD_DIR}" "${INSTALL_DIR}"
 pushd "${CPP_BUILD_DIR}"
 
-# CMAKE_UNITY_BUILD is set to OFF as otherwise some compute functionality
-# segfaults in tests
-#
-# AWS SDK, Thrift and google-cloud-cpp are bundled because Rtools doesn't
-# ship them. snappy and utf8proc are bundled because Rtools45 doesn't ship
-# them. re2 is bundled because the Rtools45 re2 depends on abseil, which
-# would need all the absl_* libraries on the link line in r/configure.win.
-# abseil and protobuf are bundled explicitly because Rtools45 ships older
-# versions (20250127 and 29.5) than Arrow's bundled google-cloud-cpp expects,
-# and with CMAKE_PREFIX_PATH set, AUTO would otherwise pick them up.
-# ARROW_USE_STD_CHRONO=0 keeps the vendored date library for time zones
-# instead of C++20 std::chrono, which Arrow otherwise selects on Windows with
-# gcc 14's libstdc++ (GH-48593). The R package supplies the time zone database
-# through the tzdb package via the vendored library's set_install(), which
-# std::chrono ignores; libstdc++ 14 also can't format zoned_time<days> and has
-# a DST bug (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110). This is
-# the same behaviour as the Rtools40 build, whose gcc 10 has no C++20 chrono
-# time zone support.
-#
-# Brotli is bundled because the Rtools45 Brotli (1.2.0) predates the
-# security fix in 1.2.1 (GH-55165). The Rtools45 cURL is built against
-# Brotli too, so we deliberately don't ship or link the Rtools Brotli; cURL's
-# Brotli symbols resolve from the bundled copy in arrow_bundled_dependencies.
+# * CMAKE_UNITY_BUILD=OFF: otherwise some compute tests segfault.
+# * Bundled because Rtools45 doesn't ship them: AWS SDK, Thrift,
+#   google-cloud-cpp, snappy, utf8proc.
+# * re2 bundled: the Rtools45 re2 would pull abseil onto the R link line.
+# * abseil, protobuf bundled: the Rtools45 versions are too old for the
+#   bundled google-cloud-cpp.
+# * Brotli bundled: Rtools45 has 1.2.0, without the 1.2.1 security fix
+#   (GH-55165). cURL's Brotli symbols resolve from the bundled copy too.
+# * ARROW_USE_STD_CHRONO=0: the R package supplies the time zone database
+#   through tzdb, which only the vendored date library uses (GH-48593).
 "${CMAKE}" \
   "$(cygpath -am "${ARROW_HOME}/cpp")" \
   -G "MSYS Makefiles" \
@@ -235,37 +205,24 @@ popd
 VERSION="$(grep Version "${ARROW_HOME}/r/DESCRIPTION" | cut -d " " -f 2)"
 DST_DIR="r-libarrow-windows-x86_64-${VERSION}"
 
-# Collect the build artifacts and make the shape of zip file that rwinlib
-# expects: include/ plus lib/x64-ucrt/ (R_ARCH + CRT, see r/configure.win)
+# Make the zip layout r/configure.win expects: include/ and lib/x64-ucrt/
 pushd "${BUILD_DIR}"
 rm -rf "${DST_DIR}"
 mkdir -p "${DST_DIR}/lib/x64-ucrt"
 cp -r install/include "${DST_DIR}/include"
 cp install/lib/*.a "${DST_DIR}/lib/x64-ucrt/"
 
-# Rtools libraries that r/configure.win links against. Users compiling the R
-# package have an Rtools with these too, but ship them so the zip is
-# self-contained. Keep in sync with PKG_LIBS in r/configure.win.
+# Rtools libraries in PKG_LIBS in r/configure.win; keep in sync
 for lib in z zstd lz4 bz2 crypto ssl curl; do
   cp "${TOOLCHAIN}/lib/lib${lib}.a" "${DST_DIR}/lib/x64-ucrt/"
 done
 
-# cURL's link dependencies differ between Rtools versions (e.g. Rtools43's
-# cURL has no nghttp2 or libpsl, Rtools45's does), so derive them from this
-# toolchain's libcurl.pc, ship the ones that are toolchain libraries, and
-# record the flags in the zip for r/configure.win to use as GCS_LIBS.
-# Brotli is skipped: see the Brotli comment above. Windows system and mingw
-# runtime import libraries (ws2_32, crypt32, ...) aren't ours to ship, and
-# they are written after all the toolchain libraries: with static linking
-# every library that needs Winsock etc. must come before -lws2_32, and
-# pkg-config's own ordering doesn't guarantee that (Rtools43's libcurl.pc
-# lists -lcrypto after the last -lws2_32).
-#
-# libcurl.pc repeats libraries, and with static linking a library must come
-# after everything that needs it, so when removing the duplicates keep the
-# last occurrence of each flag, not the first (Rtools45's libcurl.pc has -lz
-# and -lunistring both before and after the -lcrypto and -lpsl that need
-# them).
+# cURL's link dependencies vary by Rtools version, so read them from
+# libcurl.pc, ship the toolchain ones, and record the flags in libcurl.libs
+# for r/configure.win. Static link order matters, so:
+# * system libraries (ws2_32, ...) aren't shipped and go last;
+# * duplicate flags keep their last occurrence, not their first.
+# Brotli is skipped: the bundled copy is used instead (see above).
 CURL_LIBS=""
 CURL_SYS_LIBS=""
 while read -r flag; do

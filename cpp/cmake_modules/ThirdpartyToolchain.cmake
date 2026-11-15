@@ -3759,9 +3759,7 @@ function(build_google_cloud_cpp_storage)
     include(CheckCXXSymbolExists)
     include(CMakePushCheckState)
     cmake_push_check_state()
-    # MinGW-w64 headers that have these macros only define them for
-    # Windows 10+, so check with the same _WIN32_WINNT that google-cloud-cpp
-    # is built with below.
+    # The macros are Windows 10+ only, so match google-cloud-cpp's _WIN32_WINNT
     list(APPEND CMAKE_REQUIRED_DEFINITIONS -D_WIN32_WINNT=0x0A01)
     check_cxx_symbol_exists(BCRYPT_RSA_ALG_HANDLE "windows.h;bcrypt.h"
                             ARROW_HAVE_BCRYPT_RSA_HANDLE)
