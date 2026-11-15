@@ -202,6 +202,8 @@ make -j"${NPROC:-$(nproc)}"
 make install
 popd
 
+ccache --show-stats || echo "ccache not found"
+
 VERSION="$(grep Version "${ARROW_HOME}/r/DESCRIPTION" | cut -d " " -f 2)"
 DST_DIR="r-libarrow-windows-x86_64-${VERSION}"
 
