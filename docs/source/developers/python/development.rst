@@ -133,9 +133,9 @@ When adding or modifying public APIs:
 
 2. **Run type checkers** to ensure the stubs are correct and complete.
 
-The stub files are automatically copied into the built wheel during the build
+The stub files will be automatically copied into the built wheel during the build
 process and will be included when users install PyArrow, enabling type checking
-in downstream projects and for users' IDEs.
+in downstream projects and for users' IDEs (once `issue 32609 <https://github.com/apache/arrow/issues/32609>` is sufficiently resolved).
 
 .. Note::
 
