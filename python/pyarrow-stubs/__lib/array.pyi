@@ -123,7 +123,7 @@ class _PandasConvertible(_Weakrefable):
     def to_pandas(
         self,
         memory_pool: MemoryPool | None = None,
-        categories: list | tuple | None = None,
+        categories: list[Any] | tuple[Any, ...] | None = None,
         strings_to_categorical: bool = False,
         zero_copy_only: bool = False,
         integer_object_nulls: bool = False,
@@ -227,7 +227,7 @@ class Array(_PandasConvertible):
         **kwargs: Any,
     ) -> Self: ...
     def __array__(
-        self, dtype: np.dtype | None = None, copy: bool | None = None
+        self, dtype: np.dtype[Any] | None = None, copy: bool | None = None
     ) -> NDArray[Any]: ...
     def to_numpy(
         self, zero_copy_only: bool = True, writable: bool = False

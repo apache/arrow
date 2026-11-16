@@ -189,7 +189,7 @@ class ChunkedArray(_PandasConvertible):
     def equals(self, other: ChunkedArray | None) -> bool: ...
     def to_numpy(self, zero_copy_only: bool = False) -> NDArray[Any]: ...
     def __array__(
-        self, dtype: np.dtype | None = None, copy: bool | None = None
+        self, dtype: np.dtype[Any] | None = None, copy: bool | None = None
     ) -> NDArray[Any]: ...
     def dictionary_encode(
         self, null_encoding: NullEncoding = "mask"
@@ -248,7 +248,7 @@ def chunked_array(
 
 class _Tabular(_PandasConvertible):
     def __array__(
-        self, dtype: np.dtype | None = None, copy: bool | None = None
+        self, dtype: np.dtype[Any] | None = None, copy: bool | None = None
     ) -> NDArray[Any]: ...
     def __dataframe__(
         self, nan_as_null: bool = False, allow_copy: bool = True

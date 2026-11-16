@@ -92,7 +92,7 @@ def test_table() -> None:
     check(assert_type(table.equals(None), bool), bool)
     check(assert_type(table.combine_chunks(), pa.Table), pa.Table)
     check(assert_type(table.to_batches(), list[pa.RecordBatch]), list)
-    check(assert_type(table.to_pydict(), dict[str, list]), dict)
+    check(assert_type(table.to_pydict(), dict[str, list[Any]]), dict)
     check(assert_type(pa.Table.from_arrays([(1, 2)], names=["a"]), pa.Table),
           pa.Table)
 

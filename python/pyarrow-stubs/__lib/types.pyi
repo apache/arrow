@@ -20,6 +20,7 @@ from typing import Any, ClassVar, Literal, Self, TypeAlias, overload
 
 import numpy as np
 import pandas as pd
+from numpy.typing import DTypeLike
 from pyarrow._stubs_typing import (
     BinaryType,
     BinaryViewType,
@@ -565,7 +566,7 @@ def schema(
     fields: SupportsArrowSchema | _SchemaFieldsInput,
     metadata: _KeyValueMetadataInput | KeyValueMetadata | None = None,
 ) -> Schema: ...
-def from_numpy_dtype(dtype: np.typing.DTypeLike) -> DataType: ...
+def from_numpy_dtype(dtype: DTypeLike) -> DataType: ...
 
 __all__ = [
     "_Weakrefable",

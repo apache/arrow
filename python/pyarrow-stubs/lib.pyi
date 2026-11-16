@@ -34,7 +34,7 @@ from pyarrow.__lib.tensor import *  # noqa: F401,F403
 from pyarrow.__lib.types import *  # noqa: F401,F403
 
 @final
-class MonthDayNano(tuple):
+class MonthDayNano(tuple[int, int, int]):
     months: int
     days: int
     nanoseconds: int
