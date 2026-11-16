@@ -51,6 +51,10 @@ should be called in order to remove the platform from its current tier.
 When a Platform is EOLed, it should be demoted to Tier 3 immediately unless there is
 a strong reason to keep it supported.
 
+Demotions other than for EOL should be announced on the mailing list early enough
+for stakeholders to offer resources to keep the platform supported.
+Each tier change should have its own GitHub issue and be recorded in the platform history below.
+
 Tier 1
 ------
     - Is tested on CI on PRs or via periodic daily runs.
@@ -71,9 +75,155 @@ Tier 3
     - Are not tested on CI.
     - Unsupported though we might want to accept patches for them depending on the maintenance overhead.
 
+Platform axes
+=============
+
+A platform is described along independent axes: operating system,
+architecture, compiler, SIMD level and build system. Each value on each
+axis is assigned a tier.
+
+A given configuration is supported at the **lowest tier among its axes**.
+For example, Linux (Tier 1) on s390x (Tier 3) is Tier 3.
+
+Tier 1 does not promise that every combination of Tier 1 values is tested.
+It promises that every Tier 1 value is exercised by at least one Tier 1 CI
+configuration.
+
+Operating systems
+-----------------
+
+Only releases that are not end-of-life upstream are supported. When an
+operating system release reaches its upstream end-of-life it is demoted to
+Tier 3 unless there is a strong reason, and a committed maintainer, to keep
+it supported.
 
 .. list-table::
    :header-rows: 1
 
-   * - Platform constraint
+   * - Operating system
      - Tier
+     - Notes
+   * - Ubuntu (LTS releases)
+     - 1
+     -
+   * - Debian (stable releases)
+     - 1
+     -
+   * - AlmaLinux, CentOS Stream, Amazon Linux
+     - 1
+     - Covered by the binary packages, tested on a schedule
+   * - macOS
+     - 1
+     -
+   * - Windows
+     - 1
+     -
+   * - Alpine Linux (musl)
+     - 2
+     -
+   * - Emscripten
+     - 2
+     -
+   * - Any other
+     - 3
+     -
+
+Architectures
+-------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Architecture
+     - Tier
+     - Notes
+   * - x86_64 (amd64)
+     - 1
+     - Linux and Windows
+   * - aarch64 (arm64)
+     - 1
+     - Linux and macOS
+   * - x86_64 (amd64)
+     - 2
+     - macOS
+   * - aarch64 (arm64)
+     - 2
+     - Windows
+   * - Any other (ppc64le, s390x, 32-bit, riscv64, ...)
+     - 3
+     -
+
+Compilers
+---------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Compiler
+     - Tier
+   * - GCC 12 or newer
+     - 1
+   * - Clang TODO or newer
+     - 1
+   * - AppleClang (Xcode TODO or newer)
+     - 1
+   * - MSVC (Visual Studio 2022 or newer)
+     - 1
+   * - MinGW (MSYS2)
+     - 2
+
+SIMD levels
+-----------
+
+.. list-table::
+   :header-rows: 1
+
+   * - SIMD level
+     - Tier
+   * - None (scalar fallback)
+     - 1
+   * - SSE4.2
+     - 1
+   * - AVX2
+     - 1
+   * - NEON
+     - 1
+   * - AVX512
+     - 1
+   * - SVE
+     - 1
+   * - Any other
+     - 3
+
+Build systems
+-------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Build system
+     - Tier
+   * - CMake
+     - 1
+   * - Meson
+     - 2
+
+Binary distribution
+===================
+
+The Linux packages (``.deb`` and ``.rpm``) published by the project for the
+operating systems and architectures listed above are Tier 1. They are built
+and tested on a scheduled basis rather than on every Pull Request.
+
+This policy does not cover Python wheels or other language bindings.
+
+Platform history
+================
+
+.. list-table::
+   :header-rows: 1
+
+   * - Platform
+     - Change
+     - Arrow version
+     - Issue
