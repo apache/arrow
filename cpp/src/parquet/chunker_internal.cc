@@ -326,13 +326,11 @@ class ContentDefinedChunker::Impl {
         }
 
         if (rep_level == 0 && gearhash.NeedNewChunk()) {
-          // if we are at a record boundary and need a new chunk, we create a new chunk
-          auto levels_to_write = offset - prev_offset;
-          if (levels_to_write > 0) {
-            chunks.push_back({prev_offset, prev_value_offset, levels_to_write});
-            prev_offset = offset;
-            prev_value_offset = value_offset;
-          }
+          // if we are at a record boundary and need a new chunk, we create a new chunk,
+          // at offset 0 it is empty and closes the page of the previous call
+          chunks.push_back({prev_offset, prev_value_offset, offset - prev_offset});
+          prev_offset = offset;
+          prev_value_offset = value_offset;
         }
         if (def_level >= level_info_.repeated_ancestor_def_level) {
           // we only increment the value offset if we have a leaf value
