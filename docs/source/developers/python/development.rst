@@ -107,9 +107,11 @@ Type Checking
 PyArrow provides type stubs (``*.pyi`` files) for static type checking. These
 stubs are located in the ``pyarrow-stubs/`` directory, which is laid out as a
 :pep:`561` stub-only package for ``pyarrow``, so type checkers and IDEs pick
-it up from the ``arrow/python`` directory. The stubs aren't included in the
-distributed wheel packages until they are complete (see
-`GH-49831 <https://github.com/apache/arrow/issues/49831>`_).
+it up from the ``arrow/python`` directory.
+
+.. note::
+   The stubs aren't included in the distributed wheel packages until they are
+   complete (see `GH-49831 <https://github.com/apache/arrow/issues/49831>`_).
 
 Run all the commands in this section from the ``arrow/python`` directory,
 which holds the type checker configurations in ``pyproject.toml``:
@@ -118,24 +120,49 @@ which holds the type checker configurations in ``pyproject.toml``:
 
    $ cd arrow/python
 
+Maintaining Type Stubs
+-----------------------
+
+Type stubs for PyArrow are maintained in the ``pyarrow-stubs/``
+directory. These stubs mirror the structure of the main ``pyarrow/`` package.
+
+When adding or modifying public APIs:
+
+1. **Update the corresponding .pyi stub file** in ``pyarrow-stubs/``
+   to reflect the new or changed function/class signatures.
+
+2. **Run type checkers** to ensure the stubs are correct and complete.
+
+The stub files are automatically copied into the built wheel during the build
+process and will be included when users install PyArrow, enabling type checking
+in downstream projects and for users' IDEs.
+
+.. Note::
+
+   ``py.typed`` marker file in the ``pyarrow/`` directory indicates to type
+   checkers that PyArrow supports type checking according to :pep:`561`.
+
 Running Type Checkers
 ---------------------
 
-We support multiple type checkers. Their configurations are in
-``pyproject.toml``.
+pre-commit
+##########
 
-The easiest way to run all of them is with ``pre-commit``, which installs
-the type checkers and stub packages pinned in ``requirements-stubs.txt`` (with
-uv). This also lints and formats the stubs with ruff:
+We support multiple type checkers. The easiest way to run all of them is with
+``pre-commit``, which installs the type checkers and stub packages pinned in
+``requirements-stubs.txt`` (with uv). This also lints and formats the stubs
+with ruff.
 
 .. code-block::
 
    $ pre-commit run --hook-stage manual python-stubs --all-files
 
-The type checkers only run on request, while ruff also runs on commit. The
-Lint CI job runs all of them as well. CI also runs the type checkers, the type
-stub tests and stubtest (see below) against the PyArrow it builds, with
-``ci/scripts/python_test_type_annotations.sh``.
+Type checker hooks run only on request (``--hook-stage manual``), while ruff
+hooks run on every commit if the pre-commit git hook is set up locally
+(with ``pre-commit install``).
+
+Individual Type Checks
+######################
 
 To run a type checker directly instead, install the pinned type checkers and
 stub packages in your PyArrow development environment:
@@ -147,85 +174,70 @@ stub packages in your PyArrow development environment:
 Checking the PyArrow tests also needs their dependencies from
 ``requirements-test.txt``.
 
-**mypy**
+.. tab-set::
 
-To run mypy on the PyArrow codebase:
+   .. tab-item:: mypy
 
-.. code-block::
+      To run mypy on the PyArrow codebase:
 
-   $ mypy
+      .. code-block::
 
-The mypy configuration is in the ``[tool.mypy]`` section of ``pyproject.toml``.
-With an editable install, mypy finds ``pyarrow-stubs`` automatically. With a
-non-editable install (``pip install .`` or a wheel built with
-``python -m build``), the stubs aren't installed yet, so pass ``pyarrow-stubs``
-along with the files you check:
+         $ mypy
 
-.. code-block::
+      The mypy configuration is in the ``[tool.mypy]`` section of ``pyproject.toml``.
+      With an editable install, mypy finds ``pyarrow-stubs`` automatically. With a
+      non-editable install (``pip install .`` or a wheel built with
+      ``python -m build``), the stubs aren't installed yet, so pass ``pyarrow-stubs``
+      along with the files you check:
 
-   $ mypy pyarrow-stubs pyarrow/tests/test_array.py
+      .. code-block::
 
-**pyright**
+         $ mypy pyarrow-stubs pyarrow/tests/test_array.py
 
-To run pyright:
+   .. tab-item:: pyright
 
-.. code-block::
+      To run pyright on the PyArrow codebase:
 
-   $ pyright
+      .. code-block::
 
-The pyright configuration is in the ``[tool.pyright]`` section of ``pyproject.toml``.
+         $ pyright
 
-**ty**
+      The pyright configuration is in the ``[tool.pyright]`` section of ``pyproject.toml``.
 
-To run ty:
+   .. tab-item:: ty
 
-.. code-block::
+      To run ty on the PyArrow codebase:
 
-   $ ty check
+      .. code-block::
 
-**stubtest**
+         $ ty check
 
-mypy's stubtest compares the stubs with the signatures of the installed
-PyArrow. Run it with:
+   .. tab-item:: stubtest
 
-.. code-block::
+      mypy's stubtest compares the stubs with the signatures of the installed
+      PyArrow. Run it with:
 
-   $ python scripts/run_stubtest.py
+      .. code-block::
 
-Stubs that aren't written yet are skipped. The known mismatches are listed in
-``pyarrow-stubs-tests/stubtest_allowlist.txt``; remove the entries of the
-mismatches you fix, as stubtest fails on unused entries.
+         $ python scripts/run_stubtest.py
+
+      Stubs that aren't written yet are skipped. The known mismatches are listed in
+      ``pyarrow-stubs-tests/stubtest_allowlist.txt``; remove the entries of the
+      mismatches you fix, as stubtest fails on unused entries.
+
+.. admonition:: Note on type checking in the CI
+   :class: note
+
+   The Lint CI job runs the ``python-stubs`` pre-commit hooks above. A separate
+   CI job runs the type checkers, the type stub tests (see `Testing Type Stubs`_)
+   and stubtest against the PyArrow it builds, with ``ci/scripts/python_test_type_annotations.sh``.
 
 Type Checking in an IDE
------------------------
+#######################
 
 Editors also run the type checkers from the folder they open. If you open the
 whole ``arrow`` repository in VS Code, point the type checker at ``arrow/python``
 instead.
-
-Maintaining Type Stubs
------------------------
-
-Type stubs for PyArrow are maintained in the ``pyarrow-stubs/``
-directory. These stubs mirror the structure of the main ``pyarrow/`` package.
-
-When adding or modifying public APIs:
-
-1. **Update the corresponding ``.pyi`` stub file** in ``pyarrow-stubs/``
-   to reflect the new or changed function/class signatures.
-
-2. **Include type annotations** where possible. For Cython modules or
-   dynamically generated APIs such as compute kernels add the corresponding
-   stub in ``pyarrow-stubs/``.
-
-3. **Run type checkers** to ensure the stubs are correct and complete.
-
-The stub files are automatically copied into the built wheel during the build
-process and will be included when users install PyArrow, enabling type checking
-in downstream projects and for users' IDEs.
-
-Note: ``py.typed`` marker file in the ``pyarrow/`` directory indicates to type
-checkers that PyArrow supports type checking according to :pep:`561`.
 
 Testing Type Stubs
 ------------------
