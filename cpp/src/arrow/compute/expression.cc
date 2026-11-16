@@ -1426,13 +1426,26 @@ struct Inequality {
     if (!restated) return std::nullopt;
     const auto& [cmp, bound] = *restated;
 
+    // The kernel matches the argument against the value set cast to the argument's
+    // type, so that is what the bound must be compared with: a value which the cast
+    // rounds may lie on the other side of the bound. If the value set cannot be
+    // cast, the kernel casts the argument instead and the guarantee's order need not
+    // be the value set's order.
+    Datum value_set = options->value_set;
+    if (!value_set.type()->Equals(*is_in_call->arguments[0].type())) {
+      ExecContext cast_context;
+      auto maybe_cast = Cast(value_set, is_in_call->arguments[0].type(),
+                             CastOptions::Safe(), &cast_context);
+      if (!maybe_cast.ok()) return std::nullopt;
+      value_set = *std::move(maybe_cast);
+    }
+
     // Statistics based guarantees cannot bound NaN (a row group's minimum and
     // maximum ignore it) whereas `is_in` matches NaN with NaN, so a NaN in the
     // value set must not be filtered out. Leave such value sets alone, as the
     // kernel does for large ones.
-    const auto value_set_type_id = options->value_set.type()->id();
-    if (value_set_type_id == Type::FLOAT || value_set_type_id == Type::DOUBLE) {
-      ARROW_ASSIGN_OR_RAISE(Datum is_nan, IsNan(options->value_set));
+    if (is_floating(value_set.type()->id())) {
+      ARROW_ASSIGN_OR_RAISE(Datum is_nan, IsNan(value_set));
       ARROW_ASSIGN_OR_RAISE(Datum any_nan, Any(is_nan));
       if (any_nan.scalar_as<BooleanScalar>().value) return std::nullopt;
     }
@@ -1452,7 +1465,7 @@ struct Inequality {
         break;
       case SetLookupOptions::INCONCLUSIVE:
         if (guarantee.nullable) return std::nullopt;
-        ARROW_ASSIGN_OR_RAISE(Datum is_null, IsNull(options->value_set));
+        ARROW_ASSIGN_OR_RAISE(Datum is_null, IsNull(value_set));
         ARROW_ASSIGN_OR_RAISE(Datum any_null, Any(is_null));
         if (any_null.scalar_as<BooleanScalar>().value) return std::nullopt;
         null_selection = FilterOptions::DROP;
@@ -1461,14 +1474,15 @@ struct Inequality {
 
     std::string func_name = Comparison::GetName(cmp);
     DCHECK_NE(func_name, "na");
-    std::vector<Datum> args{options->value_set, bound};
+    std::vector<Datum> args{value_set, bound};
     ARROW_ASSIGN_OR_RAISE(Datum filter_mask, CallFunction(func_name, args));
     FilterOptions filter_options(null_selection);
+    // Narrow the value set as it was given, so that the call keeps its value set type
     ARROW_ASSIGN_OR_RAISE(Datum simplified_value_set,
                           Filter(options->value_set, filter_mask, filter_options));
 
     if (simplified_value_set.length() == 0) return literal(false);
-    if (simplified_value_set.length() == options->value_set.length()) return std::nullopt;
+    if (simplified_value_set.length() == value_set.length()) return std::nullopt;
 
     ExecContext exec_context;
     Expression::Call simplified_call;

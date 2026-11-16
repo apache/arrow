@@ -860,6 +860,68 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
   expect_row_groups(and_(is_in(small_set), is_valid(field_ref("i64"))), {0, 2});
 }
 
+TEST_P(TestParquetFileFormatScan, PredicatePushdownColumnReadAsAnotherType) {
+  // The statistics of a row group are in the type the column is stored as, while the
+  // filter is bound to the dataset schema, which may read the column as another type.
+  // The statistics must then bound the values as they are read.
+  auto expect_row_groups = [&](const std::shared_ptr<Array>& stored,
+                               const std::shared_ptr<DataType>& read_as,
+                               compute::Expression filter,
+                               const std::vector<int>& expected_row_groups) {
+    auto physical_schema = schema({field("x", stored->type())});
+    ASSERT_OK_AND_ASSIGN(
+        auto reader, RecordBatchReader::Make(
+                         {RecordBatch::Make(physical_schema, stored->length(), {stored})},
+                         physical_schema));
+    auto source = GetFileSource(reader.get());
+    SetSchema({field("x", read_as)});
+    SetFilter(std::move(filter));
+    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+    auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
+    ASSERT_OK_AND_ASSIGN(auto fragments,
+                         parquet_fragment->SplitByRowGroup(opts_->filter));
+    std::vector<int> row_groups;
+    for (const auto& split : fragments) {
+      for (int row_group :
+           checked_pointer_cast<ParquetFileFragment>(split)->row_groups()) {
+        row_groups.push_back(row_group);
+      }
+    }
+    EXPECT_EQ(row_groups, expected_row_groups);
+  };
+  auto x = field_ref("x");
+  using compute::SetLookupOptions;
+
+  // int32 read as int64: the statistics convert exactly
+  auto int32s = ArrayFromJSON(int32(), "[1, 2, 3]");
+  expect_row_groups(int32s, int64(), equal(x, literal<int64_t>(2)), {0});
+  expect_row_groups(int32s, int64(), greater(x, literal<int64_t>(3)), {});
+
+  // float64 read as float32: the maximum 0.2 is read as 0.2f, which is greater than
+  // 0.2, so the row group must be read for `x == 0.2f`
+  auto doubles = ArrayFromJSON(float64(), "[0.1, 0.15, 0.2]");
+  expect_row_groups(doubles, float32(), equal(x, literal(0.2F)), {0});
+  expect_row_groups(doubles, float32(), equal(x, literal(0.1F)), {0});
+  expect_row_groups(doubles, float32(), greater(x, literal(0.2F)), {});
+  expect_row_groups(doubles, float32(), greater(x, literal(5.0F)), {});
+
+  // string read as int64: the statistics order the strings ("10" <= x <= "9") and
+  // say nothing about the integers they are read as, so they are ignored
+  auto strings = ArrayFromJSON(utf8(), R"(["10", "5", "9", "100"])");
+  expect_row_groups(strings, int64(), equal(x, literal<int64_t>(5)), {0});
+  expect_row_groups(strings, int64(), greater(x, literal<int64_t>(50)), {0});
+  expect_row_groups(
+      strings, int64(),
+      call("is_in", {x}, SetLookupOptions{ArrayFromJSON(int64(), "[5, 1000]")}), {0});
+  std::vector<int64_t> large_set(60);
+  std::iota(large_set.begin(), large_set.end(), 1000);
+  large_set.push_back(5);
+  std::shared_ptr<Array> large_set_array;
+  ArrayFromVector<Int64Type, int64_t>(large_set, &large_set_array);
+  expect_row_groups(strings, int64(),
+                    call("is_in", {x}, SetLookupOptions{large_set_array}), {0});
+}
+
 TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
   constexpr int64_t kNumRowGroups = 16;
   constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;

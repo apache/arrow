@@ -32,6 +32,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_writer.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/visit_data_inline.h"
@@ -57,6 +58,9 @@ bool IsNaNScalar(const Scalar& value) {
       return std::isnan(checked_cast<const FloatScalar&>(value).value);
     case Type::DOUBLE:
       return std::isnan(checked_cast<const DoubleScalar&>(value).value);
+    case Type::HALF_FLOAT:
+      return util::Float16::FromBits(checked_cast<const HalfFloatScalar&>(value).value)
+          .is_nan();
     default:
       return false;
   }

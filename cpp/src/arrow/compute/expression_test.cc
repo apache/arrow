@@ -18,6 +18,7 @@
 #include "arrow/compute/expression.h"
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -33,6 +34,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/util/float16.h"
 
 using testing::Eq;
 using testing::HasSubstr;
@@ -2093,57 +2095,127 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
 }
 
 TEST(Expression, SimplifyWithBoundOfAnotherType) {
-  // A guarantee may bound a field with a value of another type, for example the
-  // statistics of a Parquet column which is read as another type.
-  auto i64 = field_ref("i64");
-  auto is_in = [&](std::string json_array) {
-    return call("is_in", {i64}, SetLookupOptions{ArrayFromJSON(int64(), json_array)});
-  };
+  // A file may store a column as another type than the dataset reads it as. The
+  // guarantee derived from the file's statistics is bound to the file's schema, the
+  // filter to the dataset's schema, and the two only share the name of the column.
+  // So the guarantee bounds a field with a value of another type than the field has
+  // in the filter, although neither expression compares values of different types.
+  // See also PredicatePushdownColumnReadAsAnotherType in file_parquet_test.cc.
+  auto x = field_ref("x");
 
-  // Bounds which convert exactly to the field's type are used
-  auto int32_range = and_(greater_equal(i64, literal(9)), less_equal(i64, literal(10)));
-  auto double_range =
-      and_(greater_equal(i64, literal(9.0)), less_equal(i64, literal(10.0)));
-  for (const auto& range : {int32_range, double_range}) {
-    Simplify{equal(i64, literal<int64_t>(5))}.WithGuarantee(range).Expect(false);
-    Simplify{greater(i64, literal<int64_t>(5))}.WithGuarantee(range).Expect(true);
-    Simplify{is_in("[5, 9]")}.WithGuarantee(range).Expect(is_in("[9]"));
+  // Simplify `filter` on a column read as `read_as` against `guarantee` on the same
+  // column stored as `stored_as`. Without `expected` the filter must be unchanged.
+  auto expect = [](const std::shared_ptr<DataType>& stored_as, Expression guarantee,
+                   const std::shared_ptr<DataType>& read_as, Expression filter,
+                   std::optional<Expression> expected = std::nullopt) {
+    auto stored_schema = schema({field("x", stored_as)});
+    auto read_schema = schema({field("x", read_as)});
+    ASSERT_OK_AND_ASSIGN(guarantee, guarantee.Bind(*stored_schema));
+    ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*read_schema));
+    ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(filter, guarantee));
+    Expression bound_expected = filter;
+    if (expected) {
+      ASSERT_OK_AND_ASSIGN(bound_expected, expected->Bind(*read_schema));
+    }
+    EXPECT_EQ(simplified, bound_expected)
+        << "  filter:     " << filter.ToString() << "\n"
+        << "  guarantee:  " << guarantee.ToString() << "\n"
+        << "  stored as " << stored_as->ToString() << ", read as " << read_as->ToString();
+  };
+  auto between = [&](auto lower, auto upper) {
+    return and_(greater_equal(x, literal(lower)), less_equal(x, literal(upper)));
+  };
+  auto is_in = [&](std::string json_array) {
+    return call("is_in", {x}, SetLookupOptions{ArrayFromJSON(int64(), json_array)});
+  };
+  auto int64_5 = literal<int64_t>(5);
+
+  // 1. Statistics which convert exactly to the type the column is read as are used
+  // as they are: an int32 or float64 column read as int64.
+  for (const auto& [stored_as, range] :
+       std::vector<std::pair<std::shared_ptr<DataType>, Expression>>{
+           {int32(), between(9, 10)}, {float64(), between(9.0, 10.0)}}) {
+    expect(stored_as, range, int64(), equal(x, int64_5), literal(false));
+    expect(stored_as, range, int64(), greater(x, int64_5), literal(true));
+    expect(stored_as, range, int64(), is_in("[5, 9]"), is_in("[9]"));
   }
 
-  // ... while those which a safe cast rejects are ignored
-  auto inexact_range =
-      and_(greater_equal(i64, literal(9.5)), less_equal(i64, literal(10.5)));
-  Simplify{equal(i64, literal<int64_t>(5))}
-      .WithGuarantee(inexact_range)
-      .ExpectUnchanged();
-  Simplify{is_in("[5, 9]")}.WithGuarantee(inexact_range).ExpectUnchanged();
+  // 2. Statistics which a safe cast rounds are used rounded, and then only bound
+  // inclusively: a float64 column read as float32. The largest stored value 0.2 is
+  // read as 0.2f, which is greater than 0.2, so `x == 0.2f` must not be ruled out.
+  auto rounded_range = between(0.1, 0.2);
+  expect(float64(), rounded_range, float32(), greater(x, literal(5.0F)), literal(false));
+  expect(float64(), rounded_range, float32(), less(x, literal(0.05F)), literal(false));
+  expect(float64(), rounded_range, float32(), equal(x, literal(0.2F)));
+  expect(float64(), rounded_range, float32(), greater(x, literal(0.2F)), literal(false));
+  expect(float64(), less(x, literal(0.2)), float32(), equal(x, literal(0.2F)));
+  expect(float64(), greater(x, literal(0.1)), float32(), equal(x, literal(0.1F)));
 
-  // Bounds which a safe cast rounds (the statistics of a float64 column read as
-  // float32, say) are used rounded, and then only bound inclusively: 0.2 rounds up
-  // to 0.2f, which a stored 0.2 is read as.
+  // 3. Statistics which a safe cast rejects are ignored, so nothing is simplified:
+  // 9.5 is not an int64. (A float64 column holding such values cannot be read as
+  // int64 in the first place.)
+  auto rejected_range = between(9.5, 10.5);
+  expect(float64(), rejected_range, int64(), equal(x, int64_5));
+  expect(float64(), rejected_range, int64(), is_in("[5, 9]"));
+
+  // 4. Statistics of a type which is ordered differently from the type the column is
+  // read as are ignored too, even though they cast exactly: a string column read as
+  // int64. The statistics order the stored strings, "10" <= x <= "9", which says
+  // nothing about the order of the integers they are read as: "5" lies in that range.
+  auto string_range = between("10", "9");
+  expect(utf8(), string_range, int64(), equal(x, int64_5));
+  expect(utf8(), string_range, int64(), greater(x, literal<int64_t>(50)));
+  expect(utf8(), string_range, int64(), is_in("[5, 9]"));
+}
+
+TEST(Expression, SimplifyIsInValueSetOfAnotherType) {
+  // The kernel matches the argument against the value set cast to the argument's
+  // type, so small value sets are filtered as cast, and narrowed as they were given.
+  auto i32 = field_ref("i32");
   auto f32 = field_ref("f32");
-  auto rounded_range =
-      and_(greater_equal(f32, literal(0.1)), less_equal(f32, literal(0.2)));
-  Simplify{greater(f32, literal(5.0F))}.WithGuarantee(rounded_range).Expect(false);
-  Simplify{less(f32, literal(0.05F))}.WithGuarantee(rounded_range).Expect(false);
-  Simplify{equal(f32, literal(0.2F))}.WithGuarantee(rounded_range).ExpectUnchanged();
-  Simplify{greater(f32, literal(0.2F))}.WithGuarantee(rounded_range).Expect(false);
-  Simplify{equal(f32, literal(0.2F))}
-      .WithGuarantee(less(f32, literal(0.2)))
+  auto f64 = field_ref("f64");
+  auto is_in = [](Expression arg, std::shared_ptr<Array> value_set) {
+    return call("is_in", {std::move(arg)}, SetLookupOptions{std::move(value_set)});
+  };
+
+  // 51.00000001 is matched as 51f, which a row with f64 = 51.00000001 casts to
+  auto f64_as_f32 = cast(f64, float32());
+  auto f64_set = [](std::string json) { return ArrayFromJSON(float64(), json); };
+  Simplify{is_in(f64_as_f32, f64_set("[51.00000001]"))}
+      .WithGuarantee(less_equal(f64, literal(51.00000001)))
       .ExpectUnchanged();
-  Simplify{equal(f32, literal(0.1F))}
-      .WithGuarantee(greater(f32, literal(0.1)))
+  Simplify{is_in(f64_as_f32, f64_set("[51.00000001]"))}
+      .WithGuarantee(less_equal(f64, literal(50.5)))
+      .Expect(false);
+  Simplify{is_in(f64_as_f32, f64_set("[50, 51.00000001]"))}
+      .WithGuarantee(less_equal(f64, literal(50.5)))
+      .Expect(is_in(f64_as_f32, f64_set("[50]")));
+
+  // There are no comparisons between half floats and other floating point types,
+  // but a half float value set is matched as float32
+  auto half_float_set = [](std::vector<float> values) {
+    HalfFloatBuilder builder;
+    for (float value : values) {
+      ARROW_EXPECT_OK(builder.Append(util::Float16::FromFloat(value).bits()));
+    }
+    return builder.Finish().ValueOrDie();
+  };
+  auto f32_range =
+      and_(greater_equal(f32, literal(0.0F)), less_equal(f32, literal(10.0F)));
+  Simplify{is_in(f32, half_float_set({5.0F, 20.0F}))}.WithGuarantee(f32_range).Expect(
+      is_in(f32, half_float_set({5.0F})));
+  Simplify{is_in(f32, half_float_set({20.0F, 30.0F}))}.WithGuarantee(f32_range).Expect(
+      false);
+  // ... and a NaN in it matches NaN, which statistics cannot bound
+  Simplify{is_in(f32, half_float_set({std::nanf(""), 20.0F}))}
+      .WithGuarantee(f32_range)
       .ExpectUnchanged();
 
-  // ... as are bounds of a type which is ordered differently, even though they cast
-  // exactly: "10" <= x <= "9" admits "5"
-  auto string_range =
-      and_(greater_equal(i64, literal("10")), less_equal(i64, literal("9")));
-  Simplify{equal(i64, literal<int64_t>(5))}.WithGuarantee(string_range).ExpectUnchanged();
-  Simplify{greater(i64, literal<int64_t>(50))}
-      .WithGuarantee(string_range)
+  // If the value set cannot be cast to the argument's type the kernel casts the
+  // argument instead, and the call is left alone
+  Simplify{is_in(i32, ArrayFromJSON(int64(), "[1, 3000000000]"))}
+      .WithGuarantee(greater(i32, literal(5)))
       .ExpectUnchanged();
-  Simplify{is_in("[5, 9]")}.WithGuarantee(string_range).ExpectUnchanged();
 }
 
 TEST(Expression, SimplifyComparisonThroughNonInjectiveCast) {
