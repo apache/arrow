@@ -148,13 +148,15 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
       const int64_t total_compressed_size = rg_metadata->total_compressed_size();
       if (expected_codec_type == Compression::UNCOMPRESSED) {
         ASSERT_EQ(total_byte_size, total_compressed_size);
-      } else if (writer_properties->data_page_version() == ParquetDataPageVersion::V1) {
-        ASSERT_NE(total_byte_size, total_compressed_size);
+      } else if (std::is_same_v<TestType, BooleanType> &&
+                 writer_properties->data_page_version() == ParquetDataPageVersion::V2) {
+        // Boolean columns never use dictionary encoding in Parquet; with selective
+        // compression enabled in V2, small pages without savings remain uncompressed.
+        ASSERT_EQ(total_byte_size, total_compressed_size);
       } else {
-        // In Parquet V2, selective compression may keep small or incompressible data
-        // pages uncompressed (total_compressed_size == total_byte_size), while
-        // compressed pages with savings are smaller than uncompressed sizes.
-        ASSERT_LE(total_compressed_size, total_byte_size);
+        // Non-boolean types write an unconditionally compressed dictionary page, which
+        // alters total_compressed_size even when data pages are left uncompressed.
+        ASSERT_NE(total_byte_size, total_compressed_size);
       }
 
       int64_t total_column_byte_size = 0;
