@@ -163,9 +163,9 @@ Compilers
      - Tier
    * - GCC 12 or newer
      - 1
-   * - Clang TODO or newer
+   * - Clang 18 or newer
      - 1
-   * - AppleClang (Xcode TODO or newer)
+   * - AppleClang (Xcode version shipped by the oldest supported macOS)
      - 1
    * - MSVC (Visual Studio 2022 or newer)
      - 1
@@ -190,7 +190,7 @@ SIMD levels
      - 1
    * - AVX512
      - 1
-   * - SVE
+   * - SVE128 (Linux, runtime dispatch)
      - 1
    * - Any other
      - 3
