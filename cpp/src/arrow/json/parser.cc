@@ -945,8 +945,9 @@ class ParseImpl : public BlockParser {
     RETURN_NOT_OK(struct_builder->Append());
 
     ARROW_ASSIGN_OR_RAISE(
-        auto object, arrow::internal::ResolveSimdjsonResult(value.get_object(),
-                                                            "Failed to get JSON object"));
+        auto object,
+        arrow::internal::ResolveSimdjsonResult(
+            value.get_object(), "JSON parse error: Failed to get JSON object"));
 
     for (auto field_result : object) {
       ARROW_ASSIGN_OR_RAISE(auto field,
@@ -954,9 +955,10 @@ class ParseImpl : public BlockParser {
                                 std::move(field_result),
                                 "JSON parse error: Failed to iterate JSON object"));
 
-      ARROW_ASSIGN_OR_RAISE(auto key,
-                            arrow::internal::ResolveSimdjsonResult(
-                                field.unescaped_key(), "Failed to get JSON object key"));
+      ARROW_ASSIGN_OR_RAISE(
+          auto key,
+          arrow::internal::ResolveSimdjsonResult(
+              field.unescaped_key(), "JSON parse error: Failed to get JSON object key"));
 
       RETURN_NOT_OK(ParseObjectField(key, field.value()));
     }
