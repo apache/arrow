@@ -109,7 +109,8 @@ struct WasOutOfRange {
       static_cast<InT>(std::numeric_limits<OutT>::max() / 2 + 1) * 2;
 
   static bool Check(OutT, InT in_val) {
-    return !(std::trunc(in_val) >= kMin) | !(in_val < kMaxPlusOne);
+    const bool in_range = std::trunc(in_val) >= kMin && in_val < kMaxPlusOne;
+    return !in_range;
   }
 
   static bool CheckMaybeNull(OutT out_val, InT in_val, bool is_valid) {

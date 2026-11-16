@@ -436,26 +436,33 @@ TEST(Cast, FloatingToIntOverflow) {
   for (auto from : {float32(), float64()}) {
     auto opts = CastOptions::Safe(int64());
     opts.allow_float_truncate = true;
-    for (auto json : {"[9223372036854775807]", "[9223372036854775807.5]",
-                      "[9223372036854775808.0]"}) {
-      CheckCastFails(ArrayFromJSON(from, json), opts);
-    }
-    CheckCast(ArrayFromJSON(from, "[-9223372036854775808.0, -9223372036854775808.5]"),
-              ArrayFromJSON(int64(), "[-9223372036854775808, -9223372036854775808]"),
-              opts);
+    CheckCastFails(ArrayFromJSON(from, "[9223372036854775808.0]"), opts);
+    CheckCast(ArrayFromJSON(from, "[-9223372036854775808.0]"),
+              ArrayFromJSON(int64(), "[-9223372036854775808]"), opts);
     opts.to_type = uint64();
     CheckCastFails(ArrayFromJSON(from, "[18446744073709551616.0]"), opts);
+    CheckCastFails(ArrayFromJSON(from, "[-1.0]"), opts);
   }
 
-  auto opts = CastOptions::Safe(int8());
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("Float value 1.500000 was truncated converting to int8"),
-      Cast(ArrayFromJSON(float16(), "[1.5]"), opts));
+  auto opts = CastOptions::Safe(int64());
   opts.allow_float_truncate = true;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("Float value inf out of range converting to int8"),
-      Cast(ArrayFromJSON(float16(), "[Inf]"), opts));
+  CheckCastFails(ArrayFromJSON(float64(), "[-9223372036854777856.0]"), opts);
+  CheckCast(ArrayFromJSON(float64(), "[9223372036854774784.0]"),
+            ArrayFromJSON(int64(), "[9223372036854774784]"), opts);
+}
+
+TEST(Cast, FloatingToIntErrorMessages) {
+  for (auto from : {float16(), float32(), float64()}) {
+    auto opts = CastOptions::Safe(int8());
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        ::testing::HasSubstr("Float value 1.500000 was truncated converting to int8"),
+        Cast(ArrayFromJSON(from, "[1.5]"), opts));
+    opts.allow_float_truncate = true;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("Float value inf out of range converting to int8"),
+        Cast(ArrayFromJSON(from, "[Inf]"), opts));
+  }
 }
 
 TEST(Cast, FloatingToFloating) {
