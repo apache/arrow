@@ -28,6 +28,11 @@ from pyarrow.lib import asarray
 from _check import assert_type, check
 
 
+class _PyArrowArrayProvider:
+    def __arrow_array__(self, type: pa.DataType | None = None) -> pa.Array:
+        return pa.array([1, 2], type=type)
+
+
 def test_array() -> None:
     # pa.array() return type is Array. Tell the type checker which subclass to expect.
     arr = check(cast(pa.Int64Array, pa.array([1, 2, None])), pa.Int64Array)
@@ -78,6 +83,7 @@ def test_array_constructors() -> None:
     check(assert_type(asarray([1, 2]), pa.Array), pa.Int64Array)
     check(assert_type(asarray(pa.chunked_array([[1, 2]])), pa.ChunkedArray),
           pa.ChunkedArray)
+    check(assert_type(asarray(_PyArrowArrayProvider()), pa.Array), pa.Int64Array)
     check(assert_type(pa.nulls(2, pa.int8()), pa.Array), pa.Int8Array)
     check(assert_type(pa.repeat("a", 2), pa.Array), pa.StringArray)
 
@@ -97,6 +103,10 @@ def test_array_numpy() -> None:
     offsets = np.array([0, 1, 2], dtype="int32")
     check(assert_type(pa.ListArray.from_arrays(offsets, [1, 2]), pa.ListArray),
           pa.ListArray)
+
+    check(assert_type(pa.RunEndEncodedArray.from_arrays(np.array([1, 3]), ["a", "b"]),
+                      pa.RunEndEncodedArray),
+          pa.RunEndEncodedArray)
 
     np_mask = np.array([True, False])
     check(assert_type(arr.filter(np_mask), pa.Int64Array), pa.Int64Array)
@@ -204,10 +214,15 @@ def test_dictionary_array() -> None:
         dict_arr.type, len(dict_arr), dict_arr.indices.buffers(), dict_arr.dictionary
     )
     check(assert_type(rebuilt, pa.DictionaryArray), pa.DictionaryArray)
+    # The dictionary is passed to pa.array(), so any iterable works
+    check(assert_type(pa.DictionaryArray.from_arrays([0, 1], ("a", "b")),
+                      pa.DictionaryArray),
+          pa.DictionaryArray)
 
 
 def test_run_end_encoded_array() -> None:
-    ree = pa.RunEndEncodedArray.from_arrays([2, 3], ["a", "b"])
+    # The values are passed to pa.array(), so any iterable works
+    ree = pa.RunEndEncodedArray.from_arrays([2, 3], ("a", "b"))
     check(assert_type(ree, pa.RunEndEncodedArray), pa.RunEndEncodedArray)
     check(
         assert_type(ree.run_ends,
@@ -280,12 +295,10 @@ def test_buffer_constructors_invalid_usage() -> None:
         pa.StringArray.from_buffers(1, off, data, None, None)  # type: ignore[arg-type]
         # Fields are passed as `fields`, `names` only takes strings
         pa.StructArray.from_arrays(
-            children, names=[pa.field("a", pa.int64())])
+            children, names=[pa.field("a", pa.int64())])  # type: ignore[list-item]
 
 
 def test_array_arguments_without_cast() -> None:
-    import numpy as np
-
     # pa.array() is annotated as returning the base Array, so parameters
     # must accept it without requiring a cast to the exact subclass
     values = pa.array([1, 2, 3])
@@ -295,9 +308,6 @@ def test_array_arguments_without_cast() -> None:
           pa.ListArray)
     # Offsets and sizes of another integer type are cast at runtime
     check(assert_type(pa.ListArray.from_arrays(pa.array([0, 1, 3]), values),
-                      pa.ListArray),
-          pa.ListArray)
-    check(assert_type(pa.ListArray.from_arrays(np.array([0, 1, 3]), values),
                       pa.ListArray),
           pa.ListArray)
     check(assert_type(pa.ListArray.from_arrays([0, None, 3], values),
@@ -329,10 +339,12 @@ def test_array_arguments_without_cast() -> None:
     check(assert_type(pa.StructArray.from_arrays(children, names=["a"], mask=mask),
                       pa.StructArray),
           pa.StructArray)
+    # Each `arrays` entry can be any iterable, `fields` any sequence
+    fields = (pa.field("a", pa.int64()),)
+    check(assert_type(pa.StructArray.from_arrays([(1, 2)], fields=fields),
+                      pa.StructArray),
+          pa.StructArray)
     check(assert_type(pa.RunEndEncodedArray.from_arrays(pa.array([1, 3]), ["a", "b"]),
-                      pa.RunEndEncodedArray),
-          pa.RunEndEncodedArray)
-    check(assert_type(pa.RunEndEncodedArray.from_arrays(np.array([1, 3]), ["a", "b"]),
                       pa.RunEndEncodedArray),
           pa.RunEndEncodedArray)
     check(assert_type(pa.Bool8Array.from_storage(type_codes), pa.Bool8Array),

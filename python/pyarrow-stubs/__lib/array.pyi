@@ -78,7 +78,11 @@ def asarray(  # type: ignore[overload-overlap]
 ) -> ChunkedArray: ...
 @overload
 def asarray(
-    values: Array | Iterable[Any] | SupportsArrowArray | SupportsArrowDeviceArray,
+    values: Array
+    | Iterable[Any]
+    | SupportsArrowArray
+    | SupportsArrowDeviceArray
+    | SupportsPyArrowArray,
     type: Any | None = None,
 ) -> Array: ...
 def nulls(
@@ -485,7 +489,7 @@ class DictionaryArray(Array):
     @staticmethod
     def from_arrays(
         indices: Indices,
-        dictionary: Array | np.ndarray | pd.Series | list[Any],
+        dictionary: Array | Iterable[Any],
         mask: np.ndarray | pd.Series | None = None,
         ordered: bool = False,
         from_pandas: bool = False,
@@ -498,9 +502,9 @@ class StructArray(Array):
     def flatten(self, memory_pool: MemoryPool | None = None) -> list[Array]: ...
     @staticmethod
     def from_arrays(
-        arrays: Iterable[Array | np.ndarray | list],
-        names: Sequence[str] | list[Field] | None = None,
-        fields: list[Field] | None = None,
+        arrays: Iterable[Array | Iterable[Any]],
+        names: Sequence[str] | None = None,
+        fields: Sequence[Field] | None = None,
         mask: Array | None = None,
         memory_pool: MemoryPool | None = None,
         type: StructType | None = None,
@@ -517,7 +521,7 @@ class RunEndEncodedArray(Array):
     @staticmethod
     def from_arrays(
         run_ends: Array | Sequence[int] | np.ndarray,
-        values: Array | list[Any],
+        values: Array | Iterable[Any],
         type: DataType | None = None,
     ) -> RunEndEncodedArray: ...
     @staticmethod
