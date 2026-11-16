@@ -190,10 +190,12 @@ class ARROW_EXPORT ArrowLog : public ArrowLogBase {
   /// Install the failure signal handler to output call stack when crash.
   /// If glog is not installed, this function won't do anything.
   /// \deprecated Deprecated in 27.0.0. GLog support is deprecated.
+  ARROW_DEPRECATED("Deprecated in 27.0.0. GLog support is deprecated.")
   static void InstallFailureSignalHandler();
 
   /// Uninstall the signal actions installed by InstallFailureSignalHandler.
   /// \deprecated Deprecated in 27.0.0. GLog support is deprecated.
+  ARROW_DEPRECATED("Deprecated in 27.0.0. GLog support is deprecated.")
   static void UninstallSignalAction();
 
   /// Return whether or not the log level is enabled in current setting.
