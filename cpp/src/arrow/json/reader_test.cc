@@ -146,6 +146,15 @@ TEST_P(ReaderTest, Nested) {
   AssertTablesEqual(*expected_table, *table_);
 }
 
+TEST_P(ReaderTest, DuplicateSchemaFields) {
+  parse_options_.explicit_schema =
+      schema({field("foo", boolean()), field("foo", boolean())});
+  read_options_.use_threads = GetParam();
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: JSON parse error: duplicate field 'foo' in explicit schema",
+      ReadToTable(R"({"foo": true, "other": "bar"})", read_options_, parse_options_));
+}
+
 TEST_P(ReaderTest, PartialSchema) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
   parse_options_.explicit_schema =

@@ -43,6 +43,8 @@ struct ARROW_EXPORT ParseOptions {
   // Parsing options
 
   /// Optional explicit schema (disables type inference on those fields)
+  ///
+  /// Field names must be unique within each object, including nested objects.
   std::shared_ptr<Schema> explicit_schema;
 
   /// Whether objects may be printed across multiple lines (for example pretty-printed)
