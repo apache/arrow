@@ -17,7 +17,7 @@
 
 import builtins
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Literal, overload, Self, TypeAlias
+from typing import Any, ClassVar, Literal, overload, Self, SupportsIndex, TypeAlias
 
 import numpy as np
 import pandas as pd
