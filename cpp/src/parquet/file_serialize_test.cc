@@ -153,10 +153,8 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
       } else {
         // In Parquet V2, selective compression may keep small or incompressible data
         // pages uncompressed (total_compressed_size == total_byte_size), while
-        // compressed dictionary pages or pages with savings may be larger or smaller
-        // than uncompressed sizes.
-        ASSERT_GT(total_byte_size, 0);
-        ASSERT_GT(total_compressed_size, 0);
+        // compressed pages with savings are smaller than uncompressed sizes.
+        ASSERT_LE(total_compressed_size, total_byte_size);
       }
 
       int64_t total_column_byte_size = 0;

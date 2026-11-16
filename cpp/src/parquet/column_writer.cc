@@ -2023,9 +2023,13 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
                             ::arrow::compute::Unique(*chunk_indices, &exec_ctx));
 
-    // On first run, we might be able to re-use the existing dictionary
-    if (chunk_indices->null_count() == 0 &&
-        referenced_indices.length() == dictionary->length()) {
+    // Use the original dictionary if we can detect that all indices are referenced,
+    // otherwise call Take to find referenced dictionary values.
+    const bool all_indices_referenced =
+        (referenced_indices.null_count() == 0)
+            ? referenced_indices.length() == dictionary->length()
+            : referenced_indices.length() == dictionary->length() + 1;
+    if (all_indices_referenced) {
       referenced_dictionary = dictionary;
     } else {
       PARQUET_ASSIGN_OR_THROW(
