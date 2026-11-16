@@ -101,6 +101,10 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     auto data = buffer_->mutable_data();
     std::memcpy(data, partial.data(), partial.size());
     std::memcpy(data + partial.size(), block.data(), block.size());
+    // simdjson >= 5.2.0 may look at bytes past the input when it delimits documents
+    // (simdjson/simdjson#3031), so stale padding contents could change where
+    // documents are cut. Zero the padding to make this deterministic.
+    std::memset(data + data_size, 0, simdjson::SIMDJSON_PADDING);
     auto view = simdjson::padded_string_view(data, /*len=*/data_size,
                                              /*capacity=*/buffer_->capacity());
     DCHECK(view.has_sufficient_padding());
