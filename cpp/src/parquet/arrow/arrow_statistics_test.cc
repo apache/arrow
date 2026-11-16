@@ -22,6 +22,7 @@
 #include "arrow/array/builder_time.h"
 #include "arrow/compute/api.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 
 #include "parquet/api/reader.h"
@@ -72,6 +73,21 @@ std::string GetManyEmptyLists() {
   }
   many_empty_lists += "[1,2,3,4,5,6,7,8,null]]";
   return many_empty_lists;
+}
+
+// A dictionary-encoded leaf under a struct with null rows. The child slots under the
+// null rows are valid in the Arrow array (and hold "zzz"), but they are nulls in
+// Parquet: they count as nulls and must not end up in min/max.
+std::shared_ptr<::arrow::Table> GetDictionaryUnderNullStruct() {
+  auto dict_type = ::arrow::dictionary(::arrow::int32(), ::arrow::utf8());
+  auto values = ::arrow::DictArrayFromJSON(dict_type, "[0, 1, 0, 1]", R"(["b", "zzz"])");
+  std::shared_ptr<Buffer> null_bitmap;
+  ABORT_NOT_OK(
+      ::arrow::GetBitmapFromVector<bool>({true, false, true, false}, &null_bitmap));
+  auto array = ::arrow::StructArray::Make({values}, {::arrow::field("x", dict_type)},
+                                          std::move(null_bitmap))
+                   .ValueOrDie();
+  return Table::Make(::arrow::schema({::arrow::field("a", array->type())}), {array});
 }
 
 // PARQUET-2067: Tests that nulls from parent fields are included in null statistics.
@@ -159,7 +175,23 @@ INSTANTIATE_TEST_SUITE_P(
             /*expected_null_count=*/5,
             /*expected_value_count=*/2,
             /*expected_min=*/"z",
-            /*expected_max=*/"z"}));
+            /*expected_max=*/"z"},
+        StatisticsTestParam{/*table=*/GetDictionaryUnderNullStruct(),
+                            /*expected_null_count=*/2,
+                            /*expected_value_count=*/2,
+                            /*expected_min=*/"b",
+                            /*expected_max=*/"b"},
+        StatisticsTestParam{
+            // "zzz" is in the dictionary but no index references it
+            /*table=*/Table::Make(
+                ::arrow::schema({::arrow::field("a", dictionary(::arrow::int32(),
+                                                                ::arrow::utf8()))}),
+                {::arrow::DictArrayFromJSON(dictionary(::arrow::int32(), ::arrow::utf8()),
+                                            "[0, null, 0]", R"(["b", "zzz"])")}),
+            /*expected_null_count=*/1,
+            /*expected_value_count=*/2,
+            /*expected_min=*/"b",
+            /*expected_max=*/"b"}));
 
 TEST(StatisticsTest, FixedWidthLeafUnderListStructNullCount) {
   // Null counts for leaves under list<struct<...>> must include null and empty
