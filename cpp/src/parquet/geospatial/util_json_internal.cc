@@ -18,6 +18,7 @@
 #include "parquet/geospatial/util_json_internal.h"
 
 #include <string>
+#include <string_view>
 
 #include "arrow/extension_type.h"
 #include "arrow/result.h"
@@ -33,7 +34,7 @@ namespace {
 
 // An upper bound on the expected nesting depth of a geospatial JSON metadata object
 constexpr int kMaxJsonDepth = 20;
-constexpr char kUnknownCrs[] = "srid:0";
+constexpr std::string_view kUnknownCrs = "srid:0";
 
 ::arrow::Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
     simdjson::ondemand::object object) {
@@ -44,7 +45,7 @@ constexpr char kUnknownCrs[] = "srid:0";
     if (json_crs_result.status().IsKeyError()) {
       // GeoArrow uses an omitted CRS to mean that the CRS is unknown. Parquet
       // represents this explicitly as the special value "srid:0".
-      return kUnknownCrs;
+      return std::string(kUnknownCrs);
     }
 
     return json_crs_result.status();
@@ -54,7 +55,7 @@ constexpr char kUnknownCrs[] = "srid:0";
 
   ARROW_ASSIGN_OR_RAISE(bool is_null, ::arrow::internal::IsJsonNull(json_crs));
   if (is_null) {
-    return kUnknownCrs;
+    return std::string(kUnknownCrs);
   }
 
   auto crs_string_result = ::arrow::internal::GetJsonAs<std::string_view>(json_crs);
@@ -214,7 +215,7 @@ constexpr char kUnknownCrs[] = "srid:0";
 LogicalTypeFromGeoArrowMetadata(std::string_view serialized_data) {
   // Parquet represents GeoArrow's unknown (omitted) CRS as "srid:0".
   if (serialized_data.empty() || serialized_data == "{}") {
-    return LogicalType::Geometry(kUnknownCrs);
+    return LogicalType::Geometry(std::string(kUnknownCrs));
   }
 
   simdjson::ondemand::parser parser;
