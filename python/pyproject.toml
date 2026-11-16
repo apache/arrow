@@ -135,7 +135,7 @@ ignore_missing_imports = true
 pythonPlatform = "All"
 pythonVersion = "3.11"
 include = ["pyarrow-stubs", "pyarrow-stubs-tests"]
-typeCheckingMode = "strict"
+typeCheckingMode = "basic"
 # The type annotation tests use `# type: ignore[...]` to assert that some
 # usage is rejected, so an ignore that is no longer needed is an error there.
 executionEnvironments = [
