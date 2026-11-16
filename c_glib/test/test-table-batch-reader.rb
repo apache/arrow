@@ -17,6 +17,7 @@
 
 class TestTableBatchReader < Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   def test_empty
     table = build_table("visible" => build_boolean_array([]))
@@ -50,5 +51,16 @@ class TestTableBatchReader < Test::Unit::TestCase
     assert_equal(build_record_batch("number" => build_int32_array([3])),
                  reader.read_next)
     assert_nil(reader.read_next)
+  end
+
+  def test_export_gc
+    require_gi_bindings(3, 4, 8)
+    array = build_int32_array([1, 2, 3])
+    table = build_table("number" => array)
+    c_abi_array_stream = Arrow::TableBatchReader.new(table).export
+    table = nil
+    GC.start
+    assert_equal(build_table("number" => array),
+                 Arrow::RecordBatchReader.import(c_abi_array_stream).read_all)
   end
 end

@@ -5370,3 +5370,23 @@ def test_pandas_array_likes_with_extension_arrays():
         for box in [pd.array, pd.Index, pd.Series]:
             _check_array_roundtrip(box(arr[0]), expected=pd.Series(
                 arr[1]) if arr[1] is not None else None)
+
+
+def test_multiindex_integer_level_names():
+    # https://github.com/apache/arrow/issues/38983
+    index = pd.MultiIndex.from_tuples(
+        [(10, 20), (30, 40), (50, 60), (70, 80)], names=[1, 2])
+    df = pd.DataFrame({"a": [1, 2, 3, 4], "b": [5, 6, 7, 8]}, index=index)
+
+    # non-str index names are converted to str, with a warning
+    with pytest.warns(UserWarning):
+        table = pa.Table.from_pandas(df)
+
+    assert table.column_names == ["a", "b", "1", "2"]
+    assert table.column(2).to_pylist() == [10, 30, 50, 70]
+    assert table.column(3).to_pylist() == [20, 40, 60, 80]
+
+    expected = df.copy()
+    expected.index.names = ["1", "2"]
+    with pytest.warns(UserWarning):
+        _check_pandas_roundtrip(df, expected=expected, preserve_index=True)

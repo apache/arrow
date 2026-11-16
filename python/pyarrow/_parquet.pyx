@@ -108,7 +108,7 @@ cdef class Statistics(_Weakrefable):
         except TypeError:
             return NotImplemented
 
-    def equals(self, Statistics other):
+    def equals(self, Statistics other not None):
         """
         Return whether the two column statistics objects are equal.
 
@@ -521,7 +521,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
         except TypeError:
             return NotImplemented
 
-    def equals(self, ColumnChunkMetaData other):
+    def equals(self, ColumnChunkMetaData other not None):
         """
         Return whether the two column chunk metadata objects are equal.
 
@@ -755,7 +755,8 @@ cdef class SortingColumn:
         self.nulls_first = nulls_first
 
     @classmethod
-    def from_ordering(cls, Schema schema, sort_keys, null_placement='at_end'):
+    def from_ordering(cls, Schema schema not None, sort_keys,
+                      null_placement='at_end'):
         """
         Create a tuple of SortingColumn objects from the same arguments as
         :class:`pyarrow.compute.SortOptions`.
@@ -816,7 +817,7 @@ cdef class SortingColumn:
         return tuple(sorting_columns)
 
     @staticmethod
-    def to_ordering(Schema schema, sorting_columns):
+    def to_ordering(Schema schema not None, sorting_columns):
         """
         Convert a tuple of SortingColumn objects to the same format as
         :class:`pyarrow.compute.SortOptions`.
@@ -919,7 +920,7 @@ cdef class RowGroupMetaData(_Weakrefable):
         except TypeError:
             return NotImplemented
 
-    def equals(self, RowGroupMetaData other):
+    def equals(self, RowGroupMetaData other not None):
         """
         Return whether the two row group metadata objects are equal.
 
@@ -1247,7 +1248,7 @@ cdef class FileMetaData(_Weakrefable):
 cdef class ParquetSchema(_Weakrefable):
     """A Parquet schema."""
 
-    def __cinit__(self, FileMetaData container):
+    def __cinit__(self, FileMetaData container not None):
         self.parent = container
         self.schema = container._metadata.schema()
 
@@ -1295,7 +1296,7 @@ cdef class ParquetSchema(_Weakrefable):
         except TypeError:
             return NotImplemented
 
-    def equals(self, ParquetSchema other):
+    def equals(self, ParquetSchema other not None):
         """
         Return whether the two schemas are equal.
 
@@ -1336,7 +1337,7 @@ cdef class ColumnSchema(_Weakrefable):
         ParquetSchema parent
         const ColumnDescriptor* descr
 
-    def __cinit__(self, ParquetSchema schema, int index):
+    def __cinit__(self, ParquetSchema schema not None, int index):
         self.parent = schema
         self.index = index  # for pickling support
         self.descr = schema.schema.Column(index)
@@ -1350,7 +1351,7 @@ cdef class ColumnSchema(_Weakrefable):
     def __reduce__(self):
         return ColumnSchema, (self.parent, self.index)
 
-    def equals(self, ColumnSchema other):
+    def equals(self, ColumnSchema other not None):
         """
         Return whether the two column schemas are equal.
 

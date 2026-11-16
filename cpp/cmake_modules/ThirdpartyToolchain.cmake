@@ -18,11 +18,12 @@
 include(ProcessorCount)
 processorcount(NPROC)
 
-# Accumulate all bundled targets and we will splice them together later as
+# Accumulate core bundled targets and we will splice them together later as
 # libarrow_bundled_dependencies.a so that third party libraries have something
 # usable to create statically-linked builds with some BUNDLED dependencies,
 # including allocators like jemalloc and mimalloc
 set(ARROW_BUNDLED_STATIC_LIBS)
+set(ARROW_GCS_BUNDLED_STATIC_LIBS)
 
 # Accumulate all system dependencies to provide suitable static link
 # parameters to the third party libraries.
@@ -1942,6 +1943,9 @@ function(build_absl)
     # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
     # Cannot use set_property on alias targets (absl::time is an alias)
     target_link_libraries(time INTERFACE ${CoreFoundation})
+    set(ARROW_PC_LIBS_PRIVATE
+        "${ARROW_PC_LIBS_PRIVATE} -framework CoreFoundation"
+        PARENT_SCOPE)
   endif()
 
   list(PREPEND
@@ -2060,25 +2064,8 @@ function(build_protobuf)
       "${PROTOBUF_INCLUDE_DIR}"
       PARENT_SCOPE)
 
-  set(PROTOBUF_PATCH_COMMAND)
-  if(EMSCRIPTEN)
-    find_program(PATCH patch)
-    if(PATCH)
-      set(PROTOBUF_PATCH_COMMAND ${PATCH} -p1 -i)
-    else()
-      find_program(GIT git)
-      if(GIT)
-        set(PROTOBUF_PATCH_COMMAND ${GIT} apply)
-      endif()
-    endif()
-    if(PROTOBUF_PATCH_COMMAND)
-      list(APPEND PROTOBUF_PATCH_COMMAND
-           ${CMAKE_CURRENT_LIST_DIR}/protobuf-emscripten.patch)
-    endif()
-  endif()
   fetchcontent_declare(protobuf
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                       PATCH_COMMAND ${PROTOBUF_PATCH_COMMAND}
                        URL ${PROTOBUF_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
 
@@ -2188,6 +2175,10 @@ function(build_protobuf)
     set(PROTOBUF_HOST_CMAKE_ARGS
         "-DCMAKE_CXX_FLAGS="
         "-DCMAKE_C_FLAGS="
+        # Explicitly set the C++ standard for the host build. Without this,
+        # Abseil may be compiled with the host compiler's default standard,
+        # which can be older than C++17.
+        "-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}"
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=
@@ -3877,13 +3868,8 @@ function(build_google_cloud_cpp_storage)
   # 141MB -> 79MB
   file(REMOVE_RECURSE "${google_cloud_cpp_SOURCE_DIR}/ci")
 
-  list(PREPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       google-cloud-cpp::storage
-       google-cloud-cpp::rest_internal
-       google-cloud-cpp::common)
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+  set(ARROW_GCS_BUNDLED_STATIC_LIBS
+      google-cloud-cpp::storage google-cloud-cpp::rest_internal google-cloud-cpp::common
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -4470,6 +4456,10 @@ endif()
 if(ARROW_BUILD_STATIC)
   if(ARROW_GCS AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
     arrow_append_pc_system_library("libcurl" ARROW_GCS_CURL_PC "-lcurl" ARROW_GCS)
+    if(NOT WIN32)
+      arrow_append_pc_system_library("openssl" ARROW_GCS_OPENSSL_PC "-lssl -lcrypto"
+                                     ARROW_GCS)
+    endif()
   endif()
   if(ARROW_AZURE
      AND AZURE_SDK_VENDORED
@@ -4526,3 +4516,4 @@ if(ARROW_FLIGHT_SQL_ODBC)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
+message(STATUS "GCS bundled static libraries: ${ARROW_GCS_BUNDLED_STATIC_LIBS}")

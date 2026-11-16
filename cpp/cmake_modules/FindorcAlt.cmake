@@ -26,7 +26,19 @@ endif()
 if(orcAlt_FIND_QUIETLY)
   list(APPEND find_package_args QUIET)
 endif()
+# orcConfig.cmake in ORC <= 2.3.1 overwrites CMAKE_MODULE_PATH and
+# doesn't restore it when one of its dependencies isn't found because
+# find_dependency() calls return() in the config file. We can remove
+# this block() once we drop support for ORC <= 2.3.1.
+block(SCOPE_FOR
+      VARIABLES
+      PROPAGATE
+      orc_FOUND
+      orc_VERSION
+      ORC_STATIC_LIB
+      ORC_INCLUDE_DIR)
 find_package(orc ${find_package_args})
+endblock()
 if(orc_FOUND)
   set(orcAlt_FOUND TRUE)
   set(orcAlt_VERSION ${orc_VERSION})

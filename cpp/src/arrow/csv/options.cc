@@ -23,8 +23,40 @@ namespace csv {
 ParseOptions ParseOptions::Defaults() { return ParseOptions(); }
 
 Status ParseOptions::Validate() const {
-  if (ARROW_PREDICT_FALSE(delimiter == '\n' || delimiter == '\r')) {
-    return Status::Invalid("ParseOptions: delimiter cannot be \\r or \\n");
+  // The chunker handles escapes before delimiter matching, so allowing the escape
+  // character in a delimiter could make it disagree with the parser.
+  if (escaping) {
+    if (delimiter_string.empty()) {
+      if (delimiter == escape_char) {
+        return Status::Invalid(
+            "ParseOptions: delimiter cannot be the escape character when escaping is "
+            "enabled");
+      }
+    } else if (delimiter_string.find(escape_char) != std::string::npos) {
+      return Status::Invalid(
+          "ParseOptions: delimiter_string cannot contain the escape character when "
+          "escaping is enabled");
+    }
+  }
+  // Line endings delimit records and therefore cannot be part of a field delimiter.
+  if (delimiter_string.empty()) {
+    if (ARROW_PREDICT_FALSE(delimiter == '\n' || delimiter == '\r')) {
+      return Status::Invalid("ParseOptions: delimiter cannot be \\r or \\n");
+    }
+  } else if (ARROW_PREDICT_FALSE(delimiter_string.find_first_of("\r\n") !=
+                                 std::string::npos)) {
+    return Status::Invalid("ParseOptions: delimiter_string cannot contain \\r or \\n");
+  }
+  if (quoting) {
+    // Keep structural characters out of delimiters when quoting is enabled.
+    const bool delimiter_contains_quote =
+        delimiter_string.empty() ? delimiter == quote_char
+                                 : delimiter_string.find(quote_char) != std::string::npos;
+    if (ARROW_PREDICT_FALSE(delimiter_contains_quote)) {
+      return Status::Invalid(
+          "ParseOptions: delimiter cannot contain the quote character when quoting is "
+          "enabled");
+    }
   }
   if (ARROW_PREDICT_FALSE(quoting && (quote_char == '\n' || quote_char == '\r'))) {
     return Status::Invalid("ParseOptions: quote_char cannot be \\r or \\n");

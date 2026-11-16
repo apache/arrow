@@ -299,6 +299,7 @@ ${APT_INSTALL} --allow-downgrades \
   libarrow-dev=${previous_package_version} \
   libarrow-glib${previous_so_version}=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
+  libarrow-s3-${previous_so_version}=${previous_package_version} \
   libgandiva${previous_so_version}=${previous_package_version} \
   libgandiva-dev=${previous_package_version} \
   libgandiva-glib${previous_so_version}=${previous_package_version} \
@@ -327,7 +328,8 @@ ${APT_INSTALL} --allow-downgrades \
   libarrow-flight-sql-glib${previous_so_version}=${previous_package_version} \
   libarrow-flight-sql-glib-dev=${previous_package_version} \
   libarrow-glib${previous_so_version}=${previous_package_version} \
-  libarrow-glib-dev=${previous_package_version}
+  libarrow-glib-dev=${previous_package_version} \
+  libarrow-s3-${previous_so_version}=${previous_package_version}
 echo "::endgroup::"
 
 echo "::group::Downgrade Apache Arrow Dataset"
@@ -347,6 +349,7 @@ ${APT_INSTALL} --allow-downgrades \
   libarrow-dev=${previous_package_version} \
   libarrow-glib${previous_so_version}=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
+  libarrow-s3-${previous_so_version}=${previous_package_version} \
   libparquet${previous_so_version}=${previous_package_version} \
   libparquet-dev=${previous_package_version} \
   libparquet-glib${previous_so_version}=${previous_package_version} \

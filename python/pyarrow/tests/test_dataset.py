@@ -396,6 +396,12 @@ def test_filesystem_dataset(mockfs):
     # validation of required arguments
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(fragments, file_format, schema)
+    with pytest.raises(TypeError, match="Fragment must not be None"):
+        ds.FileSystemDataset([None], schema=schema, format=file_format)
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        ds.FileSystemDataset(fragments, schema=None, format=file_format)
+    with pytest.raises(TypeError, match="Argument 'format' has incorrect type"):
+        ds.FileSystemDataset(fragments, schema=schema, format=None)
     # validation of root_partition
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(fragments, schema=schema,
@@ -853,8 +859,8 @@ def test_partitioning_pickling(pickle_module):
     "flavor, expected_defined_partition, expected_undefined_partition",
     [
         ("HivePartitioning", (r"foo=A/bar=ant%20bee", ""), ("", "")),
-        ("DirectoryPartitioning", (r"A/ant bee", ""), ("", "")),
-        ("FilenamePartitioning", ("", r"A_ant bee_"), ("", "_")),
+        ("DirectoryPartitioning", (r"A/ant%20bee", ""), ("", "")),
+        ("FilenamePartitioning", ("", r"A_ant%20bee_"), ("", "_")),
     ],
 )
 def test_dataset_partitioning_format(
@@ -945,6 +951,9 @@ def test_partition_keys():
 
     null = ds.field('a').is_null()
     assert ds.get_partition_keys(null) == {'a': None}
+
+    with pytest.raises(TypeError, match="Argument 'partition_expression'"):
+        ds.get_partition_keys(None)
 
 
 @pytest.mark.parquet

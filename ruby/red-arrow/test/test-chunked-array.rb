@@ -195,4 +195,17 @@ class ChunkedArrayTest < Test::Unit::TestCase
     chunked_array = Arrow::ChunkedArray.new(arrays)
     assert_equal(2, chunked_array.index(3))
   end
+
+  test("GC") do
+    arrays = [
+      Arrow::Int32Array.new([1, 2]),
+      Arrow::Int32Array.new([3]),
+    ]
+    chunked_array = Arrow::ChunkedArray.new(arrays)
+    array_ids = arrays.collect(&:object_id)
+    arrays = nil
+    GC.start
+    assert_equal(array_ids,
+                 chunked_array.chunks.collect(&:object_id))
+  end
 end
