@@ -296,12 +296,13 @@ def test_extension_type_constructor_errors(klass):
 @pytest.mark.dataset
 @pytest.mark.parametrize(("call", "argument"), [
     ("ds.get_partition_keys(None)", "partition_expression"),
-    ("ds.field('a').equals(None)", "other"),
+    ("pc.field('a').equals(None)", "other"),
 ])
 def test_expression_apis_reject_none_without_crashing(
         call: str, argument: str) -> None:
     code = f"""if 1:
         import pytest
+        import pyarrow.compute as pc
         import pyarrow.dataset as ds
 
         with pytest.raises(TypeError, match="Argument '{argument}'"):
