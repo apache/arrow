@@ -96,7 +96,7 @@ def repeat(
     memory_pool: MemoryPool | None = None,
 ) -> Array: ...
 def infer_type(
-    values: Sequence[Any] | np.ndarray,
+    values: Sequence[Any] | NDArray[Any],
     mask: Mask | None = None,
     from_pandas: bool = False,
 ) -> DataType: ...
@@ -161,7 +161,7 @@ class Array(_PandasConvertible):
     def value_counts(self) -> StructArray: ...
     @staticmethod
     def from_pandas(
-        obj: pd.Series | np.ndarray | ArrayLike,
+        obj: pd.Series | NDArray[Any] | ArrayLike,
         mask: Array | Iterable[bool] | NDArray[np.bool_] | None = None,
         type: DataType | str | None = None,
         safe: bool = True,
@@ -228,10 +228,10 @@ class Array(_PandasConvertible):
     ) -> Self: ...
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
-    ) -> np.ndarray: ...
+    ) -> NDArray[Any]: ...
     def to_numpy(
         self, zero_copy_only: bool = True, writable: bool = False
-    ) -> np.ndarray: ...
+    ) -> NDArray[Any]: ...
     def to_pylist(
         self,
         *,
@@ -324,7 +324,7 @@ class BaseListArray(Array):
 class ListArray(BaseListArray):
     @staticmethod
     def from_arrays(
-        offsets: Array | Iterable[int | None] | np.ndarray,
+        offsets: Array | Iterable[int | None] | NDArray[Any],
         values: Array | Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
@@ -339,7 +339,7 @@ class ListArray(BaseListArray):
 class LargeListArray(BaseListArray):
     @staticmethod
     def from_arrays(
-        offsets: Array | Iterable[int | None] | np.ndarray,
+        offsets: Array | Iterable[int | None] | NDArray[Any],
         values: Array | Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
@@ -354,8 +354,8 @@ class LargeListArray(BaseListArray):
 class ListViewArray(BaseListArray):
     @staticmethod
     def from_arrays(
-        offsets: Array | Iterable[int | None] | np.ndarray,
-        sizes: Array | Iterable[int | None] | np.ndarray,
+        offsets: Array | Iterable[int | None] | NDArray[Any],
+        sizes: Array | Iterable[int | None] | NDArray[Any],
         values: Array | Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
@@ -372,8 +372,8 @@ class ListViewArray(BaseListArray):
 class LargeListViewArray(BaseListArray):
     @staticmethod
     def from_arrays(
-        offsets: Array | Iterable[int | None] | np.ndarray,
-        sizes: Array | Iterable[int | None] | np.ndarray,
+        offsets: Array | Iterable[int | None] | NDArray[Any],
+        sizes: Array | Iterable[int | None] | NDArray[Any],
         values: Array | Iterable[Any],
         type: DataType | None = None,
         pool: MemoryPool | None = None,
@@ -402,7 +402,7 @@ class FixedSizeListArray(BaseListArray):
 class MapArray(ListArray):
     @staticmethod
     def from_arrays(  # type: ignore[override]
-        offsets: Array | Iterable[int | None] | np.ndarray,
+        offsets: Array | Iterable[int | None] | NDArray[Any],
         keys: Array | Iterable[Any],
         items: Array | Iterable[Any],
         type: DataType | None = None,
@@ -490,7 +490,7 @@ class DictionaryArray(Array):
     def from_arrays(
         indices: Indices,
         dictionary: Array | Iterable[Any],
-        mask: np.ndarray | pd.Series | None = None,
+        mask: NDArray[Any] | pd.Series | None = None,
         ordered: bool = False,
         from_pandas: bool = False,
         safe: bool = True,
@@ -520,7 +520,7 @@ class StructArray(Array):
 class RunEndEncodedArray(Array):
     @staticmethod
     def from_arrays(
-        run_ends: Array | Sequence[int] | np.ndarray,
+        run_ends: Array | Sequence[int] | NDArray[Any],
         values: Array | Iterable[Any],
         type: DataType | None = None,
     ) -> RunEndEncodedArray: ...
@@ -550,10 +550,10 @@ class JsonArray(ExtensionArray): ...
 class UuidArray(ExtensionArray): ...
 
 class FixedShapeTensorArray(ExtensionArray):
-    def to_numpy_ndarray(self) -> np.ndarray: ...
+    def to_numpy_ndarray(self) -> NDArray[Any]: ...
     @staticmethod
     def from_numpy_ndarray(
-        obj: np.ndarray, dim_names: list[str] | tuple[str, ...] | None = None
+        obj: NDArray[Any], dim_names: list[str] | tuple[str, ...] | None = None
     ) -> FixedShapeTensorArray: ...
 
 class OpaqueArray(ExtensionArray): ...
@@ -561,11 +561,11 @@ class OpaqueArray(ExtensionArray): ...
 class Bool8Array(ExtensionArray):
     def to_numpy(
         self, zero_copy_only: bool = ..., writable: bool = ...
-    ) -> np.ndarray: ...
+    ) -> NDArray[Any]: ...
     @staticmethod
     def from_storage(storage: Array) -> Bool8Array: ...  # type: ignore[override]
     @staticmethod
-    def from_numpy(obj: np.ndarray) -> Bool8Array: ...
+    def from_numpy(obj: NDArray[Any]) -> Bool8Array: ...
 
 def concat_arrays(
     arrays: Iterable[Array], memory_pool: MemoryPool | None = None

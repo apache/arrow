@@ -16,9 +16,9 @@
 # under the License.
 
 from collections.abc import Iterable, Sequence
-from typing import ClassVar
+from typing import Any, ClassVar
 
-import numpy as np
+from numpy.typing import NDArray
 from pyarrow.lib import DataType, _Weakrefable
 from scipy.sparse import (
     coo_array,
@@ -34,9 +34,9 @@ from typing_extensions import CapsuleType
 class Tensor(_Weakrefable):
     @staticmethod
     def from_numpy(
-        obj: np.ndarray, dim_names: Iterable[str] | None = None
+        obj: NDArray[Any], dim_names: Iterable[str] | None = None
     ) -> Tensor: ...
-    def to_numpy(self) -> np.ndarray: ...
+    def to_numpy(self) -> NDArray[Any]: ...
     def equals(self, other: Tensor) -> bool: ...
     def dim_name(self, i: int) -> str: ...
     @property
@@ -77,12 +77,12 @@ class Tensor(_Weakrefable):
 class SparseCOOTensor(_Weakrefable):
     @classmethod
     def from_dense_numpy(
-        cls, obj: np.ndarray, dim_names: Iterable[str] | None = None
+        cls, obj: NDArray[Any], dim_names: Iterable[str] | None = None
     ) -> SparseCOOTensor: ...
     @staticmethod
     def from_numpy(
-        data: np.ndarray,
-        coords: np.ndarray,
+        data: NDArray[Any],
+        coords: NDArray[Any],
         shape: Iterable[int],
         dim_names: Iterable[str] | None = None,
     ) -> SparseCOOTensor: ...
@@ -96,7 +96,7 @@ class SparseCOOTensor(_Weakrefable):
     ) -> SparseCOOTensor: ...
     @staticmethod
     def from_tensor(obj: Tensor) -> SparseCOOTensor: ...
-    def to_numpy(self) -> tuple[np.ndarray, np.ndarray]: ...
+    def to_numpy(self) -> tuple[NDArray[Any], NDArray[Any]]: ...
     def to_scipy(self) -> coo_array: ...
     def to_pydata_sparse(self) -> COO: ...
     def to_tensor(self) -> Tensor: ...
@@ -123,13 +123,13 @@ class SparseCOOTensor(_Weakrefable):
 class SparseCSRMatrix(_Weakrefable):
     @classmethod
     def from_dense_numpy(
-        cls, obj: np.ndarray, dim_names: Iterable[str] | None = None
+        cls, obj: NDArray[Any], dim_names: Iterable[str] | None = None
     ) -> SparseCSRMatrix: ...
     @staticmethod
     def from_numpy(
-        data: np.ndarray,
-        indptr: np.ndarray,
-        indices: np.ndarray,
+        data: NDArray[Any],
+        indptr: NDArray[Any],
+        indices: NDArray[Any],
         shape: Iterable[int],
         dim_names: Iterable[str] | None = None,
     ) -> SparseCSRMatrix: ...
@@ -139,7 +139,7 @@ class SparseCSRMatrix(_Weakrefable):
     ) -> SparseCSRMatrix: ...
     @staticmethod
     def from_tensor(obj: Tensor) -> SparseCSRMatrix: ...
-    def to_numpy(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
+    def to_numpy(self) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]: ...
     def to_scipy(self) -> csr_array: ...
     def to_tensor(self) -> Tensor: ...
     def equals(self, other: SparseCSRMatrix) -> bool: ...
@@ -163,13 +163,13 @@ class SparseCSRMatrix(_Weakrefable):
 class SparseCSCMatrix(_Weakrefable):
     @classmethod
     def from_dense_numpy(
-        cls, obj: np.ndarray, dim_names: Iterable[str] | None = None
+        cls, obj: NDArray[Any], dim_names: Iterable[str] | None = None
     ) -> SparseCSCMatrix: ...
     @staticmethod
     def from_numpy(
-        data: np.ndarray,
-        indptr: np.ndarray,
-        indices: np.ndarray,
+        data: NDArray[Any],
+        indptr: NDArray[Any],
+        indices: NDArray[Any],
         shape: Iterable[int],
         dim_names: Iterable[str] | None = None,
     ) -> SparseCSCMatrix: ...
@@ -179,7 +179,7 @@ class SparseCSCMatrix(_Weakrefable):
     ) -> SparseCSCMatrix: ...
     @staticmethod
     def from_tensor(obj: Tensor) -> SparseCSCMatrix: ...
-    def to_numpy(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]: ...
+    def to_numpy(self) -> tuple[NDArray[Any], NDArray[Any], NDArray[Any]]: ...
     def to_scipy(self) -> csc_array: ...
     def to_tensor(self) -> Tensor: ...
     def equals(self, other: SparseCSCMatrix) -> bool: ...
@@ -203,20 +203,22 @@ class SparseCSCMatrix(_Weakrefable):
 class SparseCSFTensor(_Weakrefable):
     @classmethod
     def from_dense_numpy(
-        cls, obj: np.ndarray, dim_names: Iterable[str] | None = None
+        cls, obj: NDArray[Any], dim_names: Iterable[str] | None = None
     ) -> SparseCSFTensor: ...
     @staticmethod
     def from_numpy(
-        data: np.ndarray,
-        indptr: list[np.ndarray] | tuple[np.ndarray, ...],
-        indices: list[np.ndarray] | tuple[np.ndarray, ...],
+        data: NDArray[Any],
+        indptr: list[NDArray[Any]] | tuple[NDArray[Any], ...],
+        indices: list[NDArray[Any]] | tuple[NDArray[Any], ...],
         shape: Sequence[int],
         axis_order: Iterable[int] | None = None,
         dim_names: Iterable[str] | None = None,
     ) -> SparseCSFTensor: ...
     @staticmethod
     def from_tensor(obj: Tensor) -> SparseCSFTensor: ...
-    def to_numpy(self) -> tuple[np.ndarray, list[np.ndarray], list[np.ndarray]]: ...
+    def to_numpy(
+        self,
+    ) -> tuple[NDArray[Any], list[NDArray[Any]], list[NDArray[Any]]]: ...
     def to_tensor(self) -> Tensor: ...
     def equals(self, other: SparseCSFTensor) -> bool: ...
     @property
