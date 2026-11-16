@@ -485,6 +485,67 @@ class ARROW_DS_EXPORT UnionDataset : public Dataset {
   friend class UnionDatasetFactory;
 };
 
+/// \brief A Fragment which wraps another Fragment and applies a filter.
+class ARROW_DS_EXPORT FilteredFragment : public Fragment {
+ public:
+  FilteredFragment(std::shared_ptr<Fragment> fragment, compute::Expression filter);
+
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override;
+
+  Future<std::optional<int64_t>> CountRows(
+      compute::Expression predicate,
+      const std::shared_ptr<ScanOptions>& options) override;
+
+  Status ClearCachedMetadata() override;
+
+  std::string type_name() const override { return "filtered"; }
+
+  std::string ToString() const override;
+
+  const std::shared_ptr<Fragment>& fragment() const { return fragment_; }
+
+  const compute::Expression& filter() const { return filter_; }
+
+ protected:
+  Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override;
+
+  std::shared_ptr<Fragment> fragment_;
+  compute::Expression filter_;
+};
+
+/// \brief A Dataset which wraps another Dataset and applies a filter.
+///
+/// Unlike a filter in ScanOptions, the filter is part of the Dataset itself, so it
+/// is preserved when the Dataset is combined with others, e.g. as a child of a
+/// UnionDataset whose other children have different filters.
+class ARROW_DS_EXPORT FilteredDataset : public Dataset {
+ public:
+  /// \brief Construct a FilteredDataset.
+  ///
+  /// \param[in] child the Dataset to filter.
+  /// \param[in] filter a boolean expression used to filter rows of the child Dataset.
+  static Result<std::shared_ptr<FilteredDataset>> Make(std::shared_ptr<Dataset> child,
+                                                       compute::Expression filter);
+
+  const std::shared_ptr<Dataset>& child() const { return child_; }
+
+  const compute::Expression& filter() const { return filter_; }
+
+  std::string type_name() const override { return "filtered"; }
+
+  Result<std::shared_ptr<Dataset>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const override;
+
+ protected:
+  Result<FragmentIterator> GetFragmentsImpl(compute::Expression predicate) override;
+
+  FilteredDataset(std::shared_ptr<Dataset> child, compute::Expression filter);
+
+  std::shared_ptr<Dataset> child_;
+  compute::Expression filter_;
+};
+
 /// @}
 
 }  // namespace dataset

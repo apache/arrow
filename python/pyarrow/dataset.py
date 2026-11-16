@@ -48,6 +48,7 @@ try:
         Scanner,
         TaggedRecordBatch,
         UnionDataset,
+        FilteredDataset,
         UnionDatasetFactory,
         WrittenFile,
         get_partition_keys,
@@ -500,16 +501,9 @@ def _union_dataset(children, schema=None, **kwargs):
         # unify the children datasets' schemas
         schema = pa.unify_schemas([child.schema for child in children])
 
-    for child in children:
-        if getattr(child, "_scan_options", None):
-            raise ValueError(
-                "Creating an UnionDataset from filtered or projected Datasets "
-                "is currently not supported. Union the unfiltered datasets "
-                "and apply the filter to the resulting union."
-            )
-
-    # create datasets with the requested schema
-    children = [child.replace_schema(schema) for child in children]
+    # create datasets with the requested schema, keeping each child's own filter
+    children = [child._with_filter_attached().replace_schema(schema)
+                for child in children]
 
     return UnionDataset(schema, children)
 

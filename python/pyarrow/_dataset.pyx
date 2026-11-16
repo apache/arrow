@@ -182,6 +182,7 @@ cdef class Dataset(_Weakrefable):
 
         classes = {
             'union': UnionDataset,
+            'filtered': FilteredDataset,
             'filesystem': FileSystemDataset,
             'in-memory': InMemoryDataset,
         }
@@ -844,6 +845,17 @@ cdef class Dataset(_Weakrefable):
         filtered_dataset._scan_options = dict(filter=new_filter)
         return filtered_dataset
 
+    def _with_filter_attached(self):
+        """
+        Return a Dataset which carries this Dataset's filter, if any, in its
+        C++ representation, so that it survives being combined with other
+        Datasets (e.g. in a UnionDataset).
+        """
+        current_filter = self._scan_options.get("filter")
+        if current_filter is None:
+            return self
+        return FilteredDataset(Dataset.wrap(self.wrapped), current_filter)
+
     def sort_by(self, sorting, **kwargs):
         """
         Sort the Dataset by one or multiple columns.
@@ -1095,6 +1107,51 @@ cdef class UnionDataset(Dataset):
     def children(self):
         cdef CDatasetVector children = self.union_dataset.children()
         return [Dataset.wrap(children[i]) for i in range(children.size())]
+
+
+cdef class FilteredDataset(Dataset):
+    """
+    A Dataset viewing only the rows of a child dataset that match a filter.
+
+    Unlike :meth:`Dataset.filter`, the filter is part of the dataset itself, so
+    it is preserved when this dataset is unioned with datasets that have
+    different filters. Rows for which the filter evaluates to null are dropped.
+
+    Parameters
+    ----------
+    child : Dataset
+        The dataset to filter. Any filter already applied to it with
+        :meth:`Dataset.filter` is combined with ``filter``.
+    filter : Expression
+        A boolean expression referencing fields of the child's schema.
+    """
+
+    cdef:
+        CFilteredDataset* filtered_dataset
+
+    def __init__(self, Dataset child not None, Expression filter not None):
+        current_filter = child._scan_options.get("filter")
+        if current_filter is not None:
+            filter = current_filter & filter
+        self.init(<shared_ptr[CDataset]> GetResultValue(
+            CFilteredDataset.Make(child.wrapped, (<Expression> filter).unwrap())))
+
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        Dataset.init(self, sp)
+        self.filtered_dataset = <CFilteredDataset*> sp.get()
+
+    def __reduce__(self):
+        return FilteredDataset, (self.child, self.filter)
+
+    @property
+    def child(self):
+        """The unfiltered child Dataset."""
+        return Dataset.wrap(self.filtered_dataset.child())
+
+    @property
+    def filter(self):
+        """The filter applied to the child Dataset."""
+        return Expression.wrap(self.filtered_dataset.filter())
 
 
 cdef class FileSystemDataset(Dataset):
