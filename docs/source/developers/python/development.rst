@@ -212,6 +212,8 @@ Checking the PyArrow tests also needs their dependencies from
 
          $ ty check
 
+      The ty configuration is in the ``[tool.ty.*]`` sections of ``pyproject.toml``.
+
    .. tab-item:: stubtest
 
       mypy's stubtest compares the stubs with the signatures of the installed
