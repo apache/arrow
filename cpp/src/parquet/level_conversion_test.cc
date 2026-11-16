@@ -124,8 +124,7 @@ TEST(CountLevels, CountsMatchingLevels) {
   EXPECT_EQ(CountLevelsGreaterEqual(levels.data(), /*num_levels=*/6, 1), 5);
   EXPECT_EQ(CountLevelsGreaterEqual(levels.data(), /*num_levels=*/6, 3), 3);
   EXPECT_EQ(CountLevelsIf(levels.data(), /*num_levels=*/6, is_odd), 4);
-  EXPECT_EQ(CountLevelsIf(levels.data(), /*num_levels=*/6,
-                          [](int16_t) { return false; }),
+  EXPECT_EQ(CountLevelsIf(levels.data(), /*num_levels=*/6, [](int16_t) { return false; }),
             0);
 
   // Cross-check various prefix lengths across vector and scalar tail boundaries.

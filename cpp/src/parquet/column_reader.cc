@@ -1963,9 +1963,8 @@ int64_t TypedRecordReader<DT, VS>::SkipRecordsInBufferNonRepeated(int64_t num_re
   // we do not have a buffer, so we need to read them and throw them away.
   // First we need to figure out how many present/not-null values there are.
   const auto values_to_read = static_cast<int32_t>(
-      internal::CountLevels(def_levels() + levels_position_,
-                            remaining_levels_pos - levels_position_,
-                            this->max_def_level()));
+      CountLevels(def_levels() + levels_position_,
+                  remaining_levels_pos - levels_position_, this->max_def_level()));
 
   // Now that we have figured out number of values to read, we do not need
   // these levels anymore. We will remove these values from the buffer.
@@ -2144,8 +2143,8 @@ int64_t TypedRecordReader<DT, VS>::DelimitRecords(int64_t num_records,
     }
   }
   // Scan definition levels to find number of physical values
-  *values_seen = CountLevels(def_levels + level, levels_position_ - level,
-                             this->max_def_level());
+  *values_seen =
+      CountLevels(def_levels + level, levels_position_ - level, this->max_def_level());
   return records_read;
 }
 
@@ -2234,9 +2233,9 @@ void TypedRecordReader<DT, VS>::ReadDenseForOptionalInBuffer(
 
   // When reading dense we need to figure out number of values to read.
   const int16_t* def_levels = this->def_levels();
-  *values_to_read += CountLevels(def_levels + start_levels_position,
-                                 levels_position_ - start_levels_position,
-                                 this->max_def_level());
+  *values_to_read +=
+      CountLevels(def_levels + start_levels_position,
+                  levels_position_ - start_levels_position, this->max_def_level());
   // This is only reading in the current page so this fits in an int32.
   value_sink_.ReadValuesDense(*this->current_decoder_.get(),
                               clamp_to<int32_t>(*values_to_read));

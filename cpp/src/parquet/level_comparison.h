@@ -37,22 +37,21 @@ struct MinMax {
 
 MinMax PARQUET_EXPORT FindMinMax(const int16_t* levels, int64_t num_levels);
 
-// Out-of-line fallback for inputs larger than uint16_t::max() so the common
-// single-chunk path stays a plain vectorizable loop.
+// Fallback for num_levels > uint16_t::max(), counting in chunks to avoid overflow.
 template <typename Predicate>
 ARROW_NOINLINE int64_t CountLevelsIfChunked(const int16_t* levels, int64_t num_levels,
                                             Predicate&& pred) {
-  constexpr int64_t kMaxCount = std::numeric_limits<uint16_t>::max();
+  constexpr int64_t kMaxChunkSize = std::numeric_limits<uint16_t>::max();
   int64_t total = 0;
   while (num_levels > 0) {
-    const int64_t chunk_length = std::min(num_levels, kMaxCount);
+    const int64_t chunk_size = std::min(num_levels, kMaxChunkSize);
     uint16_t chunk_count = 0;
-    for (int64_t i = 0; i < chunk_length; ++i) {
+    for (int64_t i = 0; i < chunk_size; ++i) {
       chunk_count += pred(levels[i]) ? 1 : 0;
     }
     total += chunk_count;
-    levels += chunk_length;
-    num_levels -= chunk_length;
+    levels += chunk_size;
+    num_levels -= chunk_size;
   }
   return total;
 }
@@ -65,8 +64,8 @@ ARROW_NOINLINE int64_t CountLevelsIfChunked(const int16_t* levels, int64_t num_l
 template <typename Predicate>
 inline int64_t CountLevelsIf(const int16_t* levels, int64_t num_levels,
                              Predicate&& pred) {
-  constexpr int64_t kMaxCount = std::numeric_limits<uint16_t>::max();
-  if (num_levels > kMaxCount) {
+  constexpr int64_t kMaxChunkSize = std::numeric_limits<uint16_t>::max();
+  if (num_levels > kMaxChunkSize) {
     return CountLevelsIfChunked(levels, num_levels, std::forward<Predicate>(pred));
   }
   uint16_t count = 0;
