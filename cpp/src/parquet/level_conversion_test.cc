@@ -114,25 +114,22 @@ TEST(GreaterThanBitmap, GeneratesExpectedBitmasks) {
 }
 #endif
 
-TEST(CountIf16, CountsMatchingLevels) {
+TEST(CountLevels, CountsMatchingLevels) {
   const std::vector<int16_t> levels = {3, 1, 3, 0, 3, 2};
+  auto is_odd = [](int16_t level) { return level % 2 != 0; };
 
-  EXPECT_EQ(CountIf16(levels.data(), /*num_levels=*/0,
-                      [](int16_t level) { return level == 3; }),
+  EXPECT_EQ(CountLevels(levels.data(), /*num_levels=*/0, 3), 0);
+  EXPECT_EQ(CountLevels(levels.data(), /*num_levels=*/6, 3), 3);
+  EXPECT_EQ(CountLevels(levels.data(), /*num_levels=*/6, 0), 1);
+  EXPECT_EQ(CountLevelsGreaterEqual(levels.data(), /*num_levels=*/6, 1), 5);
+  EXPECT_EQ(CountLevelsGreaterEqual(levels.data(), /*num_levels=*/6, 3), 3);
+  EXPECT_EQ(CountLevelsIf(levels.data(), /*num_levels=*/6, is_odd), 4);
+  EXPECT_EQ(CountLevelsIf(levels.data(), /*num_levels=*/6,
+                          [](int16_t) { return false; }),
             0);
-  EXPECT_EQ(CountIf16(levels.data(), /*num_levels=*/6,
-                      [](int16_t level) { return level == 3; }),
-            3);
-  EXPECT_EQ(CountIf16(levels.data(), /*num_levels=*/6,
-                      [](int16_t level) { return level == 0; }),
-            1);
-  EXPECT_EQ(
-      CountIf16(levels.data(), /*num_levels=*/6, [](int16_t level) { return level > 0; }),
-      5);
-  EXPECT_EQ(CountIf16(levels.data(), /*num_levels=*/6, [](int16_t) { return false; }), 0);
-  // Cover the single chunk fast path, a partial vector iteration and a plain
-  // scalar loop by cross checking every prefix length of a longer input.
-  std::vector<int16_t> longer_levels(/*count=*/40, 0);
+
+  // Cross-check various prefix lengths across vector and scalar tail boundaries.
+  std::vector<int16_t> longer_levels(/*count=*/100, 0);
   for (size_t i = 0; i < longer_levels.size(); i += 3) {
     longer_levels[i] = 3;
   }
@@ -141,23 +138,23 @@ TEST(CountIf16, CountsMatchingLevels) {
     for (int64_t i = 0; i < n; ++i) {
       expected += longer_levels[i] == 3 ? 1 : 0;
     }
-    EXPECT_EQ(
-        CountIf16(longer_levels.data(), n, [](int16_t level) { return level == 3; }),
-        expected)
+    EXPECT_EQ(CountLevels(longer_levels.data(), n, 3), expected) << "num_levels: " << n;
+    EXPECT_EQ(CountLevelsGreaterEqual(longer_levels.data(), n, 3), expected)
         << "num_levels: " << n;
   }
 }
 
-TEST(CountIf16, HandlesChunkBoundaries) {
-  // A chunk must not overflow its 16-bit accumulator, and chunk boundaries must
-  // neither lose nor double count levels.
+TEST(CountLevels, HandlesChunkBoundaries) {
+  // Verify 16-bit accumulator does not overflow and chunk boundaries are exact.
   constexpr int64_t kChunkSize = std::numeric_limits<uint16_t>::max();
   std::vector<int16_t> levels(/*count=*/5 * kChunkSize, 1);
+  auto is_one = [](int16_t level) { return level == 1; };
   const std::vector<int64_t> num_levels = {kChunkSize - 1, kChunkSize, kChunkSize + 1,
                                            3 * kChunkSize, 5 * kChunkSize};
   for (const int64_t n : num_levels) {
-    EXPECT_EQ(CountIf16(levels.data(), n, [](int16_t level) { return level == 1; }), n)
-        << "num_levels: " << n;
+    EXPECT_EQ(CountLevels(levels.data(), n, 1), n) << "num_levels: " << n;
+    EXPECT_EQ(CountLevelsGreaterEqual(levels.data(), n, 1), n) << "num_levels: " << n;
+    EXPECT_EQ(CountLevelsIf(levels.data(), n, is_one), n) << "num_levels: " << n;
   }
 }
 

@@ -1699,10 +1699,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     int64_t values_to_write = 0;
     // If the field is required and non-repeated, there are no definition levels
     if (descr_->max_definition_level() > 0) {
-      const int16_t max_def_level = descr_->max_definition_level();
-      values_to_write = internal::CountIf16(
-          def_levels, num_levels,
-          [max_def_level](int16_t def_level) { return def_level == max_def_level; });
+      values_to_write =
+          internal::CountLevels(def_levels, num_levels, descr_->max_definition_level());
 
       WriteDefinitionLevels(num_levels, def_levels);
     } else {
@@ -1714,8 +1712,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (descr_->max_repetition_level() > 0) {
       // A row could include more than one value
       // Count the occasions where we start a new row
-      const int64_t records_written = internal::CountIf16(
-          rep_levels, num_levels, [](int16_t rep_level) { return rep_level == 0; });
+      const int64_t records_written = internal::CountLevels(rep_levels, num_levels, 0);
       rows_written_ += records_written;
       num_buffered_rows_ += records_written;
 
@@ -1747,16 +1744,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         *out_spaced_values_to_write = batch_size;
         *null_count = 0;
       } else {
-        const int16_t def_level = level_info_.def_level;
-        const int16_t repeated_ancestor_def_level =
-            level_info_.repeated_ancestor_def_level;
-        *out_values_to_write += internal::CountIf16(
-            def_levels, batch_size,
-            [def_level](int16_t level) { return level == def_level; });
-        *out_spaced_values_to_write += internal::CountIf16(
-            def_levels, batch_size, [repeated_ancestor_def_level](int16_t level) {
-              return level >= repeated_ancestor_def_level;
-            });
+        *out_values_to_write +=
+            internal::CountLevels(def_levels, batch_size, level_info_.def_level);
+        *out_spaced_values_to_write += internal::CountLevelsGreaterEqual(
+            def_levels, batch_size, level_info_.repeated_ancestor_def_level);
         *null_count = batch_size - *out_values_to_write;
       }
       return;
@@ -1812,8 +1803,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (descr_->max_repetition_level() > 0) {
       // A row could include more than one value
       // Count the occasions where we start a new row
-      const int64_t records_written = internal::CountIf16(
-          rep_levels, num_levels, [](int16_t rep_level) { return rep_level == 0; });
+      const int64_t records_written = internal::CountLevels(rep_levels, num_levels, 0);
       rows_written_ += records_written;
       num_buffered_rows_ += records_written;
       WriteRepetitionLevels(num_levels, rep_levels);
