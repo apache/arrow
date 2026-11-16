@@ -79,11 +79,8 @@ class Unimplemented : public ::grpc::ServerGenericBidiReactor {
 
 AsyncGenericFlightService::AsyncGenericFlightService(
     AsyncGenericFlightServerBase* async_base,
-    std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>> helper,
-    HandshakeFn handshake_handler)
-    : base_(async_base),
-      helper_(std::move(helper)),
-      handshake_handler_(std::move(handshake_handler)) {}
+    std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>> helper)
+    : base_(async_base), helper_(std::move(helper)) {}
 
 ::grpc::ServerGenericBidiReactor* AsyncGenericFlightService::CreateReactor(
     ::grpc::GenericCallbackServerContext* context) {
@@ -102,32 +99,19 @@ AsyncGenericFlightService::AsyncGenericFlightService(
 
   switch (flight_method) {
     case FlightMethod::Handshake:
-      if (!handshake_handler_) {
-        return new Unimplemented(
-            flight_context,
-            ::grpc::Status(
-                ::grpc::StatusCode::UNIMPLEMENTED,
-                "This service does not have an authentication mechanism enabled."));
-      }
-      return detail::MakeHandshakeReactor(std::move(flight_context), handshake_handler_);
+      return detail::MakeHandshakeReactor(std::move(flight_context), base_);
     case FlightMethod::GetFlightInfo:
       return new detail::UnaryReactor<FlightInfo, pb::FlightInfo>(
-          std::move(flight_context), [base = base_](const ServerCallContext& context,
-                                                    const FlightDescriptor& descriptor) {
-            return base->GetFlightInfoAsync(context, descriptor);
-          });
+          std::move(flight_context), base_,
+          &AsyncGenericFlightServerBase::GetFlightInfoAsync);
     case FlightMethod::GetSchema:
       return new detail::UnaryReactor<SchemaResult, pb::SchemaResult>(
-          std::move(flight_context), [base = base_](const ServerCallContext& context,
-                                                    const FlightDescriptor& descriptor) {
-            return base->GetSchemaAsync(context, descriptor);
-          });
+          std::move(flight_context), base_,
+          &AsyncGenericFlightServerBase::GetSchemaAsync);
     case FlightMethod::PollFlightInfo:
       return new detail::UnaryReactor<PollInfo, pb::PollInfo>(
-          std::move(flight_context), [base = base_](const ServerCallContext& context,
-                                                    const FlightDescriptor& descriptor) {
-            return base->PollFlightInfoAsync(context, descriptor);
-          });
+          std::move(flight_context), base_,
+          &AsyncGenericFlightServerBase::PollFlightInfoAsync);
     case FlightMethod::ListActions:
       return detail::MakeListActionsReactor(std::move(flight_context), base_);
     case FlightMethod::DoAction:

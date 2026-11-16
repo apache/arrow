@@ -41,26 +41,7 @@ class FlightDataMessageReader : public ipc::MessageReader {
   /// \param message The message to queue.
   /// \param app_metadata The application metadata associated with the message.
   void Push(std::unique_ptr<ipc::Message> message, std::shared_ptr<Buffer> app_metadata) {
-    queue_.emplace_back(std::move(message), std::move(app_metadata));
-  }
-
-  /// \brief Check if there is a record batch message queued.
-  /// \return True if a record batch message is queued, false otherwise.
-  bool HasRecordBatch() const {
-    return std::ranges::any_of(queue_, [](const QueuedMessage& queued) {
-      return queued.message->type() == ipc::MessageType::RECORD_BATCH;
-    });
-  }
-
-  /// \brief Take the app metadata of the last queued message, leaving that message
-  /// with none: its app metadata has been delivered already.
-  /// \return The app metadata of the last queued message, or nullptr if no messages are
-  /// queued.
-  std::shared_ptr<Buffer> TakeLastAppMetadata() {
-    if (queue_.empty()) {
-      return nullptr;
-    }
-    return std::move(queue_.back().app_metadata);
+    queue_.push_back({std::move(message), std::move(app_metadata)});
   }
 
   /// Take the next queued message, if any, and return it. The app metadata of
@@ -85,10 +66,6 @@ class FlightDataMessageReader : public ipc::MessageReader {
  private:
   /// \brief Queue of messages that have been pushed but not yet read.
   struct QueuedMessage {
-    QueuedMessage() = default;
-    QueuedMessage(std::unique_ptr<ipc::Message> message,
-                  std::shared_ptr<Buffer> app_metadata)
-        : message(std::move(message)), app_metadata(std::move(app_metadata)) {}
     std::unique_ptr<ipc::Message> message;
     std::shared_ptr<Buffer> app_metadata;
   };
@@ -126,28 +103,49 @@ class AsyncFlightMessageDecoder::AsyncFlightMessageDecoderImpl {
         options_(std::move(options)),
         message_reader_(std::make_unique<FlightDataMessageReader>()) {}
 
+  /// Stop delivering to the listener: the upload it decodes for has ended.
+  void Stop() { stopped_ = true; }
+
   /// \brief Consume a chunk of Flight data.
   /// \param data The Flight data to consume.
   /// \return A future carrying the listener's status for this message: a
   /// non-OK result rejects the upload.
-  /// The descriptor of an upload is eported before the rest of its first message is
-  /// decoded.
+  /// The descriptor of an upload is reported before the rest of its first message
+  /// is decoded.
   Future<> ConsumeData(internal::FlightData data) {
-    if (!data.descriptor) {
-      return ConsumeDataAfterDescriptor(std::move(data));
-    } else {
+    if (stopped_) {
+      // The upload ended while this message was in flight: it is dropped rather
+      // than delivered, so no listener callback runs after OnFinish().
+      return Status::OK();
+    }
+    if (data.descriptor && !descriptor_reported_) {
+      descriptor_reported_ = true;
       return listener_->OnDescriptor(*data.descriptor)
           .Then([this, data = std::move(data)]() mutable {
+            if (stopped_) {
+              return arrow::Future<>{Status::OK()};
+            }
             return ConsumeDataAfterDescriptor(std::move(data));
           });
     }
-  }
-
-  std::shared_ptr<Schema> schema() const {
-    return batch_reader_ ? batch_reader_->schema() : nullptr;
+    return ConsumeDataAfterDescriptor(std::move(data));
   }
 
  private:
+  /// \brief Hand a message's app metadata to the listener as a metadata-only
+  /// chunk, unless it is empty.
+  Future<> DeliverMetadata(std::shared_ptr<Buffer> app_metadata) {
+    if (stopped_) {
+      return Status::OK();
+    }
+    if (app_metadata == nullptr || app_metadata->size() == 0) {
+      return Status::OK();
+    }
+    FlightStreamChunk chunk;
+    chunk.app_metadata = std::move(app_metadata);
+    return listener_->OnNext(std::move(chunk));
+  }
+
   /// \brief Decode a FlightData message whose descriptor (if any) was already
   /// reported to the listener.
   /// \param data The Flight data to consume after the descriptor has been reported.
@@ -159,12 +157,7 @@ class AsyncFlightMessageDecoder::AsyncFlightMessageDecoderImpl {
   Future<> ConsumeDataAfterDescriptor(internal::FlightData data) {
     if (!data.metadata) {
       // Metadata-only message: no IPC content, just Flight app_metadata.
-      if (data.app_metadata && data.app_metadata->size() > 0) {
-        FlightStreamChunk chunk;
-        chunk.app_metadata = std::move(data.app_metadata);
-        return listener_->OnNext(std::move(chunk));
-      }
-      return Status::OK();
+      return DeliverMetadata(std::move(data.app_metadata));
     }
 
     ARROW_ASSIGN_OR_RAISE(auto message, data.OpenMessage());
@@ -183,37 +176,27 @@ class AsyncFlightMessageDecoder::AsyncFlightMessageDecoderImpl {
 
     message_reader_->Push(std::move(message), std::move(data.app_metadata));
 
-    if (!message_reader_->HasRecordBatch()) {
-      auto app_metadata = message_reader_->TakeLastAppMetadata();
-      if (app_metadata && app_metadata->size() > 0) {
-        FlightStreamChunk chunk;
-        chunk.app_metadata = std::move(app_metadata);
-        return listener_->OnNext(std::move(chunk));
-      }
-      return arrow::Future<>::MakeFinished(Status::OK());
-    }
-
     std::shared_ptr<RecordBatch> batch;
     RETURN_NOT_OK(batch_reader_->ReadNext(&batch));
-    auto app_metadata = message_reader_->ReadAppMetadata();
-
-    if (batch) {
-      FlightStreamChunk chunk{std::move(batch), std::move(app_metadata)};
-      return listener_->OnNext(std::move(chunk));
+    if (!batch) {
+      return DeliverMetadata(message_reader_->ReadAppMetadata());
     }
-
-    // This has to be a Dictionary batch.
-    if (app_metadata && app_metadata->size() > 0) {
-      FlightStreamChunk chunk{nullptr, std::move(app_metadata)};
-      return listener_->OnNext(std::move(chunk));
-    }
-    return arrow::Future<>::MakeFinished(Status::OK());
+    FlightStreamChunk chunk;
+    chunk.data = std::move(batch);
+    chunk.app_metadata = message_reader_->ReadAppMetadata();
+    return listener_->OnNext(std::move(chunk));
   }
+
+  /// Whether the upload ended: no further message reaches the listener.
+  std::atomic<bool> stopped_{false};
 
   std::shared_ptr<AsyncFlightDataListener> listener_;
   ipc::IpcReadOptions options_;
   std::unique_ptr<FlightDataMessageReader> message_reader_;
   std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
+  /// Whether OnDescriptor() was already reported: only the first message of an
+  /// upload carries one, later ones are ignored like the sync transport does.
+  bool descriptor_reported_ = false;
 };
 
 AsyncFlightMessageDecoder::AsyncFlightMessageDecoder(
@@ -223,18 +206,11 @@ AsyncFlightMessageDecoder::AsyncFlightMessageDecoder(
 
 AsyncFlightMessageDecoder::~AsyncFlightMessageDecoder() = default;
 
-Future<> AsyncFlightMessageDecoder::Consume(std::shared_ptr<Buffer> buffer) {
-  ARROW_ASSIGN_OR_RAISE(auto data, internal::DeserializeFlightData(buffer));
-  return impl_->ConsumeData(std::move(data));
-}
-
 Future<> AsyncFlightMessageDecoder::Consume(internal::FlightData data) {
   return impl_->ConsumeData(std::move(data));
 }
 
-std::shared_ptr<Schema> AsyncFlightMessageDecoder::schema() const {
-  return impl_->schema();
-}
+void AsyncFlightMessageDecoder::Stop() { impl_->Stop(); }
 
 // --- AsyncFlightDataListener: transport state and the terminal callbacks ---
 
@@ -250,9 +226,9 @@ Future<> AsyncFlightDataWriter::WriteMetadataAsync(const Buffer& app_metadata) {
   // private write_mutex_, so there is no lock-order cycle.
   std::lock_guard<std::mutex> lock(writer_mutex_);
   if (transport_ == nullptr) {
-    return Future<>::MakeFinished(Status::Invalid(
+    return Status::Invalid(
         "no upload in flight to write metadata to: the writer is only usable "
-        "while the upload's RPC is running"));
+        "while the upload's RPC is running");
   }
   return transport_->WriteMetadataAsync(app_metadata);
 }
@@ -276,34 +252,34 @@ void FlightDataListenerTransport::SetTransport(
 Future<> FlightDataListenerTransport::ReportFinish(
     const std::shared_ptr<AsyncFlightDataListener>& listener, Status status) {
   if (listener == nullptr) {
-    return Future<>::MakeFinished();
+    return Status::OK();
   }
   // Report exactly once: the first ending wins.
   bool expected = false;
   if (!listener->finished_.compare_exchange_strong(expected, true)) {
-    return Future<>::MakeFinished();
+    return Status::OK();
   }
   return listener->OnFinish(std::move(status));
 }
 
 }  // namespace internal
 
-Future<> AsyncFlightDataListener::Cancel(Status status) {
+Status AsyncFlightDataListener::Cancel(Status status) {
   internal::FlightDataListenerTransport* transport;
   {
     std::lock_guard<std::mutex> lock(transport_mutex_);
     transport = transport_;
     if (transport == nullptr) {
-      return arrow::Future<>::MakeFinished(Status::Invalid(
+      return Status::Invalid(
           "no upload in flight to cancel: Cancel() must be called while the "
-          "upload's RPC is running"));
+          "upload's RPC is running");
     }
     transport->Hold();
   }
   // Unlocked, so OnFinish() may re-enter Cancel() without deadlocking.
   transport->CancelUpload(std::move(status));
   transport->ReleaseHold();
-  return arrow::Future<>::MakeFinished(Status::OK());
+  return Status::OK();
 }
 
 }  // namespace arrow::flight

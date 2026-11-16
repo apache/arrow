@@ -114,7 +114,7 @@ class DoGetReactor : public AsyncReactorBase {
         return Status::OK();
       }
       closed_ = true;
-      stream = async_data_stream_;
+      stream = std::move(async_data_stream_);
     }
     if (stream == nullptr) {
       return Status::OK();
@@ -129,7 +129,7 @@ class DoGetReactor : public AsyncReactorBase {
       // stream before calling Close(): a demand never overlaps Close() and is
       // never made once Close() has started.
       std::lock_guard<std::mutex> lock(stream_mutex_);
-      if (closed_ || finished()) {
+      if (closed_ || finished() || async_data_stream_ == nullptr) {
         return;
       }
       if (!wrote_schema_) {

@@ -38,7 +38,6 @@
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/async_grpc_compat.h"
-#include "arrow/flight/transport/grpc/serialization_internal.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/reader.h"
@@ -744,43 +743,6 @@ TEST(GrpcTransport, FlightDataDeserialize) {
 #endif
 }
 
-TEST(GrpcTransport, BytesFromBufferConcatenatesSlices) {
-  // gRPC hands the caller whatever slice layout the message arrived in: the
-  // loop has to stitch the slices back together, embedded NULs included.
-  const std::string first("ab\0c", 4);
-  const std::string empty;
-  const std::string third("\xff\x01", 2);
-  std::vector<::grpc::Slice> slices = {::grpc::Slice(first), ::grpc::Slice(empty),
-                                       ::grpc::Slice(third)};
-  ::grpc::ByteBuffer buffer(slices.data(), slices.size());
-
-  ASSERT_OK_AND_ASSIGN(auto bytes,
-                       flight::transport::grpc::BytesFromBuffer(buffer, "unused"));
-  ASSERT_EQ(6, static_cast<int>(bytes.size()));
-  ASSERT_EQ(first + third, bytes);
-}
-
-TEST(GrpcTransport, BytesFromBufferEmptyBuffer) {
-  // A valid buffer holding no slices is an empty message, not an error.
-  ::grpc::ByteBuffer buffer(nullptr, 0);
-  ASSERT_OK_AND_ASSIGN(auto bytes,
-                       flight::transport::grpc::BytesFromBuffer(buffer, "unused"));
-  ASSERT_EQ("", bytes);
-}
-
-TEST(GrpcTransport, BytesFromBufferInvalidBufferIsAnInternalError) {
-  // A default-constructed buffer has no underlying grpc_byte_buffer: the failure
-  // must keep the caller's message and the transport's Internal detail.
-  ::grpc::ByteBuffer buffer;
-  auto result = flight::transport::grpc::BytesFromBuffer(buffer, "no bytes");
-  ASSERT_FALSE(result.ok()) << "a buffer with no underlying message cannot be dumped";
-  ASSERT_TRUE(result.status().IsIOError()) << result.status();
-  ASSERT_NE(std::string::npos, result.status().ToString().find("no bytes"));
-  auto detail = FlightStatusDetail::UnwrapStatus(result.status());
-  ASSERT_NE(nullptr, detail);
-  ASSERT_EQ(FlightStatusCode::Internal, detail->code());
-}
-
 // ----------------------------------------------------------------------
 // Transport-agnostic serialization roundtrip tests
 
@@ -854,12 +816,13 @@ TEST(FlightSerialization, RoundtripMetadataOnly) {
 
 namespace {
 
-// Serialize one FlightPayload into the single contiguous buffer a transport
-// hands to AsyncFlightMessageDecoder::Consume (exactly one FlightData message).
-::arrow::Result<std::shared_ptr<Buffer>> DecoderTestWireBuffer(
+// Serialize one FlightPayload into the single FlightData message a transport
+// hands to AsyncFlightMessageDecoder::Consume, deserialized as it would be.
+::arrow::Result<internal::FlightData> DecoderTestWireBuffer(
     const FlightPayload& payload) {
   ARROW_ASSIGN_OR_RAISE(auto buffers, internal::SerializePayloadToBuffers(payload));
-  return ConcatenateBuffers(buffers);
+  ARROW_ASSIGN_OR_RAISE(auto buffer, ConcatenateBuffers(buffers));
+  return internal::DeserializeFlightData(buffer);
 }
 
 // Captures the events AsyncFlightMessageDecoder fires, in order.
@@ -915,25 +878,22 @@ TEST(AsyncFlightMessageDecoder, SchemaAndBatches) {
 
   auto listener = std::make_shared<DecoderTestListener>();
   AsyncFlightMessageDecoder decoder(listener);
-  EXPECT_EQ(decoder.schema(), nullptr);
 
   // One wire message per payload: schema first, then one per record batch.
   ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
   ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(schema_wire).status());
+  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
 
   EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded"));
   ASSERT_EQ(listener->schemas.size(), 1);
   EXPECT_TRUE(listener->schemas[0]->Equals(*schema));
-  ASSERT_NE(decoder.schema(), nullptr);
-  EXPECT_TRUE(decoder.schema()->Equals(*schema));
 
   ASSERT_OK_AND_ASSIGN(auto payload1, stream.Next());
   ASSERT_OK_AND_ASSIGN(auto payload2, stream.Next());
   ASSERT_OK_AND_ASSIGN(auto wire1, DecoderTestWireBuffer(payload1));
   ASSERT_OK_AND_ASSIGN(auto wire2, DecoderTestWireBuffer(payload2));
-  ASSERT_OK(decoder.Consume(wire1).status());
-  ASSERT_OK(decoder.Consume(wire2).status());
+  ASSERT_OK(decoder.Consume(std::move(wire1)).status());
+  ASSERT_OK(decoder.Consume(std::move(wire2)).status());
 
   EXPECT_THAT(listener->events,
               ::testing::ElementsAre("OnSchemaDecoded", "OnNext", "OnNext"));
@@ -954,14 +914,13 @@ TEST(AsyncFlightMessageDecoder, MetadataOnlyChunkIsAValue) {
 
   auto listener = std::make_shared<DecoderTestListener>();
   AsyncFlightMessageDecoder decoder(listener);
-  ASSERT_OK(decoder.Consume(wire).status());
+  ASSERT_OK(decoder.Consume(std::move(wire)).status());
 
   EXPECT_THAT(listener->events, ::testing::ElementsAre("OnNext"));
   ASSERT_EQ(listener->chunks.size(), 1);
   EXPECT_EQ(listener->chunks[0].data, nullptr);
   ASSERT_NE(listener->chunks[0].app_metadata, nullptr);
   EXPECT_EQ(listener->chunks[0].app_metadata->ToString(), "only-app-metadata");
-  EXPECT_EQ(decoder.schema(), nullptr);
 }
 
 TEST(AsyncFlightMessageDecoder, AppMetadataOnBatch) {
@@ -975,12 +934,12 @@ TEST(AsyncFlightMessageDecoder, AppMetadataOnBatch) {
 
   ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
   ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(schema_wire).status());
+  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
 
   ASSERT_OK_AND_ASSIGN(auto payload, stream.Next());
   payload.app_metadata = Buffer::FromString("batch-app-metadata");
   ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-  ASSERT_OK(decoder.Consume(wire).status());
+  ASSERT_OK(decoder.Consume(std::move(wire)).status());
 
   EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
   ASSERT_EQ(listener->chunks.size(), 1);
@@ -1001,12 +960,12 @@ TEST(AsyncFlightMessageDecoder, SchemaOnlyStream) {
 
   ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
   ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(wire).status());
+  ASSERT_OK(decoder.Consume(std::move(wire)).status());
 
   EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded"));
   EXPECT_TRUE(listener->chunks.empty());
-  ASSERT_NE(decoder.schema(), nullptr);
-  EXPECT_TRUE(decoder.schema()->Equals(*schema));
+  ASSERT_EQ(listener->schemas.size(), 1);
+  EXPECT_TRUE(listener->schemas[0]->Equals(*schema));
 }
 
 TEST(AsyncFlightMessageDecoder, ListenerErrorIsPropagated) {
@@ -1021,12 +980,12 @@ TEST(AsyncFlightMessageDecoder, ListenerErrorIsPropagated) {
 
   ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
   ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(schema_wire).status());
+  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
 
   // A listener error on a record batch must reach the caller of Consume.
   ASSERT_OK_AND_ASSIGN(auto payload, stream.Next());
   ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-  auto status = decoder.Consume(wire).status();
+  auto status = decoder.Consume(std::move(wire)).status();
   EXPECT_FALSE(status.ok());
   EXPECT_EQ(status.code(), StatusCode::Invalid);
   EXPECT_THAT(status.ToString(), ::testing::HasSubstr("listener failed"));
@@ -1035,7 +994,7 @@ TEST(AsyncFlightMessageDecoder, ListenerErrorIsPropagated) {
   FlightPayload metadata_only;
   metadata_only.app_metadata = Buffer::FromString("meta");
   ASSERT_OK_AND_ASSIGN(auto meta_wire, DecoderTestWireBuffer(metadata_only));
-  auto meta_status = decoder.Consume(meta_wire).status();
+  auto meta_status = decoder.Consume(std::move(meta_wire)).status();
   EXPECT_FALSE(meta_status.ok());
   EXPECT_EQ(meta_status.code(), StatusCode::Invalid);
 }
@@ -1056,7 +1015,7 @@ TEST(AsyncFlightMessageDecoder, FailedOpenLeavesTheDecoderUsable) {
   // A record batch as the first message: not a schema, so Open() fails.
   ASSERT_OK_AND_ASSIGN(auto batch_payload, stream.Next());
   ASSERT_OK_AND_ASSIGN(auto batch_wire, DecoderTestWireBuffer(batch_payload));
-  auto failed = decoder.Consume(batch_wire).status();
+  auto failed = decoder.Consume(std::move(batch_wire)).status();
   EXPECT_FALSE(failed.ok()) << "a first message that is not a schema must be rejected";
   EXPECT_TRUE(listener->events.empty())
       << "nothing may be surfaced for a rejected stream";
@@ -1067,10 +1026,10 @@ TEST(AsyncFlightMessageDecoder, FailedOpenLeavesTheDecoderUsable) {
   RecordBatchStream good_stream(std::move(good_reader));
   ASSERT_OK_AND_ASSIGN(auto schema_payload, good_stream.GetSchemaPayload());
   ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(schema_wire).status());
+  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
   ASSERT_OK_AND_ASSIGN(auto good_batch, good_stream.Next());
   ASSERT_OK_AND_ASSIGN(auto good_wire, DecoderTestWireBuffer(good_batch));
-  ASSERT_OK(decoder.Consume(good_wire).status());
+  ASSERT_OK(decoder.Consume(std::move(good_wire)).status());
 
   EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
   ASSERT_EQ(listener->chunks.size(), 1);
@@ -1095,11 +1054,11 @@ TEST(AsyncFlightMessageDecoder, DictionaryStream) {
 
   ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
   ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(schema_wire).status());
+  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
 
   EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded"));
-  ASSERT_NE(decoder.schema(), nullptr);
-  EXPECT_TRUE(decoder.schema()->Equals(*schema));
+  ASSERT_EQ(listener->schemas.size(), 1);
+  EXPECT_TRUE(listener->schemas[0]->Equals(*schema));
 
   // The dictionary message is consumed without surfacing as a chunk of its own.
   int payloads = 0;
@@ -1109,7 +1068,7 @@ TEST(AsyncFlightMessageDecoder, DictionaryStream) {
       break;  // end of stream
     }
     ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-    ASSERT_OK(decoder.Consume(wire).status());
+    ASSERT_OK(decoder.Consume(std::move(wire)).status());
     ++payloads;
   }
   EXPECT_EQ(payloads, 2);  // dictionary message + record batch
@@ -1138,7 +1097,7 @@ TEST(AsyncFlightMessageDecoder, DescriptorReachesListener) {
   ASSERT_OK_AND_ASSIGN(auto payload, stream.GetSchemaPayload());
   ASSERT_OK(internal::ToPayload(descriptor, &payload.descriptor));
   ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-  ASSERT_OK(decoder.Consume(wire).status());
+  ASSERT_OK(decoder.Consume(std::move(wire)).status());
 
   EXPECT_THAT(listener->events,
               ::testing::ElementsAre("OnDescriptor", "OnSchemaDecoded"));
@@ -1161,7 +1120,7 @@ TEST(AsyncFlightMessageDecoder, DescriptorErrorRejectsUpload) {
   ASSERT_OK_AND_ASSIGN(auto payload, stream.GetSchemaPayload());
   ASSERT_OK(internal::ToPayload(descriptor, &payload.descriptor));
   ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-  auto status = decoder.Consume(wire).status();
+  auto status = decoder.Consume(std::move(wire)).status();
 
   EXPECT_FALSE(status.ok());
   EXPECT_EQ(status.code(), StatusCode::Invalid);
@@ -1169,7 +1128,6 @@ TEST(AsyncFlightMessageDecoder, DescriptorErrorRejectsUpload) {
 
   // The upload is rejected before the schema is decoded.
   EXPECT_THAT(listener->events, ::testing::ElementsAre("OnDescriptor"));
-  EXPECT_EQ(decoder.schema(), nullptr);
 }
 
 // ----------------------------------------------------------------------

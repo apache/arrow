@@ -23,9 +23,8 @@ ExchangeReactor::ExchangeReactor(AsyncCallContext flight_context,
                                  AsyncGenericFlightServerBase* base)
     : AsyncReactorBase(std::move(flight_context)),
       base_(base),
-      reader_(std::make_shared<ExchangeReader>()),
+      reader_(std::make_shared<ExchangeReader>(this)),
       writer_(std::make_shared<ExchangeWriter>(this)) {
-  reader_->SetReactor(this);
   // The first message carries the request descriptor.
   StartRead(&request_buf_);
 }
@@ -37,6 +36,11 @@ void ExchangeReactor::OnReadDone(bool ok) {
   if (!ok) {
     if (!started_) {
       FinishOnce(MakeFlightError(FlightStatusCode::Internal, "Failed to read request"));
+      return;
+    }
+    if (finished() || flight_context().is_cancelled()) {
+      reader_->OnReadFailed(
+          Status::Cancelled("the call was cancelled before the exchange ended"));
       return;
     }
     reader_->OnReadClosed();

@@ -169,11 +169,13 @@ TEST(AsyncGrpcTest, ListFlightsEmptyFinishesCleanly) {
   ASSERT_OK_AND_ASSIGN(auto listing, client->ListFlights({}, Criteria("")));
   ASSERT_OK_AND_ASSIGN(auto info, listing->Next());
   ASSERT_EQ(info, nullptr);
-  // The client sent no criteria, the server must still have received the
-  // (empty) Criteria, exactly as the sync handler does.
-  ASSERT_EQ("", flight_server.last_criteria().expression);
-
+  // The client sent no criteria, the server must still have received a
+  // non-null (empty) Criteria, exactly as the sync handler does. Asserted
+  // after the server stopped, so the handler has provably run.
   ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+  EXPECT_FALSE(flight_server.criteria_was_null())
+      << "the handler was handed a null Criteria";
+  EXPECT_EQ("", flight_server.last_criteria().expression);
 }
 
 TEST(AsyncGrpcTest, ListFlightsMidStreamErrorFinishesTheRpc) {
@@ -198,23 +200,31 @@ TEST(AsyncGrpcTest, ListFlightsAsyncCompletesOnAnotherThread) {
   // serve the response from wherever the future resolves.
   class DeferredListingServer : public AsyncGenericFlightServerBase {
    public:
+    ~DeferredListingServer() override {
+      // Joined, not detached: the helper holds a reactor reference through the
+      // future's continuation, and a detached thread can outlive the test and
+      // make the next test's reactor-leak check see the count drop.
+      if (worker_.joinable()) worker_.join();
+    }
+
     arrow::Future<std::shared_ptr<AsyncFlightListing>> ListFlightsAsync(
         const ServerCallContext&, const Criteria*) override {
       auto out = arrow::Future<std::shared_ptr<AsyncFlightListing>>::Make();
-      std::thread([out]() mutable {
+      worker_ = std::thread([out]() mutable {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         std::vector<FlightInfo> flights;
-        flights.push_back(
-            std::move(*MakeTestFlightInfo(FlightDescriptor::Path({"deferred"}))));
+        flights.push_back(MakeTestFlightInfo(FlightDescriptor::Path({"deferred"})));
         out.MarkFinished(std::make_shared<SimpleListingAdapter>(std::move(flights)));
-      }).detach();
+      });
       return out;
     }
+
+   private:
+    std::thread worker_;
   };
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   DeferredListingServer flight_server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
@@ -244,9 +254,8 @@ TEST(AsyncGrpcTest, ListFlightsDeadlineWithPendingHandlerFinishes) {
   // the reactor must be released even though the handler never completes.
   const int64_t before = detail::AsyncReactorBase::live_reactors();
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   HangingListingServer flight_server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 

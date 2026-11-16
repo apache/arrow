@@ -28,6 +28,7 @@
 #include <vector>
 
 #include <grpcpp/support/byte_buffer.h>
+#include <grpcpp/support/proto_buffer_reader.h>
 #include <grpcpp/support/slice.h>
 
 #include "arrow/flight/flight_data_decoder.h"
@@ -51,17 +52,16 @@ class AsyncCallContext : public GrpcServerCallContext<::grpc::CallbackServerCont
   explicit AsyncCallContext(::grpc::CallbackServerContext* context)
       : GrpcServerCallContext<::grpc::CallbackServerContext>(context) {}
 
-  arrow::Status AddCancelCallback(std::function<void()> callback) const {
+  void AddCancelCallback(std::function<void()> callback) const {
     {
       std::lock_guard<std::mutex> lock(cancel_->mutex);
       if (!cancel_->cancelled) {
         cancel_->callbacks.push_back(std::move(callback));
-        return arrow::Status::OK();
+        return;
       }
     }
     // Already cancelled: run it now, on the caller's thread, unlocked.
     callback();
-    return arrow::Status::OK();
   }
 
   /// \brief Run the registered callbacks once, unlocked, so a callback may
@@ -97,19 +97,20 @@ template <typename ProtoT>
 }
 
 template <typename PbT>
-arrow::Result<PbT> ParseProtoRequest(const ::grpc::ByteBuffer& buf,
-                                     std::string_view what) {
-  ARROW_ASSIGN_OR_RAISE(std::string bytes,
-                        BytesFromBuffer(buf, "Failed to read request"));
+arrow::Result<PbT> ParseProtoRequest(::grpc::ByteBuffer& buf, std::string_view what) {
+  ::grpc::ProtoBufferReader reader(&buf);
+  if (!reader.status().ok()) {
+    return MakeFlightError(FlightStatusCode::Internal, "Failed to read request");
+  }
   PbT pb;
-  if (!pb.ParseFromArray(bytes.data(), static_cast<int>(bytes.size()))) {
+  if (!pb.ParseFromZeroCopyStream(&reader)) {
     return arrow::Status::Invalid("Failed to parse ", what);
   }
   return pb;
 }
 
 template <typename PbT, typename T>
-arrow::Result<T> ParseProtoRequest(const ::grpc::ByteBuffer& buf, std::string_view what) {
+arrow::Result<T> ParseProtoRequest(::grpc::ByteBuffer& buf, std::string_view what) {
   ARROW_ASSIGN_OR_RAISE(auto pb, ParseProtoRequest<PbT>(buf, what));
   T out;
   ARROW_RETURN_NOT_OK(arrow::flight::internal::FromProto(pb, &out));
@@ -261,11 +262,13 @@ class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
 template <typename T, typename PbT>
 class UnaryReactor final : public AsyncReactorBase {
  public:
-  using HandlerFn = std::function<arrow::Future<std::shared_ptr<T>>(
-      const ServerCallContext&, const FlightDescriptor&)>;
+  /// The AsyncGenericFlightServerBase handler this RPC calls.
+  using Handler = arrow::Future<std::shared_ptr<T>> (AsyncGenericFlightServerBase::*)(
+      const ServerCallContext&, const FlightDescriptor&);
 
-  UnaryReactor(AsyncCallContext flight_context, HandlerFn handler)
-      : AsyncReactorBase(std::move(flight_context)), handler_(std::move(handler)) {
+  UnaryReactor(AsyncCallContext flight_context, AsyncGenericFlightServerBase* base,
+               Handler handler)
+      : AsyncReactorBase(std::move(flight_context)), base_(base), handler_(handler) {
     StartRead(&request_buf_);
   }
 
@@ -280,7 +283,8 @@ class UnaryReactor final : public AsyncReactorBase {
       FinishOnce(descriptor.status());
       return;
     }
-    arrow::Future<std::shared_ptr<T>> future = handler_(flight_context(), *descriptor);
+    arrow::Future<std::shared_ptr<T>> future =
+        (base_->*handler_)(flight_context(), *descriptor);
     future.AddCallback(
         [this, token = hold()](const arrow::Result<std::shared_ptr<T>>& result) mutable {
           if (!result.ok()) {
@@ -305,11 +309,12 @@ class UnaryReactor final : public AsyncReactorBase {
   }
 
  private:
-  HandlerFn handler_;
+  AsyncGenericFlightServerBase* base_;
+  Handler handler_;
 };
 
-::grpc::ServerGenericBidiReactor* MakeHandshakeReactor(AsyncCallContext flight_context,
-                                                       HandshakeFn handshake_handler);
+::grpc::ServerGenericBidiReactor* MakeHandshakeReactor(
+    AsyncCallContext flight_context, AsyncGenericFlightServerBase* base);
 ::grpc::ServerGenericBidiReactor* MakeDoGetReactor(AsyncCallContext flight_context,
                                                    AsyncGenericFlightServerBase* base);
 ::grpc::ServerGenericBidiReactor* MakeDoPutReactor(

@@ -155,10 +155,16 @@ TEST(AsyncGrpcTest, GetFlightInfoAsyncCompletesOnAnotherThread) {
   // whole point of the async handler.
   class DeferredInfoServer : public AsyncGenericFlightServerBase {
    public:
+    ~DeferredInfoServer() override {
+      if (worker_.joinable()) {
+        worker_.join();
+      }
+    }
+
     arrow::Future<std::shared_ptr<FlightInfo>> GetFlightInfoAsync(
         const ServerCallContext&, const FlightDescriptor& request) override {
       auto out = arrow::Future<std::shared_ptr<FlightInfo>>::Make();
-      std::thread([out, request]() mutable {
+      worker_ = std::thread([out, request]() mutable {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         auto info =
             FlightInfo::Make(*arrow::schema({arrow::field("value", arrow::int64())}),
@@ -168,14 +174,16 @@ TEST(AsyncGrpcTest, GetFlightInfoAsyncCompletesOnAnotherThread) {
           return;
         }
         out.MarkFinished(std::make_shared<FlightInfo>(std::move(*info)));
-      }).detach();
+      });
       return out;
     }
+
+   private:
+    std::thread worker_;
   };
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   DeferredInfoServer flight_server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 

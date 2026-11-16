@@ -56,7 +56,7 @@ class ARROW_FLIGHT_EXPORT FlightDataListenerTransport {
   /// \param app_metadata The metadata to attach to the next PutResult message,
   ///   copied before the call returns.
   /// \return A future completed once the message has been written, or already
-  ///   failed when a message is still in flight or the upload is ending or over.
+  ///   failed when a message is still in flight or the upload's RPC is over.
   virtual Future<> WriteMetadataAsync(const Buffer& app_metadata) = 0;
 
   /// \brief Pin this transport's lifetime, from any thread.
@@ -116,7 +116,7 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataWriter {
   /// \return A future completed, on the gRPC thread that sees the write finish,
   ///   once the message has been written (IOError if the write failed or the
   ///   upload's RPC ended first). It is already failed with Invalid when the
-  ///   previous message is still in flight, or the upload is ending or over.
+  ///   previous message is still in flight, or the upload's RPC is over.
   Future<> WriteMetadataAsync(const Buffer& app_metadata);
 
  private:
@@ -170,7 +170,7 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataListener : public ipc::Listener {
 
   /// \brief The writer for application metadata sent back to the client.
   ///
-  /// Valid for as long as the upload's RPC is live (until OnFinish is reported).
+  /// Valid for as long as the upload's RPC is live, OnFinish() included.
   /// Never null, calls after the upload ended report the ending instead of writing.
   const std::shared_ptr<AsyncFlightDataWriter>& writer() const { return writer_; }
 
@@ -186,7 +186,7 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataListener : public ipc::Listener {
   ///
   /// \return OK when the cancel was handed to the transport, or Invalid when
   /// there is no upload in flight.
-  Future<> Cancel(Status status);
+  Status Cancel(Status status);
 
  private:
   /// The transport sets and clears the state through
@@ -205,11 +205,12 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataListener : public ipc::Listener {
   internal::FlightDataListenerTransport* transport_ = nullptr;
 };
 
-/// \brief Push style stream decoder that turns raw arrow Buffers into
+/// \brief Push style stream decoder that turns FlightData messages into
 /// FlightStreamChunks.
 ///
-/// This class decodes Apache Arrow Flight data format from arrow::Buffer
-/// and fires events on the provided AsyncFlightDataListener.
+/// The Flight transports drive it, to feed each incoming message to the RPC's
+/// AsyncFlightDataListener: applications implement the listener, they do not
+/// construct a decoder.
 class ARROW_FLIGHT_EXPORT AsyncFlightMessageDecoder {
  public:
   /// \brief Construct an AsyncFlightMessageDecoder with the given listener and IPC read
@@ -222,28 +223,23 @@ class ARROW_FLIGHT_EXPORT AsyncFlightMessageDecoder {
       ipc::IpcReadOptions options = ipc::IpcReadOptions::Defaults());
   ~AsyncFlightMessageDecoder();
 
-  /// \brief Decode one FlightData message directly from a buffer.
-  ///
-  /// Fires listener->OnSchemaDecoded() on the first message containing
-  /// a schema, listener->OnNext() for each subsequent record batch,
-  /// metadata-only message or dictionary batch.
-  ///
-  /// \param[in] buffer a raw buffer directly from the transport. Example
-  /// the arrow::Buffer extracted from the grpc::ByteBuffer from the gRPC transport.
-  /// \return Status
-  Future<> Consume(std::shared_ptr<Buffer> buffer);
-
   /// \brief Decode one FlightData message already deserialized by the transport.
   ///
-  /// Same as Consume(Buffer) but avoids a serialization round-trip for transports
-  /// that hand out an internal::FlightData directly (the gRPC client reads FlightData
-  /// straight into internal::FlightData).
+  /// Fires listener->OnDescriptor() for a message carrying a descriptor,
+  /// listener->OnSchemaDecoded() on the first message containing a schema, and
+  /// listener->OnNext() for each subsequent record batch, metadata-only message or
+  /// dictionary batch carrying app metadata.
   /// \internal This method is intended for internal use within the Arrow library.
+  /// \return A future completed with the listener's status for this message.
   Future<> Consume(internal::FlightData data);
 
-  /// \brief The decoded schema.
-  /// \return The decoded schema, or nullptr if no schema has been decoded yet.
-  std::shared_ptr<Schema> schema() const;
+  /// \brief Stop delivering to the listener: the upload it decodes for has ended.
+  ///
+  /// A message whose listener callback is already running still completes, but a
+  /// message that reaches a listener callback afterwards is dropped instead of
+  /// delivered: the listener may have released everything it owns in OnFinish().
+  /// \internal This method is intended for internal use within the Arrow library.
+  void Stop();
 
  private:
   class AsyncFlightMessageDecoderImpl;

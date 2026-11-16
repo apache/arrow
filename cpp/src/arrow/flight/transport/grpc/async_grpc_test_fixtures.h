@@ -58,12 +58,11 @@ namespace arrow::flight::transport::grpc {
 constexpr const char* kSchemaOnlyTicket = "schema-only-do-get-ticket";
 
 // One canned FlightInfo, `descriptor` names it for the assertions.
-inline std::unique_ptr<FlightInfo> MakeTestFlightInfo(FlightDescriptor descriptor) {
-  return std::make_unique<FlightInfo>(
-      FlightInfo::Make(*arrow::schema({arrow::field("value", arrow::int64())}),
-                       std::move(descriptor), std::vector<FlightEndpoint>{},
-                       /*total_records=*/-1, /*total_bytes=*/-1)
-          .ValueOrDie());
+inline FlightInfo MakeTestFlightInfo(FlightDescriptor descriptor) {
+  return FlightInfo::Make(*arrow::schema({arrow::field("value", arrow::int64())}),
+                          std::move(descriptor), std::vector<FlightEndpoint>{},
+                          /*total_records=*/-1, /*total_bytes=*/-1)
+      .ValueOrDie();
 }
 
 // An AsyncFlightDataStream over an in-memory RecordBatchReader: every payload is
@@ -71,41 +70,24 @@ inline std::unique_ptr<FlightInfo> MakeTestFlightInfo(FlightDescriptor descripto
 class ResolvedStream : public AsyncFlightDataStream {
  public:
   explicit ResolvedStream(std::shared_ptr<RecordBatchReader> reader)
-      : reader_(std::move(reader)), mapper_(*reader_->schema()) {}
+      : stream_(std::move(reader)) {}
 
   arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
-    FlightPayload payload;
-    auto status = ipc::GetSchemaPayload(*reader_->schema(), ipc_options_, mapper_,
-                                        &payload.ipc_message);
-    if (!status.ok()) {
-      return arrow::Future<FlightPayload>::MakeFinished(status);
-    }
-    return arrow::Future<FlightPayload>::MakeFinished(std::move(payload));
+    return stream_.GetSchemaPayload();
   }
 
   arrow::Future<std::optional<FlightPayload>> NextAsync() override {
-    auto batch = reader_->Next();
-    if (!batch.ok()) {
-      return arrow::Future<std::optional<FlightPayload>>::MakeFinished(batch.status());
+    ARROW_ASSIGN_OR_RAISE(auto payload, stream_.Next());
+    if (payload.ipc_message.metadata == nullptr) {
+      return std::optional<FlightPayload>();  // end of stream
     }
-    if (*batch == nullptr) {
-      // End of stream: the async interface reports it as a nullopt.
-      return arrow::Future<std::optional<FlightPayload>>::MakeFinished(std::nullopt);
-    }
-    FlightPayload payload;
-    auto status = ipc::GetRecordBatchPayload(**batch, ipc_options_, &payload.ipc_message);
-    if (!status.ok()) {
-      return arrow::Future<std::optional<FlightPayload>>::MakeFinished(status);
-    }
-    return arrow::Future<std::optional<FlightPayload>>::MakeFinished(std::move(payload));
+    return std::optional<FlightPayload>(std::move(payload));
   }
 
-  Status Close() override { return reader_->Close(); }
+  Status Close() override { return stream_.Close(); }
 
  private:
-  std::shared_ptr<RecordBatchReader> reader_;
-  ipc::DictionaryFieldMapper mapper_;
-  ipc::IpcWriteOptions ipc_options_ = ipc::IpcWriteOptions::Defaults();
+  RecordBatchStream stream_;
 };
 
 // A vector-backed async iterator: every NextAsync() resolves immediately, and
@@ -289,6 +271,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
 
   arrow::Future<std::shared_ptr<AsyncFlightListing>> ListFlightsAsync(
       const ServerCallContext&, const Criteria* criteria) override {
+    criteria_was_null_ = criteria == nullptr;
     if (criteria != nullptr) {
       last_criteria_ = *criteria;
     }
@@ -297,8 +280,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
       return arrow::Future<std::shared_ptr<AsyncFlightListing>>::MakeFinished(
           std::make_shared<MidStreamErrorAsyncListing>(
               [] {
-                return std::move(
-                    *MakeTestFlightInfo(FlightDescriptor::Path({"first-listing"})));
+                return MakeTestFlightInfo(FlightDescriptor::Path({"first-listing"}));
               },
               "mid-stream listing failure"));
     }
@@ -311,7 +293,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
     }
     std::vector<FlightInfo> flights;
     for (const auto& name : {"first-listing", "second-listing"}) {
-      flights.push_back(std::move(*MakeTestFlightInfo(FlightDescriptor::Path({name}))));
+      flights.push_back(MakeTestFlightInfo(FlightDescriptor::Path({name})));
     }
     return arrow::Future<std::shared_ptr<AsyncFlightListing>>::MakeFinished(
         std::make_shared<SimpleListingAdapter>(std::move(flights)));
@@ -323,6 +305,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
   const FlightDescriptor& last_descriptor() const { return last_descriptor_; }
   const std::string& last_action_type() const { return last_action_type_; }
   const Criteria& last_criteria() const { return last_criteria_; }
+  bool criteria_was_null() const { return criteria_was_null_; }
 
  private:
   std::shared_ptr<AsyncFlightDataListener> listener_;
@@ -330,6 +313,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
   FlightDescriptor last_descriptor_;
   std::string last_action_type_;
   Criteria last_criteria_;
+  bool criteria_was_null_ = false;
   bool empty_actions_ = false;
 };
 
@@ -420,8 +404,7 @@ class RecordingListener : public AsyncFlightDataListener {
       ++metadata_only_count_;
       metadata_chunks_.push_back(std::move(chunk.app_metadata));
     }
-    last_status_ = next_status_;
-    return arrow::Future<>::MakeFinished(next_status_);
+    return next_status_;
   }
 
   // Records the upload's descriptor and reports whatever status the test
@@ -429,7 +412,7 @@ class RecordingListener : public AsyncFlightDataListener {
   arrow::Future<> OnDescriptor(const FlightDescriptor& descriptor) override {
     std::lock_guard<std::mutex> lock(mutex_);
     descriptors_.push_back(descriptor);
-    return arrow::Future<>::MakeFinished(descriptor_status_);
+    return descriptor_status_;
   }
 
   // Consumer-side rejection of the upload, as the decoder tests do.
@@ -471,10 +454,6 @@ class RecordingListener : public AsyncFlightDataListener {
     std::lock_guard<std::mutex> lock(mutex_);
     return metadata_chunks_;
   }
-  arrow::Status last_status() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return last_status_;
-  }
 
  protected:
   /// The callbacks run on gRPC threads while the test thread reads the
@@ -488,13 +467,6 @@ class RecordingListener : public AsyncFlightDataListener {
   std::vector<std::shared_ptr<arrow::Buffer>> metadata_chunks_;
   arrow::Status descriptor_status_;
   arrow::Status next_status_;
-  arrow::Status last_status_;
-
- protected:
-  int finish_count_ = 0;
-  int cancel_count_ = 0;
-  Status finish_status_;
-  Status cancel_status_;
 };
 
 // A listener that records the terminal events on top of RecordingListener:
@@ -506,12 +478,12 @@ class FinishRecordingListener : public RecordingListener {
     std::lock_guard<std::mutex> lock(mutex_);
     finish_count_++;
     finish_status_ = std::move(status);
-    return arrow::Future<>::MakeFinished(arrow::Status::OK());
+    return arrow::Status::OK();
   }
 
   /// Cancel from whatever thread the test drives, records what Cancel() said.
   void CancelWith(Status status) {
-    const arrow::Status cancel_status = Cancel(std::move(status)).status();
+    const arrow::Status cancel_status = Cancel(std::move(status));
     std::lock_guard<std::mutex> lock(mutex_);
     cancel_status_ = cancel_status;
     ++cancel_count_;
@@ -533,6 +505,12 @@ class FinishRecordingListener : public RecordingListener {
     std::lock_guard<std::mutex> lock(mutex_);
     return cancel_status_;
   }
+
+ private:
+  int finish_count_ = 0;
+  int cancel_count_ = 0;
+  Status finish_status_;
+  Status cancel_status_;
 };
 
 // A server that accepts uploads: the transport asks the server for the per-RPC
@@ -701,15 +679,6 @@ class RejectingServerMiddlewareFactory : public ServerMiddlewareFactory {
   }
 };
 
-// The gRPC transport builds the generic service with the shared context
-// helper (which runs middleware and auth). Tests that register the service
-// on a hand-built grpc::ServerBuilder must pass it explicitly.
-inline std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>
-MakeAsyncHelper() {
-  return std::make_shared<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>(
-      /*auth_handler=*/nullptr, MiddlewareFactoryList{});
-}
-
 // The host every test server listens on and every client connects to:
 // 127.0.0.1, not localhost. localhost also resolves to [::1], gRPC then binds
 // the ephemeral port on both, and when another process already holds it on
@@ -735,6 +704,7 @@ inline ::grpc::Status CallUnknownMethod(int port) {
                             ::grpc::InsecureChannelCredentials());
   ::grpc::GenericStub stub(channel);
   ::grpc::ClientContext context;
+  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(10));
   ::grpc::ByteBuffer request;
   ::grpc::ByteBuffer response;
   ::grpc::CompletionQueue cq;
@@ -789,12 +759,14 @@ struct HandBuiltServer {
   int port = 0;
 };
 
-// Serve `base` on kListenAddress from a hand-built grpc::ServerBuilder. The
-// caller checks `server` is non-null and `port` non-zero.
+// Serve `base` on kListenAddress from a hand-built grpc::ServerBuilder, with the
+// context helper (middleware and auth) the gRPC transport would otherwise
+// build. The caller checks `server` is non-null and `port` non-zero.
 inline HandBuiltServer StartHandBuilt(
     AsyncGenericFlightServerBase* base,
     std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>> helper =
-        MakeAsyncHelper()) {
+        std::make_shared<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>(
+            /*auth_handler=*/nullptr, MiddlewareFactoryList{})) {
   HandBuiltServer out;
   out.service = std::make_unique<AsyncGenericFlightService>(base, std::move(helper));
   ::grpc::ServerBuilder builder;
@@ -812,7 +784,7 @@ inline std::shared_ptr<Schema> OneColumnSchema() {
 
 // One 2-row batch of OneColumnSchema(), rows [1, 2].
 inline std::shared_ptr<RecordBatch> OneColumnBatch(
-    const std::shared_ptr<Schema>& schema = OneColumnSchema()) {
+    const std::shared_ptr<Schema>& schema) {
   return arrow::RecordBatch::Make(schema, 2,
                                   {arrow::ArrayFromJSON(arrow::int64(), "[1, 2]")});
 }
@@ -829,6 +801,13 @@ inline arrow::Result<std::unique_ptr<FlightClient>> ConnectTo(int port) {
   return FlightClient::Connect(location);
 }
 
+inline arrow::Result<std::unique_ptr<FlightClient>> ConnectToWarmed(int port) {
+  ARROW_ASSIGN_OR_RAISE(auto client, ConnectTo(port));
+  // The status is not checked: an unimplemented method is enough to connect.
+  static_cast<void>(client->ListActions({}));
+  return client;
+}
+
 // The "a", "b" int64 schema the canned streams serve.
 inline std::shared_ptr<Schema> TwoColumnSchema() {
   return arrow::schema(
@@ -837,7 +816,7 @@ inline std::shared_ptr<Schema> TwoColumnSchema() {
 
 // One 3-row batch of TwoColumnSchema(), the payload the DoPut tests upload.
 inline std::shared_ptr<RecordBatch> TwoColumnBatch(
-    const std::shared_ptr<Schema>& schema = TwoColumnSchema()) {
+    const std::shared_ptr<Schema>& schema) {
   return arrow::RecordBatch::Make(schema, 3,
                                   {arrow::ArrayFromJSON(arrow::int64(), "[1, 2, 3]"),
                                    arrow::ArrayFromJSON(arrow::int64(), "[10, 20, 30]")});

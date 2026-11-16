@@ -24,6 +24,7 @@
 #include <memory>
 #include <mutex>
 #include <utility>
+#include <vector>
 
 #include <arrow/api.h>
 #include <arrow/flight/api.h>
@@ -63,18 +64,6 @@ namespace flight = arrow::flight;
 
 constexpr int kNumBatches = 3;
 constexpr int64_t kRowsPerBatch = 4;
-
-/// \brief Make a one-column batch of `num_rows` int64 values starting at `value`.
-arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeInt64Batch(
-    const std::shared_ptr<arrow::Schema>& schema, int64_t value, int64_t num_rows) {
-  arrow::Int64Builder builder;
-  for (int64_t i = 0; i < num_rows; i++) {
-    ARROW_RETURN_NOT_OK(builder.Append(value + i));
-  }
-  ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
-  return arrow::RecordBatch::Make(schema, array->length(), {array});
-}
-
 /// \brief The AsyncFlightDataListener serving one DoPut RPC: it records what it is
 /// handed as the upload streams in.  The counters are atomics because the
 /// callbacks run on gRPC threads.
@@ -168,10 +157,12 @@ arrow::Status RunDemo(int port) {
   auto schema = arrow::schema({arrow::field("value", arrow::int64())});
   ARROW_ASSIGN_OR_RAISE(
       auto put, client->DoPut(flight::FlightDescriptor::Command("upload"), schema));
-  for (int i = 0; i < kNumBatches; i++) {
-    ARROW_ASSIGN_OR_RAISE(auto batch,
-                          MakeInt64Batch(schema, i * kRowsPerBatch, kRowsPerBatch));
-    ARROW_RETURN_NOT_OK(put.writer->WriteRecordBatch(*batch));
+  for (int64_t i = 0; i < kNumBatches; i++) {
+    arrow::Int64Builder builder;
+    ARROW_RETURN_NOT_OK(builder.AppendValues(std::vector<int64_t>(kRowsPerBatch, i)));
+    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
+    ARROW_RETURN_NOT_OK(put.writer->WriteRecordBatch(
+        *arrow::RecordBatch::Make(schema, kRowsPerBatch, {array})));
   }
   ARROW_RETURN_NOT_OK(put.writer->DoneWriting());
   return put.writer->Close();

@@ -18,19 +18,20 @@
 #include <csignal>
 
 #include <chrono>
-#include <condition_variable>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <optional>
-#include <string>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include <arrow/api.h>
 #include <arrow/flight/api.h>
+#include <arrow/io/interfaces.h>
+#include <arrow/util/thread_pool.h>
 #include <gflags/gflags.h>
 
 // Serve DoGet over the async generic Flight transport.
@@ -41,12 +42,13 @@
 // of the payloads themselves, so the gRPC callback thread serving the RPC
 // never waits for data.
 //
-// DelayedAsyncStream shows what that is for: each batch is produced on the
-// stream's own worker thread, --batch_delay_ms after the transport asks for
-// it.  The transport adds a callback to the future and returns, so the delay
-// never blocks a gRPC callback thread (which would stall every RPC multiplexed
-// onto it).  With --batch_delay_ms=0 the delay is gone and this is a plain
-// fast DoGet.
+// DelayedAsyncStream shows what that is for: each batch is produced on Arrow's
+// IO thread pool, --batch_delay_ms after the transport asks for it.  The
+// transport adds a callback to the future and returns, so the delay never
+// blocks a gRPC callback thread (which would stall every RPC multiplexed onto
+// it).  The transport continues on the thread that completes the future, so
+// each batch's write is issued from that IO thread too.  With
+// --batch_delay_ms=0 the delay is gone and this is a plain fast DoGet.
 //
 // Any ticket streams the same batches.  Every other RPC - GetFlightInfo
 // included - answers UNIMPLEMENTED, so call DoGet directly instead of
@@ -61,190 +63,82 @@
 DEFINE_int32(port, 0, "Port to listen on (0 picks a free port)");
 DEFINE_int32(batches, 5, "Number of batches in the DoGet stream");
 DEFINE_int32(batch_delay_ms, 50,
-             "Delay before each batch, spent on the stream's own worker thread");
+             "Delay before each batch, spent on Arrow's IO thread pool");
 DEFINE_bool(demo, false, "Run the DoGet self-check against the server, then exit");
 
 namespace flight = arrow::flight;
 
-/// \brief A reader with `num_batches` batches of three int64 values.
-class BatchReader : public arrow::RecordBatchReader {
- public:
-  BatchReader(std::shared_ptr<arrow::Schema> schema, int32_t num_batches)
-      : schema_(std::move(schema)), num_batches_(num_batches) {}
-
-  std::shared_ptr<arrow::Schema> schema() const override { return schema_; }
-
-  arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* batch) override {
-    if (next_batch_ >= num_batches_) {
-      *batch = nullptr;  // end of stream
-      return arrow::Status::OK();
-    }
-    arrow::Int64Builder builder;
-    for (int64_t i = 0; i < 3; i++) {
-      ARROW_RETURN_NOT_OK(builder.Append(3 * next_batch_ + i));
-    }
-    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
-    *batch = arrow::RecordBatch::Make(schema_, array->length(), {array});
-    ++next_batch_;
-    return arrow::Status::OK();
-  }
-
- private:
-  std::shared_ptr<arrow::Schema> schema_;
-  int32_t num_batches_;
-  int32_t next_batch_ = 0;
-};
-
-/// \brief The stream's worker state.  Heap-allocated and shared with the worker
-/// thread: the transport deletes the stream as soon as a payload completes
-/// (the end-of-stream payload is completed *on the worker*), so the worker must
-/// not touch the stream object after that.  Everything it needs lives here.
-struct WorkerState {
-  std::unique_ptr<flight::FlightDataStream> stream;
-  int32_t delay_ms = 0;
-  std::mutex mutex;
-  std::condition_variable ready;
-  bool closed = false;
-  /// The payload the transport is waiting for, if one was requested.
-  arrow::Future<std::optional<flight::FlightPayload>> pending;
-  bool has_pending = false;
-  /// Whether the wrapped stream has been closed, so Close() closes it once.
-  bool stream_closed = false;
-  std::thread thread;
-};
-
-/// \brief The worker: wait for a payload request, sleep delay_ms, produce it,
-/// complete the future the transport holds.
-void RunWorker(std::shared_ptr<WorkerState> state) {
-  std::unique_lock<std::mutex> lock(state->mutex);
-  while (!state->closed) {
-    state->ready.wait(lock, [&] { return state->has_pending || state->closed; });
-    if (state->closed) {
-      break;
-    }
-    // Take the request: after this, only this thread resolves the future.
-    state->has_pending = false;
-    arrow::Future<std::optional<flight::FlightPayload>> future = state->pending;
-    lock.unlock();
-    std::this_thread::sleep_for(std::chrono::milliseconds(state->delay_ms));
-    lock.lock();
-    const bool cancelled = state->closed;
-    lock.unlock();
-    // Runs the transport's callback inline, on this thread: it serializes the
-    // payload, and on end of stream it calls Close() (hence the lock dance).
-    if (cancelled) {
-      future.MarkFinished(arrow::Status::Cancelled());
-    } else {
-      auto payload = state->stream->Next();
-      if (!payload.ok()) {
-        future.MarkFinished(payload.status());
-      } else if (payload->ipc_message.metadata == nullptr) {
-        // End of stream: the async interface reports it as a nullopt.
-        future.MarkFinished(std::nullopt);
-      } else {
-        future.MarkFinished(std::move(*payload));
-      }
-    }
-    lock.lock();
-  }
-  // The worker is the only thread that touched the wrapped stream, so it is the
-  // one that closes it (see Close(), which only asks it to stop).
-  lock.unlock();
-  ARROW_WARN_NOT_OK(state->stream->Close(), "closing the DoGet stream failed");
-  lock.lock();
-  state->ready.notify_all();
-}
-
 /// \brief The stream the async transport pulls from, with a sleep per batch.
 ///
-/// NextAsync() hands the transport a future and returns at once, the delay and
-/// the serialization of the wrapped synchronous stream happen on this stream's
-/// own worker thread.  The transport keeps one payload in flight at a time --
-/// it asks for the next only once the write completed -- so a single worker is
-/// enough.
-///
-/// One thread per stream.  A server with many slow streams may prefer a shared
-/// timer or thread pool, swapping WorkerState's thread for a task on that pool.
+/// NextAsync() hands the transport a future and returns at once: the delay and
+/// the serialization of the wrapped synchronous stream run as a task on Arrow's
+/// IO thread pool, which is meant for blocking work, so the sleep parks an IO
+/// thread instead of tying up a gRPC callback thread or a thread that other RPCs
+/// share.  The transport keeps one payload in flight at a time -- it asks for
+/// the next only once the write completed -- so at most one task reads the
+/// stream at a time.
 class DelayedAsyncStream : public flight::AsyncFlightDataStream {
  public:
-  DelayedAsyncStream(std::unique_ptr<flight::FlightDataStream> stream, int32_t delay_ms)
-      : state_(std::make_shared<WorkerState>()) {
-    state_->stream = std::move(stream);
-    state_->delay_ms = delay_ms;
-    std::shared_ptr<WorkerState> state = state_;
-    state_->thread = std::thread([state] { RunWorker(state); });
-  }
-
-  ~DelayedAsyncStream() override {
-    Stop();
-    if (state_->thread.joinable()) {
-      if (state_->thread.get_id() == std::this_thread::get_id()) {
-        // Deleted from inside its own worker (the transport releases the
-        // stream as a payload completes): joining would deadlock.
-        state_->thread.detach();
-      } else {
-        state_->thread.join();
-      }
-    }
-  }
+  DelayedAsyncStream(std::shared_ptr<arrow::RecordBatchReader> reader, int32_t delay_ms)
+      : state_(std::make_shared<State>(std::move(reader), delay_ms)) {}
 
   arrow::Future<flight::FlightPayload> GetSchemaPayloadAsync() override {
-    // The schema is ready now: no delay, no worker.  This runs before the first
-    // NextAsync(), so it cannot overlap the worker's use of the stream.
-    return arrow::Future<flight::FlightPayload>::MakeFinished(
-        state_->stream->GetSchemaPayload());
+    // The schema is ready now: no delay, no task.
+    return state_->stream.GetSchemaPayload();
   }
 
   arrow::Future<std::optional<flight::FlightPayload>> NextAsync() override {
-    arrow::Future<std::optional<flight::FlightPayload>> future =
-        arrow::Future<std::optional<flight::FlightPayload>>::Make();
-    {
-      std::lock_guard<std::mutex> lock(state_->mutex);
-      if (state_->closed) {
-        future.MarkFinished(arrow::Status::Cancelled());
-        return future;
-      }
-      state_->pending = future;
-      state_->has_pending = true;
-    }
-    state_->ready.notify_one();
-    return future;
+    // The task owns a reference to the state: the transport may delete this
+    // stream as soon as the payload completes.
+    return arrow::DeferNotOk(arrow::io::default_io_context().executor()->Submit(
+        [state = state_]() -> arrow::Result<std::optional<flight::FlightPayload>> {
+          std::this_thread::sleep_for(std::chrono::milliseconds(state->delay_ms));
+          std::lock_guard<std::mutex> lock(state->mutex);
+          if (state->closed) {
+            return arrow::Status::Cancelled("the DoGet stream was closed");
+          }
+          ARROW_ASSIGN_OR_RAISE(auto payload, state->stream.Next());
+          if (payload.ipc_message.metadata == nullptr) {
+            return std::nullopt;  // end of stream
+          }
+          return payload;
+        }));
   }
 
   arrow::Status Close() override {
-    // Only ask the worker to stop: the wrapped stream belongs to the worker
-    // thread, which may be inside stream->Next() right now, and Next()/Close()
-    // both mutate the IPC reader. Closing from this (gRPC) thread would race
-    // with that call and can corrupt the stream. Stop() is also what resolves
-    // a payload the worker has not taken yet, so this stays non-blocking; the
-    // worker closes the stream after it stops producing.
-    Stop();
-    return arrow::Status::OK();
+    // Next() and Close() both touch the IPC reader, so Close() takes the lock a
+    // running task holds while it reads (never while it sleeps).  A task still
+    // sleeping completes its future as Cancelled.
+    std::lock_guard<std::mutex> lock(state_->mutex);
+    state_->closed = true;
+    return state_->stream.Close();
   }
 
  private:
-  /// \brief Stop the worker, resolve a payload it has not taken yet.  Idempotent.
-  /// Does not join: called by the transport, whose threads must not block on
-  /// the worker's sleep.
-  void Stop() {
-    arrow::Future<std::optional<flight::FlightPayload>> pending;
-    {
-      std::lock_guard<std::mutex> lock(state_->mutex);
-      state_->closed = true;
-      if (state_->has_pending) {
-        state_->has_pending = false;
-        pending = state_->pending;
-      }
-    }
-    state_->ready.notify_all();
-    if (pending.is_valid()) {
-      // Runs the transport's callback inline, it reacts by calling Close().
-      pending.MarkFinished(arrow::Status::Cancelled());
-    }
-  }
-
-  std::shared_ptr<WorkerState> state_;
+  struct State {
+    State(std::shared_ptr<arrow::RecordBatchReader> reader, int32_t delay_ms)
+        : stream(std::move(reader)), delay_ms(delay_ms) {}
+    flight::RecordBatchStream stream;
+    int32_t delay_ms;
+    std::mutex mutex;
+    bool closed = false;
+  };
+  std::shared_ptr<State> state_;
 };
+
+/// \brief `num_batches` batches of three int64 values each.
+arrow::Result<std::shared_ptr<arrow::RecordBatchReader>> MakeReader(
+    const std::shared_ptr<arrow::Schema>& schema, int32_t num_batches) {
+  arrow::RecordBatchVector batches;
+  for (int64_t b = 0; b < num_batches; b++) {
+    arrow::Int64Builder builder;
+    ARROW_RETURN_NOT_OK(
+        builder.AppendValues(std::vector<int64_t>{3 * b, 3 * b + 1, 3 * b + 2}));
+    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
+    batches.push_back(arrow::RecordBatch::Make(schema, array->length(), {array}));
+  }
+  return arrow::RecordBatchReader::Make(std::move(batches), schema);
+}
 
 /// \brief The server: DoGetAsync is the only handler overridden, so every other
 /// RPC answers UNIMPLEMENTED.
@@ -254,14 +148,11 @@ class ExampleServer : public flight::AsyncGenericFlightServerBase {
       const flight::ServerCallContext& context, const flight::Ticket& request) override {
     std::cout << "DoGet: ticket=" << request.ticket << std::endl;
     auto schema = arrow::schema({arrow::field("value", arrow::int64())});
-    auto reader = std::make_shared<BatchReader>(schema, FLAGS_batches);
-    std::shared_ptr<flight::AsyncFlightDataStream> stream =
-        std::make_shared<DelayedAsyncStream>(
-            std::make_unique<flight::RecordBatchStream>(reader), FLAGS_batch_delay_ms);
+    ARROW_ASSIGN_OR_RAISE(auto reader, MakeReader(schema, FLAGS_batches));
     // The stream is ready here, but its payloads are not: the transport will
     // wait on the futures NextAsync() returns.
-    return arrow::Future<std::shared_ptr<flight::AsyncFlightDataStream>>::MakeFinished(
-        std::move(stream));
+    return std::shared_ptr<flight::AsyncFlightDataStream>(
+        std::make_shared<DelayedAsyncStream>(std::move(reader), FLAGS_batch_delay_ms));
   }
 };
 

@@ -66,6 +66,19 @@ class StreamingReactor : public AsyncReactorBase {
   virtual arrow::Future<> Start() = 0;
   virtual arrow::Future<bool> NextMessage() = 0;
 
+  /// Drop the reference to the application's iterator when the RPC ends.
+  ///
+  /// An iterator that keeps its own pending NextAsync() future holds a
+  /// continuation on this reactor, which holds the iterator: without this, that
+  /// cycle survives the cancellation and neither is ever freed. Called under no
+  /// lock, after the RPC has finished, so nothing else touches the iterator.
+  virtual void ForgetStream() {}
+
+  void TearDownOnCancel() override {
+    FinishOnce(arrow::Status::Cancelled());
+    ForgetStream();
+  }
+
   void WriteNextMessage() {
     if (finished()) {
       return;
@@ -94,22 +107,18 @@ class ListActionsReactor final : public StreamingReactor {
     return base_->ListActionsAsync(flight_context())
         .Then([this](const std::vector<ActionType>& actions) -> arrow::Status {
           actions_ = actions;
-          next_ = 0;
           return arrow::Status::OK();
         });
   }
 
   arrow::Future<bool> NextMessage() override {
     if (next_ >= actions_.size()) {
-      return arrow::Future<bool>::MakeFinished(false);
+      return false;
     }
     pb::ActionType pb_type;
-    const auto status = internal::ToProto(actions_[next_++], &pb_type);
-    if (!status.ok()) {
-      return arrow::Future<bool>::MakeFinished(status);
-    }
+    ARROW_RETURN_NOT_OK(internal::ToProto(actions_[next_++], &pb_type));
     write_buf_ = MakeWriteBuffer(pb_type);
-    return arrow::Future<bool>::MakeFinished(true);
+    return true;
   }
 
  private:
@@ -123,11 +132,9 @@ class DoActionReactor final : public StreamingReactor {
 
  protected:
   arrow::Future<> Start() override {
-    auto action = ParseProtoRequest<pb::Action, Action>(request_buf_, "Action");
-    if (!action.ok()) {
-      return arrow::Future<>::MakeFinished(action.status());
-    }
-    return base_->DoActionAsync(flight_context(), *action)
+    ARROW_ASSIGN_OR_RAISE(
+        auto action, (ParseProtoRequest<pb::Action, Action>(request_buf_, "Action")));
+    return base_->DoActionAsync(flight_context(), action)
         .Then([this](const std::shared_ptr<AsyncResultStream>& stream) -> arrow::Status {
           if (stream == nullptr) {
             return arrow::Status::Cancelled();
@@ -150,6 +157,8 @@ class DoActionReactor final : public StreamingReactor {
         });
   }
 
+  void ForgetStream() override { stream_.reset(); }
+
  private:
   std::shared_ptr<AsyncResultStream> stream_;
 };
@@ -160,11 +169,8 @@ class ListFlightsReactor final : public StreamingReactor {
 
  protected:
   arrow::Future<> Start() override {
-    auto criteria = ParseProtoRequest<pb::Criteria, Criteria>(request_buf_, "Criteria");
-    if (!criteria.ok()) {
-      return arrow::Future<>::MakeFinished(criteria.status());
-    }
-    criteria_ = *criteria;
+    ARROW_ASSIGN_OR_RAISE(
+        criteria_, (ParseProtoRequest<pb::Criteria, Criteria>(request_buf_, "Criteria")));
     return base_->ListFlightsAsync(flight_context(), &criteria_)
         .Then(
             [this](const std::shared_ptr<AsyncFlightListing>& listing) -> arrow::Status {
@@ -175,7 +181,7 @@ class ListFlightsReactor final : public StreamingReactor {
 
   arrow::Future<bool> NextMessage() override {
     if (listing_ == nullptr) {
-      return arrow::Future<bool>::MakeFinished(false);
+      return false;
     }
     return listing_->NextAsync().Then(
         [this](const std::shared_ptr<FlightInfo>& info) -> arrow::Result<bool> {
@@ -188,6 +194,8 @@ class ListFlightsReactor final : public StreamingReactor {
           return true;
         });
   }
+
+  void ForgetStream() override { listing_.reset(); }
 
  private:
   Criteria criteria_;

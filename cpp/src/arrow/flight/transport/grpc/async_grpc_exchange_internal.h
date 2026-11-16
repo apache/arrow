@@ -54,14 +54,12 @@ class ExchangeReactor;
 class ExchangeReader final : public AsyncFlightMessageReader,
                              public std::enable_shared_from_this<ExchangeReader> {
  public:
-  ExchangeReader();
+  explicit ExchangeReader(ExchangeReactor* reactor);
 
   const FlightDescriptor& descriptor() const override;
 
   arrow::Future<FlightStreamChunk> NextAsync() override;
 
-  /// \brief The reactor wires itself before the handler starts.
-  void SetReactor(ExchangeReactor* reactor);
   /// \brief Called by the reactor once the exchange is over: from then on the
   /// handler's reader must refuse to start reads instead of calling into a
   /// freed reactor.
@@ -143,8 +141,6 @@ class ExchangeWriter final : public AsyncFlightMessageWriter {
   /// produces, the schema, dictionary and record-batch messages all travel
   /// this way, as on the synchronous path.
   class PayloadSink;
-
-  arrow::Future<> WriteBatch(const RecordBatch& batch);
 
   /// \brief Write the queued payloads one at a time, the returned future
   /// resolves when the queue is empty, or with the first failure.

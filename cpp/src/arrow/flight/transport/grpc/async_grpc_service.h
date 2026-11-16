@@ -28,9 +28,6 @@ namespace arrow::flight::transport::grpc {
 
 #if ARROW_FLIGHT_HAS_ASYNC_SERVER
 
-using HandshakeFn =
-    GrpcServerCallContextHelper<::grpc::CallbackServerContext>::HandshakeFn;
-
 /// \brief Generic callback service dispatching Flight methods to reactors.
 ///
 /// Constructed with the AsyncGenericFlightServerBase whose handlers are served.
@@ -52,12 +49,9 @@ class ARROW_FLIGHT_EXPORT AsyncGenericFlightService
   /// \param async_base is the async server whose handlers are served, it must
   /// outlive the service.
   /// \param helper runs middleware and auth and builds the call context.
-  /// \param handshake_handler is the server's Handshake hook, an empty hook
-  /// means the server has no authentication mechanism.
   AsyncGenericFlightService(
       AsyncGenericFlightServerBase* async_base,
-      std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>> helper,
-      HandshakeFn handshake_handler = {});
+      std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>> helper);
 
   /// \brief Creates a reactor for the incoming RPC.
   /// \param context is the gRPC callback server context for the RPC.
@@ -69,8 +63,6 @@ class ARROW_FLIGHT_EXPORT AsyncGenericFlightService
  private:
   AsyncGenericFlightServerBase* base_;
   std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>> helper_;
-  /// The server class's Handshake hook. Empty when the server has none.
-  HandshakeFn handshake_handler_;
 };
 #  ifdef _MSC_VER
 #    pragma warning(pop)

@@ -93,7 +93,8 @@ Status AsyncGenericFlightServerBase::AddCancelCallback(const ServerCallContext& 
   // Only the contexts the async transport hands its handlers carry a registry.
   if (const auto* async_context =
           dynamic_cast<const transport::grpc::detail::AsyncCallContext*>(&context)) {
-    return async_context->AddCancelCallback(std::move(callback));
+    async_context->AddCancelCallback(std::move(callback));
+    return Status::OK();
   }
 #endif
   return Status::Invalid(
@@ -106,52 +107,45 @@ Status AsyncGenericFlightServerBase::AddCancelCallback(const ServerCallContext& 
 arrow::Future<std::shared_ptr<AsyncFlightListing>>
 AsyncGenericFlightServerBase::ListFlightsAsync(const ServerCallContext&,
                                                const Criteria*) {
-  return arrow::Future<std::shared_ptr<AsyncFlightListing>>::MakeFinished(
-      Status::NotImplemented("NYI"));
+  return Status::NotImplemented("NYI");
 }
 
 arrow::Future<std::shared_ptr<FlightInfo>>
 AsyncGenericFlightServerBase::GetFlightInfoAsync(const ServerCallContext&,
                                                  const FlightDescriptor&) {
-  return arrow::Future<std::shared_ptr<FlightInfo>>::MakeFinished(
-      Status::NotImplemented("NYI"));
+  return Status::NotImplemented("NYI");
 }
 
 arrow::Future<std::shared_ptr<PollInfo>>
 AsyncGenericFlightServerBase::PollFlightInfoAsync(const ServerCallContext&,
                                                   const FlightDescriptor&) {
-  return arrow::Future<std::shared_ptr<PollInfo>>::MakeFinished(
-      Status::NotImplemented("NYI"));
+  return Status::NotImplemented("NYI");
 }
 
 arrow::Future<std::shared_ptr<SchemaResult>> AsyncGenericFlightServerBase::GetSchemaAsync(
     const ServerCallContext&, const FlightDescriptor&) {
-  return arrow::Future<std::shared_ptr<SchemaResult>>::MakeFinished(
-      Status::NotImplemented("NYI"));
+  return Status::NotImplemented("NYI");
 }
 
 arrow::Future<std::shared_ptr<AsyncResultStream>>
 AsyncGenericFlightServerBase::DoActionAsync(const ServerCallContext&, const Action&) {
-  return arrow::Future<std::shared_ptr<AsyncResultStream>>::MakeFinished(
-      Status::NotImplemented("NYI"));
+  return Status::NotImplemented("NYI");
 }
 
 arrow::Future<std::vector<ActionType>> AsyncGenericFlightServerBase::ListActionsAsync(
     const ServerCallContext&) {
-  return arrow::Future<std::vector<ActionType>>::MakeFinished(
-      Status::NotImplemented("NYI"));
+  return Status::NotImplemented("NYI");
 }
 
 arrow::Future<> AsyncGenericFlightServerBase::DoExchangeAsync(
     const ServerCallContext&, std::shared_ptr<AsyncFlightMessageReader>,
     std::shared_ptr<AsyncFlightMessageWriter>) {
-  return arrow::Future<>::MakeFinished(Status::NotImplemented("NYI"));
+  return Status::NotImplemented("NYI");
 }
 
 arrow::Future<std::shared_ptr<AsyncFlightDataStream>>
 AsyncGenericFlightServerBase::DoGetAsync(const ServerCallContext&, const Ticket&) {
-  return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
-      Status::NotImplemented("DoGetAsync is not implemented"));
+  return Status::NotImplemented("DoGetAsync is not implemented");
 }
 
 std::shared_ptr<AsyncFlightDataListener>

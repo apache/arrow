@@ -56,13 +56,12 @@ arrow::Future<> ExchangeWriter::BeginAsync(std::shared_ptr<Schema> schema) {
   {
     std::lock_guard<std::mutex> lock(mutex_);
     if (reactor_ == nullptr) {
-      return arrow::Future<>::MakeFinished(arrow::Status::Cancelled(
-          "the exchange is over: the client disconnected or cancelled"));
+      return arrow::Status::Cancelled(
+          "the exchange is over: the client disconnected or cancelled");
     }
   }
   if (batch_writer_ != nullptr) {
-    return arrow::Future<>::MakeFinished(
-        arrow::Status::Invalid("This writer has already been started."));
+    return arrow::Status::Invalid("This writer has already been started.");
   }
   auto sink = std::make_unique<PayloadSink>(this);
   ARROW_ASSIGN_OR_RAISE(batch_writer_,
@@ -76,8 +75,13 @@ arrow::Future<> ExchangeWriter::WriteRecordBatchAsync(const RecordBatch& batch) 
 
 arrow::Future<> ExchangeWriter::WriteWithMetadataAsync(
     const RecordBatch& batch, std::shared_ptr<Buffer> app_metadata) {
+  if (batch_writer_ == nullptr) {
+    return arrow::Status::Invalid(
+        "This writer is not started. Call BeginAsync() with a schema");
+  }
   pending_app_metadata_ = std::move(app_metadata);
-  return WriteBatch(batch);
+  ARROW_RETURN_NOT_OK(batch_writer_->WriteRecordBatch(batch));
+  return Flush();
 }
 
 arrow::Future<> ExchangeWriter::WriteMetadataAsync(std::shared_ptr<Buffer> app_metadata) {
@@ -88,14 +92,12 @@ arrow::Future<> ExchangeWriter::WriteMetadataAsync(std::shared_ptr<Buffer> app_m
 }
 
 arrow::Future<> ExchangeWriter::CloseAsync() {
-  if (batch_writer_ != nullptr) {
-    auto status = batch_writer_->Close();
-    batch_writer_ = nullptr;
-    if (!status.ok()) {
-      return arrow::Future<>::MakeFinished(std::move(status));
-    }
+  if (batch_writer_ == nullptr) {
+    return arrow::Status::OK();
   }
-  return arrow::Future<>::MakeFinished();
+  auto status = batch_writer_->Close();
+  batch_writer_ = nullptr;
+  return status;
 }
 
 void ExchangeWriter::OnWriteDone(bool ok) {
@@ -113,22 +115,10 @@ void ExchangeWriter::OnWriteDone(bool ok) {
 void ExchangeWriter::OnCancelled() {
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    write_in_flight_ = false;
+    reactor_ = nullptr;
   }
   // A no-op unless a flush is pending.
   FailFlush(arrow::Status::Cancelled("the client cancelled the exchange"));
-}
-
-arrow::Future<> ExchangeWriter::WriteBatch(const RecordBatch& batch) {
-  if (batch_writer_ == nullptr) {
-    return arrow::Future<>::MakeFinished(arrow::Status::Invalid(
-        "This writer is not started. Call BeginAsync() with a schema"));
-  }
-  auto status = batch_writer_->WriteRecordBatch(batch);
-  if (!status.ok()) {
-    return arrow::Future<>::MakeFinished(std::move(status));
-  }
-  return Flush();
 }
 
 arrow::Future<> ExchangeWriter::Flush() {
@@ -137,12 +127,14 @@ arrow::Future<> ExchangeWriter::Flush() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (reactor_ == nullptr) {
       // The exchange is over: report it rather than pumping into a dead reactor.
-      return arrow::Future<>::MakeFinished(arrow::Status::Cancelled(
-          "the exchange is over: the client disconnected or cancelled"));
+      return arrow::Status::Cancelled(
+          "the exchange is over: the client disconnected or cancelled");
     }
-    if (!flush_.is_valid() || flush_.is_finished()) {
-      flush_ = arrow::Future<>::Make();
+    if (flush_.is_valid() && !flush_.is_finished()) {
+      return arrow::Status::Invalid(
+          "a write is already in flight: await the previous write's future");
     }
+    flush_ = arrow::Future<>::Make();
     flush = flush_;
   }
   // Pump() takes the lock itself and may complete flush_ from a callback.

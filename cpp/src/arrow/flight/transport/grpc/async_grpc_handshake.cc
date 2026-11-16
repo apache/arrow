@@ -30,9 +30,8 @@ namespace {
 /// class holds is enough.
 class HandshakeReactor final : public AsyncReactorBase {
  public:
-  HandshakeReactor(AsyncCallContext flight_context, HandshakeFn handshake_handler)
-      : AsyncReactorBase(std::move(flight_context)),
-        handshake_handler_(std::move(handshake_handler)) {
+  HandshakeReactor(AsyncCallContext flight_context, AsyncGenericFlightServerBase* base)
+      : AsyncReactorBase(std::move(flight_context)), base_(base) {
     StartRead(&request_buf_);
   }
 
@@ -48,8 +47,7 @@ class HandshakeReactor final : public AsyncReactorBase {
       return;
     }
     std::string response;
-    const auto status =
-        handshake_handler_(flight_context(), request->payload(), &response);
+    const auto status = base_->Handshake(flight_context(), request->payload(), &response);
     if (!status.ok()) {
       FinishOnce(status);
       return;
@@ -67,14 +65,14 @@ class HandshakeReactor final : public AsyncReactorBase {
   }
 
  private:
-  HandshakeFn handshake_handler_;
+  AsyncGenericFlightServerBase* base_;
 };
 
 }  // namespace
 
-::grpc::ServerGenericBidiReactor* MakeHandshakeReactor(AsyncCallContext flight_context,
-                                                       HandshakeFn handshake_handler) {
-  return new HandshakeReactor(std::move(flight_context), std::move(handshake_handler));
+::grpc::ServerGenericBidiReactor* MakeHandshakeReactor(
+    AsyncCallContext flight_context, AsyncGenericFlightServerBase* base) {
+  return new HandshakeReactor(std::move(flight_context), base);
 }
 
 }  // namespace arrow::flight::transport::grpc::detail

@@ -20,6 +20,8 @@
 // calls, payload fidelity (binary, empty), an abandoned or late handshake, and
 // concurrency on fresh and reused channels.
 
+#include <future>
+
 #include "arrow/flight/transport/grpc/async_grpc_test_fixtures.h"
 
 namespace arrow::flight::transport::grpc {
@@ -40,12 +42,10 @@ struct AsyncAuthState {
 // are the only configuration the transport needs.
 class AsyncAuthTestServer : public AsyncGenericFlightServerBase {
  public:
-  AsyncAuthTestServer(std::string username, std::string password, std::string ticket,
-                      std::shared_ptr<AsyncAuthState> state = nullptr)
+  AsyncAuthTestServer(std::string username, std::string password, std::string ticket)
       : username_(std::move(username)),
         password_(std::move(password)),
-        ticket_(std::move(ticket)),
-        state_(state ? std::move(state) : std::make_shared<AsyncAuthState>()) {}
+        ticket_(std::move(ticket)) {}
 
   const std::shared_ptr<AsyncAuthState>& state() const { return state_; }
 
@@ -97,7 +97,7 @@ class AsyncAuthTestServer : public AsyncGenericFlightServerBase {
   std::string username_;
   std::string password_;
   std::string ticket_;
-  std::shared_ptr<AsyncAuthState> state_;
+  std::shared_ptr<AsyncAuthState> state_ = std::make_shared<AsyncAuthState>();
 };
 
 // A server with the async auth hooks installed, and a client connected to it.
@@ -118,10 +118,9 @@ struct AuthenticatedHarness {
 
  private:
   Status Start() {
-    ARROW_ASSIGN_OR_RAISE(auto location, Location::Parse(kServerUri));
     // The server class alone selects the async transport: deriving from it and
     // overriding its virtuals are the whole configuration.
-    FlightServerOptions options(location);
+    FlightServerOptions options(LocalhostLocation());
     RETURN_NOT_OK(server.Init(options));
     ARROW_ASSIGN_OR_RAISE(client, ConnectTo(server.port()));
     return Status::OK();
@@ -135,9 +134,8 @@ class AsyncGenericTestServer : public AsyncGenericFlightServerBase {};
 TEST(AsyncGrpcTest, HandshakeWithoutHookIsUnimplemented) {
   // A bare async server: Handshake is answered by the class's default virtual
   // with UNIMPLEMENTED, and the client's Authenticate() surfaces it.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   AsyncGenericTestServer flight_server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
@@ -154,9 +152,8 @@ TEST(AsyncGrpcTest, AsyncGenericFlightServerBaseImpliesAsyncTransport) {
   // yet the RPC is served by the generic callback service. DoPut is the
   // discriminator: an async server with no listener factory answers with its own
   // message rather than "NYI".
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   AsyncGenericTestServer flight_server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
@@ -221,12 +218,14 @@ TEST(AsyncGrpcTest, BadPasswordIsRejectedAtHandshake) {
 TEST(AsyncGrpcTest, UnauthenticatedUnknownMethodIsRejectedBeforeUnimplemented) {
   AuthenticatedHarness harness;
   ASSERT_OK(harness.status);
-  // GetFlightInfo is not served by the async generic service, but auth runs
-  // first: the client must see the auth failure, not UNIMPLEMENTED.
-  auto status = harness.client->GetFlightInfo(FlightDescriptor::Path({"x"})).status();
+  // A method the service does not have: it goes through the CheckAuth path and
+  // the UNIMPLEMENTED fallback reactor, and auth runs first, so the client must
+  // see the auth failure rather than UNIMPLEMENTED.
+  const ::grpc::Status status = CallUnknownMethod(harness.server.port());
   ASSERT_FALSE(status.ok());
-  EXPECT_THAT(status.ToString(), ::testing::HasSubstr("Invalid token"));
-  EXPECT_EQ(arrow::StatusCode::IOError, status.code());
+  // UNAUTHENTICATED, not UNIMPLEMENTED: the auth check ran before dispatch.
+  EXPECT_EQ(::grpc::StatusCode::UNAUTHENTICATED, status.error_code())
+      << "expected the auth failure, got: " << status.error_message();
 }
 
 // ---------------------------------------------------------------------------
@@ -269,9 +268,8 @@ TEST(AsyncGrpcTest, HandshakePayloadIsBinarySafe) {
   // response is echoed back through the client's reader: an embedded NUL and
   // non-ASCII bytes must survive both directions unchanged.
   const std::string binary("p4ss\0w0rd\xC3\xA9", 11);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   AsyncAuthTestServer server(binary, binary, "bin-ticket");
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(server.port()));
 
@@ -400,26 +398,38 @@ TEST(AsyncGrpcTest, LateHandshakeResponseLeavesServerUsable) {
   // The client gives up while the hook is still running, so the server's write
   // fails: the reactor's write-side terminal path must still Finish, and the
   // server must keep serving.
+  //
+  // The hook parks until the test releases it, rather than sleeping: the client's
+  // deadline has to expire while the hook is provably running, not while the
+  // connection is being set up, or the test fails on a loaded runner.
   class SlowAnsweringServer : public AsyncGenericFlightServerBase {
    public:
     Status Handshake(const ServerCallContext&, const std::string&,
                      std::string* response) override {
       handshakes.fetch_add(1);
-      std::this_thread::sleep_for(std::chrono::milliseconds(300));
+      // Only the first call parks; the second one (on a fresh client, after the
+      // deadline) must answer. A shared_future can be waited on repeatedly,
+      // unlike a future, which may only be consumed once.
+      if (handshakes.load() == 1) {
+        release.wait();
+      }
       *response = "user";
       return Status::OK();
     }
     std::atomic<int> handshakes{0};
+    std::promise<void> release_promise;
+    // Satisfied by the test once the client's deadline has expired. Blocking here
+    // is what the deadline has to interrupt.
+    std::shared_future<void> release = release_promise.get_future().share();
   };
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   SlowAnsweringServer server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(server.port()));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectToWarmed(server.port()));
 
   FlightCallOptions impatient;
-  impatient.timeout = std::chrono::milliseconds(50);
+  impatient.timeout = std::chrono::seconds(2);
   auto status = client->Authenticate(
       impatient, std::make_unique<TestClientAuthHandler>("user", "p4ssw0rd"));
   EXPECT_FALSE(status.ok()) << "the client's deadline must expire during the hook";
@@ -427,6 +437,8 @@ TEST(AsyncGrpcTest, LateHandshakeResponseLeavesServerUsable) {
       << "expected a deadline error, got: " << status.ToString();
   EXPECT_EQ(1, server.handshakes.load())
       << "the first call must have reached the hook, so its write had to finish";
+  // The deadline expired, so the hook is parked with the RPC already cancelled.
+  server.release_promise.set_value();
 
   ASSERT_OK_AND_ASSIGN(auto second_client, ConnectTo(server.port()));
   ASSERT_OK(second_client->Authenticate(
@@ -447,9 +459,8 @@ TEST(AsyncGrpcTest, EmptyHandshakeResponseIsDelivered) {
     }
   };
 
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   NoResponseServer server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(server.port()));
 

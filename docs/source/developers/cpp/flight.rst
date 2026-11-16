@@ -65,10 +65,10 @@ Dispatch
 ``AsyncGenericFlightService::CreateReactor()`` runs once per RPC on a gRPC
 thread. It builds the call's ``AsyncCallContext`` (running authentication and
 server middleware through ``GrpcServerCallContextHelper``), then creates the
-reactor for the method. An unknown method, a Handshake with no handshake hook,
-and a DoPut whose ``CreateDoPutListener()`` returns ``nullptr`` get a reactor
-that only finishes the call as ``UNIMPLEMENTED``. Every other reactor derives
-from ``AsyncReactorBase``; a handler the server class does not override answers
+reactor for the method. An unknown method and a DoPut whose
+``CreateDoPutListener()`` returns ``nullptr`` get a reactor that only finishes
+the call as ``UNIMPLEMENTED``. Every other reactor derives from
+``AsyncReactorBase``; a handler the server class does not override answers
 ``NotImplemented`` through that reactor.
 
 Reactor lifetime

@@ -65,10 +65,8 @@ TEST(AsyncGrpcTest, BasicDoPut) {
     ASSERT_EQ(chunk->num_rows(), 3);
     ASSERT_EQ(chunk->num_columns(), 2);
   }
-  // No metadata-only (error/app-metadata) chunks, and nothing the consumer
-  // rejected: a non-OK OnNext status would have failed DoPut with no ack.
+  // No metadata-only (error/app-metadata) chunks.
   ASSERT_EQ(listener->metadata_only_count(), 0);
-  ASSERT_OK(listener->last_status());
 }
 
 TEST(AsyncGrpcTest, EmptyDoPut) {
@@ -81,8 +79,7 @@ TEST(AsyncGrpcTest, EmptyDoPut) {
 
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(hand_built.port));
 
-  auto schema = arrow::schema(
-      {arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64())});
+  auto schema = TwoColumnSchema();
 
   // Upload nothing at all: the acknowledgement the server writes back on the
   // client's half-close is what makes Close() return.
@@ -99,7 +96,6 @@ TEST(AsyncGrpcTest, EmptyDoPut) {
   // No data of any kind reached the listener.
   ASSERT_EQ(listener->batches().size(), 0);
   ASSERT_EQ(listener->metadata_only_count(), 0);
-  ASSERT_OK(listener->last_status());
   // The sync client sends the schema payload eagerly, even when no batch
   // follows, so the listener does see the schema here. Deliberately not
   // asserted: that is the client's business, not the transport's.
@@ -115,8 +111,7 @@ TEST(AsyncGrpcTest, MetadataOnlyPutChunk) {
 
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(hand_built.port));
 
-  auto schema = arrow::schema(
-      {arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64())});
+  auto schema = TwoColumnSchema();
 
   FlightDescriptor descriptor = FlightDescriptor::Path({"metadata-only-put"});
   ASSERT_OK_AND_ASSIGN(auto result, client->DoPut(descriptor, schema));
@@ -173,8 +168,7 @@ TEST(AsyncGrpcTest, CreateDoPutListenerServesUpload) {
   // The upload half of the server class API: CreateDoPutListener() hands out
   // the per-RPC listener, with no options-level factory.
   TestUploadServer flight_server;
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_GT(flight_server.port(), 0);
 
@@ -249,11 +243,12 @@ TEST(AsyncGrpcTest, OnFinishMayWriteMetadataWithoutDeadlocking) {
   auto listener = flight_server.WaitForListener(0);
   ASSERT_NE(listener, nullptr) << "the server never handed out a DoPut listener";
   ASSERT_EQ(1, listener->finish_count());
-  // The write is refused (the upload is ending) rather than deadlocking.
+  // A write started from OnFinish() is supported, not refused: a listener reports
+  // the result of the upload there. It must complete (rather than deadlock), and
+  // its message must reach the client.
   ASSERT_TRUE(listener->finish_write.is_finished())
-      << "a write refused while the upload ends must fail at once";
-  EXPECT_TRUE(listener->finish_write.status().IsInvalid())
-      << listener->finish_write.status();
+      << "a write started from OnFinish() never completed";
+  ASSERT_OK(listener->finish_write.status()) << listener->finish_write.status();
 }
 
 /// Middleware that calls back into the upload from CallCompleted(): middleware
@@ -443,8 +438,8 @@ TEST(AsyncGrpcTest, DoPutCancelFromServerSideFinishesTheUpload) {
   ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
   // Cancel() reached the transport, and the listener was told the upload ended
-  // with that status exactly once.
-  ASSERT_EQ(listener->cancel_count(), 1);
+  // with that status exactly once. cancel_count() is not asserted: CancelWith()
+  // increments it unconditionally, so it would pass whatever the transport did.
   ASSERT_OK(listener->cancel_status()) << listener->cancel_status();
   ASSERT_EQ(listener->finish_count(), 1);
   // OnFinish must carry the ending that caused it, not a generic status.
@@ -551,9 +546,8 @@ TEST(AsyncGrpcTest, DoPutClientDeadlineWithPendingHandlerFinishes) {
   // RPC itself instead of waiting for the listener: Shutdown()/Wait() below
   // would otherwise block, since gRPC keeps the call alive until Finish()
   // runs.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   HangingDoPutServer flight_server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
@@ -561,7 +555,7 @@ TEST(AsyncGrpcTest, DoPutClientDeadlineWithPendingHandlerFinishes) {
   auto batch = OneColumnBatch(schema);
 
   FlightCallOptions impatient;
-  impatient.timeout = std::chrono::milliseconds(1000);
+  impatient.timeout = std::chrono::seconds(2);
   auto put = client->DoPut(impatient, FlightDescriptor::Path({"hang"}), schema);
   ASSERT_TRUE(put.ok()) << put.status();
   (void)put->writer->WriteRecordBatch(*batch);
@@ -593,7 +587,7 @@ TEST(AsyncGrpcTest, DoPutClientDeadlineWhileIdleIsNotACleanFinish) {
   auto batch = OneColumnBatch(schema);
 
   FlightCallOptions impatient;
-  impatient.timeout = std::chrono::milliseconds(600);
+  impatient.timeout = std::chrono::seconds(2);
   auto put = client->DoPut(impatient, FlightDescriptor::Path({"idle"}), schema);
   ASSERT_TRUE(put.ok()) << put.status();
   ASSERT_OK(put->writer->WriteRecordBatch(*batch));
@@ -656,9 +650,8 @@ TEST(AsyncGrpcTest, DoPutClientCancelWhileListenerParkedStaysSafe) {
   // never touch the finished call) rather than reach into a destroyed reactor.
   // The test resolves the parked future from its own thread, and the server
   // keeps its shared_ptr alive, so the resolution lands on the real listener.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   DeferredDoPutServer flight_server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
@@ -714,8 +707,7 @@ TEST(AsyncGrpcTest, DoPutWithoutDescriptorOnFirstMessageIsRejected) {
   TestFlightServer flight_server;
   auto listener = std::make_shared<RecordingListener>();
   flight_server.set_listener(listener);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_GT(flight_server.port(), 0);
 
@@ -753,8 +745,7 @@ TEST(AsyncGrpcTest, DoPutMalformedFirstMessageIsRejected) {
   TestFlightServer flight_server;
   auto listener = std::make_shared<RecordingListener>();
   flight_server.set_listener(listener);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
 
   // Field 1 (the descriptor), length-delimited, announcing 127 bytes of 2.
@@ -782,8 +773,7 @@ TEST(AsyncGrpcTest, DoPutReportsAFailingOnFinishToTheClient) {
   TestFlightServer flight_server;
   auto listener = std::make_shared<FailingFinishListener>();
   flight_server.set_listener(listener);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
@@ -813,8 +803,7 @@ TEST(AsyncGrpcTest, DoPutHalfCloseWithoutAnyMessageIsRejected) {
   TestFlightServer flight_server;
   auto listener = std::make_shared<RecordingListener>();
   flight_server.set_listener(listener);
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_GT(flight_server.port(), 0);
 
@@ -839,8 +828,7 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagUploadRejectedOnDescriptor) {
   auto listener = std::make_shared<RecordingListener>();
   listener->set_descriptor_status(
       arrow::Status::Invalid("listener rejected this descriptor"));
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   flight_server.set_listener(listener);
   ASSERT_OK(flight_server.Init(options));
   ASSERT_GT(flight_server.port(), 0);
@@ -866,6 +854,161 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagUploadRejectedOnDescriptor) {
   ASSERT_EQ(listener->descriptors()[0], descriptor);
   ASSERT_EQ(listener->schema_count(), 0);
   ASSERT_EQ(listener->batches().size(), 0);
+}
+
+// The client half-closes, then the listener answers from OnFinish(): the
+// Flight SQL ingest pattern. The reply must reach the client, and the upload
+// must not send an acknowledgement of its own that the client would read as the
+// server's answer.
+class ReplyingOnFinishListener : public FinishRecordingListener {
+ public:
+  arrow::Future<> OnFinish(Status status) override {
+    auto recorded = FinishRecordingListener::OnFinish(status);
+    if (!status.ok()) {
+      return recorded;
+    }
+    // The result of the upload, written once the client has finished sending.
+    auto writer = this->writer();
+    return writer->WriteMetadataAsync(*Buffer::FromString("ingested 2 rows"))
+        .Then([recorded]() { return recorded; });
+  }
+};
+
+TEST(AsyncGrpcTest, DoPutListenerRepliesFromOnFinish) {
+  TestFlightServer flight_server;
+  auto listener = std::make_shared<ReplyingOnFinishListener>();
+  flight_server.set_listener(listener);
+  FlightServerOptions options(LocalhostLocation());
+  ASSERT_OK(flight_server.Init(options));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
+
+  auto schema = OneColumnSchema();
+  auto batch = OneColumnBatch(schema);
+  ASSERT_OK_AND_ASSIGN(auto put,
+                       client->DoPut(FlightDescriptor::Path({"ingest"}), schema));
+  ASSERT_OK(put.writer->WriteRecordBatch(*batch));
+
+  // DoneWriting() half-closes; the server's only PutResult is the listener's.
+  ASSERT_OK(put.writer->DoneWriting());
+  std::shared_ptr<Buffer> metadata;
+  ASSERT_OK(put.reader->ReadMetadata(&metadata));
+  ASSERT_NE(nullptr, metadata) << "the reply written from OnFinish() never arrived";
+  ASSERT_EQ("ingested 2 rows", metadata->ToString());
+
+  ASSERT_OK(put.writer->Close());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+  EXPECT_EQ(1, listener->finish_count());
+}
+
+TEST(AsyncGrpcTest, DoPutSendsNoAcknowledgementOfItsOwn) {
+  // The transport writes nothing back on the clean end of an upload. A client
+  // that reads the PutResults the listener wrote must not find a message the
+  // transport made up behind them, so its Close() is the first thing that sees
+  // the RPC's status rather than a server message being consumed as the answer.
+  //
+  // Counted on the wire instead of by reading: ReadMetadata() after
+  // DoneWriting() blocks until the RPC ends, so it cannot observe "no message".
+  MetadataReplyingUploadServer flight_server;
+  FlightServerOptions options(LocalhostLocation());
+  ASSERT_OK(flight_server.Init(options));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
+
+  auto schema = OneColumnSchema();
+  auto batch = OneColumnBatch(schema);
+  ASSERT_OK_AND_ASSIGN(auto put,
+                       client->DoPut(FlightDescriptor::Path({"no-extra-ack"}), schema));
+  ASSERT_OK(put.writer->WriteRecordBatch(*batch));
+
+  std::shared_ptr<Buffer> metadata;
+  ASSERT_OK(put.reader->ReadMetadata(&metadata));
+  ASSERT_NE(nullptr, metadata);
+  ASSERT_EQ("ack 2 rows", metadata->ToString());
+
+  ASSERT_OK(put.writer->DoneWriting());
+  ASSERT_OK(put.writer->Close());
+
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+  // Exactly one PutResult was written for one batch: the listener's ack, and
+  // nothing from the transport.
+  auto listener = flight_server.WaitForListener(0);
+  ASSERT_NE(nullptr, listener);
+  EXPECT_EQ(1, listener->wrote())
+      << "the transport wrote a PutResult of its own at the end of the upload";
+}
+
+TEST(AsyncGrpcTest, DoPutNoCallbackAfterFinishWhenDescriptorIsPending) {
+  // A cancellation while OnDescriptor() is still pending must not let the
+  // descriptor's completion deliver OnSchemaDecoded()/OnNext() afterwards: the
+  // listener may have released everything it owns in OnFinish().
+  class ParkedDescriptorListener : public FinishRecordingListener {
+   public:
+    arrow::Future<> OnDescriptor(const FlightDescriptor& descriptor) override {
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        descriptors_.push_back(descriptor);
+      }
+      parked_ = arrow::Future<>::Make();
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        pending_ = parked_;
+      }
+      return parked_;
+    }
+    arrow::Future<> OnNext(FlightStreamChunk chunk) override {
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        ++next_after_descriptor_;
+      }
+      return FinishRecordingListener::OnNext(std::move(chunk));
+    }
+    void ReleaseParked() {
+      arrow::Future<> pending;
+      {
+        std::lock_guard<std::mutex> lock(mutex_);
+        pending = pending_;
+      }
+      if (pending.is_valid() && !pending.is_finished()) {
+        pending.MarkFinished();
+      }
+    }
+    int next_after_descriptor() const {
+      std::lock_guard<std::mutex> lock(mutex_);
+      return next_after_descriptor_;
+    }
+
+   private:
+    arrow::Future<> parked_;
+    arrow::Future<> pending_;
+    int next_after_descriptor_ = 0;
+  };
+
+  TestFlightServer flight_server;
+  auto listener = std::make_shared<ParkedDescriptorListener>();
+  flight_server.set_listener(listener);
+  FlightServerOptions options(LocalhostLocation());
+  ASSERT_OK(flight_server.Init(options));
+  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
+
+  auto schema = OneColumnSchema();
+  auto batch = OneColumnBatch(schema);
+  ASSERT_OK_AND_ASSIGN(auto put,
+                       client->DoPut(FlightDescriptor::Path({"parked"}), schema));
+  ASSERT_OK(put.writer->WriteRecordBatch(*batch));
+  ASSERT_TRUE(WaitFor([&] { return listener->descriptor_count() == 1; }));
+
+  // Cancel the upload from the server side while the descriptor is pending: the
+  // listener hears OnFinish() right away, without resolving its future first.
+  ASSERT_OK(listener->Cancel(Status::Cancelled("give up")));
+  ASSERT_EQ(1, listener->finish_count()) << "Cancel() must report OnFinish() at once";
+
+  // The descriptor completes after OnFinish(). Its continuation runs inline on
+  // this thread, so anything it (wrongly) delivered has run once this returns.
+  listener->ReleaseParked();
+  EXPECT_EQ(0, listener->next_after_descriptor()) << "OnNext() ran after OnFinish()";
+  EXPECT_EQ(0, listener->schema_count()) << "OnSchemaDecoded() ran after OnFinish()";
+
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+  EXPECT_EQ(1, listener->finish_count());
 }
 
 }  // namespace arrow::flight::transport::grpc

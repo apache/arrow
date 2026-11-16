@@ -120,12 +120,6 @@ class GrpcServerCallContextHelper {
       std::function<Status(const ServerCallContext& context, const std::string& token,
                            std::string* peer_identity)>;
 
-  /// The async handshake hook: the transport reads one Handshake request,
-  /// calls this, then writes the response it filled in.
-  using HandshakeFn =
-      std::function<Status(const ServerCallContext& context, const std::string& request,
-                           std::string* response)>;
-
   GrpcServerCallContextHelper(std::shared_ptr<ServerAuthHandler> auth_handler,
                               MiddlewareFactoryList middleware,
                               ValidateTokenFn validate_token = {})

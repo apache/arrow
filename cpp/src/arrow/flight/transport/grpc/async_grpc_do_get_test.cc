@@ -167,9 +167,8 @@ TEST(AsyncGrpcTest, DoGetClientCancelWithPendingPayloadFinishes) {
   // instead of waiting for a payload that will not come.
   const int64_t before = detail::AsyncReactorBase::live_reactors();
   auto trace = std::make_shared<MiddlewareTrace>();
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   HangingDoGetServer flight_server(HangingDoGetServer::HangAt::kStream);
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   options.middleware = {
       {"recording", std::make_shared<RecordingServerMiddlewareFactory>(trace)}};
   ASSERT_OK(flight_server.Init(options));
@@ -202,16 +201,15 @@ TEST(AsyncGrpcTest, DoGetClientDeadlineWhilePreparingFinishes) {
   // stream exists here, so Close() has nothing to deliver and the producer
   // notices through ServerCallContext::is_cancelled().
   auto trace = std::make_shared<MiddlewareTrace>();
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   HangingDoGetServer flight_server(HangingDoGetServer::HangAt::kPrepare);
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   options.middleware = {
       {"recording", std::make_shared<RecordingServerMiddlewareFactory>(trace)}};
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
   FlightCallOptions impatient;
-  impatient.timeout = std::chrono::milliseconds(500);
+  impatient.timeout = std::chrono::seconds(2);
   auto reader = client->DoGet(impatient, Ticket{"hang"});
   EXPECT_FALSE(reader.ok()) << "the deadline must expire while the server prepares";
 
@@ -281,14 +279,13 @@ TEST(AsyncGrpcTest, DoGetCancelCallbackReachesPendingHandler) {
   // registered once the RPC is cancelled runs at once, and the stream the
   // handler then resolves to is never read from but still receives Close().
   const int64_t before = detail::AsyncReactorBase::live_reactors();
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   CancelCallbackDoGetServer flight_server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
   FlightCallOptions impatient;
-  impatient.timeout = std::chrono::milliseconds(500);
+  impatient.timeout = std::chrono::seconds(2);
   EXPECT_FALSE(client->DoGet(impatient, Ticket{"hang"}).ok())
       << "the deadline must expire while the handler is pending";
   ASSERT_TRUE(WaitFor([&] { return flight_server.cancel_callbacks.load() >= 1; }))
@@ -390,14 +387,13 @@ TEST(AsyncGrpcTest, DoGetNeverClosesAStreamItIsAskingForAPayload) {
   // GetSchemaPayloadAsync(): the cancellation's Close() must wait for that
   // call to return, and the stream must not be asked for anything after it.
   const int64_t before = detail::AsyncReactorBase::live_reactors();
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   SlowSchemaDoGetServer flight_server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 
   FlightCallOptions impatient;
-  impatient.timeout = std::chrono::milliseconds(300);
+  impatient.timeout = std::chrono::seconds(2);
   EXPECT_FALSE(client->DoGet(impatient, Ticket{"slow-schema"}).ok())
       << "the deadline must expire while the stream is asked for its schema";
 
@@ -457,9 +453,8 @@ TEST(AsyncGrpcTest, DoGetPumpErrorStillClosesTheStream) {
   // The producer's first NextAsync() fails: the RPC ends with that status, and
   // the producer must still be told the RPC is over through Close(), like the
   // write-failure and cancel paths already do.
-  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse(kServerUri));
   ErrorPayloadDoGetServer flight_server;
-  FlightServerOptions options(location);
+  FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
   ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
 

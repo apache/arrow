@@ -17,6 +17,15 @@
 
 add_custom_target(arrow_flight)
 
+if(MSVC)
+  set(ARROW_FLIGHT_FORCE_INCLUDE
+      "/FI${CMAKE_CURRENT_SOURCE_DIR}/transport/grpc/customize_absl.h")
+  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:${ARROW_FLIGHT_FORCE_INCLUDE}>)
+else()
+  add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/transport/grpc/customize_absl.h>"
+  )
+endif()
+
 arrow_install_all_headers("arrow/flight")
 
 # If libarrow_flight.a is only built, "pkg-config --cflags --libs

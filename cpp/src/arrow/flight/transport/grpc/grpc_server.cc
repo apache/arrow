@@ -25,11 +25,12 @@
 #include <unordered_map>
 #include <utility>
 
+#include "arrow/flight/transport/grpc/customize_grpc.h"
+
 #include "arrow/flight/transport/grpc/async_grpc_compat.h"
 #if ARROW_FLIGHT_HAS_ASYNC_SERVER
 #  include "arrow/flight/transport/grpc/async_grpc_service.h"
 #endif
-#include "arrow/flight/transport/grpc/customize_grpc.h"
 
 #include <grpcpp/grpcpp.h>
 
@@ -479,11 +480,6 @@ class GrpcServerTransport : public internal::ServerTransport {
             "override Handshake/ValidateToken instead");
       }
       using AsyncHelper = GrpcServerCallContextHelper<::grpc::CallbackServerContext>;
-      AsyncHelper::HandshakeFn handshake =
-          [base = async_base_](const ServerCallContext& context,
-                               const std::string& request, std::string* response) {
-            return base->Handshake(context, request, response);
-          };
       AsyncHelper::ValidateTokenFn validate_token =
           [base = async_base_](const ServerCallContext& context, const std::string& token,
                                std::string* peer_identity) {
@@ -492,7 +488,7 @@ class GrpcServerTransport : public internal::ServerTransport {
       auto async_helper = std::make_shared<AsyncHelper>(
           /*auth_handler=*/nullptr, options.middleware, std::move(validate_token));
       async_service_ = std::make_unique<AsyncGenericFlightService>(
-          async_base_, std::move(async_helper), std::move(handshake));
+          async_base_, std::move(async_helper));
       // The else and its body are split by #endif, so cpplint cannot pair the
       // braces; the #if branch above opens the block it closes.
     } else  // NOLINT(readability/braces)
