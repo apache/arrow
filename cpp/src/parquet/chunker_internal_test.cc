@@ -62,7 +62,7 @@ using ::testing::Bool;
 using ::testing::Combine;
 using ::testing::Values;
 
-// generate determinisic and platform-independent data
+// generate deterministic and platform-independent data
 inline uint64_t hash(uint64_t seed, uint64_t index) {
   uint64_t h = (index + seed) * 0xc4ceb9fe1a85ec53ull;
   h ^= h >> 33;
@@ -658,7 +658,7 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
   // exact_number_of_larger_diffs, and exact_number_of_smaller_diffs parameters specify
   // the expected number of differences with equal, larger, and smaller sums of the page
   // lengths respectively. The edit_length parameter is used to verify that the page
-  // lenght differences are exactly equal to the edit_length.
+  // length differences are exactly equal to the edit_length.
   auto diffs = FindDifferences(original.page_lengths, modified.page_lengths);
 
   // Note, the assertion function assumes that all edits are made using the same edit
@@ -684,7 +684,7 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
   if (diffs.size() != expected_number_of_diffs) {
     PrintDifferences(original.page_lengths, modified.page_lengths, diffs);
   }
-  if (diffs.size() == 0) {
+  if (diffs.empty()) {
     // no differences found, the arrays are equal
     ASSERT_TRUE(original.page_lengths == modified.page_lengths);
   }
@@ -734,7 +734,7 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
     ASSERT_EQ(left_sum, right_sum);
   }
 
-  if (diffs.size() == 0) {
+  if (diffs.empty()) {
     // no differences found, the arrays are equal
     ASSERT_TRUE(original.page_lengths == modified.page_lengths);
   }
@@ -804,14 +804,13 @@ void AssertContentDefinedChunkSizes(const std::shared_ptr<::arrow::ChunkedArray>
     ASSERT_FALSE(column_info.has_dictionary_page);
   } else {
     ASSERT_EQ(column_info.has_dictionary_page, expect_dictionary_page);
-    ASSERT_EQ(column_info.has_dictionary_page, expect_dictionary_page);
   }
 
   if (::arrow::is_fixed_width(type_id) || ::arrow::is_base_binary_like(type_id) ||
       ::arrow::is_binary_view_like(type_id)) {
     int64_t offset = 0;
 
-    auto page_lengths = column_info.page_lengths;
+    const auto& page_lengths = column_info.page_lengths;
     for (size_t i = 0; i < page_lengths.size() - 1; i++) {
       // since CDC chunking is applied on the logical values before any parquet encoding
       // we first slice the array to get the logical array and then calculate the CDC
