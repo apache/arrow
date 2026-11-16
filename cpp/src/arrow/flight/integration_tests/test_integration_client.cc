@@ -217,8 +217,6 @@ arrow::Status RunScenario(arrow::flight::integration_tests::Scenario* scenario) 
 }
 
 int main(int argc, char** argv) {
-  arrow::util::ArrowLog::InstallFailureSignalHandler();
-
   gflags::SetUsageMessage("Integration testing client for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   std::shared_ptr<arrow::flight::integration_tests::Scenario> scenario;
@@ -240,6 +238,5 @@ int main(int argc, char** argv) {
   }
   ABORT_NOT_OK(status);
 
-  arrow::util::ArrowLog::UninstallSignalAction();
   return 0;
 }

@@ -56,7 +56,6 @@ int main(int argc, char** argv) {
 
   arrow::util::ArrowLog::StartArrowLog("acero-flight-sql-server",
                                        arrow::util::ArrowLogLevel::ARROW_INFO);
-  arrow::util::ArrowLog::InstallFailureSignalHandler();
 
   arrow::Status st = RunMain(FLAGS_location);
 
