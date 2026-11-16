@@ -57,23 +57,26 @@ Each tier change should have its own GitHub issue and be recorded in the platfor
 
 Tier 1
 ------
-    - Is tested on CI on PRs or via periodic daily runs.
-    - Changes which would break the main branch are not allowed to be merged; any breakage should be fixed or reverted immediately.
-    - CI failures block releases.
-    - All committers are responsible to keep these CI jobs working.
+
+- Is tested on CI on PRs or via periodic daily runs.
+- Changes which would break the main branch are not allowed to be merged; any breakage should be fixed or reverted immediately.
+- CI failures block releases.
+- All committers are responsible to keep these CI jobs working.
 
 Tier 2
 ------
-    - Is tested on CI via periodic daily runs and can be tested on Pull Requests via optional jobs.
-    - The CI jobs are prefixed with ``Tier 2``.
-    - Are maintained as a best-effort basis.
-    - CI failures do not block releases.
-    - At least one committer should look over the CI jobs and be responsible to keep these platforms working.
+
+- Is tested on CI via periodic daily runs and can be tested on Pull Requests via optional jobs.
+- The CI jobs are prefixed with ``Tier 2``.
+- Are maintained as a best-effort basis.
+- CI failures do not block releases.
+- At least one committer should look over the CI jobs and be responsible to keep these platforms working.
 
 Tier 3
 ------
-    - Are not tested on CI.
-    - Unsupported though we might want to accept patches for them depending on the maintenance overhead.
+
+- Are not tested on CI.
+- Unsupported though we might want to accept patches for them depending on the maintenance overhead.
 
 Platform axes
 =============
@@ -227,3 +230,7 @@ Platform history
      - Change
      - Arrow version
      - Issue
+   * - macOS x86_64
+     - Tier 1 to Tier 2
+     - 27.0.0
+     - `Mailing list discussion <https://lists.apache.org/thread.html/l3vmknbjhwf60crrfp3hwb7p5m4qjw7z>`__
