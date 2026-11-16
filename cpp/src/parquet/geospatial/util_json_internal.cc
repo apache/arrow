@@ -33,6 +33,7 @@ namespace {
 
 // An upper bound on the expected nesting depth of a geospatial JSON metadata object
 constexpr int kMaxJsonDepth = 20;
+constexpr char kUnknownCrs[] = "srid:0";
 
 ::arrow::Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
     simdjson::ondemand::object object) {
@@ -43,7 +44,7 @@ constexpr int kMaxJsonDepth = 20;
     if (json_crs_result.status().IsKeyError()) {
       // GeoArrow uses an omitted CRS to mean that the CRS is unknown. Parquet
       // represents this explicitly as the special value "srid:0".
-      return "srid:0";
+      return kUnknownCrs;
     }
 
     return json_crs_result.status();
@@ -53,7 +54,7 @@ constexpr int kMaxJsonDepth = 20;
 
   ARROW_ASSIGN_OR_RAISE(bool is_null, ::arrow::internal::IsJsonNull(json_crs));
   if (is_null) {
-    return "srid:0";
+    return kUnknownCrs;
   }
 
   auto crs_string_result = ::arrow::internal::GetJsonAs<std::string_view>(json_crs);
@@ -164,7 +165,7 @@ constexpr int kMaxJsonDepth = 20;
   // the format and pass on this information to GeoArrow.
   if (crs.empty()) {
     return R"("crs": "OGC:CRS84")";
-  } else if (crs == "srid:0") {
+  } else if (crs == kUnknownCrs) {
     return "";
   } else if (crs.starts_with(kSridPrefix)) {
     return R"("crs": ")" + std::string(crs.substr(kSridPrefix.size())) +
@@ -213,7 +214,7 @@ constexpr int kMaxJsonDepth = 20;
 LogicalTypeFromGeoArrowMetadata(std::string_view serialized_data) {
   // Parquet represents GeoArrow's unknown (omitted) CRS as "srid:0".
   if (serialized_data.empty() || serialized_data == "{}") {
-    return LogicalType::Geometry("srid:0");
+    return LogicalType::Geometry(kUnknownCrs);
   }
 
   simdjson::ondemand::parser parser;
