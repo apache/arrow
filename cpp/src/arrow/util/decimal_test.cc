@@ -241,6 +241,12 @@ TEST(Decimal64Test, TestIntMinFitsPrecision) {
   ASSERT_FALSE(d.FitsInPrecision(18));
 }
 
+TEST(Decimal64Test, FromStringOverflow) {
+  // 2^64 + 1 would wrap around to 1 in a uint64_t
+  ASSERT_RAISES(Invalid, Decimal64::FromString("18446744073709551617"));
+  ASSERT_RAISES(Invalid, Decimal32::FromString("18446744073709551617"));
+}
+
 TYPED_TEST_SUITE(DecimalFromStringTest, DecimalTypes);
 
 TYPED_TEST(DecimalFromStringTest, Basics) { this->TestBasics(); }
@@ -324,10 +330,6 @@ TEST(Decimal128Test, TestStringRoundTrip) {
       Decimal128 decimal(high_bits, low_bits);
       for (int32_t scale : kScales) {
         std::string str = decimal.ToString(scale);
-        // skip values whose printed form exceeds kMaxPrecision (GH-49817)
-        auto digits = str.size() - (str[0] == '-' ? 1 : 0) -
-                      (str.find('.') == std::string::npos ? 0 : 1);
-        if (static_cast<int>(digits) > Decimal128::kMaxPrecision) continue;
         ASSERT_OK_AND_ASSIGN(Decimal128 result, Decimal128::FromString(str));
         EXPECT_EQ(decimal, result);
       }
@@ -439,15 +441,22 @@ TEST(Decimal128Test, FromStringLimits) {
   ASSERT_RAISES(Invalid, Decimal128::FromString("-9e39"));
   ASSERT_RAISES(Invalid, Decimal128::FromString("9.9e40"));
   ASSERT_RAISES(Invalid, Decimal128::FromString("-9.9e40"));
-  // XXX conversion overflows are currently not detected
+  // Digits that do not fit in 128 bits
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("999999999999999999999999999999999999999"));
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("170141183460469231731687303715884105728"));
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("-170141183460469231731687303715884105729"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString(
+                             "1.55555555555555555555555555555555555555555555555555"));
+  // XXX conversion overflows through the exponent are currently not detected
   //   ASSERT_RAISES(Invalid, Decimal128::FromString("99e38"));
   //   ASSERT_RAISES(Invalid, Decimal128::FromString("-99e38"));
   //   ASSERT_RAISES(Invalid,
   //   Decimal128::FromString("999999999999999999999999999999999999999e1"));
   //   ASSERT_RAISES(Invalid,
   //   Decimal128::FromString("-999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //   Decimal128::FromString("999999999999999999999999999999999999999"));
 
   // No exponent, many fractional digits
   AssertDecimalFromString("9.9999999999999999999999999999999999999", dec38times9pos, 38,
@@ -545,15 +554,24 @@ TEST(Decimal256Test, FromStringLimits) {
   ASSERT_RAISES(Invalid, Decimal256::FromString("9.9e78"));
   ASSERT_RAISES(Invalid, Decimal256::FromString("-9.9e78"));
 
-  // XXX conversion overflows are currently not detected
+  // Digits that do not fit in 256 bits
+  ASSERT_RAISES(Invalid,
+                Decimal256::FromString("999999999999999999999999999999999999999"
+                                       "99999999999999999999999999999999999999"));
+  ASSERT_RAISES(Invalid,
+                Decimal256::FromString("578960446186580977117854925043439539266"
+                                       "34992332820282019728792003956564819968"));
+  ASSERT_RAISES(Invalid,
+                Decimal256::FromString("-578960446186580977117854925043439539266"
+                                       "34992332820282019728792003956564819969"));
+
+  // XXX conversion overflows through the exponent are currently not detected
   //   ASSERT_RAISES(Invalid, Decimal256::FromString("99e76"));
   //   ASSERT_RAISES(Invalid, Decimal256::FromString("-99e76"));
   //   ASSERT_RAISES(Invalid,
   //     Decimal256::FromString("9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
   //   ASSERT_RAISES(Invalid,
   //     Decimal256::FromString("-9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //     Decimal256::FromString("99999999999999999999999999999999999999999999999999999999999999999999999999999"));
 
   // No exponent, many fractional digits
   AssertDecimalFromString(
@@ -712,23 +730,17 @@ TEST(Decimal128Test, PrintLargeNegativeValue) {
 }
 
 TEST(Decimal128Test, PrintMaxValue) {
-  // 99999...9 is the largest value that fits in kMaxPrecision (38) digits; the
-  // truncated bit-pattern max is also exercised (GH-49817).
-  for (const auto& string_value :
-       {std::string("99999999999999999999999999999999999999"),
-        std::string("17014118346046923173168730371588410572")}) {
-    const Decimal128 value(string_value);
-    ASSERT_EQ(string_value, value.ToIntegerString());
-  }
+  const std::string string_value("170141183460469231731687303715884105727");
+  const Decimal128 value(string_value);
+  const std::string printed_value = value.ToIntegerString();
+  ASSERT_EQ(string_value, printed_value);
 }
 
 TEST(Decimal128Test, PrintMinValue) {
-  for (const auto& string_value :
-       {std::string("-99999999999999999999999999999999999999"),
-        std::string("-17014118346046923173168730371588410572")}) {
-    const Decimal128 value(string_value);
-    ASSERT_EQ(string_value, value.ToIntegerString());
-  }
+  const std::string string_value("-170141183460469231731687303715884105728");
+  const Decimal128 value(string_value);
+  const std::string printed_value = value.ToIntegerString();
+  ASSERT_EQ(string_value, printed_value);
 }
 
 struct ToStringTestParam {
@@ -1750,11 +1762,9 @@ TYPED_TEST(TestBasicDecimalFunctionality, FitsInPrecision) {
   ASSERT_TRUE(TypeParam(max_nines).FitsInPrecision(TypeParam::kMaxPrecision));
   ASSERT_TRUE(TypeParam("-" + max_nines).FitsInPrecision(TypeParam::kMaxPrecision));
 
-  // max_nines + 1 is 10^kMaxPrecision, the first value that no longer fits;
-  // build it arithmetically since the string form is rejected now (GH-49817)
-  TypeParam one_past_max = TypeParam(max_nines) + 1;
-  ASSERT_FALSE(one_past_max.FitsInPrecision(TypeParam::kMaxPrecision));
-  ASSERT_FALSE((-one_past_max).FitsInPrecision(TypeParam::kMaxPrecision));
+  std::string max_zeros(TypeParam::kMaxPrecision, '0');
+  ASSERT_FALSE(TypeParam("1" + max_zeros).FitsInPrecision(TypeParam::kMaxPrecision));
+  ASSERT_FALSE(TypeParam("-1" + max_zeros).FitsInPrecision(TypeParam::kMaxPrecision));
 }
 
 TEST(Decimal32Test, LeftShift) {
@@ -1775,11 +1785,9 @@ TEST(Decimal32Test, LeftShift) {
   check(123, 16);
   check(123, 30);
 
-  // operands picked so the expected results fit in kMaxPrecision (9) digits,
-  // since FromString now rejects wider literals (GH-49817)
-  ASSERT_EQ(Decimal32("999999998"), Decimal32("499999999") << 1);
+  ASSERT_EQ(Decimal32("1999999998"), Decimal32("999999999") << 1);
   ASSERT_EQ(Decimal32("12799872"), Decimal32("99999") << 7);
-  ASSERT_EQ(Decimal32("819191808"), Decimal32("99999") << 13);
+  ASSERT_EQ(Decimal32("1638383616"), Decimal32("99999") << 14);
 
   ASSERT_EQ(Decimal32("123456789"), Decimal32("123456789") << 0);
   ASSERT_EQ(Decimal32("246913578"), Decimal32("123456789") << 1);
@@ -1791,11 +1799,9 @@ TEST(Decimal32Test, LeftShift) {
   check(-123, 16);
   check(-123, 30);
 
-  // operands picked so the expected results fit in kMaxPrecision (9) digits,
-  // since FromString now rejects wider literals (GH-49817)
-  ASSERT_EQ(Decimal32("-999999998"), Decimal32("-499999999") << 1);
+  ASSERT_EQ(Decimal32("-1999999998"), Decimal32("-999999999") << 1);
   ASSERT_EQ(Decimal32("-12799872"), Decimal32("-99999") << 7);
-  ASSERT_EQ(Decimal32("-819191808"), Decimal32("-99999") << 13);
+  ASSERT_EQ(Decimal32("-1638383616"), Decimal32("-99999") << 14);
 
   ASSERT_EQ(Decimal32("-123456789"), Decimal32("-123456789") << 0);
   ASSERT_EQ(Decimal32("-246913578"), Decimal32("-123456789") << 1);
@@ -1868,9 +1874,7 @@ TEST(Decimal64Test, LeftShift) {
 
   ASSERT_EQ(Decimal64("1234567890123456"), Decimal64("1234567890123456") << 0);
   ASSERT_EQ(Decimal64("2469135780246912"), Decimal64("1234567890123456") << 1);
-  // shift amount picked so the expected result fits in kMaxPrecision (18
-  // digits), since FromString now rejects wider literals (GH-49817)
-  ASSERT_EQ(Decimal64("632098759743209472"), Decimal64("1234567890123456") << 9);
+  ASSERT_EQ(Decimal64("6917529027641081856"), Decimal64("1234567890123456") << 55);
 
   check(-123, 0);
   check(-123, 1);
@@ -1884,9 +1888,7 @@ TEST(Decimal64Test, LeftShift) {
 
   ASSERT_EQ(Decimal64("-1234567890123456"), Decimal64("-1234567890123456") << 0);
   ASSERT_EQ(Decimal64("-2469135780246912"), Decimal64("-1234567890123456") << 1);
-  // shift amount picked so the expected result fits in kMaxPrecision (18
-  // digits), since FromString now rejects wider literals (GH-49817)
-  ASSERT_EQ(Decimal64("-632098759743209472"), Decimal64("-1234567890123456") << 9);
+  ASSERT_EQ(Decimal64("-6917529027641081856"), Decimal64("-1234567890123456") << 55);
 }
 
 TEST(Decimal64Test, RightShift) {
@@ -1952,10 +1954,8 @@ TEST(Decimal128Test, LeftShift) {
 
   ASSERT_EQ(Decimal128("199999999999998"), Decimal128("99999999999999") << 1);
   ASSERT_EQ(Decimal128("3435973836799965640261632"), Decimal128("99999999999999") << 35);
-  // shift amount picked so the expected result fits in kMaxPrecision (38
-  // digits), since FromString now rejects wider literals (GH-49817)
-  ASSERT_EQ(Decimal128("60446290980730854272398992685412646912"),
-            Decimal128("99999999999999") << 79);
+  ASSERT_EQ(Decimal128("120892581961461708544797985370825293824"),
+            Decimal128("99999999999999") << 80);
 
   ASSERT_EQ(Decimal128("1234567890123456789012"), Decimal128("1234567890123456789012")
                                                       << 0);
@@ -1973,10 +1973,8 @@ TEST(Decimal128Test, LeftShift) {
   ASSERT_EQ(Decimal128("-199999999999998"), Decimal128("-99999999999999") << 1);
   ASSERT_EQ(Decimal128("-3435973836799965640261632"), Decimal128("-99999999999999")
                                                           << 35);
-  // shift amount picked so the expected result fits in kMaxPrecision (38
-  // digits), since FromString now rejects wider literals (GH-49817)
-  ASSERT_EQ(Decimal128("-60446290980730854272398992685412646912"),
-            Decimal128("-99999999999999") << 79);
+  ASSERT_EQ(Decimal128("-120892581961461708544797985370825293824"),
+            Decimal128("-99999999999999") << 80);
 
   ASSERT_EQ(Decimal128("-1234567890123456789012"), Decimal128("-1234567890123456789012")
                                                        << 0);

@@ -3445,16 +3445,16 @@ TEST_P(Decimal256Test, WithNulls) {
   std::vector<Decimal256> draw = {Decimal256(1), Decimal256(2),  Decimal256(-1),
                                   Decimal256(4), Decimal256(-1), Decimal256(1),
                                   Decimal256(2)};
-  Decimal256 big;  // trimmed to kMaxPrecision (76) digits
+  Decimal256 big;  // (pow(2, 255) - 1) / pow(10, 38)
   ASSERT_OK_AND_ASSIGN(big,
                        Decimal256::FromString("578960446186580977117854925043439539266."
-                                              "3499233282028201972879200395656481996"));
+                                              "34992332820282019728792003956564819967"));
   draw.push_back(big);
 
-  Decimal256 big_negative;  // trimmed to kMaxPrecision (76) digits
+  Decimal256 big_negative;  // -pow(2, 255) / pow(10, 38)
   ASSERT_OK_AND_ASSIGN(big_negative,
                        Decimal256::FromString("-578960446186580977117854925043439539266."
-                                              "3499233282028201972879200395656481996"));
+                                              "34992332820282019728792003956564819968"));
   draw.push_back(big_negative);
 
   std::vector<uint8_t> valid_bytes = {true, true, false, true, false,
