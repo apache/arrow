@@ -301,8 +301,8 @@ TEST(TestExpressionCacheKey, TypeParametersAreKept) {
 }
 
 TEST(TestExpressionCacheKey, RepeatedNamesAndTypesStayDistinct) {
-  // Repeated names and types are written as references. These pairs differ only in
-  // where a name or type repeats, or in the order the types first appear.
+  // These pairs differ only in where a name or type repeats, or in the order the types
+  // appear. The key must not depend on any state carried between nodes.
   auto i32 = arrow::int32();
   auto i64 = arrow::int64();
   std::vector<ExpressionCacheKey> keys;
@@ -315,7 +315,7 @@ TEST(TestExpressionCacheKey, RepeatedNamesAndTypesStayDistinct) {
   add(Function("f", {Field("a", i32), Field("b", i64), Field("c", i64)}, i64));
   add(Function("f", {Field("a", i64), Field("b", i32), Field("c", i64)}, i64));
   add(Function("f", {Field("a", i32), Field("b", i32), Field("c", i64)}, i64));
-  // A function name and a field name share one name table.
+  // A function name and a field name with the same text.
   add(Function("x", {Field("x", i32)}, i64));
   add(Function("x", {Field("y", i32)}, i64));
   add(Function("y", {Field("x", i32)}, i64));
