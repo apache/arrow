@@ -577,9 +577,8 @@ class DatasetWriter::DatasetWriterImpl {
         write_options_(std::move(write_options)),
         writer_state_(std::make_shared<DatasetWriterState>(
             CalculateMaxRowsQueued(
-                max_rows_queued,
-                CalculateMaxRowsStaged(max_rows_queued,
-                                       write_options_.min_rows_per_group)),
+                max_rows_queued, CalculateMaxRowsStaged(
+                                     max_rows_queued, write_options_.min_rows_per_group)),
             write_options_.max_open_files,
             CalculateMaxRowsStaged(max_rows_queued, write_options_.min_rows_per_group))),
         pause_callback_(std::move(pause_callback)),
