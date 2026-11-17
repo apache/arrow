@@ -47,6 +47,13 @@ arrow::Status ExportedContextFunctions::AddMappings(Engine* engine) const {
                                   args,
                                   reinterpret_cast<void*>(gdv_fn_context_arena_malloc));
 
+  // gdv_fn_context_arena_used_ptr
+  args = {types->i64_type()};  // int64_t context_ptr
+
+  engine->AddGlobalMappingForFunc("gdv_fn_context_arena_used_ptr", types->i8_ptr_type(),
+                                  args,
+                                  reinterpret_cast<void*>(gdv_fn_context_arena_used_ptr));
+
   // gdv_fn_context_arena_reset
   args = {types->i64_type()};  // int64_t context_ptr
 
@@ -68,6 +75,11 @@ void gdv_fn_context_set_error_msg(int64_t context_ptr, const char* err_msg) {
 uint8_t* gdv_fn_context_arena_malloc(int64_t context_ptr, int32_t size) {
   auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
   return context->arena()->Allocate(size);
+}
+
+uint8_t* gdv_fn_context_arena_used_ptr(int64_t context_ptr) {
+  auto context = reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);
+  return context->arena()->used_ptr();
 }
 
 void gdv_fn_context_arena_reset(int64_t context_ptr) {

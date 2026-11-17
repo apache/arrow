@@ -784,6 +784,9 @@ def test_array_from_buffers():
     with pytest.raises(TypeError):
         pa.Array.from_buffers(pa.int16(), 3, ['', ''], offset=1)
 
+    with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
+        pa.Array.from_buffers(type=None, length=0, buffers=[])
+
 
 def test_string_binary_from_buffers():
     array = pa.array(["a", None, "b", "c"])
@@ -867,6 +870,10 @@ def test_list_from_buffers(list_type_factory):
         # too many children
         pa.Array.from_buffers(ty, 4, buffers[:ty.num_buffers],
                               children=[child, child])
+
+    with pytest.raises(TypeError, match="Array child must not be None"):
+        pa.Array.from_buffers(
+            type=ty, length=4, buffers=buffers[:ty.num_buffers], children=[None])
 
 
 def test_struct_from_buffers():
@@ -986,6 +993,13 @@ def test_dictionary_from_buffers(offset):
                                         a.indices.buffers(), a.dictionary,
                                         offset=offset)
     assert a[offset:] == b
+
+    with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
+        pa.DictionaryArray.from_buffers(
+            None, len(a), a.indices.buffers(), a.dictionary)
+    with pytest.raises(TypeError, match="Argument 'dictionary' has incorrect type"):
+        pa.DictionaryArray.from_buffers(
+            a.type, len(a), a.indices.buffers(), None)
 
 
 @pytest.mark.numpy
@@ -4274,6 +4288,9 @@ def test_run_end_encoded_from_buffers():
     with pytest.raises(ValueError):
         pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
                                            1, offset, children)
+
+    with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
+        pa.RunEndEncodedArray.from_buffers(type=None, length=0, buffers=[])
 
 
 @pytest.mark.numpy

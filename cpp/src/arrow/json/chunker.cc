@@ -101,6 +101,8 @@ class ParsingBoundaryFinder : public BoundaryFinder {
     auto data = buffer_->mutable_data();
     std::memcpy(data, partial.data(), partial.size());
     std::memcpy(data + partial.size(), block.data(), block.size());
+    // Zero-initialize padding area, to avoid Valgrind failures.
+    std::memset(data + partial.size() + block.size(), 0, simdjson::SIMDJSON_PADDING);
     auto view = simdjson::padded_string_view(data, /*len=*/data_size,
                                              /*capacity=*/buffer_->capacity());
     DCHECK(view.has_sufficient_padding());

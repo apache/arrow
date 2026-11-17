@@ -87,20 +87,23 @@ namespace bit_util = arrow::bit_util;
 namespace parquet::arrow {
 namespace {
 
-::arrow::Result<std::shared_ptr<ArrayData>> ChunksToSingle(const ChunkedArray& chunked) {
+::arrow::Result<std::shared_ptr<ArrayData>> ChunksToSingle(const ChunkedArray& chunked,
+                                                           MemoryPool* pool) {
   switch (chunked.num_chunks()) {
     case 0: {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> array,
-                            ::arrow::MakeArrayOfNull(chunked.type(), 0));
+                            ::arrow::MakeArrayOfNull(chunked.type(), 0, pool));
       return array->data();
     }
     case 1:
       return chunked.chunk(0)->data();
-    default:
-      // ARROW-3762(wesm): If item reader yields a chunked array, we reject as
-      // this is not yet implemented
-      return Status::NotImplemented(
-          "Nested data conversions not implemented for chunked array outputs");
+    default: {
+      // GH-32723: A leaf reader can yield several chunks, e.g. one per row group for
+      // dictionaries. Concatenate fails if the merged data overflows the type.
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> array,
+                            ::arrow::Concatenate(chunked.chunks(), pool));
+      return array->data();
+    }
   }
 }
 
@@ -678,7 +681,8 @@ class ListReader : public ColumnReaderImpl {
           validity_buffer->Resize(bit_util::BytesForBits(validity_io.values_read)));
       validity_buffer->ZeroPadding();
     }
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> item_chunk, ChunksToSingle(**out));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> item_chunk,
+                          ChunksToSingle(**out, ctx_->pool));
 
     std::vector<std::shared_ptr<Buffer>> buffers{
         validity_io.null_count > 0 ? validity_buffer : nullptr, offsets_buffer};
@@ -753,7 +757,7 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
     const auto& type = checked_cast<const ::arrow::FixedSizeListType&>(*field()->type());
     std::shared_ptr<ChunkedArray> child;
     RETURN_NOT_OK(item_reader()->BuildArray(length_upper_bound, &child));
-    ARROW_ASSIGN_OR_RAISE(auto child_data, ChunksToSingle(*child));
+    ARROW_ASSIGN_OR_RAISE(auto child_data, ChunksToSingle(*child, ctx_->pool));
     const int64_t rows = child_data->length / type.list_size();
     if (child_data->length % type.list_size() != 0) {
       return Status::Invalid("Incomplete fixed-size list at end of column");
@@ -955,7 +959,8 @@ Status StructReader::BuildArray(int64_t length_upper_bound,
   for (auto& child : children_) {
     std::shared_ptr<ChunkedArray> field;
     RETURN_NOT_OK(child->BuildArray(validity_io.values_read, &field));
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array_data, ChunksToSingle(*field));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> array_data,
+                          ChunksToSingle(*field, ctx_->pool));
     children_array_data.push_back(std::move(array_data));
   }
 
@@ -1118,7 +1123,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
       if (!schema_child_type.Equals(reader_child_type)) {
         child_field = child_field->WithType(child_reader->field()->type());
       }
-      child_fields.push_back(child_field);
+      child_fields.push_back(std::move(child_field));
       child_readers.emplace_back(std::move(child_reader));
     }
     if (child_fields.empty()) {

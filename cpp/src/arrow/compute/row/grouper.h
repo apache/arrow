@@ -44,7 +44,7 @@ struct ARROW_COMPUTE_EXPORT Segment {
   int64_t length;
   /// \brief whether the segment may be extended by a next one
   bool is_open;
-  /// \brief whether the segment extends a preceeding one
+  /// \brief whether the segment extends a preceding one
   bool extends;
 };
 
@@ -58,7 +58,7 @@ inline bool operator!=(const Segment& segment1, const Segment& segment2) {
 
 /// \brief a helper class to divide a batch into segments of equal values
 ///
-/// For example, given a batch with two columns specifed as segment keys:
+/// For example, given a batch with two columns specified as segment keys:
 ///
 /// A A [other columns]...
 /// A A ...

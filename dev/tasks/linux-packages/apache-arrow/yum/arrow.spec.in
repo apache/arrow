@@ -387,7 +387,7 @@ Libraries and header files for Apache Arrow GCS filesystem.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_libdir}/cmake/ArrowGcs/
-%{_libdir}/libarrow_gcs.a
+%{_libdir}/libarrow_gcs*.a
 %{_libdir}/libarrow_gcs.so
 %{_libdir}/pkgconfig/arrow-gcs.pc
 %endif
@@ -976,6 +976,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Fri Oct 30 2026 Raúl Cumplido <raulcd@apache.org> - 26.0.1-1
+- New upstream release.
+
 * Mon Oct 05 2026 Raúl Cumplido <raulcumplido@gmail.com> - 26.0.0-1
 - New upstream release.
 

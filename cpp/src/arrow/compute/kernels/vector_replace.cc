@@ -824,11 +824,10 @@ template <template <class> class Functor, template <class> class ChunkedFunctor>
 void RegisterVectorFunction(FunctionRegistry* registry,
                             std::shared_ptr<VectorFunction> func) {
   auto add_primitive_kernel = [&](detail::GetTypeId get_id) {
-    AddKernel(
-        get_id.id, Functor<FixedSizeBinaryType>::GetSignature(get_id),
-        GenerateTypeAgnosticPrimitive<Functor, ArrayKernelExec>(get_id),
-        GenerateTypeAgnosticPrimitive<ChunkedFunctor, VectorKernel::ChunkedExec>(get_id),
-        registry, func.get());
+    AddKernel(get_id.id, Functor<FixedSizeBinaryType>::GetSignature(get_id),
+              GenerateTypeAgnosticPrimitive<Functor>(get_id),
+              GenerateTypeAgnosticPrimitive<ChunkedFunctor>(get_id), registry,
+              func.get());
   };
   for (const auto& ty : NumericTypes()) {
     add_primitive_kernel(ty);

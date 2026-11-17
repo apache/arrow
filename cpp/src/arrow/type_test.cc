@@ -49,6 +49,24 @@ using internal::checked_pointer_cast;
 TEST(TestTypeId, AllTypeIds) {
   const auto all_ids = AllTypeIds();
   ASSERT_EQ(static_cast<int>(all_ids.size()), Type::MAX_ID);
+  std::unordered_set<Type::type> distinct_ids(all_ids.begin(), all_ids.end());
+  ASSERT_EQ(distinct_ids.size(), all_ids.size());
+
+  for (const auto id : all_ids) {
+    // Check that all known type ids:
+    // - are supported by VisitTypeId
+    // - have a corresponding `TypeIdTraits` specialization
+    ASSERT_OK(VisitTypeId(id, [id]<typename T>(const T*) {
+      if constexpr (!std::is_same_v<T, DataType>) {
+        EXPECT_EQ(T::type_id, id);
+        using TypeInferredFromId = typename TypeIdTraits<T::type_id>::Type;
+        EXPECT_TRUE((std::is_same_v<T, TypeInferredFromId>));
+        return Status::OK();
+      } else {
+        return Status::Invalid("Unexpectedly got DataType* for id ", id);
+      }
+    }));
+  }
 }
 
 TEST(TestTypeSingleton, ParameterFreeTypes) {
