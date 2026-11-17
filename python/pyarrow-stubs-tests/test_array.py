@@ -125,6 +125,14 @@ def test_array_dlpack() -> None:
         copy=False,
     )
     check(assert_type(capsule, CapsuleType), CapsuleType)
+    check(assert_type(pa.Array.from_dlpack(arr, copy=False), pa.Array),
+          pa.Int64Array)
+
+    tensor = arr.to_tensor()
+    check(assert_type(pa.FixedShapeTensorArray.from_tensor(tensor),
+                      pa.FixedShapeTensorArray), pa.FixedShapeTensorArray)
+    check(assert_type(pa.FixedShapeTensorArray.from_dlpack(tensor),
+                      pa.FixedShapeTensorArray), pa.FixedShapeTensorArray)
 
 
 def test_import_from_c_capsule() -> None:

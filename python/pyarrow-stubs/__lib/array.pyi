@@ -265,6 +265,14 @@ class Array(_PandasConvertible):
     def _import_from_c_device_capsule(
         schema_capsule: CapsuleType, array_capsule: CapsuleType
     ) -> Array: ...
+    @staticmethod
+    def from_dlpack(
+        x: object,
+        /,
+        *,
+        device: tuple[int, int] | None = None,
+        copy: bool | None = None,
+    ) -> Array: ...
     def __dlpack__(
         self,
         *,
@@ -555,6 +563,16 @@ class FixedShapeTensorArray(ExtensionArray):
     def from_numpy_ndarray(
         obj: NDArray[Any], dim_names: list[str] | tuple[str, ...] | None = None
     ) -> FixedShapeTensorArray: ...
+    @staticmethod
+    def from_dlpack(
+        x: object,
+        /,
+        *,
+        device: tuple[int, int] | None = None,
+        copy: bool | None = None,
+    ) -> FixedShapeTensorArray: ...
+    @staticmethod
+    def from_tensor(tensor: Tensor) -> FixedShapeTensorArray: ...
 
 class OpaqueArray(ExtensionArray): ...
 
