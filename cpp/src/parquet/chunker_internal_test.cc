@@ -1470,7 +1470,9 @@ TEST_P(TestCDCSingleRowGroup, ArrayOffsets) {
 }
 
 TEST_P(TestCDCSingleRowGroup, IndependentOfArrayChunks) {
-  // Each array chunk is written by a separate WriteArrow() call
+  // Content-defined chunking should produce the same pages
+  // for logically equal inputs, regardless of the inputs' own
+  // in-memory chunking.
   const auto& param = GetParam();
   ASSERT_OK_AND_ASSIGN(auto chunked, ConcatenateTables({part1_, part2_, part3_}));
   ASSERT_OK_AND_ASSIGN(auto combined, chunked->CombineChunks());
