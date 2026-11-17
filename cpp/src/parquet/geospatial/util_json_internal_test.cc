@@ -18,6 +18,7 @@
 #include "parquet/geospatial/util_json_internal.h"
 
 #include <memory>
+#include <ostream>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -35,6 +36,11 @@ struct LogicalTypeToGeoArrowCase {
   std::shared_ptr<const LogicalType> logical_type;
   std::string expected_metadata;
 };
+
+void PrintTo(const LogicalTypeToGeoArrowCase& test_case, std::ostream* os) {
+  *os << "{logical_type=" << test_case.logical_type->ToString()
+      << ", expected_metadata=" << test_case.expected_metadata << "}";
+}
 
 class LogicalTypeToGeoArrowTest
     : public ::testing::TestWithParam<LogicalTypeToGeoArrowCase> {};
@@ -94,6 +100,11 @@ struct GeoArrowToLogicalTypeCase {
   std::string metadata;
   std::shared_ptr<const LogicalType> expected_logical_type;
 };
+
+void PrintTo(const GeoArrowToLogicalTypeCase& test_case, std::ostream* os) {
+  *os << "{metadata=" << test_case.metadata
+      << ", expected_logical_type=" << test_case.expected_logical_type->ToString() << "}";
+}
 
 class GeoArrowToLogicalTypeTest
     : public ::testing::TestWithParam<GeoArrowToLogicalTypeCase> {};
