@@ -17,7 +17,7 @@
 
 from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
 from types import EllipsisType
-from typing import Any, ClassVar, Literal, TypeAlias, TypedDict
+from typing import Any, ClassVar, Literal, Protocol, TypeAlias, TypedDict
 
 # Placeholders (Any) until ipc.pyi and scalar.pyi are annotated; mypy
 # rejects them as types when imported through pyarrow.lib.
@@ -69,10 +69,18 @@ _DateTimeUnit: TypeAlias = Literal[
 # Sort keys are (name, order) or (name, order, null_placement) tuples; the
 # null_placement arguments of the options are deprecated.
 _SortKey: TypeAlias = (
-    tuple[str | Expression, Order] | tuple[str | Expression, Order, NullPlacement]
+    tuple[str | Expression | int, Order]
+    | tuple[str | Expression | int, Order, NullPlacement]
 )
 _CountMode: TypeAlias = Literal["only_valid", "only_null", "all"]
+_Form: TypeAlias = Literal["NFC", "NFKC", "NFD", "NFKD"]
+_Interpolation: TypeAlias = Literal["linear", "lower", "higher", "nearest", "midpoint"]
+_NullHandling: TypeAlias = Literal["emit_null", "skip", "replace"]
+_Occurrence: TypeAlias = Literal["first", "last", "all"]
+_Side: TypeAlias = Literal["left", "right"]
+_Tiebreaker: TypeAlias = Literal["min", "max", "first", "dense"]
 _TimezoneResolution: TypeAlias = Literal["raise", "earliest", "latest"]
+_UnexpectedKeyBehavior: TypeAlias = Literal["ignore", "raise"]
 
 class Kernel(_Weakrefable): ...
 
@@ -106,13 +114,32 @@ class FunctionRegistry(_Weakrefable):
     def get_function(self, name: str) -> Function: ...
     def list_functions(self) -> list[str]: ...
 
-class HashAggregateFunction(Function): ...
+class HashAggregateFunction(Function):
+    @property
+    def kernels(self) -> list[HashAggregateKernel]: ...
+
 class HashAggregateKernel(Kernel): ...
-class ScalarAggregateFunction(Function): ...
+
+class MetaFunction(Function):
+    @property
+    def kernels(self) -> list[Kernel]: ...
+
+class ScalarAggregateFunction(Function):
+    @property
+    def kernels(self) -> list[ScalarAggregateKernel]: ...
+
 class ScalarAggregateKernel(Kernel): ...
-class ScalarFunction(Function): ...
+
+class ScalarFunction(Function):
+    @property
+    def kernels(self) -> list[ScalarKernel]: ...
+
 class ScalarKernel(Kernel): ...
-class VectorFunction(Function): ...
+
+class VectorFunction(Function):
+    @property
+    def kernels(self) -> list[VectorKernel]: ...
+
 class VectorKernel(Kernel): ...
 
 # ==================== Option classes ====================
@@ -144,7 +171,7 @@ class CastOptions(FunctionOptions):
 
     def __init__(
         self,
-        target_type: DataType | None = None,
+        target_type: DataType | str | None = None,
         *,
         allow_int_overflow: bool | None = None,
         allow_time_truncate: bool | None = None,
@@ -154,9 +181,9 @@ class CastOptions(FunctionOptions):
         allow_invalid_utf8: bool | None = None,
     ) -> None: ...
     @staticmethod
-    def safe(target_type: DataType | None = None) -> CastOptions: ...
+    def safe(target_type: DataType | str | None = None) -> CastOptions: ...
     @staticmethod
-    def unsafe(target_type: DataType | None = None) -> CastOptions: ...
+    def unsafe(target_type: DataType | str | None = None) -> CastOptions: ...
     def is_safe(self) -> bool: ...
 
 class CountOptions(FunctionOptions):
@@ -197,13 +224,13 @@ class IndexOptions(FunctionOptions):
 
 class InversePermutationOptions(FunctionOptions):
     def __init__(
-        self, max_index: int = -1, output_type: DataType | None = None
+        self, max_index: int = -1, output_type: DataType | str | None = None
     ) -> None: ...
 
 class JoinOptions(FunctionOptions):
     def __init__(
         self,
-        null_handling: Literal["emit_null", "skip", "replace"] = "emit_null",
+        null_handling: _NullHandling = "emit_null",
         null_replacement: str = "",
     ) -> None: ...
 
@@ -225,13 +252,11 @@ class MakeStructOptions(FunctionOptions):
         field_names: Sequence[str] = (),
         *,
         field_nullability: Sequence[bool] | None = None,
-        field_metadata: Sequence[KeyValueMetadata] | None = None,
+        field_metadata: Sequence[KeyValueMetadata | None] | None = None,
     ) -> None: ...
 
 class MapLookupOptions(FunctionOptions):
-    def __init__(
-        self, query_key: Any, occurrence: Literal["first", "last", "all"]
-    ) -> None: ...
+    def __init__(self, query_key: Any, occurrence: _Occurrence) -> None: ...
 
 class MatchSubstringOptions(FunctionOptions):
     def __init__(self, pattern: str, *, ignore_case: bool = False) -> None: ...
@@ -265,9 +290,7 @@ class QuantileOptions(FunctionOptions):
         self,
         q: float | Sequence[float] = 0.5,
         *,
-        interpolation: Literal[
-            "linear", "lower", "higher", "nearest", "midpoint"
-        ] = "linear",
+        interpolation: _Interpolation = "linear",
         skip_nulls: bool = True,
         min_count: int = 0,
     ) -> None: ...
@@ -281,7 +304,7 @@ class RankOptions(FunctionOptions):
         sort_keys: Order | Sequence[_SortKey] = "ascending",
         *,
         null_placement: NullPlacement | None = None,
-        tiebreaker: Literal["min", "max", "first", "dense"] = "first",
+        tiebreaker: _Tiebreaker = "first",
     ) -> None: ...
 
 class RankQuantileOptions(FunctionOptions):
@@ -297,7 +320,7 @@ class PivotWiderOptions(FunctionOptions):
         self,
         key_names: Sequence[str],
         *,
-        unexpected_key_behavior: Literal["ignore", "raise"] = "ignore",
+        unexpected_key_behavior: _UnexpectedKeyBehavior = "ignore",
     ) -> None: ...
 
 class ReplaceSliceOptions(FunctionOptions):
@@ -341,7 +364,7 @@ class ScatterOptions(FunctionOptions):
     def __init__(self, max_index: int = -1) -> None: ...
 
 class SearchSortedOptions(FunctionOptions):
-    def __init__(self, side: Literal["left", "right"] = "left") -> None: ...
+    def __init__(self, side: _Side = "left") -> None: ...
 
 class SelectKOptions(FunctionOptions):
     def __init__(self, k: int, sort_keys: Sequence[_SortKey]) -> None: ...
@@ -406,7 +429,7 @@ class TrimOptions(FunctionOptions):
     def __init__(self, characters: str) -> None: ...
 
 class Utf8NormalizeOptions(FunctionOptions):
-    def __init__(self, form: Literal["NFC", "NFKC", "NFD", "NFKD"]) -> None: ...
+    def __init__(self, form: _Form) -> None: ...
 
 class VarianceOptions(FunctionOptions):
     def __init__(
@@ -459,32 +482,32 @@ def register_scalar_function(
     func: Callable[..., Any],
     function_name: str,
     function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType],
-    out_type: DataType,
+    in_types: Mapping[str, DataType | str],
+    out_type: DataType | str,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
 def register_tabular_function(
     func: Callable[..., Any],
     function_name: str,
     function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType],
-    out_type: DataType,
+    in_types: Mapping[str, DataType | str],
+    out_type: DataType | str,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
 def register_aggregate_function(
     func: Callable[..., Any],
     function_name: str,
     function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType],
-    out_type: DataType,
+    in_types: Mapping[str, DataType | str],
+    out_type: DataType | str,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
 def register_vector_function(
     func: Callable[..., Any],
     function_name: str,
     function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType],
-    out_type: DataType,
+    in_types: Mapping[str, DataType | str],
+    out_type: DataType | str,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
 
@@ -494,30 +517,21 @@ class UdfContext:
     @property
     def memory_pool(self) -> MemoryPool: ...
 
-def _get_udf_context(memory_pool: MemoryPool, batch_length: int) -> UdfContext: ...
-
 # ==================== Expression ====================
+
+class _SubstraitMessage(Protocol):
+    def SerializeToString(self) -> bytes: ...
 
 class Expression(_Weakrefable):
     __hash__: ClassVar[None]  # type: ignore[assignment]
 
     @staticmethod
-    def from_substrait(message: bytes | Buffer) -> Expression: ...
+    def from_substrait(
+        message: bytes | memoryview | Buffer | _SubstraitMessage,
+    ) -> Expression: ...
     def to_substrait(
         self, schema: Schema, allow_arrow_extensions: bool = False
-    ) -> Buffer: ...
-    @staticmethod
-    def _call(
-        function_name: str,
-        arguments: list[Any],
-        options: FunctionOptions | None = None,
-    ) -> Expression: ...
-    @staticmethod
-    def _field(name_or_idx: str | int) -> Expression: ...
-    @staticmethod
-    def _nested_field(names: tuple[str | int, ...]) -> Expression: ...
-    @staticmethod
-    def _scalar(value: Any) -> Expression: ...
+    ) -> memoryview: ...
     def __invert__(self) -> Expression: ...
     # The Expression must be the left operand: the reflected methods, e.g.
     # 1 + Expression, raise TypeError at runtime.

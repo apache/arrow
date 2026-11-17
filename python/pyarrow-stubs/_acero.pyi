@@ -22,19 +22,17 @@ from typing import Literal, TypeAlias
 # when imported through pyarrow.lib.
 from pyarrow.__lib.ipc import RecordBatchReader
 from pyarrow.__lib.table import _AggregateOptions, _AggregationName
-from pyarrow._stubs_typing import NullPlacement, Order
+from pyarrow._stubs_typing import NullPlacement
 from pyarrow.lib import Table, _Weakrefable
 
 from pyarrow.compute import Expression
+from pyarrow._compute import _SortKey
 
 _StrOrExpr: TypeAlias = str | Expression
 _IntoField: TypeAlias = str | int | Expression
 _Target: TypeAlias = _IntoField | Sequence[_IntoField]
 _Aggregate: TypeAlias = tuple[_Target, _AggregationName, _AggregateOptions | None, str]
-_SortKey: TypeAlias = (
-    tuple[str | Expression | int, Order]
-    | tuple[str | Expression | int, Order, NullPlacement]
-)
+
 _JoinType: TypeAlias = Literal[
     "left semi",
     "right semi",
