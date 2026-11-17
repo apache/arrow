@@ -94,11 +94,41 @@ Status ScanV2Options::AddFieldsNeededForFilter(ScanV2Options* options) {
 }
 
 namespace {
+void StopScan(const std::weak_ptr<acero::ExecPlan>& weak_plan) {
+  auto plan = weak_plan.lock();
+  if (plan && !plan->finished().is_finished()) {
+    plan->StopProducing();
+  }
+}
+
+/// \brief An iterator over a scan that stops the scan when destroyed early
+///
+/// Without threads, destroying the underlying iterator runs the rest of the scan, so
+/// the plan is stopped first.  The underlying iterator owns the plan and releases it,
+/// with the files it reads, at the end of the scan, so only a weak reference is kept.
+template <typename T>
+class StoppingIterator {
+ public:
+  StoppingIterator(Iterator<T> it, std::weak_ptr<acero::ExecPlan> plan)
+      : it_(std::move(it)), plan_(std::move(plan)) {}
+  StoppingIterator(StoppingIterator&&) = default;
+  ~StoppingIterator() { StopScan(plan_); }
+
+  Result<T> Next() { return it_.Next(); }
+
+ private:
+  Iterator<T> it_;
+  std::weak_ptr<acero::ExecPlan> plan_;
+};
+
 class ScannerRecordBatchReader : public RecordBatchReader {
  public:
-  explicit ScannerRecordBatchReader(std::shared_ptr<Schema> schema,
-                                    TaggedRecordBatchIterator delegate)
-      : schema_(std::move(schema)), delegate_(std::move(delegate)) {}
+  ScannerRecordBatchReader(std::shared_ptr<Schema> schema,
+                           TaggedRecordBatchIterator delegate,
+                           std::weak_ptr<acero::ExecPlan> plan)
+      : schema_(std::move(schema)),
+        delegate_(std::move(delegate)),
+        plan_(std::move(plan)) {}
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
@@ -112,17 +142,23 @@ class ScannerRecordBatchReader : public RecordBatchReader {
   }
 
   Status Close() override {
+    // End the scan and read from the iterator until the plan has finished
+    StopScan(plan_);
     std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(ReadNext(&batch));
-    while (batch != nullptr) {
-      RETURN_NOT_OK(ReadNext(&batch));
-    }
-    return Status::OK();
+    Status st;
+    do {
+      st = ReadNext(&batch);
+    } while (st.ok() && batch != nullptr);
+    // Release the scan now rather than when the reader is destroyed
+    delegate_ = TaggedRecordBatchIterator();
+    // A stopped plan finishes with Cancelled
+    return st.IsCancelled() ? Status::OK() : st;
   }
 
  private:
   std::shared_ptr<Schema> schema_;
   TaggedRecordBatchIterator delegate_;
+  std::weak_ptr<acero::ExecPlan> plan_;
 };
 
 const FieldVector kAugmentedFields{
@@ -282,8 +318,17 @@ class AsyncScanner : public Scanner, public std::enable_shared_from_this<AsyncSc
  private:
   Future<> VisitBatchesAsync(std::function<Status(TaggedRecordBatch)> visitor,
                              Executor* executor);
+  // Iterate over a scan synchronously, with an iterator that stops the scan when it is
+  // destroyed early.  If plan is not null, it is set to the scan's plan.
+  template <typename T, typename MakeGenerator>
+  Iterator<T> IterateScan(MakeGenerator&& make_generator,
+                          std::weak_ptr<acero::ExecPlan>* plan = nullptr);
+  // If plan is not null, it is set to the plan backing the returned generator
+  Result<TaggedRecordBatchGenerator> ScanBatchesAsyncImpl(
+      Executor* executor, std::shared_ptr<acero::ExecPlan>* plan);
   Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
-      Executor* executor, bool sequence_fragments, bool use_legacy_batching = false);
+      Executor* executor, bool sequence_fragments, bool use_legacy_batching = false,
+      std::shared_ptr<acero::ExecPlan>* plan = nullptr);
   Future<std::shared_ptr<Table>> ToTableAsync(Executor* executor);
   Future<int64_t> CountRowsAsync(Executor* executor);
 
@@ -383,20 +428,33 @@ Result<FragmentGenerator> AsyncScanner::GetFragments() const {
   return MakeVectorGenerator(std::move(fragments_vec));
 }
 
-Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
-  return ::arrow::internal::IterateSynchronously<TaggedRecordBatch>(
-      [this](::arrow::internal::Executor* executor) {
-        return ScanBatchesAsync(executor);
-      },
+template <typename T, typename MakeGenerator>
+Iterator<T> AsyncScanner::IterateScan(MakeGenerator&& make_generator,
+                                      std::weak_ptr<acero::ExecPlan>* out_plan) {
+  std::shared_ptr<acero::ExecPlan> plan;
+  // IterateSynchronously calls the function before it returns
+  auto it = ::arrow::internal::IterateSynchronously<T>(
+      [&](Executor* executor) { return make_generator(executor, &plan); },
       scan_options_->use_threads, scan_options_->cpu_executor);
+  if (out_plan != nullptr) {
+    *out_plan = plan;
+  }
+  return Iterator<T>(StoppingIterator<T>(std::move(it), plan));
+}
+
+Result<TaggedRecordBatchIterator> AsyncScanner::ScanBatches() {
+  return IterateScan<TaggedRecordBatch>(
+      [this](Executor* executor, std::shared_ptr<acero::ExecPlan>* plan) {
+        return ScanBatchesAsyncImpl(executor, plan);
+      });
 }
 
 Result<EnumeratedRecordBatchIterator> AsyncScanner::ScanBatchesUnordered() {
-  return ::arrow::internal::IterateSynchronously<EnumeratedRecordBatch>(
-      [this](::arrow::internal::Executor* executor) {
-        return ScanBatchesUnorderedAsync(executor);
-      },
-      scan_options_->use_threads, scan_options_->cpu_executor);
+  return IterateScan<EnumeratedRecordBatch>(
+      [this](Executor* executor, std::shared_ptr<acero::ExecPlan>* plan) {
+        return ScanBatchesUnorderedAsync(executor, /*sequence_fragments=*/false,
+                                         /*use_legacy_batching=*/false, plan);
+      });
 }
 
 Result<std::shared_ptr<Table>> AsyncScanner::ToTable() {
@@ -435,7 +493,8 @@ Result<EnumeratedRecordBatch> ToEnumeratedRecordBatch(
 }
 
 Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
-    Executor* cpu_executor, bool sequence_fragments, bool use_legacy_batching) {
+    Executor* cpu_executor, bool sequence_fragments, bool use_legacy_batching,
+    std::shared_ptr<acero::ExecPlan>* out_plan) {
   RETURN_NOT_OK(NormalizeScanOptions(scan_options_, dataset_->schema()));
 
   auto exec_context =
@@ -491,6 +550,9 @@ Result<EnumeratedRecordBatchGenerator> AsyncScanner::ScanBatchesUnorderedAsync(
         return ToEnumeratedRecordBatch(batch, *options, *shared_fragments);
       });
 
+  if (out_plan != nullptr) {
+    *out_plan = plan;
+  }
   return [mapped_gen = std::move(mapped_gen), plan = std::move(plan),
           stop_producing = std::move(stop_producing)] {
     auto next = mapped_gen();
@@ -616,9 +678,14 @@ Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync() {
 
 Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsync(
     Executor* cpu_executor) {
+  return ScanBatchesAsyncImpl(cpu_executor, /*plan=*/nullptr);
+}
+
+Result<TaggedRecordBatchGenerator> AsyncScanner::ScanBatchesAsyncImpl(
+    Executor* cpu_executor, std::shared_ptr<acero::ExecPlan>* plan) {
   ARROW_ASSIGN_OR_RAISE(
       auto unordered, ScanBatchesUnorderedAsync(cpu_executor, /*sequence_fragments=*/true,
-                                                /*use_legacy_batching=*/true));
+                                                /*use_legacy_batching=*/true, plan));
   // We need an initial value sentinel, so we use one with fragment.index < 0
   auto is_before_any = [](const EnumeratedRecordBatch& batch) {
     return batch.fragment.index < 0;
@@ -800,9 +867,14 @@ Result<int64_t> AsyncScanner::CountRows() {
 }
 
 Result<std::shared_ptr<RecordBatchReader>> AsyncScanner::ToRecordBatchReader() {
-  ARROW_ASSIGN_OR_RAISE(auto it, ScanBatches());
+  std::weak_ptr<acero::ExecPlan> scan_plan;
+  auto it = IterateScan<TaggedRecordBatch>(
+      [this](Executor* executor, std::shared_ptr<acero::ExecPlan>* plan) {
+        return ScanBatchesAsyncImpl(executor, plan);
+      },
+      &scan_plan);
   return std::make_shared<ScannerRecordBatchReader>(options()->projected_schema,
-                                                    std::move(it));
+                                                    std::move(it), std::move(scan_plan));
 }
 
 const std::shared_ptr<Dataset>& AsyncScanner::dataset() const { return dataset_; }
