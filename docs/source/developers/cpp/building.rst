@@ -600,7 +600,7 @@ downloading them (one for each build dir!).
 Statically Linking
 ------------------
 
-When ``-DARROW_BUILD_STATIC=ON``, all build dependencies built as static
+When ``-DARROW_BUILD_STATIC=ON``, core build dependencies built as static
 libraries by the Arrow build system will be merged together to create a static
 library ``arrow_bundled_dependencies``. In UNIX-like environments (Linux, macOS,
 MinGW), this is called ``libarrow_bundled_dependencies.a`` and on Windows with
@@ -613,6 +613,10 @@ systems, you may need to explicitly link to the dependency bundle. We created
 an `example CMake-based build configuration
 <https://github.com/apache/arrow/tree/main/cpp/examples/minimal_build>`_ to
 show you a working example.
+
+With ``-DARROW_GCS=ON``, a bundled google-cloud-cpp goes into a separate
+``arrow_gcs_bundled_dependencies`` library. The ``ArrowGcs::arrow_gcs_static``
+CMake target includes it automatically, otherwise link it right after ``arrow_gcs``.
 
 On Linux and macOS, if your application does not link to the ``pthread``
 library already, you must include ``-pthread`` in your linker setup. In CMake

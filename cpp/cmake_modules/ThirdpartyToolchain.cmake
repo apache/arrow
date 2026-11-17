@@ -18,11 +18,12 @@
 include(ProcessorCount)
 processorcount(NPROC)
 
-# Accumulate all bundled targets and we will splice them together later as
+# Accumulate core bundled targets and we will splice them together later as
 # libarrow_bundled_dependencies.a so that third party libraries have something
 # usable to create statically-linked builds with some BUNDLED dependencies,
 # including allocators like jemalloc and mimalloc
 set(ARROW_BUNDLED_STATIC_LIBS)
+set(ARROW_GCS_BUNDLED_STATIC_LIBS)
 
 # Accumulate all system dependencies to provide suitable static link
 # parameters to the third party libraries.
@@ -1942,6 +1943,9 @@ function(build_absl)
     # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
     # Cannot use set_property on alias targets (absl::time is an alias)
     target_link_libraries(time INTERFACE ${CoreFoundation})
+    set(ARROW_PC_LIBS_PRIVATE
+        "${ARROW_PC_LIBS_PRIVATE} -framework CoreFoundation"
+        PARENT_SCOPE)
   endif()
 
   list(PREPEND
@@ -3864,13 +3868,8 @@ function(build_google_cloud_cpp_storage)
   # 141MB -> 79MB
   file(REMOVE_RECURSE "${google_cloud_cpp_SOURCE_DIR}/ci")
 
-  list(PREPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       google-cloud-cpp::storage
-       google-cloud-cpp::rest_internal
-       google-cloud-cpp::common)
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+  set(ARROW_GCS_BUNDLED_STATIC_LIBS
+      google-cloud-cpp::storage google-cloud-cpp::rest_internal google-cloud-cpp::common
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -4457,6 +4456,10 @@ endif()
 if(ARROW_BUILD_STATIC)
   if(ARROW_GCS AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
     arrow_append_pc_system_library("libcurl" ARROW_GCS_CURL_PC "-lcurl" ARROW_GCS)
+    if(NOT WIN32)
+      arrow_append_pc_system_library("openssl" ARROW_GCS_OPENSSL_PC "-lssl -lcrypto"
+                                     ARROW_GCS)
+    endif()
   endif()
   if(ARROW_AZURE
      AND AZURE_SDK_VENDORED
@@ -4513,3 +4516,4 @@ if(ARROW_FLIGHT_SQL_ODBC)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
+message(STATUS "GCS bundled static libraries: ${ARROW_GCS_BUNDLED_STATIC_LIBS}")

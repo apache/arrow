@@ -199,7 +199,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     explicit index type will not be demoted even if it is wider than required.
 
     This class supports Python's standard operators
-    for element-wise operations, i.e. arithmetic (`+`, `-`, `/`, `%`, `**`),
+    for element-wise operations, i.e. arithmetic (`+`, `-`, `*`, `/`, `**`),
     bitwise (`&`, `|`, `^`, `>>`, `<<`) and others.
     They can be used directly instead of calling underlying
     `pyarrow.compute` functions explicitly.
