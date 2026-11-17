@@ -465,7 +465,7 @@ In order to use the tracing that is present today you will need to build with Ar
 Then you will need to set the environment variable ``ARROW_TRACING_BACKEND=otlp_http``.  This will configure open telemetry
 to export trace results (as OTLP) to the HTTP endpoint http://localhost:4318/v1/traces.  You will need to configure an
 open telemetry collector to collect results on that endpoint and you will need to configure a trace viewer of some kind
-such as Jaeger: https://www.jaegertracing.io/docs/1.21/opentelemetry/
+such as Jaeger: https://www.jaegertracing.io/docs/latest/
 
 Benchmarking
 ============

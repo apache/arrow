@@ -174,4 +174,4 @@ Of course, we can copy the CUDA buffer back to host memory:
    array([10, 11, 12, 13], dtype=int32)
 
 .. seealso::
-   Documentation for Numba's `CUDA support <https://numba.pydata.org/numba-doc/latest/cuda/index.html>`_.
+   Documentation for Numba's `CUDA support <https://nvidia.github.io/numba-cuda/>`_.

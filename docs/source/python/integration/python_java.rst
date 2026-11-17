@@ -33,7 +33,7 @@ marshaling and unmarshaling data.
     The ``Arrow Java`` version must have been compiled with ``mvn -Parrow-c-data`` to
     ensure CData exchange support is enabled.
     See `Python Install Instructions <https://arrow.apache.org/docs/python/install.html>`_
-    and `Java Documentation <https://arrow.apache.org/docs/java/>`_
+    and `Java Documentation <https://arrow.apache.org/java/current/>`_
     for further details.
 
 Invoking Java methods from Python
