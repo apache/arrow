@@ -107,14 +107,20 @@ until PyArrow version ``21.0.0``), set ``arrow_extensions_enabled=False``.
    (`geoarrow-pyarrow <https://geoarrow.org/geoarrow-python/main/index.html#installation>`_)
    and import ``geoarrow.pyarrow`` module.
 
-Storing timestamps
-------------------
+Storing timestamps and times
+----------------------------
+
+The ``coerce_timestamps`` and ``allow_truncated_timestamps`` options also apply
+to Arrow ``time32`` and ``time64`` values. For versions 1.0 and 2.4, nanosecond
+times are converted to microseconds by default. Lossy conversion raises an
+exception unless both an explicit coercion target and permission to truncate
+are supplied. Millisecond times are stored as INT32; microsecond and nanosecond
+times are stored as INT64.
 
 Some Parquet readers may only support timestamps stored in millisecond
 (``'ms'``) or microsecond (``'us'``) resolution. Since pandas uses nanoseconds
-to represent timestamps, this can occasionally be a nuisance. By default
-(when writing version 1.0 Parquet files), the nanoseconds will be cast to
-microseconds (``'us'``).
+to represent timestamps, this can occasionally be a nuisance. When writing
+version 1.0 or 2.4 Parquet files, nanoseconds are cast to microseconds (``'us'``).
 
 In addition, we provide the ``coerce_timestamps`` option to allow you to select
 the desired resolution:
@@ -132,8 +138,8 @@ an exception will be raised. This can be suppressed by passing
    >>> pq.write_table(table, 'example.parquet', coerce_timestamps='ms',
    ...                allow_truncated_timestamps=True)
 
-Timestamps with nanoseconds can be stored without casting when using the
-more recent Parquet format version 2.6:
+Timestamps and time-of-day values with nanoseconds can be stored without casting
+when using the more recent Parquet format version 2.6:
 
 .. code-block:: python
 

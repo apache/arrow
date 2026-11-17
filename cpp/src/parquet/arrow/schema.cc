@@ -204,6 +204,48 @@ static std::shared_ptr<const LogicalType> TimestampLogicalTypeFromArrowTimestamp
   return LogicalType::None();
 }
 
+static Status GetTimeMetadata(const ::arrow::TimeType& type,
+                              const WriterProperties& properties,
+                              const ArrowWriterProperties& arrow_properties,
+                              ParquetType::type* physical_type,
+                              std::shared_ptr<const LogicalType>* logical_type) {
+  const bool coerce = arrow_properties.coerce_timestamps_enabled();
+  auto unit = coerce ? arrow_properties.coerce_timestamps_unit() : type.unit();
+  const bool supports_nanos = properties.version() == ParquetVersion::PARQUET_2_6;
+  if (!coerce) {
+    if (unit == ::arrow::TimeUnit::SECOND) {
+      unit = ::arrow::TimeUnit::MILLI;
+    } else if (unit == ::arrow::TimeUnit::NANO && !supports_nanos) {
+      unit = ::arrow::TimeUnit::MICRO;
+    }
+  }
+
+  *physical_type =
+      unit == ::arrow::TimeUnit::MILLI ? ParquetType::INT32 : ParquetType::INT64;
+  LogicalType::TimeUnit::unit parquet_unit;
+  switch (unit) {
+    case ::arrow::TimeUnit::MILLI:
+      parquet_unit = LogicalType::TimeUnit::MILLIS;
+      break;
+    case ::arrow::TimeUnit::MICRO:
+      parquet_unit = LogicalType::TimeUnit::MICROS;
+      break;
+    case ::arrow::TimeUnit::NANO:
+      if (!supports_nanos) {
+        return Status::NotImplemented("Nanosecond times require Parquet version 2.6");
+      }
+      parquet_unit = LogicalType::TimeUnit::NANOS;
+      break;
+    case ::arrow::TimeUnit::SECOND:
+      return Status::NotImplemented("Parquet does not support times in seconds");
+    default:
+      return Status::NotImplemented("Unsupported Arrow time unit");
+  }
+  *logical_type =
+      LogicalType::Time(arrow_properties.write_time_adjusted_to_utc(), parquet_unit);
+  return Status::OK();
+}
+
 static Status GetTimestampMetadata(const ::arrow::TimestampType& type,
                                    const WriterProperties& properties,
                                    const ArrowWriterProperties& arrow_properties,
@@ -423,24 +465,11 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
                                properties, arrow_properties, &type, &logical_type));
       break;
     case ArrowTypeId::TIME32:
-      type = ParquetType::INT32;
-      logical_type = LogicalType::Time(
-          /*is_adjusted_to_utc=*/arrow_properties.write_time_adjusted_to_utc(),
-          LogicalType::TimeUnit::MILLIS);
+    case ArrowTypeId::TIME64:
+      RETURN_NOT_OK(
+          GetTimeMetadata(checked_cast<const ::arrow::TimeType&>(*field->type()),
+                          properties, arrow_properties, &type, &logical_type));
       break;
-    case ArrowTypeId::TIME64: {
-      type = ParquetType::INT64;
-      auto time_type = static_cast<::arrow::Time64Type*>(field->type().get());
-      if (time_type->unit() == ::arrow::TimeUnit::NANO) {
-        logical_type = LogicalType::Time(
-            /*is_adjusted_to_utc=*/arrow_properties.write_time_adjusted_to_utc(),
-            LogicalType::TimeUnit::NANOS);
-      } else {
-        logical_type = LogicalType::Time(
-            /*is_adjusted_to_utc=*/arrow_properties.write_time_adjusted_to_utc(),
-            LogicalType::TimeUnit::MICROS);
-      }
-    } break;
     case ArrowTypeId::DURATION:
       type = ParquetType::INT64;
       break;

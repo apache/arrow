@@ -1873,7 +1873,8 @@ void MakeDateTimeTypesTable(std::shared_ptr<Table>* out, bool expected_micro = f
   auto f3_x = field("f3", ::arrow::timestamp(TimeUnit::MICRO));
   auto f4 = field("f4", ::arrow::time32(TimeUnit::MILLI));
   auto f5 = field("f5", ::arrow::time64(TimeUnit::MICRO));
-  auto f6 = field("f6", ::arrow::time64(TimeUnit::NANO));
+  auto f6 =
+      field("f6", ::arrow::time64(expected_micro ? TimeUnit::MICRO : TimeUnit::NANO));
 
   std::shared_ptr<::arrow::Schema> schema(
       new ::arrow::Schema({f0, f1, f2, (expected_micro ? f3_x : f3), f4, f5, f6}));
@@ -1899,7 +1900,8 @@ void MakeDateTimeTypesTable(std::shared_ptr<Table>* out, bool expected_micro = f
                                                    &a3_x);
   ArrayFromVector<::arrow::Time32Type, int32_t>(f4->type(), is_valid, t32_values, &a4);
   ArrayFromVector<::arrow::Time64Type, int64_t>(f5->type(), is_valid, t64_us_values, &a5);
-  ArrayFromVector<::arrow::Time64Type, int64_t>(f6->type(), is_valid, t64_ns_values, &a6);
+  ArrayFromVector<::arrow::Time64Type, int64_t>(
+      f6->type(), is_valid, expected_micro ? t64_us_values : t64_ns_values, &a6);
 
   *out = Table::Make(schema, {a0, a1, a2, expected_micro ? a3_x : a3, a4, a5, a6});
 }
@@ -1925,6 +1927,35 @@ TEST(TestArrowReadWrite, DateTimeTypes) {
   MakeDateTimeTypesTable(&expected, true);
   ASSERT_NO_FATAL_FAILURE(
       CheckConfiguredRoundtrip(table, expected, parquet_version_2_4_properties));
+}
+
+TEST(TestArrowReadWrite, WriteUnannotatedTimeArrays) {
+  for (bool wide : {false, true}) {
+    ASSERT_OK_AND_ASSIGN(auto sink, ::arrow::io::BufferOutputStream::Create());
+    auto node = PrimitiveNode::Make("time", Repetition::OPTIONAL,
+                                    wide ? ParquetType::INT64 : ParquetType::INT32);
+    auto schema = std::static_pointer_cast<GroupNode>(
+        GroupNode::Make("schema", Repetition::REQUIRED, {node}));
+    auto array = ArrayFromJSON(
+        wide ? ::arrow::time64(TimeUnit::NANO) : ::arrow::time32(TimeUnit::SECOND),
+        "[1000]");
+    auto properties = default_arrow_writer_properties();
+    ArrowWriteContext ctx(::arrow::default_memory_pool(), properties.get());
+    auto writer = ParquetFileWriter::Open(sink, schema);
+    auto row_group = writer->AppendRowGroup();
+    const int16_t def_level = 1;
+    ASSERT_OK(
+        row_group->NextColumn()->WriteArrow(&def_level, nullptr, 1, *array, &ctx, true));
+    row_group->Close();
+    writer->Close();
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+    ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                               ::arrow::default_memory_pool()));
+    ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable());
+    auto expected = ArrayFromJSON(wide ? ::arrow::int64() : ::arrow::int32(),
+                                  wide ? "[1000]" : "[1000000]");
+    ::arrow::AssertArraysEqual(*expected, *result->column(0)->chunk(0));
+  }
 }
 
 TEST(TestArrowReadWrite, UseDeprecatedInt96) {
