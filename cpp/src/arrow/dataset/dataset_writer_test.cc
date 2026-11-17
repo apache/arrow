@@ -466,6 +466,32 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
   AssertCreatedData(expected_files);
 }
 
+TEST_F(DatasetWriterTestFixture, MinRowGroupLargerThanStagingLimit) {
+  // GH-55642: a single file should reach min_rows_per_group even when that is more
+  // rows than the dataset writer would otherwise be willing to stage
+  write_options_.min_rows_per_group = 60;
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/100);
+  for (int i = 0; i < 12; i++) {
+    dataset_writer->WriteRecordBatch(MakeBatch(10), "");
+  }
+  EndWriterChecked(dataset_writer.get());
+  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 120, 2}});
+}
+
+TEST_F(DatasetWriterTestFixture, MinRowGroupEvictsLargestStaged) {
+  // GH-55642: when too many rows are staged the file with the most staged rows should
+  // be written out, not the file that happened to receive the latest batch
+  write_options_.min_rows_per_group = 50;
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/100);
+  dataset_writer->WriteRecordBatch(MakeBatch(30), "a");
+  for (int i = 0; i < 4; i++) {
+    dataset_writer->WriteRecordBatch(MakeBatch(5), "b");
+  }
+  EndWriterChecked(dataset_writer.get());
+  AssertCreatedData(
+      {{"testdir/a/chunk-0.arrow", 0, 30, 1}, {"testdir/b/chunk-0.arrow", 30, 20, 1}});
+}
+
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Concurrent writes tests need threads";
