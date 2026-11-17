@@ -913,6 +913,13 @@ Table/RecordBatch, or iterable of RecordBatch
         Minimum number of rows per group. When the value is greater than 0,
         the dataset writer will batch incoming data and only write the row
         groups to the disk when sufficient rows have accumulated.
+        This is best effort. The writer holds back at most 2,097,152 rows
+        in total, across all files being written, while waiting for row
+        groups to fill. Once that many rows are held back, smaller row
+        groups are written. Values above this limit are therefore not
+        met, and a partitioned write can produce row groups below this
+        value when min_rows_per_group multiplied by the number of
+        partitions being written at the same time exceeds the limit.
     max_rows_per_group : int, default 1024 * 1024
         Maximum number of rows per group. If the value is greater than 0,
         then the dataset writer may split up large incoming batches into

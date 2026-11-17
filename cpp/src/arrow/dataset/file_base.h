@@ -434,6 +434,13 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// and only write the row groups to the disk when sufficient rows have accumulated.
   /// The final row group size may be less than this value and other options such as
   /// `max_open_files` or `max_rows_per_file` lead to smaller row group sizes.
+  ///
+  /// This is best effort.  The writer holds back at most 2,097,152 rows in total,
+  /// across all files being written, while waiting for row groups to fill.  Once that
+  /// many rows are held back, smaller row groups are written.  Values above this limit
+  /// are therefore not met, and a partitioned write can produce row groups below this
+  /// value when min_rows_per_group multiplied by the number of partitions being written
+  /// at the same time exceeds the limit.
   uint64_t min_rows_per_group = 0;
 
   /// If greater than 0 then the dataset writer may split up large incoming batches into

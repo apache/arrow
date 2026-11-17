@@ -758,6 +758,14 @@ defined with the ``min_rows_per_group`` parameter of :meth:`write_dataset`.
     less than this value if other options such as ``max_open_files`` or
     ``max_rows_per_file`` force smaller row group sizes.
 
+    ``min_rows_per_group`` is best effort. The writer holds back at most
+    2,097,152 rows in total, across all files being written, while waiting for
+    row groups to fill. Once that many rows are held back, smaller row groups
+    are written. Values above this limit are therefore not met, and a
+    partitioned write can produce row groups below ``min_rows_per_group`` when
+    ``min_rows_per_group`` multiplied by the number of partitions being written
+    at the same time exceeds the limit.
+
 The maximum number of rows allowed per group is defined with the
 ``max_rows_per_group`` parameter of :meth:`write_dataset`.
 
