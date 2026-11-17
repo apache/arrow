@@ -20,11 +20,9 @@
 import os
 import contextlib
 import functools
-import gc
 import socket
 import sys
 import textwrap
-import types
 import warnings
 
 
@@ -205,29 +203,6 @@ def find_free_port():
 def guid():
     from uuid import uuid4
     return uuid4().hex
-
-
-def _break_traceback_cycle_from_frame(frame):
-    # Clear local variables in all inner frames, so as to break the
-    # reference cycle.
-    this_frame = sys._getframe(0)
-    refs = gc.get_referrers(frame)
-    while refs:
-        for frame in refs:
-            if frame is not this_frame and isinstance(frame, types.FrameType):
-                break
-        else:
-            # No frame found in referrers (finished?)
-            break
-        refs = None
-        # Clear the frame locals, to try and break the cycle (it is
-        # somewhere along the chain of execution frames).
-        frame.clear()
-        # To visit the inner frame, we need to find it among the
-        # referrers of this frame (while `frame.f_back` would let
-        # us visit the outer frame).
-        refs = gc.get_referrers(frame)
-    refs = frame = this_frame = None
 
 
 def _download_urllib(url, out_path):
