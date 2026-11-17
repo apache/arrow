@@ -26,7 +26,11 @@ from _check import assert_type, check
 # PyArrow can be built without Acero.
 pytest.importorskip("pyarrow._acero")
 
-from pyarrow._acero import Declaration, TableSourceNodeOptions  # noqa: E402
+from pyarrow._acero import (  # noqa: E402
+    AggregateNodeOptions,
+    Declaration,
+    TableSourceNodeOptions,
+)
 
 
 def test_declaration() -> None:
@@ -37,3 +41,11 @@ def test_declaration() -> None:
 
     if TYPE_CHECKING:
         TableSourceNodeOptions(table.to_batches()[0])  # type: ignore[arg-type]
+
+
+def test_aggregate() -> None:
+    aggr_opts = AggregateNodeOptions([(["a"], "sum", None, "a_sum")])
+    check(assert_type(aggr_opts, AggregateNodeOptions), AggregateNodeOptions)
+
+    aggr_opts = AggregateNodeOptions([(("a", ), "sum", None, "a_sum")])
+    check(assert_type(aggr_opts, AggregateNodeOptions), AggregateNodeOptions)
