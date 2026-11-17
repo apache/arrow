@@ -534,15 +534,14 @@ Status EnsureDestinationValid(const FileSystemDatasetWriteOptions& options) {
   return Status::OK();
 }
 
-// Rule of thumb for the max rows to stage.  It will grow with max_rows_queued until
-// max_rows_queued starts to get too large and then it caps out at 8 million rows.
+// Rule of thumb for the max rows to stage.  It grows with max_rows_queued so that
+// raising max_rows_queued lets more files reach min_rows_per_group at the same time.
 // Feel free to replace with something more meaningful, this is just a random heuristic.
 //
 // A single file can only reach min_rows_per_group if that many rows can be staged so
 // the limit is never smaller than min_rows_per_group.
 uint64_t CalculateMaxRowsStaged(uint64_t max_rows_queued, uint64_t min_rows_per_group) {
-  return std::max(std::min(static_cast<uint64_t>(1 << 23), max_rows_queued / 4),
-                  min_rows_per_group);
+  return std::max(max_rows_queued / 4, min_rows_per_group);
 }
 
 // Staged rows count as queued rows.  If the staged rows alone could reach

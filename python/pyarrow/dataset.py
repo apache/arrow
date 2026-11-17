@@ -849,7 +849,8 @@ def write_dataset(data, base_dir, *, basename_template=None, format=None,
                   preserve_order=False, max_partitions=None, max_open_files=None,
                   max_rows_per_file=None, min_rows_per_group=None,
                   max_rows_per_group=None, file_visitor=None,
-                  existing_data_behavior='error', create_dir=True):
+                  existing_data_behavior='error', create_dir=True,
+                  max_rows_queued=None):
     """
     Write a dataset to a given format and partitioning.
 
@@ -913,6 +914,15 @@ Table/RecordBatch, or iterable of RecordBatch
         Minimum number of rows per group. When the value is greater than 0,
         the dataset writer will batch incoming data and only write the row
         groups to the disk when sufficient rows have accumulated.
+        Rows waiting for a row group to fill are held in memory, and the
+        writer limits how many rows it holds this way, across all files
+        being written, to the larger of ``max_rows_queued / 4`` and this
+        value. When the limit is reached, the file holding the most waiting
+        rows has them written out as a smaller row group. A single file
+        therefore always reaches this value, but a partitioned write may
+        not unless ``max_rows_queued`` is at least 4 times this value
+        multiplied by the number of partitions being written at the same
+        time.
     max_rows_per_group : int, default 1024 * 1024
         Maximum number of rows per group. If the value is greater than 0,
         then the dataset writer may split up large incoming batches into
@@ -957,6 +967,13 @@ Table/RecordBatch, or iterable of RecordBatch
     create_dir : bool, default True
         If False, directories will not be created.  This can be useful for
         filesystems that do not require directories.
+    max_rows_queued : int, default 8 * 1024 * 1024
+        The maximum number of rows the dataset writer will hold in memory,
+        either waiting to form a row group or waiting to be written to
+        disk, before it applies backpressure. If 0 there is no limit.
+        Raise this to let a partitioned write reach min_rows_per_group in
+        more partitions at the same time, at the cost of memory. It is
+        raised automatically, if needed, to twice min_rows_per_group.
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 
@@ -1036,5 +1053,5 @@ Table/RecordBatch, or iterable of RecordBatch
         scanner, base_dir, basename_template, filesystem, partitioning,
         preserve_order, file_options, max_partitions, file_visitor,
         existing_data_behavior, max_open_files, max_rows_per_file,
-        min_rows_per_group, max_rows_per_group, create_dir
+        min_rows_per_group, max_rows_per_group, create_dir, max_rows_queued
     )

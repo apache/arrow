@@ -492,6 +492,29 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupEvictsLargestStaged) {
       {{"testdir/a/chunk-0.arrow", 0, 30, 1}, {"testdir/b/chunk-0.arrow", 30, 20, 1}});
 }
 
+TEST_F(DatasetWriterTestFixture, MinRowGroupManyFilesWithRoomToStage) {
+  // GH-55642: every file should reach min_rows_per_group when max_rows_queued leaves
+  // enough room to stage min_rows_per_group rows for each of them
+  write_options_.min_rows_per_group = 50;
+  write_options_.max_rows_per_group = 50;
+  // 4 files * 50 rows = 200 rows staged at most, the staging limit is 1000 / 4
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/1000);
+  for (int i = 0; i < 30; i++) {
+    for (int file = 0; file < 4; file++) {
+      dataset_writer->WriteRecordBatch(MakeBatch(0, 5), std::to_string(file));
+    }
+  }
+  EndWriterChecked(dataset_writer.get());
+  for (int file = 0; file < 4; file++) {
+    auto written = FindFile("testdir/" + std::to_string(file) + "/chunk-0.arrow");
+    ASSERT_TRUE(written.has_value());
+    int num_batches = 0;
+    auto batch = ReadAsBatch(written->data, &num_batches);
+    ASSERT_EQ(150, batch->num_rows());
+    ASSERT_EQ(3, num_batches);
+  }
+}
+
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Concurrent writes tests need threads";

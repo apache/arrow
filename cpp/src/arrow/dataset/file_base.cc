@@ -422,7 +422,8 @@ class DatasetWritingSinkNodeConsumer : public acero::SinkNodeConsumer {
         internal::DatasetWriter::Make(
             write_options_, plan->query_context()->async_scheduler(),
             [backpressure_control] { backpressure_control->Pause(); },
-            [backpressure_control] { backpressure_control->Resume(); }, [] {}));
+            [backpressure_control] { backpressure_control->Resume(); }, [] {},
+            write_options_.max_rows_queued));
     return Status::OK();
   }
 
@@ -578,7 +579,8 @@ class TeeNode : public acero::MapNode,
         dataset_writer_,
         internal::DatasetWriter::Make(
             write_options_, plan_->query_context()->async_scheduler(),
-            [this] { Pause(); }, [this] { Resume(); }, [this] { MapNode::Finish(); }));
+            [this] { Pause(); }, [this] { Resume(); }, [this] { MapNode::Finish(); },
+            write_options_.max_rows_queued));
     return MapNode::StartProducing();
   }
 

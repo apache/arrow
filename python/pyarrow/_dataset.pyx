@@ -4144,7 +4144,8 @@ def _filesystemdataset_write(
     int max_rows_per_file,
     int min_rows_per_group,
     int max_rows_per_group,
-    bool create_dir
+    bool create_dir,
+    max_rows_queued=None
 ):
     """
     CFileSystemDataset.Write wrapper
@@ -4164,6 +4165,8 @@ def _filesystemdataset_write(
     c_options.max_rows_per_file = max_rows_per_file
     c_options.max_rows_per_group = max_rows_per_group
     c_options.min_rows_per_group = min_rows_per_group
+    if max_rows_queued is not None:
+        c_options.max_rows_queued = max_rows_queued
     c_options.basename_template = tobytes(basename_template)
     if existing_data_behavior == 'error':
         c_options.existing_data_behavior = ExistingDataBehavior_ERROR
