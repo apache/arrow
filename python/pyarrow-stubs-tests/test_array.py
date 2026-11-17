@@ -44,6 +44,8 @@ def test_array() -> None:
     # Scalars aren't annotated yet, so indexing returns Any, slice keeps the subclass
     check(assert_type(arr[0], Any), pa.Int64Scalar)
     check(assert_type(arr[1:], pa.Int64Array), pa.Int64Array)
+    check(assert_type(arr[0], pa.Scalar), pa.Int64Scalar)
+    check(assert_type(arr[1:], pa.Int64Array), pa.Int64Array)
 
     # Methods returning the same kind of array keep the subclass.
     check(assert_type(arr.slice(1), pa.Int64Array), pa.Int64Array)
@@ -89,8 +91,9 @@ def test_array_constructors() -> None:
 
     if TYPE_CHECKING:
         pa.array([1, 2], mask=[True, None])  # type: ignore[list-item]
-        # TODO: when scalars get stubs
-        # pa.array([1, 2], mask=pa.chunked_array([[True, False]]))
+        # Chunked arrays aren't accepted as a mask
+        chunked_mask = pa.chunked_array([[True, False]])
+        pa.array([1, 2], mask=chunked_mask)  # type: ignore[arg-type]
 
 
 def test_array_operators() -> None:
@@ -274,6 +277,8 @@ def test_chunked_array() -> None:
     check(assert_type(chunked.chunk(0), pa.Array), pa.Int64Array)
     # Scalars aren't annotated yet, so indexing returns Any, slice keeps ChunkedArray
     check(assert_type(chunked[0], Any), pa.Int64Scalar)
+    check(assert_type(chunked[1:], pa.ChunkedArray), pa.ChunkedArray)
+    check(assert_type(chunked[0], pa.Scalar), pa.Int64Scalar)
     check(assert_type(chunked[1:], pa.ChunkedArray), pa.ChunkedArray)
     check(assert_type(chunked.chunks, list[pa.Array]), list)
     check(assert_type(chunked.combine_chunks(), pa.Array), pa.Int64Array)
