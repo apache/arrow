@@ -229,7 +229,8 @@ class ContentDefinedChunker::Impl {
     // chunks must be non-empty and monotonic increasing
     ARROW_DCHECK(!chunks.empty());
 
-    // the first chunk must start at the first level
+    // the first chunk must start at the first level, it may be empty to close the
+    // page left open by the previous call
     auto first_chunk = chunks.front();
     ARROW_DCHECK_EQ(first_chunk.level_offset, 0);
     ARROW_DCHECK_EQ(first_chunk.value_offset, 0);
