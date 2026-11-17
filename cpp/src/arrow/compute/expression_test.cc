@@ -18,7 +18,6 @@
 #include "arrow/compute/expression.h"
 
 #include <chrono>
-#include <cmath>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -34,7 +33,6 @@
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
-#include "arrow/util/float16.h"
 
 using testing::Eq;
 using testing::HasSubstr;
@@ -1730,16 +1728,6 @@ void ExpectSimplifiedEvaluatesEqually(Expression filter, const Expression& guara
 TEST(Expression, SingleComparisonGuarantees) {
   auto i32 = field_ref("i32");
 
-  // An unsafe unsigned to signed cast of the same width may wrap, so it is not
-  // stripped: u32 = 4294967221 casts to -75.
-  Simplify{
-      equal(call("cast", {field_ref("u32")}, CastOptions::Unsafe(int32())), literal(-75))}
-      .WithGuarantee(greater_equal(field_ref("u32"), literal(1)))
-      .ExpectUnchanged();
-  Simplify{equal(cast(field_ref("u32"), int32()), literal(-75))}
-      .WithGuarantee(greater_equal(field_ref("u32"), literal(1)))
-      .Expect(false);
-
   // i32 is guaranteed equal to 3, so the projection can just materialize that constant
   // and need not incur IO
   Simplify{project({add(i32, literal(1))}, {"i32 + 1"})}
@@ -2081,6 +2069,11 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
   Simplify{is_in_f64("[20.0, 30.0]")}.WithGuarantee(f64_range).Expect(false);
   Simplify{is_in_f64("[NaN]")}.WithGuarantee(f64_range).ExpectUnchanged();
   Simplify{is_in_f64("[NaN, 5.0, 20.0]")}.WithGuarantee(f64_range).ExpectUnchanged();
+  // ... of any floating point type: a half float value set is matched as float32
+  auto f32 = field_ref("f32");
+  Simplify{call("is_in", {f32}, SetLookupOptions{ArrayFromJSON(float16(), "[NaN, 20]")})}
+      .WithGuarantee(greater_equal(f32, literal(0.0F)))
+      .ExpectUnchanged();
 
   // Bounds are not inferred for a field other than the one which may be null
   Simplify{greater(i32, literal(10))}
@@ -2092,198 +2085,42 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
   Simplify{greater(i32, literal(10))}.WithGuarantee(valid_range).Expect(false);
   Simplify{less(i32, literal(10))}.WithGuarantee(valid_range).Expect(true);
   Simplify{is_null(i32)}.WithGuarantee(valid_range).Expect(false);
-}
 
-TEST(Expression, SimplifyWithBoundOfAnotherType) {
-  // A file may store a column as another type than the dataset reads it as. The
-  // guarantee derived from the file's statistics is bound to the file's schema, the
-  // filter to the dataset's schema, and the two only share the name of the column.
-  // So the guarantee bounds a field with a value of another type than the field has
-  // in the filter, although neither expression compares values of different types.
-  // See also PredicatePushdownColumnReadAsAnotherType in file_parquet_test.cc.
-  auto x = field_ref("x");
-
-  // Simplify `filter` on a column read as `read_as` against `guarantee` on the same
-  // column stored as `stored_as`. Without `expected` the filter must be unchanged.
-  auto expect = [](const std::shared_ptr<DataType>& stored_as, Expression guarantee,
-                   const std::shared_ptr<DataType>& read_as, Expression filter,
-                   std::optional<Expression> expected = std::nullopt) {
-    auto stored_schema = schema({field("x", stored_as)});
-    auto read_schema = schema({field("x", read_as)});
-    ASSERT_OK_AND_ASSIGN(guarantee, guarantee.Bind(*stored_schema));
-    ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*read_schema));
-    ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(filter, guarantee));
-    Expression bound_expected = filter;
-    if (expected) {
-      ASSERT_OK_AND_ASSIGN(bound_expected, expected->Bind(*read_schema));
-    }
-    EXPECT_EQ(simplified, bound_expected)
-        << "  filter:     " << filter.ToString() << "\n"
-        << "  guarantee:  " << guarantee.ToString() << "\n"
-        << "  stored as " << stored_as->ToString() << ", read as " << read_as->ToString();
-  };
-  auto between = [&](auto lower, auto upper) {
-    return and_(greater_equal(x, literal(lower)), less_equal(x, literal(upper)));
-  };
-  auto is_in = [&](std::string json_array) {
-    return call("is_in", {x}, SetLookupOptions{ArrayFromJSON(int64(), json_array)});
-  };
-  auto int64_5 = literal<int64_t>(5);
-
-  // 1. Statistics which convert exactly to the type the column is read as are used
-  // as they are: an int32 or float64 column read as int64.
-  for (const auto& [stored_as, range] :
-       std::vector<std::pair<std::shared_ptr<DataType>, Expression>>{
-           {int32(), between(9, 10)}, {float64(), between(9.0, 10.0)}}) {
-    expect(stored_as, range, int64(), equal(x, int64_5), literal(false));
-    expect(stored_as, range, int64(), greater(x, int64_5), literal(true));
-    expect(stored_as, range, int64(), is_in("[5, 9]"), is_in("[9]"));
-  }
-
-  // 2. Statistics which a safe cast rounds are used rounded, and then only bound
-  // inclusively: a float64 column read as float32. The largest stored value 0.2 is
-  // read as 0.2f, which is greater than 0.2, so `x == 0.2f` must not be ruled out.
-  auto rounded_range = between(0.1, 0.2);
-  expect(float64(), rounded_range, float32(), greater(x, literal(5.0F)), literal(false));
-  expect(float64(), rounded_range, float32(), less(x, literal(0.05F)), literal(false));
-  expect(float64(), rounded_range, float32(), equal(x, literal(0.2F)));
-  expect(float64(), rounded_range, float32(), greater(x, literal(0.2F)), literal(false));
-  expect(float64(), less(x, literal(0.2)), float32(), equal(x, literal(0.2F)));
-  expect(float64(), greater(x, literal(0.1)), float32(), equal(x, literal(0.1F)));
-
-  // 3. Statistics which a safe cast rejects are ignored, so nothing is simplified:
-  // 9.5 is not an int64. (A float64 column holding such values cannot be read as
-  // int64 in the first place.)
-  auto rejected_range = between(9.5, 10.5);
-  expect(float64(), rejected_range, int64(), equal(x, int64_5));
-  expect(float64(), rejected_range, int64(), is_in("[5, 9]"));
-
-  // 4. Statistics of a type which is ordered differently from the type the column is
-  // read as are ignored too, even though they cast exactly: a string column read as
-  // int64. The statistics order the stored strings, "10" <= x <= "9", which says
-  // nothing about the order of the integers they are read as: "5" lies in that range.
-  auto string_range = between("10", "9");
-  expect(utf8(), string_range, int64(), equal(x, int64_5));
-  expect(utf8(), string_range, int64(), greater(x, literal<int64_t>(50)));
-  expect(utf8(), string_range, int64(), is_in("[5, 9]"));
-}
-
-TEST(Expression, SimplifyIsInValueSetOfAnotherType) {
-  // The kernel matches the argument against the value set cast to the argument's
-  // type, so small value sets are filtered as cast, and narrowed as they were given.
-  auto i32 = field_ref("i32");
-  auto f32 = field_ref("f32");
-  auto f64 = field_ref("f64");
-  auto is_in = [](Expression arg, std::shared_ptr<Array> value_set) {
-    return call("is_in", {std::move(arg)}, SetLookupOptions{std::move(value_set)});
-  };
-
-  // 51.00000001 is matched as 51f, which a row with f64 = 51.00000001 casts to
-  auto f64_as_f32 = cast(f64, float32());
-  auto f64_set = [](std::string json) { return ArrayFromJSON(float64(), json); };
-  Simplify{is_in(f64_as_f32, f64_set("[51.00000001]"))}
-      .WithGuarantee(less_equal(f64, literal(51.00000001)))
-      .ExpectUnchanged();
-  Simplify{is_in(f64_as_f32, f64_set("[51.00000001]"))}
-      .WithGuarantee(less_equal(f64, literal(50.5)))
-      .Expect(false);
-  Simplify{is_in(f64_as_f32, f64_set("[50, 51.00000001]"))}
-      .WithGuarantee(less_equal(f64, literal(50.5)))
-      .Expect(is_in(f64_as_f32, f64_set("[50]")));
-
-  // There are no comparisons between half floats and other floating point types,
-  // but a half float value set is matched as float32
-  auto half_float_set = [](std::vector<float> values) {
-    HalfFloatBuilder builder;
-    for (float value : values) {
-      ARROW_EXPECT_OK(builder.Append(util::Float16::FromFloat(value).bits()));
-    }
-    return builder.Finish().ValueOrDie();
-  };
-  auto f32_range =
-      and_(greater_equal(f32, literal(0.0F)), less_equal(f32, literal(10.0F)));
-  Simplify{is_in(f32, half_float_set({5.0F, 20.0F}))}.WithGuarantee(f32_range).Expect(
-      is_in(f32, half_float_set({5.0F})));
-  Simplify{is_in(f32, half_float_set({20.0F, 30.0F}))}.WithGuarantee(f32_range).Expect(
-      false);
-  // ... and a NaN in it matches NaN, which statistics cannot bound
-  Simplify{is_in(f32, half_float_set({std::nanf(""), 20.0F}))}
-      .WithGuarantee(f32_range)
-      .ExpectUnchanged();
-
-  // If the value set cannot be cast to the argument's type the kernel casts the
-  // argument instead, and the call is left alone
-  Simplify{is_in(i32, ArrayFromJSON(int64(), "[1, 3000000000]"))}
-      .WithGuarantee(greater(i32, literal(5)))
-      .ExpectUnchanged();
-}
-
-TEST(Expression, SimplifyComparisonThroughNonInjectiveCast) {
-  auto i32 = field_ref("i32");
+  // The bounds of a nullable range are only used where no types need to be
+  // reconciled: the field has the type of the bounds (as the statistics of a column
+  // have unless it is read as another type than it is stored as), the call is on the
+  // field itself and a small value set has the field's type.
   auto i64 = field_ref("i64");
-  auto f32 = field_ref("f32");
-  auto f64 = field_ref("f64");
-  auto f64_as_f32 = cast(f64, float32());
-  auto i64_as_f64 = call("cast", {i64}, CastOptions::Unsafe(float64()));
-  auto is_in_f32 = [&](std::string json_array) {
-    return call(
-        "is_in", {f64_as_f32},
-        SetLookupOptions{ArrayFromJSON(float32(), json_array), SetLookupOptions::MATCH});
-  };
-
-  struct Case {
-    Expression filter;
-    Expression guarantee;
-    std::optional<Expression> expected;  // nullopt: unchanged
-  };
-  for (const auto& c : std::vector<Case>{
-           // Casts which are not injective only bound the cast field inclusively:
-           // f64 = 51.00000001 satisfies f64 > 51 and casts to 51f.
-           {equal(f64_as_f32, literal(51.0F)), greater(f64, literal(51.0)), {}},
-           {less_equal(f64_as_f32, literal(51.0F)), greater(f64, literal(51.0)), {}},
-           {greater(f64_as_f32, literal(51.0F)), greater(f64, literal(51.0)), {}},
-           {less(f64_as_f32, literal(51.0F)), greater(f64, literal(51.0)),
-            literal(false)},
-           {greater_equal(f64_as_f32, literal(51.0F)), greater(f64, literal(51.0)),
-            literal(true)},
-           {greater(f64_as_f32, literal(51.0F)), greater(f64, literal(51.5)),
-            literal(true)},
-           // The bound of the guarantee is rounded through the cast before being
-           // compared: f64 = 50.99999999 satisfies f64 <= 50.99999999 and casts to 51f.
-           {equal(f64_as_f32, literal(51.0F)), less_equal(f64, literal(50.99999999)), {}},
-           {less_equal(f64_as_f32, literal(51.0F)),
-            greater_equal(f64, literal(51.00000001)),
-            {}},
-           {equal(f64_as_f32, literal(51.0F)), less_equal(f64, literal(50.5)),
-            literal(false)},
-           // Small is_in value sets are filtered the same way
-           {is_in_f32("[50, 51]"), greater(f64, literal(51.0)), is_in_f32("[51]")},
-           {is_in_f32("[51]"), greater(f64, literal(51.0)), {}},
-           {is_in_f32("[51]"), less_equal(f64, literal(50.99999999)), {}},
-           {is_in_f32("[51]"), greater(f64, literal(51.5)), literal(false)},
-           // Nor is int64 to float64: 2^53 + 1 casts to 2^53 (when the cast is allowed
-           // to truncate; a safe cast fails on values outside [-2^53, 2^53] and so
-           // does any bound outside that range, which is then ignored)
-           {equal(i64_as_f64, literal(9007199254740992.0)),
-            greater(i64, literal<int64_t>(9007199254740992)),
-            {}},
-           {equal(i64_as_f64, literal(9007199254740992.0)),
-            greater_equal(i64, literal<int64_t>(9007199254740994)), literal(false)},
-           {equal(cast(i64, float64()), literal(9007199254740992.0)),
-            greater_equal(i64, literal<int64_t>(9007199254740994)),
-            {}},
-           {greater(cast(i32, float32()), literal(5.0F)), greater(i32, literal(5)), {}},
-           // Widening casts are injective, so strict bounds stay strict
-           {greater(cast(i32, int64()), literal<int64_t>(5)), greater(i32, literal(5)),
-            literal(true)},
-           {greater(cast(i32, float64()), literal(5.0)), greater(i32, literal(5)),
-            literal(true)},
-           {greater(cast(f32, float64()), literal(5.0)), greater(f32, literal(5.0F)),
-            literal(true)},
-       }) {
-    auto expect = Simplify{c.filter}.WithGuarantee(c.guarantee);
-    c.expected ? expect.Expect(*c.expected) : expect.ExpectUnchanged();
-  }
+  auto int64_10 = literal<int64_t>(10);
+  auto int32_range = and_(greater_equal(i64, literal(1)), less_equal(i64, literal(5)));
+  auto is_in_i64 = call("is_in", {i64}, SetLookupOptions{ArrayFromJSON(int64(), "[10]")});
+  auto is_in_int64_set =
+      call("is_in", {i32}, SetLookupOptions{ArrayFromJSON(int64(), "[10]")});
+  // ... int32 bounds on an int64 field
+  Simplify{greater(i64, int64_10)}
+      .WithGuarantee(or_(int32_range, is_null(i64)))
+      .ExpectUnchanged();
+  Simplify{is_in_i64}.WithGuarantee(or_(int32_range, is_null(i64))).ExpectUnchanged();
+  // ... an int32 field which is cast to compare it. (An int64 literal is itself cast
+  // to int32 when the comparison is bound, which leaves the field as it is.)
+  Simplify{greater(cast(i32, int64()), int64_10)}
+      .WithGuarantee(nullable_range)
+      .ExpectUnchanged();
+  Simplify{greater(i32, literal(10.5))}.WithGuarantee(nullable_range).ExpectUnchanged();
+  Simplify{greater(i32, int64_10)}
+      .WithGuarantee(nullable_range)
+      .Expect(not_(true_unless_null(i32)));
+  // ... an int64 value set for an int32 field
+  Simplify{is_in_int64_set}.WithGuarantee(nullable_range).ExpectUnchanged();
+  // The guarantees which were recognized before this shape was are used as before
+  Simplify{greater(i64, int64_10)}.WithGuarantee(int32_range).Expect(false);
+  Simplify{is_in_i64}.WithGuarantee(int32_range).Expect(false);
+  Simplify{greater(cast(i32, int64()), int64_10)}.WithGuarantee(range).Expect(false);
+  Simplify{greater(i32, literal(10.5))}.WithGuarantee(range).Expect(false);
+  Simplify{is_in_int64_set}.WithGuarantee(range).Expect(false);
+  Simplify{greater(i64, int64_10)}
+      .WithGuarantee(or_(less_equal(i64, literal(5)), is_null(i64)))
+      .Expect(not_(true_unless_null(i64)));
 }
 
 TEST(Expression, SimplifyIsIn) {
@@ -2437,7 +2274,8 @@ TEST(Expression, SimplifyIsIn) {
 TEST(Expression, SimplifyIsInLargeValueSet) {
   // Value sets longer than kIsInSimplificationMaxValueSet are searched for the range
   // admitted by the inequalities of the guarantee. The call is simplified to false if
-  // the range is empty and is left unchanged otherwise.
+  // the range is empty and is left unchanged otherwise. Only bounds which have the
+  // type of the field are used, as the statistics of a column have.
   auto u32 = field_ref("u32");
   auto i32 = field_ref("i32");
   auto i64 = field_ref("i64");
@@ -2462,8 +2300,7 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
     strings += (i > 0 ? ",\"k" : "\"k") + std::to_string(100 + i) + "\"";
   }
   strings += "]";
-  auto f32_roundtrip = cast(cast(f64, float32()), float64());
-  auto roundtrip_set = concat_json("[0.10000000149011612]", make_range_json(1, 50));
+  auto u32_literal = [](uint32_t value) { return literal(value); };
   auto binary_literal = [](const std::string& value) {
     return literal(std::make_shared<BinaryScalar>(Buffer::FromString(value)));
   };
@@ -2478,17 +2315,19 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
   };
   const std::vector<Case> cases = {
       // Guarantees overlapping the value set
-      {u32, int64(), range, greater(u32, literal(3)), kUnchanged},
-      {u32, int64(), range, less_equal(u32, literal(1)), kUnchanged},
+      {u32, int64(), range, greater(u32, u32_literal(3)), kUnchanged},
+      {u32, int64(), range, less_equal(u32, u32_literal(1)), kUnchanged},
       {u32, int64(), range,
-       and_(greater_equal(u32, literal(100)), less_equal(u32, literal(200))), kUnchanged},
+       and_(greater_equal(u32, u32_literal(100)), less_equal(u32, u32_literal(200))),
+       kUnchanged},
       // Guarantees disjoint from the value set's hull
-      {u32, int64(), range, greater(u32, literal(100)), kFalse},
-      {u32, int64(), range, greater_equal(u32, literal(101)), kFalse},
-      {u32, int64(), range, less(u32, literal(1)), kFalse},
-      {u32, int64(), range, less_equal(u32, literal(0)), kFalse},
+      {u32, int64(), range, greater(u32, u32_literal(100)), kFalse},
+      {u32, int64(), range, greater_equal(u32, u32_literal(101)), kFalse},
+      {u32, int64(), range, less(u32, u32_literal(1)), kFalse},
+      {u32, int64(), range, less_equal(u32, u32_literal(0)), kFalse},
       {u32, int64(), range,
-       and_(greater_equal(u32, literal(101)), less_equal(u32, literal(200))), kFalse},
+       and_(greater_equal(u32, u32_literal(101)), less_equal(u32, u32_literal(200))),
+       kFalse},
       // Guarantees inside the value set's hull but disjoint from its values. This
       // requires considering both bounds of the guarantee at once.
       {i32, int32(), gapped, and_(greater(i32, literal(50)), less(i32, literal(100))),
@@ -2523,22 +2362,33 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
        kFalse},
       // Bounds on other fields are irrelevant, including those of a range which may
       // be null for another field
-      {i32, int32(), gapped, and_(greater(u32, literal(50)), less(u32, literal(100))),
-       kUnchanged},
+      {i32, int32(), gapped,
+       and_(greater(u32, u32_literal(50)), less(u32, u32_literal(100))), kUnchanged},
       {i32, int32(), gapped, or_(in_gap, is_null(u32)), kUnchanged},
       {i32, int32(), gapped,
-       or_(and_(in_gap, greater_equal(u32, literal(51))), is_null(u32)), kUnchanged},
-      // The value set is cast to the field type when the call is bound and the bounds
-      // of the guarantee are cast to the value set type
-      {i64, int32(), range, greater(i64, literal(100)), kFalse},
+       or_(and_(in_gap, greater_equal(u32, u32_literal(51))), is_null(u32)), kUnchanged},
+      // The kernel casts the value set to the field's type when the call is bound
       {i64, int32(), range, greater(i64, literal<int64_t>(100)), kFalse},
-      {cast(i32, int64()), int64(), range, greater(i32, literal(100)), kFalse},
+      // Bounds of another type than the field's are ignored
+      {i64, int32(), range, greater(i64, literal(100)), kUnchanged},
+      {i64, int64(), range, greater(i64, literal(100.0)), kUnchanged},
+      {i64, int64(), range,
+       and_(greater_equal(i64, literal("10")), less_equal(i64, literal("9"))),
+       kUnchanged},
+      {f32, float32(), range, greater(f32, literal(100.5)), kUnchanged},
+      {f32, float32(), range, greater(f32, literal(100.5F)), kFalse},
+      // ... while the other bounds on the field are still used
+      {i64, int64(), range,
+       and_(greater(i64, literal<int64_t>(100)), less(i64, literal(200))), kFalse},
+      // The call must be applied to the field itself, not to a cast of it
+      {cast(i32, int64()), int64(), range, greater(i32, literal(100)), kUnchanged},
+      {cast(i32, int32()), int32(), range, greater(i32, literal(100)), kUnchanged},
       // Unsorted value sets with duplicates are sorted
-      {u32, int64(), unsorted, greater(u32, literal(100)), kFalse},
-      {u32, int64(), unsorted, and_(greater(u32, literal(50)), less(u32, literal(51))),
-       kFalse},
+      {u32, int64(), unsorted, greater(u32, u32_literal(100)), kFalse},
       {u32, int64(), unsorted,
-       and_(greater_equal(u32, literal(50)), less(u32, literal(51))), kUnchanged},
+       and_(greater(u32, u32_literal(50)), less(u32, u32_literal(51))), kFalse},
+      {u32, int64(), unsorted,
+       and_(greater_equal(u32, u32_literal(50)), less(u32, u32_literal(51))), kUnchanged},
       // Strings
       {str, utf8(), strings, greater(str, literal("k159")), kFalse},
       {str, utf8(), strings, less(str, literal("k100")), kFalse},
@@ -2553,67 +2403,18 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
        kFalse},
       {f64, float64(), range,
        and_(greater(f64, literal(50.0)), less_equal(f64, literal(51.0))), kUnchanged},
-      // A double bound which does not round trip through the float32 value set type
-      // is rounded and only bounds inclusively: 0.1 rounds up to 0.1f, and a strict
-      // bound would wrongly exclude the member 0.1f (0.1f > 0.1 holds in double).
-      {f32, float32(), concat_json("[0.1]", range),
-       and_(greater(f32, literal(0.1)), less(f32, literal(0.5))), kUnchanged},
-      {f32, float32(), concat_json("[0.7]", range), less(f32, literal(0.7)), kUnchanged},
-      {f32, float32(), concat_json("[0.5]", range), less(f32, literal(0.5)), kFalse},
-      {f32, float32(), concat_json("[0.5]", range),
-       and_(greater(f32, literal(0.25)), less(f32, literal(0.5))), kFalse},
       // Statistics cannot bound NaN, so a value set containing NaN is never simplified
       {f64, float64(), concat_json("[NaN]", range), greater(f64, literal(100.5)),
        kUnchanged},
       {f64, float64(), concat_json("[NaN]", range), less(f64, literal(0.5)), kUnchanged},
-      // Strict bounds through a stripped narrowing cast are weakened to inclusive
-      // ones: f64 = 51.00000001 satisfies f64 > 51 and casts to 51f, a set member.
-      {cast(f64, float32()), float32(), make_range_json(1, 51),
-       greater(f64, literal(51.0)), kUnchanged},
-      {cast(f64, float32()), float32(), make_range_json(1, 51), less(f64, literal(1.0)),
-       kUnchanged},
-      {cast(f64, float32()), float32(), make_range_json(1, 51),
-       greater(f64, literal(51.5)), kFalse},
-      {cast(f64, float32()), float32(), make_range_json(1, 51),
-       and_(greater(f64, literal(50.0)), less(f64, literal(51.0))), kUnchanged},
-      {cast(f64, float32()), float32(), make_range_json(1, 51),
-       and_(greater(f64, literal(50.25)), less(f64, literal(50.75))), kFalse},
-      // Bounds go through the whole cast chain: 0.1 rounds up to 0.1f and back to
-      // double(0.1f), a set member, so f64 <= 0.1 cannot be ruled out. Strict bounds
-      // are weakened: f64 = 50.00000001 round trips to 50.0.
-      {f32_roundtrip, float64(), roundtrip_set, less_equal(f64, literal(0.1)),
-       kUnchanged},
-      {f32_roundtrip, float64(), roundtrip_set, less_equal(f64, literal(0.05)), kFalse},
-      {f32_roundtrip, float64(), roundtrip_set, greater(f64, literal(50.0)), kUnchanged},
-      {f32_roundtrip, float64(), roundtrip_set, greater(f64, literal(50.5)), kFalse},
-      // An unsafe unsigned to signed cast of the same width wraps and is not order
-      // preserving: u32 = 4294967221 casts to -75, a set member.
-      {call("cast", {u32}, CastOptions::Unsafe(int32())), int32(),
-       make_range_json(-100, -50), greater_equal(u32, literal(1)), kUnchanged},
-      {cast(u32, int32()), int32(), make_range_json(-100, -50),
-       greater_equal(u32, literal(1)), kFalse},
       // When the value set cannot be cast to the argument type the kernel casts the
       // argument instead, in which case the guarantee's order (here lexicographic)
       // says nothing about the value set's order: "10" <= x <= "2" admits "19".
+      // The kernel then does not evaluate itself over the range.
       {binary, int64(), make_range_json(10, 60),
        and_(greater_equal(binary, binary_literal("10")),
             less_equal(binary, binary_literal("2"))),
        kUnchanged},
-      // Likewise for a bound of a type which is ordered differently from the field's
-      // (the statistics of a string column read as int64, say), even though it casts
-      // exactly to the field type: "10" <= x <= "9" admits "5".
-      {i64, int64(), concat_json("[5]", make_range_json(1000, 1059)),
-       and_(greater_equal(i64, literal("10")), less_equal(i64, literal("9"))),
-       kUnchanged},
-      {str, utf8(), concat_json("[\"10\"]", strings),
-       and_(greater_equal(str, literal(9)), less_equal(str, literal(10))), kUnchanged},
-      // ... whereas bounds of another numeric type are converted
-      {i64, int64(), concat_json("[5]", make_range_json(1000, 1059)),
-       and_(greater_equal(i64, literal(9.0)), less_equal(i64, literal(10.0))), kFalse},
-      // ... as are dates bounding a timestamp: day 1 is second 86400
-      {field_ref("ts_s"), timestamp(TimeUnit::SECOND), range,
-       greater_equal(field_ref("ts_s"), literal(std::make_shared<Date32Scalar>(1))),
-       kFalse},
       // Dictionaries are not searchable
       {field_ref("dict_i32"), int32(), range,
        greater(field_ref("dict_i32"), literal(100)), kUnchanged},
@@ -2667,10 +2468,10 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
   // The large value set is simplified in combination with other simplifications
   auto is_in_gapped =
       call("is_in", {i32}, SetLookupOptions{ArrayFromJSON(int32(), gapped)});
-  Simplify{and_(is_in_gapped, greater(u32, literal(5)))}.WithGuarantee(in_gap).Expect(
+  Simplify{and_(is_in_gapped, greater(u32, u32_literal(5)))}.WithGuarantee(in_gap).Expect(
       false);
-  Simplify{or_(is_in_gapped, greater(u32, literal(5)))}.WithGuarantee(in_gap).Expect(
-      greater(u32, literal(5)));
+  Simplify{or_(is_in_gapped, greater(u32, u32_literal(5)))}.WithGuarantee(in_gap).Expect(
+      greater(u32, u32_literal(5)));
 }
 
 TEST(Expression, SimplifyIsInLargeValueSetNullMatching) {
@@ -2792,47 +2593,6 @@ TEST(Expression, SimplifyThenExecute) {
   ExpectExecute(filter, input, &evaluated);
   ExpectExecute(simplified, input, &simplified_evaluated);
   AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
-}
-
-TEST(Expression, SimplifyLargeIsInThenExecute) {
-  // Rows satisfying the guarantee must evaluate identically under the original and
-  // the simplified filter, in particular through casts which round or wrap.
-  auto f64 = field_ref("f64");
-  auto f64_as_f32 =
-      call("is_in", {cast(f64, float32())},
-           SetLookupOptions{ArrayFromJSON(float32(), make_range_json(1, 51))});
-  auto f32_roundtrip =
-      call("is_in", {cast(cast(f64, float32()), float64())},
-           SetLookupOptions{ArrayFromJSON(
-               float64(), concat_json("[0.10000000149011612]", make_range_json(1, 50)))});
-  auto unsafe_u32_as_i32 =
-      call("is_in", {call("cast", {field_ref("u32")}, CastOptions::Unsafe(int32()))},
-           SetLookupOptions{ArrayFromJSON(int32(), make_range_json(-100, -50))});
-
-  struct Case {
-    Expression filter;
-    Expression guarantee;
-    std::string rows;  // rows satisfying the guarantee
-  };
-  for (
-      const auto& c : std::vector<Case>{
-          {f64_as_f32, greater(f64, literal(51.0)),
-           R"([{"f64": 51.00000001}, {"f64": 51.0000001}, {"f64": 51.5}, {"f64": 1e9}])"},
-          {f64_as_f32, greater_equal(f64, literal(51.0)),
-           R"([{"f64": 51.0}, {"f64": 51.00000001}, {"f64": 52.0}])"},
-          {f64_as_f32, and_(greater(f64, literal(51.0)), less(f64, literal(52.0))),
-           R"([{"f64": 51.00000001}, {"f64": 51.5}, {"f64": 51.9}])"},
-          {f64_as_f32, less(f64, literal(1.0)),
-           R"([{"f64": 0.99999999}, {"f64": 0.5}, {"f64": -1e9}])"},
-          {f64_as_f32, greater(f64, literal(51.5)),
-           R"([{"f64": 51.6}, {"f64": 52.0}, {"f64": 1e9}])"},
-          {f32_roundtrip, less_equal(f64, literal(0.1)),
-           R"([{"f64": 0.09}, {"f64": 0.1}])"},
-          {unsafe_u32_as_i32, greater_equal(field_ref("u32"), literal(1)),
-           R"([{"u32": 1}, {"u32": 4294967221}])"},
-      }) {
-    ExpectSimplifiedEvaluatesEqually(c.filter, c.guarantee, c.rows);
-  }
 }
 
 TEST(Expression, SimplifyIsInThenExecute) {

@@ -863,7 +863,9 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
 TEST_P(TestParquetFileFormatScan, PredicatePushdownColumnReadAsAnotherType) {
   // The statistics of a row group are in the type the column is stored as, while the
   // filter is bound to the dataset schema, which may read the column as another type.
-  // The statistics must then bound the values as they are read.
+  // The statistics of row groups with nulls and large `is_in` value sets are only
+  // used where the two types are the same, so that these row groups are read as
+  // they were before such statistics and value sets were used at all.
   auto expect_row_groups = [&](const std::shared_ptr<Array>& stored,
                                const std::shared_ptr<DataType>& read_as,
                                compute::Expression filter,
@@ -891,32 +893,33 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownColumnReadAsAnotherType) {
   };
   auto x = field_ref("x");
   using compute::SetLookupOptions;
+  std::vector<int64_t> large_set(60);
+  std::iota(large_set.begin(), large_set.end(), 1000);
+  std::shared_ptr<Array> large_set_array;
+  ArrayFromVector<Int64Type, int64_t>(large_set, &large_set_array);
+  auto large_is_in = call("is_in", {x}, SetLookupOptions{large_set_array});
+  auto above_100 = greater(x, literal<int64_t>(100));
 
-  // int32 read as int64: the statistics convert exactly
-  auto int32s = ArrayFromJSON(int32(), "[1, 2, 3]");
-  expect_row_groups(int32s, int64(), equal(x, literal<int64_t>(2)), {0});
-  expect_row_groups(int32s, int64(), greater(x, literal<int64_t>(3)), {});
+  // int32 read as int64: without nulls the row group is pruned by a comparison, as
+  // before, but not for a large value set; with a null it is read
+  expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3]"), int64(), above_100, {});
+  expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3]"), int64(), large_is_in, {0});
+  expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3, null]"), int64(), above_100, {0});
+  expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3, null]"), int64(), large_is_in, {0});
+  // ... whereas a column which is read as it is stored is pruned in each case
+  expect_row_groups(ArrayFromJSON(int64(), "[1, 2, 3, null]"), int64(), above_100, {});
+  expect_row_groups(ArrayFromJSON(int64(), "[1, 2, 3, null]"), int64(), large_is_in, {});
 
   // float64 read as float32: the maximum 0.2 is read as 0.2f, which is greater than
   // 0.2, so the row group must be read for `x == 0.2f`
-  auto doubles = ArrayFromJSON(float64(), "[0.1, 0.15, 0.2]");
-  expect_row_groups(doubles, float32(), equal(x, literal(0.2F)), {0});
-  expect_row_groups(doubles, float32(), equal(x, literal(0.1F)), {0});
-  expect_row_groups(doubles, float32(), greater(x, literal(0.2F)), {});
-  expect_row_groups(doubles, float32(), greater(x, literal(5.0F)), {});
+  expect_row_groups(ArrayFromJSON(float64(), "[0.1, 0.15, 0.2, null]"), float32(),
+                    equal(x, literal(0.2F)), {0});
 
   // string read as int64: the statistics order the strings ("10" <= x <= "9") and
-  // say nothing about the integers they are read as, so they are ignored
-  auto strings = ArrayFromJSON(utf8(), R"(["10", "5", "9", "100"])");
+  // say nothing about the integers they are read as
+  auto strings = ArrayFromJSON(utf8(), R"(["10", "5", "9", "100", null])");
   expect_row_groups(strings, int64(), equal(x, literal<int64_t>(5)), {0});
-  expect_row_groups(strings, int64(), greater(x, literal<int64_t>(50)), {0});
-  expect_row_groups(
-      strings, int64(),
-      call("is_in", {x}, SetLookupOptions{ArrayFromJSON(int64(), "[5, 1000]")}), {0});
-  std::vector<int64_t> large_set(60);
-  std::iota(large_set.begin(), large_set.end(), 1000);
   large_set.push_back(5);
-  std::shared_ptr<Array> large_set_array;
   ArrayFromVector<Int64Type, int64_t>(large_set, &large_set_array);
   expect_row_groups(strings, int64(),
                     call("is_in", {x}, SetLookupOptions{large_set_array}), {0});

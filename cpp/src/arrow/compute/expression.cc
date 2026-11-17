@@ -1161,91 +1161,12 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
 
 namespace {
 
-// A strict comparison weakened to an inclusive one. A nondecreasing conversion which
-// may map distinct values to the same value only preserves inclusive comparisons:
-// `x > b` implies `f(x) >= f(b)`, but not `f(x) > f(b)`.
-Comparison::type WeakenStrictComparison(Comparison::type cmp) {
-  if (cmp == Comparison::GREATER) return Comparison::GREATER_EQUAL;
-  if (cmp == Comparison::LESS) return Comparison::LESS_EQUAL;
-  return cmp;
-}
-
-// The order preserving casts wrapping an Expression, outermost first, and the
-// wrapped Expression. See Comparison::StripOrderPreservingCasts.
-struct OrderPreservingCasts {
-  std::vector<const Expression::Call*> casts;
-  const Expression* inner;
-  // Whether the composed casts map distinct values to distinct values. Each cast
-  // is nondecreasing, so `x > b` implies `cast(x) >= cast(b)`, but only through
-  // injective casts does it imply `cast(x) > cast(b)`. Integer widenings are
-  // injective, as are casts to a floating point type whose mantissa holds every
-  // value of the source type; float64 to float32 or int64 to float64 are not.
-  bool injective = true;
-
-  static OrderPreservingCasts Strip(const Expression& expr) {
-    OrderPreservingCasts out;
-    const Expression* lhs = &expr;
-    while (lhs->call() && Comparison::IsOrderPreservingCast(*lhs->call())) {
-      const Expression& from = lhs->call()->arguments[0];
-      out.injective = out.injective && IsInjective(from.type()->id(), lhs->type()->id());
-      out.casts.push_back(lhs->call());
-      lhs = &from;
-    }
-    out.inner = lhs;
-    return out;
-  }
-
-  static bool IsInjective(Type::type from, Type::type to) {
-    // Only integer widenings are stripped between integer types.
-    if (!is_floating(to)) return true;
-    if (is_floating(from)) return bit_width(from) <= bit_width(to);
-    const int mantissa_bits = to == Type::DOUBLE ? 53 : to == Type::FLOAT ? 24 : 11;
-    return bit_width(from) <= mantissa_bits;
-  }
-
-  // Put a bound on the wrapped Expression through the casts, innermost first and
-  // with the same options.
-  Result<std::shared_ptr<Scalar>> ApplyToBound(std::shared_ptr<Scalar> bound,
-                                               ExecContext* exec_context) const {
-    for (auto it = casts.rbegin(); it != casts.rend(); ++it) {
-      const auto& options = checked_cast<const CastOptions&>(*(*it)->options);
-      ARROW_ASSIGN_OR_RAISE(Datum cast,
-                            Cast(Datum(std::move(bound)), options, exec_context));
-      bound = cast.scalar();
-    }
-    return bound;
-  }
-
-  // The comparison between the cast Expression and a cast bound implied by `cmp`
-  // between the wrapped Expression and the bound: strict bounds are weakened to
-  // inclusive ones unless the casts are injective.
-  Comparison::type ApplyToComparison(Comparison::type cmp) const {
-    return injective ? cmp : WeakenStrictComparison(cmp);
-  }
-};
-
 // Value sets up to this length are simplified against a guarantee by filtering the
 // value set and rebinding the `is_in` call (see Inequality::SimplifyIsIn). This is
 // too expensive for longer value sets (https://github.com/apache/arrow/issues/46777),
 // for which the kernel is instead asked what the call evaluates to over the range of
 // the guarantee (see internal::RangeEvaluator), which never rebinds.
 constexpr int64_t kIsInSimplificationMaxValueSet = 50;
-
-// Whether values of the two types are ordered alike, so that a guarantee bound of
-// one type which casts exactly to the other bounds the same values there. This does
-// not hold across families: "10" <= "9" as strings, but both cast exactly to
-// integers (and back), for which 10 > 9.
-bool HaveSameOrder(const DataType& left, const DataType& right) {
-  if (left.id() == right.id()) return true;
-  auto family = [](Type::type id) {
-    if (is_integer(id) || is_floating(id)) return 1;
-    if (is_base_binary_like(id)) return 2;
-    if (id == Type::DATE32 || id == Type::DATE64 || id == Type::TIMESTAMP) return 3;
-    return 0;
-  };
-  const int left_family = family(left.id());
-  return left_family != 0 && left_family == family(right.id());
-}
 
 // An Expression which evaluates to `value` where `target` is valid and to null where
 // it is null: true_unless_null(target) or invert(true_unless_null(target)).
@@ -1285,6 +1206,9 @@ struct Inequality {
   const Datum& bound;
   // Whether target can be null
   bool nullable;
+  // Whether the inequality is only used where no types need to be reconciled, see
+  // Extract and AppliesTo
+  bool same_type_only = false;
 
   // Extract the inequalities implied by a guarantee, derived from "less",
   // "greater", "less_equal", "greater_equal" and "equal" expressions, possibly
@@ -1294,6 +1218,14 @@ struct Inequality {
   //   (cmp(a, 2) and cmp(a, 5)) or is_null(a)
   // The last is the shape of a Parquet row group's statistics when it may contain
   // nulls. In a disjunction each bound only holds for non-null values of the field.
+  //
+  // Inequalities of the last shape are only used where no types need to be
+  // reconciled: for calls on the field itself, not on a cast of it, where the field
+  // has the type of the bound (a column may be read as another type than it is
+  // stored as, in which case its statistics bound it with values of another type).
+  // How types are reconciled is left as it is for the shapes which were recognized
+  // before the last one was (https://github.com/apache/arrow/issues/55292), and is
+  // not extended to it.
   static std::vector<Inequality> Extract(const Expression& guarantee) {
     if (auto inequality = ExtractOneFromComparison(guarantee)) return {*inequality};
 
@@ -1308,10 +1240,12 @@ struct Inequality {
 
     // ... and the LHS to be a conjunction of usable inequalities on the same field
     std::vector<Inequality> inequalities;
-    for (const auto& member : GuaranteeConjunctionMembers(call->arguments[0])) {
+    const auto members = GuaranteeConjunctionMembers(call->arguments[0]);
+    for (const auto& member : members) {
       auto inequality = ExtractOneFromComparison(member);
       if (!inequality || inequality->target != *target) continue;
       inequality->nullable = true;
+      inequality->same_type_only = members.size() > 1;
       inequalities.push_back(*inequality);
     }
     return inequalities;
@@ -1338,50 +1272,11 @@ struct Inequality {
     return std::nullopt;
   }
 
-  /// This inequality restated for the target wrapped in `casts`, as a comparison of
-  /// the cast target with a bound of the cast target's type. Every simplification
-  /// goes through this, so that they agree on what a guarantee says:
-  ///
-  /// - A bound of another type than the target's is brought into the target's type
-  ///   with a safe cast, provided the types are ordered alike (see HaveSameOrder).
-  ///   Such a bound arises when a column is read as another type than it is stored
-  ///   as: its statistics bound the stored values and the same cast is applied to
-  ///   the data. A safe cast is nondecreasing but may round (between floating point
-  ///   types), so unless the bound round trips, strict comparisons are weakened to
-  ///   inclusive ones. This also holds if the guarantee is read as comparing the
-  ///   target with the bound in their common type: no value of the target's type
-  ///   lies strictly between the bound and its rounding.
-  /// - The bound is then put through the casts the target goes through. Each cast is
-  ///   nondecreasing, so `x <= b` implies `cast(x) <= cast(b)` even if `cast(b)`
-  ///   rounds, and no exactness is needed.
-  /// - Through casts which are not injective `x > b` only implies
-  ///   `cast(x) >= cast(b)`, so strict comparisons are weakened to inclusive ones.
-  ///
-  /// Nullopt if the inequality cannot be restated; ignoring it only loses precision.
-  std::optional<std::pair<Comparison::type, std::shared_ptr<Scalar>>> Restate(
-      const OrderPreservingCasts& casts) const {
-    std::shared_ptr<Scalar> value = bound.scalar();
-    // A comparison against null cannot be guaranteed true, but be defensive.
-    if (!value->is_valid) return std::nullopt;
-
-    ExecContext exec_context;
-    Comparison::type restated_cmp = cmp;
-    const auto& target_type = casts.inner->type();
-    if (!value->type->Equals(*target_type)) {
-      if (!HaveSameOrder(*value->type, *target_type)) return std::nullopt;
-      auto maybe_cast =
-          Cast(Datum(value), target_type, CastOptions::Safe(), &exec_context);
-      if (!maybe_cast.ok()) return std::nullopt;
-      auto maybe_round_trip =
-          Cast(*maybe_cast, value->type, CastOptions::Safe(), &exec_context);
-      if (!maybe_round_trip.ok() || !maybe_round_trip->scalar()->Equals(*value)) {
-        restated_cmp = WeakenStrictComparison(restated_cmp);
-      }
-      value = maybe_cast->scalar();
-    }
-    auto cast_value = casts.ApplyToBound(std::move(value), &exec_context);
-    if (!cast_value.ok()) return std::nullopt;
-    return std::make_pair(casts.ApplyToComparison(restated_cmp), *std::move(cast_value));
+  /// Whether this inequality is used to simplify a call on `argument`, which is the
+  /// target, possibly wrapped in order preserving casts. See same_type_only.
+  bool AppliesTo(const Expression& argument) const {
+    if (!same_type_only) return true;
+    return argument.field_ref() != nullptr && bound.type()->Equals(*argument.type());
   }
 
   /// The given expression simplifies to `value` if the inequality
@@ -1415,37 +1310,21 @@ struct Inequality {
       return std::nullopt;
     }
 
-    auto casts = OrderPreservingCasts::Strip(is_in_call->arguments[0]);
-    const Expression& lhs = *casts.inner;
+    const auto& lhs = Comparison::StripOrderPreservingCasts(is_in_call->arguments[0]);
     if (!lhs.field_ref()) return std::nullopt;
     if (*lhs.field_ref() != guarantee.target) return std::nullopt;
-
-    // The guarantee bounds the field but the value set is matched against the
-    // cast field.
-    auto restated = guarantee.Restate(casts);
-    if (!restated) return std::nullopt;
-    const auto& [cmp, bound] = *restated;
-
-    // The kernel matches the argument against the value set cast to the argument's
-    // type, so that is what the bound must be compared with: a value which the cast
-    // rounds may lie on the other side of the bound. If the value set cannot be
-    // cast, the kernel casts the argument instead and the guarantee's order need not
-    // be the value set's order.
-    Datum value_set = options->value_set;
-    if (!value_set.type()->Equals(*is_in_call->arguments[0].type())) {
-      ExecContext cast_context;
-      auto maybe_cast = Cast(value_set, is_in_call->arguments[0].type(),
-                             CastOptions::Safe(), &cast_context);
-      if (!maybe_cast.ok()) return std::nullopt;
-      value_set = *std::move(maybe_cast);
+    if (!guarantee.AppliesTo(is_in_call->arguments[0])) return std::nullopt;
+    // ... which includes the value set, which the kernel matches as the field's type
+    if (guarantee.same_type_only && !options->value_set.type()->Equals(*lhs.type())) {
+      return std::nullopt;
     }
 
     // Statistics based guarantees cannot bound NaN (a row group's minimum and
     // maximum ignore it) whereas `is_in` matches NaN with NaN, so a NaN in the
     // value set must not be filtered out. Leave such value sets alone, as the
     // kernel does for large ones.
-    if (is_floating(value_set.type()->id())) {
-      ARROW_ASSIGN_OR_RAISE(Datum is_nan, IsNan(value_set));
+    if (is_floating(options->value_set.type()->id())) {
+      ARROW_ASSIGN_OR_RAISE(Datum is_nan, IsNan(options->value_set));
       ARROW_ASSIGN_OR_RAISE(Datum any_nan, Any(is_nan));
       if (any_nan.scalar_as<BooleanScalar>().value) return std::nullopt;
     }
@@ -1465,24 +1344,23 @@ struct Inequality {
         break;
       case SetLookupOptions::INCONCLUSIVE:
         if (guarantee.nullable) return std::nullopt;
-        ARROW_ASSIGN_OR_RAISE(Datum is_null, IsNull(value_set));
+        ARROW_ASSIGN_OR_RAISE(Datum is_null, IsNull(options->value_set));
         ARROW_ASSIGN_OR_RAISE(Datum any_null, Any(is_null));
         if (any_null.scalar_as<BooleanScalar>().value) return std::nullopt;
         null_selection = FilterOptions::DROP;
         break;
     }
 
-    std::string func_name = Comparison::GetName(cmp);
+    std::string func_name = Comparison::GetName(guarantee.cmp);
     DCHECK_NE(func_name, "na");
-    std::vector<Datum> args{value_set, bound};
+    std::vector<Datum> args{options->value_set, guarantee.bound};
     ARROW_ASSIGN_OR_RAISE(Datum filter_mask, CallFunction(func_name, args));
     FilterOptions filter_options(null_selection);
-    // Narrow the value set as it was given, so that the call keeps its value set type
     ARROW_ASSIGN_OR_RAISE(Datum simplified_value_set,
                           Filter(options->value_set, filter_mask, filter_options));
 
     if (simplified_value_set.length() == 0) return literal(false);
-    if (simplified_value_set.length() == value_set.length()) return std::nullopt;
+    if (simplified_value_set.length() == options->value_set.length()) return std::nullopt;
 
     ExecContext exec_context;
     Expression::Call simplified_call;
@@ -1526,32 +1404,27 @@ struct Inequality {
     if (!rhs) return expr;
     if (!rhs->is_scalar()) return expr;
 
-    auto casts = OrderPreservingCasts::Strip(call->arguments[0]);
-    const Expression& lhs = *casts.inner;
+    const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
     if (!lhs.field_ref()) return expr;
     if (*lhs.field_ref() != guarantee.target) return expr;
-
-    // The guarantee bounds the field but the expression compares the cast field.
-    auto restated = guarantee.Restate(casts);
-    if (!restated) return expr;
-    const auto& [guarantee_cmp, bound] = *restated;
+    if (!guarantee.AppliesTo(call->arguments[0])) return expr;
 
     // Whether the RHS of the expression is EQUAL, LESS, or GREATER than the
     // RHS of the guarantee. N.B. Comparison::type is a bitmask
     ARROW_ASSIGN_OR_RAISE(const Comparison::type cmp_rhs_bound,
-                          Comparison::Execute(*rhs, bound));
+                          Comparison::Execute(*rhs, guarantee.bound));
     DCHECK_NE(cmp_rhs_bound, Comparison::NA);
 
     if (cmp_rhs_bound == Comparison::EQUAL) {
       // RHS of filter is equal to RHS of guarantee
 
-      if ((*cmp & guarantee_cmp) == guarantee_cmp) {
+      if ((*cmp & guarantee.cmp) == guarantee.cmp) {
         // guarantee is a subset of filter, so all data will be included
         // x > 1, x >= 1, x != 1 guaranteed by x > 1
         return simplified_to(lhs, true);
       }
 
-      if ((*cmp & guarantee_cmp) == 0) {
+      if ((*cmp & guarantee.cmp) == 0) {
         // guarantee disjoint with filter, so all data will be excluded
         // x > 1, x >= 1 unsatisfiable if x == 1
         return simplified_to(lhs, false);
@@ -1560,12 +1433,12 @@ struct Inequality {
       return expr;
     }
 
-    if (guarantee_cmp & cmp_rhs_bound) {
+    if (guarantee.cmp & cmp_rhs_bound) {
       // We guarantee (x (?) N) and are trying to simplify (x (?) M).  We know
       // either M < N or M > N (i.e. cmp_rhs_bound is either LESS or GREATER).
 
       // If M > N, then if the guarantee is (x > N), (x >= N), or (x != N)
-      // (i.e. guarantee_cmp & cmp_rhs_bound), we cannot do anything with the
+      // (i.e. guarantee.cmp & cmp_rhs_bound), we cannot do anything with the
       // guarantee, and bail out here.
 
       // For example, take M = 5, N = 3. Then cmp_rhs_bound = GREATER.
@@ -1577,7 +1450,7 @@ struct Inequality {
 
     if (*cmp & Comparison::GetFlipped(cmp_rhs_bound)) {
       // x > 1, x >= 1, x != 1 guaranteed by x >= 3
-      // (where `guarantee_cmp` is GREATER_EQUAL, `cmp_rhs_bound` is LESS)
+      // (where `guarantee.cmp` is GREATER_EQUAL, `cmp_rhs_bound` is LESS)
       return simplified_to(lhs, true);
     } else {
       // x < 1, x <= 1, x == 1 unsatisfiable if x >= 3
@@ -1626,20 +1499,23 @@ struct FieldRanges {
   }
 };
 
-/// \brief The range which the inequalities on a field leave to the field wrapped in
-///   `casts`: the tightest lower and upper bound, in the type of the cast field.
+/// \brief The range which the inequalities on a field leave to it: the tightest
+///   lower and upper bound.
 ///
 /// Considering all inequalities on a field together matters: a row group's
 /// statistics yield `x >= min and x <= max`, and neither bound on its own can rule
 /// out a value set whose hull spans the row group.
+///
+/// Only bounds which have the type of the field are used; others are ignored, which
+/// only loses precision.
 internal::ArgumentRange ResolveRange(const std::vector<Inequality>& inequalities,
-                                     const OrderPreservingCasts& casts) {
+                                     const DataType& field_type) {
   internal::ArgumentRange range;
   DCHECK(!inequalities.empty());
   range.nullable = inequalities.front().nullable;
 
   // Whether a bound is tighter than the current one on that side. Bounds which
-  // cannot be compared are ignored, which only loses precision.
+  // cannot be compared are ignored.
   auto is_tighter = [](const std::shared_ptr<Scalar>& bound, bool inclusive,
                        const std::shared_ptr<Scalar>& current, bool current_inclusive,
                        Comparison::type tighter) {
@@ -1651,19 +1527,19 @@ internal::ArgumentRange ResolveRange(const std::vector<Inequality>& inequalities
   };
 
   for (const Inequality& inequality : inequalities) {
-    auto restated = inequality.Restate(casts);
-    if (!restated) continue;
-    const auto& [cmp, bound] = *restated;
-    const bool inclusive = cmp & Comparison::EQUAL;
+    const std::shared_ptr<Scalar>& bound = inequality.bound.scalar();
+    // A comparison against null cannot be guaranteed true, but be defensive.
+    if (!bound->is_valid || !bound->type->Equals(field_type)) continue;
+    const bool inclusive = inequality.cmp & Comparison::EQUAL;
     // Unless the comparison admits values below the bound, it is a lower bound;
     // likewise for values above the bound. Equality is both.
-    if (!(cmp & Comparison::LESS) &&
+    if (!(inequality.cmp & Comparison::LESS) &&
         is_tighter(bound, inclusive, range.lower, range.lower_inclusive,
                    Comparison::GREATER)) {
       range.lower = bound;
       range.lower_inclusive = inclusive;
     }
-    if (!(cmp & Comparison::GREATER) &&
+    if (!(inequality.cmp & Comparison::GREATER) &&
         is_tighter(bound, inclusive, range.upper, range.upper_inclusive,
                    Comparison::LESS)) {
       range.upper = bound;
@@ -1674,19 +1550,20 @@ internal::ArgumentRange ResolveRange(const std::vector<Inequality>& inequalities
 }
 
 /// \brief Simplify a call against what the guarantee says about the field it is
-///   applied to (possibly through order preserving casts).
+///   applied to.
 ///
 /// Kernels which can tell what they evaluate to over a range (currently `is_in`,
-/// which searches its sorted value set) are asked; this costs O(log N) per guarantee
-/// with no rebinding. Comparisons, validity checks and small `is_in` value sets are
-/// simplified against each inequality in turn.
+/// which searches its sorted value set) are asked, if they are applied to the field
+/// itself; this costs O(log N) per guarantee with no rebinding. Comparisons, validity
+/// checks and small `is_in` value sets are simplified against each inequality in
+/// turn, also through order preserving casts of the field.
 Result<Expression> SimplifyWithRanges(const FieldRanges& ranges, Expression expr) {
   auto call = expr.call();
   if (!call || call->arguments.empty()) return expr;
 
-  auto casts = OrderPreservingCasts::Strip(call->arguments[0]);
-  if (!casts.inner->field_ref()) return expr;
-  const auto* inequalities = ranges.Find(*casts.inner->field_ref());
+  const Expression& field = Comparison::StripOrderPreservingCasts(call->arguments[0]);
+  if (!field.field_ref()) return expr;
+  const auto* inequalities = ranges.Find(*field.field_ref());
   if (!inequalities) return expr;
 
   const bool is_small_is_in =
@@ -1695,9 +1572,10 @@ Result<Expression> SimplifyWithRanges(const FieldRanges& ranges, Expression expr
           kIsInSimplificationMaxValueSet;
   const auto* evaluator =
       dynamic_cast<const internal::RangeEvaluator*>(call->kernel_state.get());
-  if (evaluator && call->arguments.size() == 1 && !is_small_is_in) {
-    ARROW_ASSIGN_OR_RAISE(auto evaluation, evaluator->EvaluateOverRange(
-                                               ResolveRange(*inequalities, casts)));
+  if (evaluator && call->arguments.size() == 1 && call->arguments[0].field_ref() &&
+      !is_small_is_in) {
+    ARROW_ASSIGN_OR_RAISE(auto evaluation, evaluator->EvaluateOverRange(ResolveRange(
+                                               *inequalities, *field.type())));
     switch (evaluation) {
       case internal::RangeEvaluation::kUnknown:
         return expr;
