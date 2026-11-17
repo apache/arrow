@@ -2044,6 +2044,130 @@ TEST_F(TestBackpressure, ScanBatchesOrdered) {
   Finish(std::move(gen));
 }
 
+// A ControlledFragment whose batches are handed over by tasks on an executor, so that
+// the scan waits for each batch like it does when reading a file
+class ExecutorControlledFragment : public ControlledFragment {
+ public:
+  ExecutorControlledFragment(std::shared_ptr<Schema> schema,
+                             ::arrow::internal::Executor* executor)
+      : ControlledFragment(std::move(schema)), executor_(executor) {}
+
+  Result<RecordBatchGenerator> ScanBatchesAsync(
+      const std::shared_ptr<ScanOptions>& options) override {
+    ARROW_ASSIGN_OR_RAISE(auto gen, ControlledFragment::ScanBatchesAsync(options));
+    return [gen, executor = executor_]() { return DeferNotOk(executor->Submit(gen)); };
+  }
+
+ private:
+  ::arrow::internal::Executor* executor_;
+};
+
+// GH-40653: stopping a scan early should not read the rest of the dataset
+class TestScanEarlyStop : public ::testing::TestWithParam<bool> {
+ protected:
+  static constexpr int kNumBatches = 1000;
+  static constexpr int kNumRows = 10;
+  // Without threads, batches delivered before the first read.  The scan runs only while
+  // it is read, so the rest can be delivered after the first batch has been read.
+  static constexpr int kFirstBatches = 10;
+
+  void SetUp() override {
+    ASSERT_OK_AND_ASSIGN(thread_pool_, ::arrow::internal::ThreadPool::Make(1));
+    auto options = std::make_shared<ScanOptions>();
+    if (GetParam()) {
+      fragment_ =
+          std::make_shared<ExecutorControlledFragment>(schema_, thread_pool_.get());
+      options->cpu_executor = thread_pool_.get();
+      DeliverBatches(kNumBatches);
+      fragment_->Finish();
+    } else {
+      fragment_ = std::make_shared<ControlledFragment>(schema_);
+      DeliverBatches(kFirstBatches);
+    }
+    ScannerBuilder builder(
+        std::make_shared<FragmentDataset>(schema_, FragmentVector{fragment_}), options);
+    ASSERT_OK(builder.UseThreads(GetParam()));
+    // With threads, backpressure pauses the scan while nothing is read
+    ASSERT_OK(builder.Backpressure(
+        acero::BackpressureOptions(kResumeIfBelowBytes, kPauseIfAboveBytes)));
+    ASSERT_OK_AND_ASSIGN(scanner_, builder.Finish());
+  }
+
+  void DeliverBatches(int num_batches) {
+    for (int i = 0; i < num_batches; i++) {
+      fragment_->DeliverBatch(kNumRows);
+    }
+  }
+
+  // Without threads, deliver the rest of the batches after the first one has been read
+  void DeliverRemainingBatches() {
+    if (!GetParam()) {
+      DeliverBatches(kNumBatches - kFirstBatches);
+      fragment_->Finish();
+    }
+  }
+
+  void AssertStoppedEarly() {
+    // Let the tasks queued before the scan stopped run before the pool is destroyed
+    thread_pool_->WaitForIdle();
+    // The scan stopped early: fewer than a tenth of the batches were requested
+    ASSERT_LT(fragment_->NumBatchesRead(), kNumBatches / 10);
+  }
+
+  std::shared_ptr<::arrow::internal::ThreadPool> thread_pool_;
+  std::shared_ptr<Schema> schema_ = schema({field("values", int32())});
+  std::shared_ptr<ControlledFragment> fragment_;
+  std::shared_ptr<Scanner> scanner_;
+};
+
+TEST_P(TestScanEarlyStop, CloseReader) {
+  ASSERT_OK_AND_ASSIGN(auto reader, scanner_->ToRecordBatchReader());
+  ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+  ASSERT_NE(batch, nullptr);
+  DeliverRemainingBatches();
+  ASSERT_OK(reader->Close());
+  AssertStoppedEarly();
+  // The reader is exhausted and can be closed again
+  ASSERT_OK_AND_ASSIGN(batch, reader->Next());
+  ASSERT_EQ(batch, nullptr);
+  ASSERT_OK(reader->Close());
+}
+
+TEST_P(TestScanEarlyStop, CloseReaderAfterEnd) {
+  ASSERT_OK_AND_ASSIGN(auto reader, scanner_->ToRecordBatchReader());
+  ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+  ASSERT_NE(batch, nullptr);
+  DeliverRemainingBatches();
+  ASSERT_OK_AND_ASSIGN(auto table, reader->ToTable());
+  ASSERT_EQ(table->num_rows(), (kNumBatches - 1) * kNumRows);
+  ASSERT_OK(reader->Close());
+  thread_pool_->WaitForIdle();
+}
+
+TEST_P(TestScanEarlyStop, DestroyReader) {
+  ASSERT_OK_AND_ASSIGN(auto reader, scanner_->ToRecordBatchReader());
+  ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+  ASSERT_NE(batch, nullptr);
+  DeliverRemainingBatches();
+  reader.reset();
+  AssertStoppedEarly();
+}
+
+// Head(), TakeRows() and pyarrow's to_batches() stop reading this iterator early
+TEST_P(TestScanEarlyStop, DestroyIterator) {
+  ASSERT_OK_AND_ASSIGN(auto batch_it, scanner_->ScanBatches());
+  ASSERT_OK_AND_ASSIGN(auto batch, batch_it.Next());
+  ASSERT_NE(batch.record_batch, nullptr);
+  DeliverRemainingBatches();
+  batch_it = TaggedRecordBatchIterator();
+  AssertStoppedEarly();
+}
+
+INSTANTIATE_TEST_SUITE_P(TestScanEarlyStop, TestScanEarlyStop, ::testing::Bool(),
+                         [](const ::testing::TestParamInfo<bool>& info) {
+                           return info.param ? "Threaded" : "Serial";
+                         });
+
 struct BatchConsumer {
   explicit BatchConsumer(EnumeratedRecordBatchGenerator generator)
       : generator(std::move(generator)), next() {}
