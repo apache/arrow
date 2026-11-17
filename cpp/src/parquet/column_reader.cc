@@ -1933,8 +1933,7 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   auto value_sink() const -> const ValueSink& { return value_sink_; }
 
  private:
-  // Fast batches retain only a count of predictable levels. Materialize them
-  // lazily if a caller needs levels or a later page needs generic reconstruction.
+  // Rebuild the skipped markers only when the existing reader or a caller needs them
   void MaterializeFixedLevels() {
     if (fixed_levels_ == 0) return;
     def_levels_.AppendFixed(fixed_levels_, this->max_def_level(), fixed_width_, false);
@@ -2053,6 +2052,7 @@ int64_t TypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
         const int32_t take =
             narrow_min(target - fixed_phase_, this->available_values_current_page());
         if (auto* dict = this->PopNewDictionary()) value_sink_.OnNewDictionary(*dict);
+        // The dictionary decoder gives us the actual values for the lists
         value_sink_.ReadValuesDense(*this->current_decoder_.get(), take);
         valid_bits_.AppendPresent(take);
         fixed_levels_ += take;

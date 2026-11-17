@@ -762,6 +762,7 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
     if (child_data->length % type.list_size() != 0) {
       return Status::Invalid("Incomplete fixed-size list at end of column");
     }
+    // Every list and value in this batch is present so no null bitmap is needed
     auto data = ::arrow::ArrayData::Make(field()->type(), rows, {nullptr},
                                          {std::move(child_data)}, 0);
     *out = std::make_shared<ChunkedArray>(::arrow::MakeArray(std::move(data)));
