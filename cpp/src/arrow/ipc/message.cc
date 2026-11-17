@@ -379,8 +379,12 @@ static Result<std::unique_ptr<Message>> ReadMessageContinued(
                                  decoder->next_required_size(), " bytes instead");
         }
       } else {
-        // Read and check body length from message decoder
+        // Read body length from message decoder
         body_length = decoder->next_required_size();
+      }
+      // Check body length against file size if possible. This reduces the blast
+      // radius of excessive memory allocation if IPC metadata is corrupted.
+      if (file != nullptr) {
         RETURN_NOT_OK(CheckBodyLength(offset + metadata_length, *body_length, file));
       }
       if (fields_loader) {
