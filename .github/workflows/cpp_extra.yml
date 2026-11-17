@@ -843,6 +843,14 @@ jobs:
         uses: ./.github/actions/odbc-windows
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check ODBC Dependency
+        shell: cmd
+        run: |
+          # ODBC dependency should not include other Arrow libraries
+          call "%VS_INSTALL_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64 || exit /b 1
+          dumpbin /dependents build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll > odbc_dependents.txt || exit /b 1
+          type odbc_dependents.txt
+          bash -c "if grep -i '^ *arrow.*\.dll' odbc_dependents.txt; then echo 'Error: Flight SQL ODBC DLL depends on Arrow DLLs'; exit 1; fi"
       - name: Test
         shell: cmd
         run: |
