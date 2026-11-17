@@ -314,8 +314,8 @@ int32_t PageLevelDecoder<BitDec, RleDec>::Skip(int32_t batch_size) {
 }
 
 template <typename BitDec, typename RleDec>
-auto PageLevelDecoder<BitDec, RleDec>::CountUpTo(int16_t value, int32_t batch_size)
-    -> CountUpToResult {
+auto PageLevelDecoder<BitDec, RleDec>::CountUpTo(int16_t value,
+                                                 int32_t batch_size) -> CountUpToResult {
   const int32_t num_values = std::min(num_values_remaining_, batch_size);
   const auto result =
       std::visit([&](auto& dec) { return dec.CountUpTo(value, num_values); }, decoder_);
