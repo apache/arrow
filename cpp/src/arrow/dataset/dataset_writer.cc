@@ -111,12 +111,14 @@ struct DatasetWriterState {
   // the dataset writer will pause and it will also close the largest open file.
   Throttle open_files_throttle;
   // Control for how many rows the dataset writer will allow to be staged.  A row is
-  // staged if it is waiting for more rows to reach minimum_batch_size.  If this is
-  // exceeded then the largest staged batch is unstaged (no backpressure is applied)
+  // staged if it is waiting for more rows to reach min_rows_per_group.  If this is
+  // exceeded then the file with the most staged rows has its staged rows written out
+  // (no backpressure is applied)
   std::atomic<uint64_t> staged_rows_count;
   // If too many rows get staged we will end up with poor performance and, if more rows
   // are staged than max_rows_queued we will end up with deadlock.  To avoid this, once
-  // we have too many staged rows we just ignore min_rows_per_group
+  // we have too many staged rows we write out the largest group of staged rows even
+  // though it is smaller than min_rows_per_group
   const uint64_t max_rows_staged;
   // Mutex to guard access to the file visitors in the writer options
   std::mutex visitors_mutex;
@@ -201,35 +203,42 @@ class DatasetWriterFileQueue
         "DatasetWriter::WriteBatch"sv);
   }
 
-  Result<int64_t> PopAndDeliverStagedBatch() {
+  Status PopAndDeliverStagedBatch() {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> next_batch, PopStagedBatch());
-    int64_t rows_popped = next_batch->num_rows();
-    rows_currently_staged_ -= next_batch->num_rows();
+    uint64_t rows_popped = static_cast<uint64_t>(next_batch->num_rows());
+    rows_currently_staged_ -= rows_popped;
+    writer_state_->staged_rows_count -= rows_popped;
     ScheduleBatch(std::move(next_batch));
-    return rows_popped;
+    return Status::OK();
   }
 
   // Stage batches, popping and delivering batches if enough data has arrived
   Status Push(std::shared_ptr<RecordBatch> batch) {
-    uint64_t delta_staged = batch->num_rows();
-    rows_currently_staged_ += delta_staged;
+    uint64_t rows_pushed = static_cast<uint64_t>(batch->num_rows());
+    rows_currently_staged_ += rows_pushed;
+    writer_state_->staged_rows_count += rows_pushed;
     staged_batches_.push_back(std::move(batch));
     while (!staged_batches_.empty() &&
-           (writer_state_->StagingFull() ||
-            rows_currently_staged_ >= options_.min_rows_per_group)) {
-      ARROW_ASSIGN_OR_RAISE(int64_t rows_popped, PopAndDeliverStagedBatch());
-      delta_staged -= rows_popped;
+           rows_currently_staged_ >= options_.min_rows_per_group) {
+      RETURN_NOT_OK(PopAndDeliverStagedBatch());
     }
-    // Note, delta_staged may be negative if we were able to deliver some data
-    writer_state_->staged_rows_count += delta_staged;
+    return Status::OK();
+  }
+
+  uint64_t rows_staged() const { return rows_currently_staged_; }
+
+  // Deliver all staged batches even though there are fewer than min_rows_per_group
+  Status FlushStaged() {
+    while (!staged_batches_.empty()) {
+      RETURN_NOT_OK(PopAndDeliverStagedBatch());
+    }
     return Status::OK();
   }
 
   Status Finish() {
-    writer_state_->staged_rows_count -= rows_currently_staged_;
     while (!staged_batches_.empty()) {
-      RETURN_NOT_OK(PopAndDeliverStagedBatch().status().OrElse(
-          [&](auto&&) { file_tasks_.reset(); }));
+      RETURN_NOT_OK(
+          PopAndDeliverStagedBatch().OrElse([&](auto&&) { file_tasks_.reset(); }));
     }
     // At this point all write tasks have been added.  Because the scheduler
     // is a 1-task FIFO we know this task will run at the very end and can
@@ -377,6 +386,14 @@ class DatasetWriterDirectoryQueue
 
   uint64_t rows_written() const { return rows_written_; }
 
+  uint64_t rows_staged() const {
+    return latest_open_file_ ? latest_open_file_->rows_staged() : 0;
+  }
+
+  Status FlushStaged() {
+    return latest_open_file_ ? latest_open_file_->FlushStaged() : Status::OK();
+  }
+
   void PrepareDirectory() {
     if (directory_.empty() || !write_options_.create_dir) {
       return;
@@ -517,11 +534,28 @@ Status EnsureDestinationValid(const FileSystemDatasetWriteOptions& options) {
   return Status::OK();
 }
 
-// Rule of thumb for the max rows to stage.  It will grow with max_rows_queued until
-// max_rows_queued starts to get too large and then it caps out at 8 million rows.
+// Rule of thumb for the max rows to stage.  It grows with max_rows_queued so that
+// raising max_rows_queued lets more files reach min_rows_per_group at the same time.
 // Feel free to replace with something more meaningful, this is just a random heuristic.
-uint64_t CalculateMaxRowsStaged(uint64_t max_rows_queued) {
-  return std::min(static_cast<uint64_t>(1 << 23), max_rows_queued / 4);
+//
+// A single file can only reach min_rows_per_group if that many rows can be staged so
+// the limit is never smaller than min_rows_per_group.
+uint64_t CalculateMaxRowsStaged(uint64_t max_rows_queued, uint64_t min_rows_per_group) {
+  return std::max(max_rows_queued / 4, min_rows_per_group);
+}
+
+// Staged rows count as queued rows.  If the staged rows alone could reach
+// max_rows_queued then the writer would pause forever so, if needed, max_rows_queued
+// is raised to leave room for both the staged rows and the rows being written.
+uint64_t CalculateMaxRowsQueued(uint64_t max_rows_queued, uint64_t max_rows_staged) {
+  if (max_rows_queued == 0) {
+    // Unthrottled
+    return max_rows_queued;
+  }
+  if (max_rows_staged > std::numeric_limits<uint64_t>::max() / 2) {
+    return std::numeric_limits<uint64_t>::max();
+  }
+  return std::max(max_rows_queued, 2 * max_rows_staged);
 }
 
 }  // namespace
@@ -542,8 +576,11 @@ class DatasetWriter::DatasetWriterImpl {
             })),
         write_options_(std::move(write_options)),
         writer_state_(std::make_shared<DatasetWriterState>(
-            max_rows_queued, write_options_.max_open_files,
-            CalculateMaxRowsStaged(max_rows_queued))),
+            CalculateMaxRowsQueued(
+                max_rows_queued, CalculateMaxRowsStaged(
+                                     max_rows_queued, write_options_.min_rows_per_group)),
+            write_options_.max_open_files,
+            CalculateMaxRowsStaged(max_rows_queued, write_options_.min_rows_per_group))),
         pause_callback_(std::move(pause_callback)),
         resume_callback_(std::move(resume_callback)) {}
 
@@ -651,6 +688,33 @@ class DatasetWriter::DatasetWriterImpl {
     return largest->FinishCurrentFile();
   }
 
+  // If too many rows are staged then write out the staged rows of the file that has
+  // the most of them, repeating until we are back under the limit.  This gives the
+  // largest row groups we can still make.
+  Status EvictStagedRowsIfNeeded() {
+    while (writer_state_->StagingFull()) {
+      const std::string* largest_key = nullptr;
+      DatasetWriterDirectoryQueue* largest = nullptr;
+      uint64_t largest_rows_staged = 0;
+      for (const auto& dir_queue : directory_queues_) {
+        uint64_t rows_staged = dir_queue.second->rows_staged();
+        // Break ties on the key so the choice does not depend on iteration order
+        if (rows_staged > largest_rows_staged ||
+            (rows_staged > 0 && rows_staged == largest_rows_staged &&
+             dir_queue.first < *largest_key)) {
+          largest_key = &dir_queue.first;
+          largest = dir_queue.second.get();
+          largest_rows_staged = rows_staged;
+        }
+      }
+      if (largest == nullptr) {
+        break;
+      }
+      RETURN_NOT_OK(largest->FlushStaged());
+    }
+    return Status::OK();
+  }
+
   Future<> DoWriteRecordBatch(std::shared_ptr<RecordBatch> batch,
                               const std::string& directory, const std::string& prefix) {
     ARROW_ASSIGN_OR_RAISE(
@@ -705,6 +769,7 @@ class DatasetWriter::DatasetWriterImpl {
         writer_state_->rows_in_flight_throttle.Release(next_chunk->num_rows());
         return s;
       }
+      RETURN_NOT_OK(EvictStagedRowsIfNeeded());
       batch = std::move(remainder);
       if (batch) {
         RETURN_NOT_OK(dir_queue->FinishCurrentFile());
