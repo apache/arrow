@@ -396,6 +396,7 @@ ParquetInfo GetColumnParquetInfo(const std::shared_ptr<Buffer>& data, int column
     while (auto page = page_reader->NextPage()) {
       if (page->type() == PageType::DATA_PAGE || page->type() == PageType::DATA_PAGE_V2) {
         auto data_page = static_cast<DataPage*>(page.get());
+        EXPECT_GT(data_page->num_values(), 0) << "empty data page";
         column_info.page_sizes.push_back(data_page->uncompressed_size());
         column_info.page_lengths.push_back(data_page->num_values());
       } else if (page->type() == PageType::DICTIONARY_PAGE) {
@@ -1465,6 +1466,27 @@ TEST_P(TestCDCSingleRowGroup, ArrayOffsets) {
     auto sliced_info = GetColumnParquetInfo(sliced_parquet, /*column_index=*/0);
     ASSERT_EQ(sliced_info.size(), 1);
   }
+}
+
+TEST_P(TestCDCSingleRowGroup, IndependentOfArrayChunks) {
+  // Content-defined chunking should produce the same pages
+  // for logically equal inputs, regardless of the inputs' own
+  // in-memory chunking.
+  const auto& param = GetParam();
+  ASSERT_OK_AND_ASSIGN(auto chunked, ConcatenateTables({part1_, part2_, part3_}));
+  ASSERT_OK_AND_ASSIGN(auto combined, chunked->CombineChunks());
+  ASSERT_EQ(chunked->column(0)->num_chunks(), 3);
+  ASSERT_EQ(combined->column(0)->num_chunks(), 1);
+  ASSERT_OK_AND_ASSIGN(
+      auto chunked_parquet,
+      WriteTableToBuffer(chunked, kMinChunkSize, kMaxChunkSize, kRowGroupLength, false,
+                         param.data_page_version));
+  ASSERT_OK_AND_ASSIGN(
+      auto combined_parquet,
+      WriteTableToBuffer(combined, kMinChunkSize, kMaxChunkSize, kRowGroupLength, false,
+                         param.data_page_version));
+  ASSERT_EQ(GetPageEnds(chunked_parquet, /*column_index=*/0),
+            GetPageEnds(combined_parquet, /*column_index=*/0));
 }
 
 #if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
