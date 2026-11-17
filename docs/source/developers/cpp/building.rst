@@ -618,6 +618,10 @@ With ``-DARROW_GCS=ON``, a bundled google-cloud-cpp goes into a separate
 ``arrow_gcs_bundled_dependencies`` library. The ``ArrowGcs::arrow_gcs_static``
 CMake target includes it automatically, otherwise link it right after ``arrow_gcs``.
 
+With ``-DARROW_AZURE=ON``, a bundled Azure SDK for C++ goes into a separate
+``arrow_azure_bundled_dependencies`` library. The ``ArrowAzure::arrow_azure_static``
+CMake target includes it automatically, otherwise link it right after ``arrow_azure``.
+
 On Linux and macOS, if your application does not link to the ``pthread``
 library already, you must include ``-pthread`` in your linker setup. In CMake
 this can be accomplished with the ``Threads`` built-in package:

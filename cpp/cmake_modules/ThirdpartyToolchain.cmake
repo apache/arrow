@@ -24,6 +24,7 @@ processorcount(NPROC)
 # including allocators like jemalloc and mimalloc
 set(ARROW_BUNDLED_STATIC_LIBS)
 set(ARROW_GCS_BUNDLED_STATIC_LIBS)
+set(ARROW_AZURE_BUNDLED_STATIC_LIBS)
 
 # Accumulate all system dependencies to provide suitable static link
 # parameters to the third party libraries.
@@ -4428,15 +4429,12 @@ function(build_azure_sdk)
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)
-  list(PREPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       Azure::azure-core
-       Azure::azure-identity
-       Azure::azure-storage-blobs
-       Azure::azure-storage-common
-       Azure::azure-storage-files-datalake)
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+  set(ARROW_AZURE_BUNDLED_STATIC_LIBS
+      Azure::azure-storage-files-datalake
+      Azure::azure-storage-blobs
+      Azure::azure-storage-common
+      Azure::azure-identity
+      Azure::azure-core
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -4471,6 +4469,8 @@ if(ARROW_BUILD_STATIC)
      AND AZURE_SDK_VENDORED
      AND NOT WIN32)
     arrow_append_pc_system_library("libcurl" ARROW_AZURE_CURL_PC "-lcurl" ARROW_AZURE)
+    arrow_append_pc_system_library("openssl" ARROW_AZURE_OPENSSL_PC "-lssl -lcrypto"
+                                   ARROW_AZURE)
   endif()
   if(ARROW_AZURE
      AND AZURE_SDK_VENDORED
@@ -4524,3 +4524,4 @@ endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
 message(STATUS "GCS bundled static libraries: ${ARROW_GCS_BUNDLED_STATIC_LIBS}")
+message(STATUS "Azure bundled static libraries: ${ARROW_AZURE_BUNDLED_STATIC_LIBS}")

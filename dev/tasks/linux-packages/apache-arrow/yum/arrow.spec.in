@@ -420,7 +420,7 @@ Libraries and header files for Apache Arrow Azure filesystem.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_libdir}/cmake/ArrowAzure/
-%{_libdir}/libarrow_azure.a
+%{_libdir}/libarrow_azure*.a
 %{_libdir}/libarrow_azure.so
 %{_libdir}/pkgconfig/arrow-azure.pc
 

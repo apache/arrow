@@ -955,10 +955,37 @@ if(ARROW_FILESYSTEM)
 
   if(ARROW_AZURE)
     set(ARROW_AZURE_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+    if(ARROW_BUILD_STATIC AND ARROW_AZURE_BUNDLED_STATIC_LIBS)
+      arrow_car(_FIRST_AZURE_LIB ${ARROW_AZURE_BUNDLED_STATIC_LIBS})
+      arrow_cdr(_OTHER_AZURE_LIBS ${ARROW_AZURE_BUNDLED_STATIC_LIBS})
+      arrow_create_merged_static_lib(arrow_azure_bundled_dependencies
+                                     NAME
+                                     arrow_azure_bundled_dependencies
+                                     ROOT
+                                     ${_FIRST_AZURE_LIB}
+                                     TO_MERGE
+                                     ${_OTHER_AZURE_LIBS})
+      get_target_property(arrow_azure_bundled_dependencies_path
+                          arrow_azure_bundled_dependencies IMPORTED_LOCATION)
+      install(FILES ${arrow_azure_bundled_dependencies_path} ${INSTALL_IS_OPTIONAL}
+              DESTINATION ${CMAKE_INSTALL_LIBDIR})
+      string(PREPEND ARROW_AZURE_PC_LIBS_PRIVATE " -larrow_azure_bundled_dependencies")
+      list(PREPEND ARROW_AZURE_STATIC_INSTALL_INTERFACE_LIBS
+           ArrowAzure::arrow_azure_bundled_dependencies)
+    endif()
     if(Azure_SOURCE STREQUAL "SYSTEM")
       list(APPEND ARROW_AZURE_STATIC_INSTALL_INTERFACE_LIBS ${AZURE_SDK_LINK_LIBRARIES})
     elseif(Azure_SOURCE STREQUAL "BUNDLED")
-      if(NOT WIN32)
+      if(WIN32)
+        list(APPEND
+             ARROW_AZURE_STATIC_INSTALL_INTERFACE_LIBS
+             bcrypt
+             crypt32
+             webservices
+             winhttp)
+        string(APPEND ARROW_AZURE_PC_LIBS_PRIVATE
+               " -lbcrypt -lcrypt32 -lwebservices -lwinhttp")
+      else()
         list(APPEND ARROW_AZURE_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl
              LibXml2::LibXml2)
       endif()
