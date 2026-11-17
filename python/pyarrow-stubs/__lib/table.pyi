@@ -64,7 +64,7 @@ from pyarrow.lib import (
 )
 from typing_extensions import CapsuleType
 
-from pyarrow.compute import Expression
+from pyarrow._compute import Expression
 from pyarrow.interchange.dataframe import _PyArrowDataFrame
 
 _ArrayOrChunkedArray: TypeAlias = Array | ChunkedArray
