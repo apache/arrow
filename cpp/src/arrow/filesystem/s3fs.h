@@ -125,6 +125,9 @@ struct ARROW_S3_EXPORT S3Options {
   double request_timeout = -1;
 
   /// If non-empty, override region with a connect string such as "localhost:9000"
+  ///
+  /// By default, this is initialized from the AWS_ENDPOINT_URL_S3 or
+  /// AWS_ENDPOINT_URL environment variable, if set.
   // XXX perhaps instead take a URL like "http://localhost:9000"?
   std::string endpoint_override;
   /// S3 connection transport, default "https"

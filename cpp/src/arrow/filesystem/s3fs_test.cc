@@ -386,6 +386,22 @@ TEST_F(S3OptionsTest, FromUri) {
   }
 }
 
+TEST_F(S3OptionsTest, EndpointFromEnvVar) {
+  ASSERT_EQ(S3Options::Defaults().endpoint_override, "");
+  {
+    EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL", "http://127.0.0.1:9000");
+    ASSERT_EQ(S3Options::Defaults().endpoint_override, "http://127.0.0.1:9000");
+    ASSERT_EQ(S3Options::Anonymous().endpoint_override, "http://127.0.0.1:9000");
+    ASSERT_EQ(S3Options::FromAccessKey("access", "secret").endpoint_override,
+              "http://127.0.0.1:9000");
+
+    // The service-specific variable takes precedence
+    EnvVarGuard s3_endpoint_guard("AWS_ENDPOINT_URL_S3", "http://127.0.0.1:9001");
+    ASSERT_EQ(S3Options::Defaults().endpoint_override, "http://127.0.0.1:9001");
+  }
+  ASSERT_EQ(S3Options::Defaults().endpoint_override, "");
+}
+
 TEST_F(S3OptionsTest, FromAccessKey) {
   S3Options options;
 
@@ -522,6 +538,12 @@ TEST_F(S3RegionResolutionTest, PublicBucket) {
   // Same again, cached
   ASSERT_OK_AND_EQ("eu-west-2",
                    ResolveS3BucketRegion("aws-earth-mo-atmospheric-ukv-prd"));
+}
+
+TEST_F(S3RegionResolutionTest, EndpointEnvVarIgnored) {
+  // Region resolution must still query AWS when a custom endpoint is configured
+  EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL", "http://127.0.0.1:9000");
+  ASSERT_OK_AND_EQ("us-east-1", ResolveS3BucketRegion("arrow-datasets"));
 }
 
 TEST_F(S3RegionResolutionTest, RestrictedBucket) {

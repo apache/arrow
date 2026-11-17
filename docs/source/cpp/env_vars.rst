@@ -187,6 +187,8 @@ that changing their value later will have an effect.
 
    Endpoint URL used for S3-like storage, for example Minio or s3.scality.
    Alternatively, one can set :envvar:`AWS_ENDPOINT_URL_S3`.
+   An endpoint explicitly set in the S3 filesystem options or URI takes
+   precedence over these variables.
 
 .. envvar:: AWS_ENDPOINT_URL_S3
 

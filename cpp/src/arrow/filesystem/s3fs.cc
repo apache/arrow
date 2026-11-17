@@ -231,6 +231,17 @@ std::shared_ptr<S3RetryStrategy> S3RetryStrategy::GetAwsStandardRetryStrategy(
 
 S3Options::S3Options() {
   DCHECK(IsS3Initialized()) << "Must initialize S3 before using S3Options";
+
+  // Prefer AWS service-specific endpoint url
+  auto s3_endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlS3EnvVar);
+  if (s3_endpoint_env.ok()) {
+    endpoint_override = *s3_endpoint_env;
+  } else {
+    auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
+    if (endpoint_env.ok()) {
+      endpoint_override = *endpoint_env;
+    }
+  }
 }
 
 void S3Options::ConfigureDefaultCredentials() {
@@ -411,17 +422,6 @@ Result<S3Options> S3Options::FromUriAndOptions(const ::arrow::util::Uri& uri,
     s3_options.ConfigureAccessKey(username, password);
   } else {
     s3_options.ConfigureDefaultCredentials();
-  }
-
-  // Prefer AWS service-specific endpoint url
-  auto s3_endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlS3EnvVar);
-  if (s3_endpoint_env.ok()) {
-    s3_options.endpoint_override = *s3_endpoint_env;
-  } else {
-    auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
-    if (endpoint_env.ok()) {
-      s3_options.endpoint_override = *endpoint_env;
-    }
   }
 
   bool region_set = false;
@@ -1251,7 +1251,11 @@ class RegionResolver {
     if (instance_) {
       return instance_;
     }
-    auto maybe_resolver = Make(S3Options::Anonymous());
+    auto options = S3Options::Anonymous();
+    // Bucket regions are always resolved against AWS itself, regardless of
+    // the endpoint that may be configured through environment variables.
+    options.endpoint_override.clear();
+    auto maybe_resolver = Make(std::move(options));
     if (!maybe_resolver.ok()) {
       return maybe_resolver;
     }
