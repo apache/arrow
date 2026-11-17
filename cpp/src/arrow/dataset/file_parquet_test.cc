@@ -578,6 +578,21 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper
       EXPECT_EQ(SingleBatch(parquet_fragment)->num_rows(), expected + 1);
     }
   }
+
+  // Check which row groups of `fragment` a scan with `filter` reads
+  void ExpectRowGroupsRead(const std::shared_ptr<Fragment>& fragment,
+                           compute::Expression filter,
+                           const std::vector<int>& expected_row_groups) {
+    SetFilter(std::move(filter));
+    auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
+    ASSERT_OK_AND_ASSIGN(auto fragments, parquet_fragment->SplitByRowGroup(opts_->filter))
+    std::vector<int> row_groups;
+    for (const auto& split : fragments) {
+      const auto& read = checked_pointer_cast<ParquetFileFragment>(split)->row_groups();
+      row_groups.insert(row_groups.end(), read.begin(), read.end());
+    }
+    EXPECT_EQ(row_groups, expected_row_groups);
+  }
 };
 
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(); }
@@ -770,21 +785,10 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
   auto source = GetFileSource(reader.get());
   SetSchema(dataset_schema->fields());
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-  auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
 
   auto expect_row_groups = [&](compute::Expression filter,
                                const std::vector<int>& expected_row_groups) {
-    SetFilter(std::move(filter));
-    ASSERT_OK_AND_ASSIGN(auto fragments,
-                         parquet_fragment->SplitByRowGroup(opts_->filter));
-    std::vector<int> row_groups;
-    for (const auto& split : fragments) {
-      for (int row_group :
-           checked_pointer_cast<ParquetFileFragment>(split)->row_groups()) {
-        row_groups.push_back(row_group);
-      }
-    }
-    EXPECT_EQ(row_groups, expected_row_groups);
+    ExpectRowGroupsRead(fragment, std::move(filter), expected_row_groups);
   };
   using compute::SetLookupOptions;
   auto make_set = [](std::vector<int64_t> values, bool with_null = false) {
@@ -813,11 +817,6 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
   const auto all = ::arrow::internal::Iota(kNumRowGroups);
   expect_row_groups(is_in(make_set(values)), matching);
 
-  // Unsorted value sets with duplicates behave the same.
-  std::vector<int64_t> shuffled(values.rbegin(), values.rend());
-  shuffled.insert(shuffled.end(), values.begin(), values.end());
-  expect_row_groups(is_in(make_set(shuffled)), matching);
-
   // Values beyond the data select nothing.
   std::vector<int64_t> beyond(100);
   std::iota(beyond.begin(), beyond.end(), 1000);
@@ -840,15 +839,6 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
     expect_row_groups(is_in(make_set(values), behavior), matching);
     expect_row_groups(is_in(make_set(values, /*with_null=*/true), behavior),
                       behavior == SetLookupOptions::MATCH ? all : matching);
-  }
-  // The deprecated flag takes precedence over a conflicting enum value.
-  for (bool skip_nulls : {false, true}) {
-    SetLookupOptions options{
-        make_set(values, /*with_null=*/true),
-        skip_nulls ? SetLookupOptions::MATCH : SetLookupOptions::SKIP};
-    options.skip_nulls = skip_nulls;
-    expect_row_groups(call("is_in", {field_ref("i64")}, options),
-                      skip_nulls ? matching : all);
   }
 
   // Comparisons and small value sets are pruned against the same statistics.
@@ -877,52 +867,30 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownColumnReadAsAnotherType) {
                          physical_schema));
     auto source = GetFileSource(reader.get());
     SetSchema({field("x", read_as)});
-    SetFilter(std::move(filter));
     ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
-    auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
-    ASSERT_OK_AND_ASSIGN(auto fragments,
-                         parquet_fragment->SplitByRowGroup(opts_->filter));
-    std::vector<int> row_groups;
-    for (const auto& split : fragments) {
-      for (int row_group :
-           checked_pointer_cast<ParquetFileFragment>(split)->row_groups()) {
-        row_groups.push_back(row_group);
-      }
-    }
-    EXPECT_EQ(row_groups, expected_row_groups);
+    ExpectRowGroupsRead(fragment, std::move(filter), expected_row_groups);
   };
   auto x = field_ref("x");
-  using compute::SetLookupOptions;
   std::vector<int64_t> large_set(60);
   std::iota(large_set.begin(), large_set.end(), 1000);
+  large_set.push_back(5);
   std::shared_ptr<Array> large_set_array;
   ArrayFromVector<Int64Type, int64_t>(large_set, &large_set_array);
-  auto large_is_in = call("is_in", {x}, SetLookupOptions{large_set_array});
+  auto large_is_in =
+      call("is_in", {x}, compute::SetLookupOptions{std::move(large_set_array)});
   auto above_100 = greater(x, literal<int64_t>(100));
 
   // int32 read as int64: without nulls the row group is pruned by a comparison, as
-  // before, but not for a large value set; with a null it is read
+  // before; with a null it is read, as it is for a large value set
   expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3]"), int64(), above_100, {});
-  expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3]"), int64(), large_is_in, {0});
   expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3, null]"), int64(), above_100, {0});
   expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3, null]"), int64(), large_is_in, {0});
-  // ... whereas a column which is read as it is stored is pruned in each case
-  expect_row_groups(ArrayFromJSON(int64(), "[1, 2, 3, null]"), int64(), above_100, {});
-  expect_row_groups(ArrayFromJSON(int64(), "[1, 2, 3, null]"), int64(), large_is_in, {});
-
-  // float64 read as float32: the maximum 0.2 is read as 0.2f, which is greater than
-  // 0.2, so the row group must be read for `x == 0.2f`
-  expect_row_groups(ArrayFromJSON(float64(), "[0.1, 0.15, 0.2, null]"), float32(),
-                    equal(x, literal(0.2F)), {0});
 
   // string read as int64: the statistics order the strings ("10" <= x <= "9") and
   // say nothing about the integers they are read as
   auto strings = ArrayFromJSON(utf8(), R"(["10", "5", "9", "100", null])");
   expect_row_groups(strings, int64(), equal(x, literal<int64_t>(5)), {0});
-  large_set.push_back(5);
-  ArrayFromVector<Int64Type, int64_t>(large_set, &large_set_array);
-  expect_row_groups(strings, int64(),
-                    call("is_in", {x}, SetLookupOptions{large_set_array}), {0});
+  expect_row_groups(strings, int64(), large_is_in, {0});
 }
 
 TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {

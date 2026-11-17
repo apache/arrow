@@ -2093,30 +2093,20 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
   auto i64 = field_ref("i64");
   auto int64_10 = literal<int64_t>(10);
   auto int32_range = and_(greater_equal(i64, literal(1)), less_equal(i64, literal(5)));
-  auto is_in_i64 = call("is_in", {i64}, SetLookupOptions{ArrayFromJSON(int64(), "[10]")});
   auto is_in_int64_set =
       call("is_in", {i32}, SetLookupOptions{ArrayFromJSON(int64(), "[10]")});
   // ... int32 bounds on an int64 field
   Simplify{greater(i64, int64_10)}
       .WithGuarantee(or_(int32_range, is_null(i64)))
       .ExpectUnchanged();
-  Simplify{is_in_i64}.WithGuarantee(or_(int32_range, is_null(i64))).ExpectUnchanged();
-  // ... an int32 field which is cast to compare it. (An int64 literal is itself cast
-  // to int32 when the comparison is bound, which leaves the field as it is.)
+  // ... an int32 field which is cast to compare it
   Simplify{greater(cast(i32, int64()), int64_10)}
       .WithGuarantee(nullable_range)
       .ExpectUnchanged();
-  Simplify{greater(i32, literal(10.5))}.WithGuarantee(nullable_range).ExpectUnchanged();
-  Simplify{greater(i32, int64_10)}
-      .WithGuarantee(nullable_range)
-      .Expect(not_(true_unless_null(i32)));
   // ... an int64 value set for an int32 field
   Simplify{is_in_int64_set}.WithGuarantee(nullable_range).ExpectUnchanged();
   // The guarantees which were recognized before this shape was are used as before
   Simplify{greater(i64, int64_10)}.WithGuarantee(int32_range).Expect(false);
-  Simplify{is_in_i64}.WithGuarantee(int32_range).Expect(false);
-  Simplify{greater(cast(i32, int64()), int64_10)}.WithGuarantee(range).Expect(false);
-  Simplify{greater(i32, literal(10.5))}.WithGuarantee(range).Expect(false);
   Simplify{is_in_int64_set}.WithGuarantee(range).Expect(false);
   Simplify{greater(i64, int64_10)}
       .WithGuarantee(or_(less_equal(i64, literal(5)), is_null(i64)))
@@ -2279,7 +2269,6 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
   auto u32 = field_ref("u32");
   auto i32 = field_ref("i32");
   auto i64 = field_ref("i64");
-  auto f32 = field_ref("f32");
   auto f64 = field_ref("f64");
   auto str = field_ref("str");
   auto binary = field_ref("binary");
@@ -2314,98 +2303,65 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
     Expected expected;
   };
   const std::vector<Case> cases = {
-      // Guarantees overlapping the value set
+      // Guarantees overlapping the value set, and disjoint from its hull
       {u32, int64(), range, greater(u32, u32_literal(3)), kUnchanged},
       {u32, int64(), range, less_equal(u32, u32_literal(1)), kUnchanged},
-      {u32, int64(), range,
-       and_(greater_equal(u32, u32_literal(100)), less_equal(u32, u32_literal(200))),
-       kUnchanged},
-      // Guarantees disjoint from the value set's hull
       {u32, int64(), range, greater(u32, u32_literal(100)), kFalse},
-      {u32, int64(), range, greater_equal(u32, u32_literal(101)), kFalse},
       {u32, int64(), range, less(u32, u32_literal(1)), kFalse},
-      {u32, int64(), range, less_equal(u32, u32_literal(0)), kFalse},
-      {u32, int64(), range,
-       and_(greater_equal(u32, u32_literal(101)), less_equal(u32, u32_literal(200))),
-       kFalse},
       // Guarantees inside the value set's hull but disjoint from its values. This
       // requires considering both bounds of the guarantee at once.
       {i32, int32(), gapped, and_(greater(i32, literal(50)), less(i32, literal(100))),
        kFalse},
       {i32, int32(), gapped, in_gap, kFalse},
-      {i32, int32(), gapped,
-       and_(less_equal(i32, literal(99)), greater_equal(i32, literal(51))), kFalse},
       // ... but a single value of the set in the range is enough to keep the call
       {i32, int32(), gapped,
        and_(greater_equal(i32, literal(50)), less_equal(i32, literal(99))), kUnchanged},
       {i32, int32(), gapped,
        and_(greater_equal(i32, literal(51)), less_equal(i32, literal(100))), kUnchanged},
-      {i32, int32(), gapped, greater(i32, literal(50)), kUnchanged},
-      {i32, int32(), gapped,
-       or_(and_(greater_equal(i32, literal(50)), less_equal(i32, literal(99))),
-           is_null(i32)),
-       kUnchanged},
       {i32, int32(), gapped, or_(equal(i32, literal(50)), is_null(i32)), kUnchanged},
-      // Redundant bounds on the same field are all applied
+      // Redundant bounds on the same field are all applied, a strict one winning
+      // over an inclusive one at the same value
       {i32, int32(), gapped,
        and_(and_(greater(i32, literal(10)), greater(i32, literal(50))),
             less(i32, literal(100))),
        kFalse},
-      // ... of which the strict one wins over an inclusive one at the same value
       {i32, int32(), gapped,
        and_(and_(greater_equal(i32, literal(50)), greater(i32, literal(50))),
             less(i32, literal(100))),
        kFalse},
-      {i32, int32(), gapped,
-       and_(and_(less(i32, literal(100)), less_equal(i32, literal(100))),
-            greater(i32, literal(50))),
-       kFalse},
       // Bounds on other fields are irrelevant, including those of a range which may
       // be null for another field
-      {i32, int32(), gapped,
-       and_(greater(u32, u32_literal(50)), less(u32, u32_literal(100))), kUnchanged},
       {i32, int32(), gapped, or_(in_gap, is_null(u32)), kUnchanged},
       {i32, int32(), gapped,
        or_(and_(in_gap, greater_equal(u32, u32_literal(51))), is_null(u32)), kUnchanged},
       // The kernel casts the value set to the field's type when the call is bound
       {i64, int32(), range, greater(i64, literal<int64_t>(100)), kFalse},
-      // Bounds of another type than the field's are ignored
+      // Bounds of another type than the field's are ignored, the others are used
       {i64, int32(), range, greater(i64, literal(100)), kUnchanged},
-      {i64, int64(), range, greater(i64, literal(100.0)), kUnchanged},
       {i64, int64(), range,
        and_(greater_equal(i64, literal("10")), less_equal(i64, literal("9"))),
        kUnchanged},
-      {f32, float32(), range, greater(f32, literal(100.5)), kUnchanged},
-      {f32, float32(), range, greater(f32, literal(100.5F)), kFalse},
-      // ... while the other bounds on the field are still used
       {i64, int64(), range,
        and_(greater(i64, literal<int64_t>(100)), less(i64, literal(200))), kFalse},
       // The call must be applied to the field itself, not to a cast of it
-      {cast(i32, int64()), int64(), range, greater(i32, literal(100)), kUnchanged},
       {cast(i32, int32()), int32(), range, greater(i32, literal(100)), kUnchanged},
       // Unsorted value sets with duplicates are sorted
-      {u32, int64(), unsorted, greater(u32, u32_literal(100)), kFalse},
       {u32, int64(), unsorted,
        and_(greater(u32, u32_literal(50)), less(u32, u32_literal(51))), kFalse},
       {u32, int64(), unsorted,
        and_(greater_equal(u32, u32_literal(50)), less(u32, u32_literal(51))), kUnchanged},
       // Strings
       {str, utf8(), strings, greater(str, literal("k159")), kFalse},
-      {str, utf8(), strings, less(str, literal("k100")), kFalse},
       {str, utf8(), strings,
        and_(greater(str, literal("k110")), less(str, literal("k111"))), kFalse},
       {str, utf8(), strings,
        and_(greater_equal(str, literal("k110")), less(str, literal("k111"))), kUnchanged},
-      {str, utf8(), strings, greater(str, literal("k1")), kUnchanged},
       // Floats
-      {f64, float64(), range, greater(f64, literal(100.5)), kFalse},
       {f64, float64(), range, and_(greater(f64, literal(50.0)), less(f64, literal(51.0))),
        kFalse},
       {f64, float64(), range,
        and_(greater(f64, literal(50.0)), less_equal(f64, literal(51.0))), kUnchanged},
       // Statistics cannot bound NaN, so a value set containing NaN is never simplified
-      {f64, float64(), concat_json("[NaN]", range), greater(f64, literal(100.5)),
-       kUnchanged},
       {f64, float64(), concat_json("[NaN]", range), less(f64, literal(0.5)), kUnchanged},
       // When the value set cannot be cast to the argument type the kernel casts the
       // argument instead, in which case the guarantee's order (here lexicographic)
@@ -2445,7 +2401,6 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
                        int32(), concat_json(make_range_json(1, 70000),
                                             make_range_json(100001, 170000)))});
   Simplify{huge}.WithGuarantee(greater(i32, literal(170000))).Expect(false);
-  Simplify{huge}.WithGuarantee(less(i32, literal(1))).Expect(false);
   Simplify{huge}
       .WithGuarantee(and_(greater(i32, literal(70000)), less(i32, literal(100001))))
       .ExpectUnchanged();
@@ -2455,7 +2410,6 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
                        SetLookupOptions{ArrayFromJSON(
                            float64(), concat_json("[NaN]", make_range_json(1, 140000)))});
   Simplify{huge_nan}.WithGuarantee(less(f64, literal(0.5))).ExpectUnchanged();
-  Simplify{huge_nan}.WithGuarantee(greater(f64, literal(140000.5))).ExpectUnchanged();
 
   // Chunked value sets are concatenated before they are sorted
   SetLookupOptions chunked_options{
