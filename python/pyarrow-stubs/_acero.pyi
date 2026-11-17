@@ -29,7 +29,7 @@ from pyarrow.compute import Expression
 
 _StrOrExpr: TypeAlias = str | Expression
 _IntoField: TypeAlias = str | int | Expression
-_Target: TypeAlias = _IntoField | tuple[_IntoField, ...] | Sequence[_IntoField]
+_Target: TypeAlias = _IntoField | Sequence[_IntoField]
 _Aggregate: TypeAlias = tuple[_Target, _AggregationName, _AggregateOptions | None, str]
 _SortKey: TypeAlias = (
     tuple[str | Expression | int, Order]
