@@ -16,7 +16,7 @@
 # under the License.
 
 from collections.abc import Callable, Hashable, Iterable, Sequence
-from typing import Any, Literal, ParamSpec, TypeAlias, TypeVar
+from typing import Any, ParamSpec, TypeAlias, TypeVar
 
 # Placeholders (Any) until scalar.pyi is annotated; mypy rejects them as
 # types when imported through pyarrow.lib.
@@ -142,12 +142,27 @@ from pyarrow._compute import (
     register_tabular_function as register_tabular_function,
     register_vector_function as register_vector_function,
 )
-from pyarrow._compute import _CountMode, _DateTimeUnit, _RoundMode, _SortKey
+from pyarrow._compute import (
+    _CountMode,
+    _DateTimeUnit,
+    _Form,
+    _Interpolation,
+    _NullHandling,
+    _Occurrence,
+    _RoundMode,
+    _Side,
+    _SortKey,
+    _Tiebreaker,
+    _TimezoneResolution,
+    _UnexpectedKeyBehavior,
+)
 from pyarrow._stubs_typing import (
     ArrayLike,
     Indices,
     Mask,
+    NullEncoding,
     NullPlacement,
+    NullSelectionBehavior,
     Order,
     ScalarLike,
     TimeUnit,
@@ -395,9 +410,7 @@ def quantile(
     /,
     q: float | Sequence[float] = 0.5,
     *,
-    interpolation: Literal[
-        "linear", "lower", "higher", "nearest", "midpoint"
-    ] = "linear",
+    interpolation: _Interpolation = "linear",
     skip_nulls: bool = True,
     min_count: int = 0,
     options: QuantileOptions | None = None,
@@ -994,7 +1007,7 @@ def binary_join_element_wise(
     | _ArrayOrChunkedArray
     | Iterable[Any]
     | Expression,
-    null_handling: Literal["emit_null", "skip", "replace"] = "emit_null",
+    null_handling: _NullHandling = "emit_null",
     null_replacement: str = "",
     options: JoinOptions | None = None,
     memory_pool: MemoryPool | None = None,
@@ -1024,7 +1037,7 @@ def utf8_slice_codeunits(
 def utf8_normalize(
     strings: _StringScalar | _ArrayOrChunkedArray | Expression,
     /,
-    form: Literal["NFC", "NFKC", "NFD", "NFKD"],
+    form: _Form,
     *,
     options: Utf8NormalizeOptions | None = None,
     memory_pool: MemoryPool | None = None,
@@ -1359,8 +1372,8 @@ def assume_timezone(
     /,
     timezone: str,
     *,
-    ambiguous: Literal["raise", "earliest", "latest"] = "raise",
-    nonexistent: Literal["raise", "earliest", "latest"] = "raise",
+    ambiguous: _TimezoneResolution = "raise",
+    nonexistent: _TimezoneResolution = "raise",
     options: AssumeTimezoneOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> TimestampScalar | TimestampArray | ChunkedArray | Expression: ...
@@ -1404,7 +1417,7 @@ cumulative_mean = _clone_signature(cumulative_sum)
 def dictionary_encode(
     array: _ScalarOrArray | Expression,
     /,
-    null_encoding: Literal["mask", "encode"] = "mask",
+    null_encoding: NullEncoding = "mask",
     *,
     options: DictionaryEncodeOptions | None = None,
     memory_pool: MemoryPool | None = None,
@@ -1434,7 +1447,7 @@ def array_filter(
     array: _ArrayOrChunkedArray | Expression,
     selection_filter: Mask | Expression,
     /,
-    null_selection_behavior: Literal["drop", "emit_null"] = "drop",
+    null_selection_behavior: NullSelectionBehavior = "drop",
     *,
     options: FilterOptions | None = None,
     memory_pool: MemoryPool | None = None,
@@ -1449,7 +1462,7 @@ def filter(
     input: _ArrayOrChunkedArray | RecordBatch | Table | Expression,
     selection_filter: Mask | Expression,
     /,
-    null_selection_behavior: Literal["drop", "emit_null"] = "drop",
+    null_selection_behavior: NullSelectionBehavior = "drop",
     *,
     options: FilterOptions | None = None,
     memory_pool: MemoryPool | None = None,
@@ -1458,7 +1471,7 @@ def inverse_permutation(
     indices: _ArrayOrChunkedArray | Expression,
     /,
     max_index: int = -1,
-    output_type: DataType | None = None,
+    output_type: DataType | str | None = None,
     *,
     options: InversePermutationOptions | None = None,
     memory_pool: MemoryPool | None = None,
@@ -1514,7 +1527,7 @@ def pivot_wider(
     /,
     key_names: Sequence[str],
     *,
-    unexpected_key_behavior: Literal["ignore", "raise"] = "ignore",
+    unexpected_key_behavior: _UnexpectedKeyBehavior = "ignore",
     options: PivotWiderOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> StructScalar: ...
@@ -1524,7 +1537,7 @@ def rank(
     sort_keys: Order | Sequence[_SortKey] = "ascending",
     *,
     null_placement: NullPlacement | None = None,
-    tiebreaker: Literal["min", "max", "first", "dense"] = "first",
+    tiebreaker: _Tiebreaker = "first",
     options: RankOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> UInt64Array: ...
@@ -1568,7 +1581,7 @@ def search_sorted(
     values: _ArrayOrChunkedArray | Expression,
     needles: _ScalarOrArray | ScalarLike | Expression,
     /,
-    side: Literal["left", "right"] = "left",
+    side: _Side = "left",
     *,
     options: SearchSortedOptions | None = None,
     memory_pool: MemoryPool | None = None,
@@ -1611,7 +1624,7 @@ def map_lookup(
     container: _ScalarOrArray | Expression,
     /,
     query_key: ScalarLike,
-    occurrence: Literal["first", "last", "all"],
+    occurrence: _Occurrence,
     *,
     options: MapLookupOptions | None = None,
     memory_pool: MemoryPool | None = None,

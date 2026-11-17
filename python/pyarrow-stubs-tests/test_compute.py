@@ -63,6 +63,23 @@ def test_expression() -> None:
         pc.field(1.0)  # type: ignore[arg-type]
 
 
+def test_expression_substrait() -> None:
+    schema = pa.schema([("a", pa.int64())])
+    message = pc.field("a").to_substrait(schema)
+    check(assert_type(message, memoryview), memoryview)
+
+    expr = pc.Expression.from_substrait(message)
+    check(assert_type(expr, pc.Expression), pc.Expression)
+
+    class Message:
+        def SerializeToString(self) -> bytes:
+            return bytes(message)
+
+    check(pc.Expression.from_substrait(bytes(message)), pc.Expression)
+    check(pc.Expression.from_substrait(pa.py_buffer(message)), pc.Expression)
+    check(pc.Expression.from_substrait(Message()), pc.Expression)
+
+
 def test_functions() -> None:
     func = pc.get_function("sum")
     check(assert_type(func, pc.Function), pc.Function)
@@ -72,6 +89,11 @@ def test_functions() -> None:
     check(assert_type(pc.list_functions(), list[str]), list)
     check(assert_type(pc.function_registry(), pc.FunctionRegistry),
           pc.FunctionRegistry)
+
+    func = pc.get_function("add")
+    assert isinstance(func, pc.ScalarFunction)
+    check(assert_type(func.kernels, list[pc.ScalarKernel]), list)
+    check(assert_type(func.kernels[0], pc.ScalarKernel), pc.ScalarKernel)
 
 
 def test_options() -> None:
@@ -84,6 +106,17 @@ def test_options() -> None:
     check(assert_type(pc.SortOptions([("a", "ascending", "at_start")]),
                       pc.SortOptions),
           pc.SortOptions)
+    check(assert_type(pc.SortOptions([(0, "ascending", "at_start")]),
+                      pc.SortOptions),
+          pc.SortOptions)
+    md = pa.KeyValueMetadata({"k": "v"})
+    check(assert_type(pc.MakeStructOptions(["a", "b"], field_metadata=[None, md]),
+                      pc.MakeStructOptions),
+          pc.MakeStructOptions)
+    check(assert_type(pc.StructFieldOptions((0, 1)), pc.StructFieldOptions),
+          pc.StructFieldOptions)
+    check(assert_type(pc.StructFieldOptions(["a", "b"]), pc.StructFieldOptions),
+          pc.StructFieldOptions)
     check(assert_type(pc.SelectKOptions(1, [("a", "ascending", "at_end")]),
                       pc.SelectKOptions),
           pc.SelectKOptions)
@@ -111,6 +144,9 @@ def test_array_functions() -> None:
     check(assert_type(pc.array_sort_indices(arr), pa.UInt64Array | pc.Expression),
           pa.UInt64Array)
     check(assert_type(pc.sort_indices(table, [("a", "descending")]),
+                      pa.UInt64Array | pc.Expression),
+          pa.UInt64Array)
+    check(assert_type(pc.sort_indices(table, [(0, "descending")]),
                       pa.UInt64Array | pc.Expression),
           pa.UInt64Array)
     check(assert_type(pc.top_k_unstable(arr, 2), pa.UInt64Array), pa.UInt64Array)
