@@ -93,6 +93,22 @@ def test_array_constructors() -> None:
         # pa.array([1, 2], mask=pa.chunked_array([[True, False]]))
 
 
+def test_array_operators() -> None:
+    arr = pa.array([2, 4])
+    chunked = pa.chunked_array([[1], [2]])
+
+    check(assert_type(abs(arr), pa.Array), pa.Int64Array)
+    check(assert_type(-arr, pa.Array), pa.Int64Array)
+    check(assert_type(arr + 1, pa.Array), pa.Int64Array)
+    check(assert_type(arr + chunked, pa.ChunkedArray), pa.ChunkedArray)
+    check(assert_type(arr & 1, pa.Array), pa.Int64Array)
+    check(assert_type(arr & chunked, pa.ChunkedArray), pa.ChunkedArray)
+    check(assert_type(arr ** 2, pa.Array), pa.Int64Array)
+    # An operand that may be chunked gives either type
+    either = cast("pa.Array | pa.ChunkedArray", chunked)
+    check(assert_type(arr + either, pa.Array | pa.ChunkedArray), pa.ChunkedArray)
+
+
 def test_array_numpy() -> None:
     pytest.importorskip("numpy")
     import numpy as np
