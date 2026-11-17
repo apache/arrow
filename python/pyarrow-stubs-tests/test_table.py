@@ -187,6 +187,15 @@ def test_record_batch_from_pandas() -> None:
     check(assert_type(batch, pa.RecordBatch), pa.RecordBatch)
 
 
+def test_table_to_pandas_categories() -> None:
+    pd = pytest.importorskip("pandas")
+    table = pa.table({"a": ["x"]})
+    # Any collection of column names is accepted, e.g. a set.
+    check(table.to_pandas(categories={"a"}), pd.DataFrame)
+    if TYPE_CHECKING:
+        table.to_pandas(categories=[0])  # type: ignore[list-item]
+
+
 def test_chunked_array() -> None:
     chunked_array = pa.chunked_array([[1, 2], [None]])
     check(assert_type(chunked_array, pa.ChunkedArray), pa.ChunkedArray)

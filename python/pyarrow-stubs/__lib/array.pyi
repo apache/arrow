@@ -123,7 +123,7 @@ class _PandasConvertible(_Weakrefable):
     def to_pandas(
         self,
         memory_pool: MemoryPool | None = None,
-        categories: list[Any] | tuple[Any, ...] | None = None,
+        categories: Collection[str] | None = None,
         strings_to_categorical: bool = False,
         zero_copy_only: bool = False,
         integer_object_nulls: bool = False,
