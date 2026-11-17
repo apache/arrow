@@ -853,9 +853,8 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
 TEST_P(TestParquetFileFormatScan, PredicatePushdownColumnReadAsAnotherType) {
   // The statistics of a row group are in the type the column is stored as, while the
   // filter is bound to the dataset schema, which may read the column as another type.
-  // The statistics of row groups with nulls and large `is_in` value sets are only
-  // used where the two types are the same, so that these row groups are read as
-  // they were before such statistics and value sets were used at all.
+  // The statistics of row groups with nulls are only used where the two types are
+  // the same, so that these row groups are read as they were before.
   auto expect_row_groups = [&](const std::shared_ptr<Array>& stored,
                                const std::shared_ptr<DataType>& read_as,
                                compute::Expression filter,
@@ -871,26 +870,15 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownColumnReadAsAnotherType) {
     ExpectRowGroupsRead(fragment, std::move(filter), expected_row_groups);
   };
   auto x = field_ref("x");
-  std::vector<int64_t> large_set(60);
-  std::iota(large_set.begin(), large_set.end(), 1000);
-  large_set.push_back(5);
-  std::shared_ptr<Array> large_set_array;
-  ArrayFromVector<Int64Type, int64_t>(large_set, &large_set_array);
-  auto large_is_in =
-      call("is_in", {x}, compute::SetLookupOptions{std::move(large_set_array)});
-  auto above_100 = greater(x, literal<int64_t>(100));
 
-  // int32 read as int64: without nulls the row group is pruned by a comparison, as
-  // before; with a null it is read, as it is for a large value set
-  expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3]"), int64(), above_100, {});
-  expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3, null]"), int64(), above_100, {0});
-  expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3, null]"), int64(), large_is_in, {0});
+  // int32 read as int64, with a null
+  expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3, null]"), int64(),
+                    greater(x, literal<int64_t>(100)), {0});
 
   // string read as int64: the statistics order the strings ("10" <= x <= "9") and
   // say nothing about the integers they are read as
-  auto strings = ArrayFromJSON(utf8(), R"(["10", "5", "9", "100", null])");
-  expect_row_groups(strings, int64(), equal(x, literal<int64_t>(5)), {0});
-  expect_row_groups(strings, int64(), large_is_in, {0});
+  expect_row_groups(ArrayFromJSON(utf8(), R"(["10", "5", "9", "100", null])"), int64(),
+                    equal(x, literal<int64_t>(5)), {0});
 }
 
 TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {

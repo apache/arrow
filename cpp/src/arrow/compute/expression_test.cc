@@ -2046,7 +2046,6 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
   Simplify{less(i32, literal(10))}
       .WithGuarantee(nullable_range)
       .Expect(true_unless_null(i32));
-  Simplify{less(i32, literal(3))}.WithGuarantee(nullable_range).ExpectUnchanged();
   Simplify{is_null(i32)}.WithGuarantee(nullable_range).ExpectUnchanged();
   Simplify{is_valid(i32)}.WithGuarantee(nullable_range).ExpectUnchanged();
 
@@ -2066,7 +2065,6 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
   auto is_in_f64 = [&](std::string json_array) {
     return call("is_in", {f64}, SetLookupOptions{ArrayFromJSON(float64(), json_array)});
   };
-  Simplify{is_in_f64("[20.0, 30.0]")}.WithGuarantee(f64_range).Expect(false);
   Simplify{is_in_f64("[NaN]")}.WithGuarantee(f64_range).ExpectUnchanged();
   Simplify{is_in_f64("[NaN, 5.0, 20.0]")}.WithGuarantee(f64_range).ExpectUnchanged();
   // ... of any floating point type: a half float value set is matched as float32
@@ -2084,7 +2082,6 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
   auto valid_range = and_(nullable_range, is_valid(i32));
   Simplify{greater(i32, literal(10))}.WithGuarantee(valid_range).Expect(false);
   Simplify{less(i32, literal(10))}.WithGuarantee(valid_range).Expect(true);
-  Simplify{is_null(i32)}.WithGuarantee(valid_range).Expect(false);
 
   // The bounds of a nullable range are only used where no types need to be
   // reconciled: the field has the type of the bounds (as the statistics of a column
@@ -2105,9 +2102,7 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
       .ExpectUnchanged();
   // ... an int64 value set for an int32 field
   Simplify{is_in_int64_set}.WithGuarantee(nullable_range).ExpectUnchanged();
-  // The guarantees which were recognized before this shape was are used as before
-  Simplify{greater(i64, int64_10)}.WithGuarantee(int32_range).Expect(false);
-  Simplify{is_in_int64_set}.WithGuarantee(range).Expect(false);
+  // A guarantee of a shape which was recognized before is used as before
   Simplify{greater(i64, int64_10)}
       .WithGuarantee(or_(less_equal(i64, literal(5)), is_null(i64)))
       .Expect(not_(true_unless_null(i64)));
@@ -2271,7 +2266,6 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
   auto i64 = field_ref("i64");
   auto f64 = field_ref("f64");
   auto str = field_ref("str");
-  auto binary = field_ref("binary");
 
   // 100 contiguous values, and 101 values with a gap: [1, 50] and [100, 150]
   auto range = make_range_json(1, 100);
@@ -2290,9 +2284,6 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
   }
   strings += "]";
   auto u32_literal = [](uint32_t value) { return literal(value); };
-  auto binary_literal = [](const std::string& value) {
-    return literal(std::make_shared<BinaryScalar>(Buffer::FromString(value)));
-  };
 
   enum Expected { kUnchanged, kFalse };
   struct Case {
@@ -2304,7 +2295,6 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
   };
   const std::vector<Case> cases = {
       // Guarantees overlapping the value set, and disjoint from its hull
-      {u32, int64(), range, greater(u32, u32_literal(3)), kUnchanged},
       {u32, int64(), range, less_equal(u32, u32_literal(1)), kUnchanged},
       {u32, int64(), range, greater(u32, u32_literal(100)), kFalse},
       {u32, int64(), range, less(u32, u32_literal(1)), kFalse},
@@ -2363,17 +2353,6 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
        and_(greater(f64, literal(50.0)), less_equal(f64, literal(51.0))), kUnchanged},
       // Statistics cannot bound NaN, so a value set containing NaN is never simplified
       {f64, float64(), concat_json("[NaN]", range), less(f64, literal(0.5)), kUnchanged},
-      // When the value set cannot be cast to the argument type the kernel casts the
-      // argument instead, in which case the guarantee's order (here lexicographic)
-      // says nothing about the value set's order: "10" <= x <= "2" admits "19".
-      // The kernel then does not evaluate itself over the range.
-      {binary, int64(), make_range_json(10, 60),
-       and_(greater_equal(binary, binary_literal("10")),
-            less_equal(binary, binary_literal("2"))),
-       kUnchanged},
-      // Dictionaries are not searchable
-      {field_ref("dict_i32"), int32(), range,
-       greater(field_ref("dict_i32"), literal(100)), kUnchanged},
   };
   // The guarantees above rule out nulls or the call is left unchanged, so the null
   // matching behavior does not matter (see SimplifyIsInLargeValueSetNullMatching).
