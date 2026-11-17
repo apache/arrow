@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import datetime
 from collections.abc import Hashable, Iterator
 from typing import Literal, TYPE_CHECKING
 
@@ -50,6 +51,12 @@ def test_temporal_types() -> None:
     check(assert_type(ts, pa.TimestampType), pa.TimestampType)
     check(assert_type(ts.unit, Literal["s", "ms", "us", "ns"]), str)
     check(assert_type(ts.tz, str | None), str)
+
+    ts_b = pa.timestamp("ms", tz=b"UTC")
+    check(assert_type(ts_b, pa.TimestampType), pa.TimestampType)
+    ts_utc = pa.timestamp("ms", tz=datetime.timezone.utc)
+    check(assert_type(ts_utc, pa.TimestampType), pa.TimestampType)
+    check(assert_type(ts_utc.tz, str | None), str)
 
     check(assert_type(pa.time32("s").unit, Literal["s", "ms"]), str)
     check(assert_type(pa.time64("ns").unit, Literal["us", "ns"]), str)
