@@ -38,9 +38,6 @@ class StopToken: ...
 
 def enable_signal_handlers(enable: bool) -> None: ...
 
-# TODO: remove when https://github.com/apache/arrow/issues/55500 is merged
-have_signal_refcycle: bool
-
 class SignalStopHandler:
     def __enter__(self) -> Self: ...
     def __exit__(
@@ -66,6 +63,5 @@ __all__ = [
     "ArrowIOError",
     "StopToken",
     "enable_signal_handlers",
-    "have_signal_refcycle",
     "SignalStopHandler",
 ]
