@@ -525,7 +525,7 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
             'n': [0]
         }
         with pytest.raises(pa.ArrowInvalid,
-                           match="JSON parse error *"):
+                           match="(JSON parse error|Failed to get JSON object)"):
             reader.read_next_batch()
 
         with pytest.raises(StopIteration):
@@ -546,7 +546,7 @@ class BaseTestStreamingJSONRead(BaseTestJSON):
             'n': [0]
         }
         with pytest.raises(pa.ArrowInvalid,
-                           match="JSON parse error *"):
+                           match="(JSON parse error|Failed to get JSON object)"):
             reader.read_next_batch()
 
         with pytest.raises(StopIteration):
