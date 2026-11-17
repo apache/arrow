@@ -3643,6 +3643,20 @@ TEST(ArrowReadWrite, FixedSizeListFastPathPagesAndBatches) {
           auto sink = CreateOutputStream();
           ASSERT_OK(WriteTable(*table, default_memory_pool(), sink, 31, wp, ap));
           ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+          if (!nullable && !dictionary && width == 3) {
+            auto file = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+            const auto* column = file->metadata()->schema()->Column(0);
+            auto reader = ::parquet::internal::RecordReader::Make(
+                column, ::parquet::internal::LevelInfo::ComputeLevelInfo(column));
+            ASSERT_TRUE(reader->SetFixedSizeList(width));
+            reader->SetPageReader(file->RowGroup(0)->GetColumnPageReader(0));
+
+            ASSERT_EQ(reader->ReadRecords(7), 7);
+            ASSERT_TRUE(reader->dense_fixed_size_list());
+            ASSERT_EQ(reader->values_written(), 7 * width);
+          }
+
           for (int batch_size : {1, 7, 32, 1024}) {
             ArrowReaderProperties rp;
             rp.set_batch_size(batch_size);
