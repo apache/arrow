@@ -59,12 +59,22 @@ def main(argv):
     # and stubtest would check them as if they were stubs.
     with tempfile.TemporaryDirectory() as tmpdir, contextlib.chdir(tmpdir):
         os.symlink(STUBS_DIR, Path(tmpdir) / "pyarrow")
+        allowlists = ["--allowlist", str(ALLOWLIST)]
+        if sys.version_info < (3, 12):
+            # Classes that support the buffer protocol only have a __buffer__
+            # method from Python 3.12 on (PEP 688), while the stubs declare it
+            # for every version, like typeshed does. Unused entries fail
+            # stubtest, so this can't be in the allowlist file.
+            version_allowlist = Path(tmpdir) / "allowlist.txt"
+            version_allowlist.write_text(
+                r"pyarrow\.__lib\.[a-z]+\.[A-Za-z0-9_]+\.__buffer__" "\n")
+            allowlists += ["--allowlist", str(version_allowlist)]
         options = stubtest.parse_options([
             "pyarrow",
             "--ignore-missing-stub",
             # Every Cython extension type is a disjoint base (PEP 800).
             "--ignore-disjoint-bases",
-            "--allowlist", str(ALLOWLIST),
+            *allowlists,
             "--mypy-config-file", str(PYTHON_DIR / "pyproject.toml"),
             *argv,
         ])
