@@ -494,11 +494,11 @@ struct Logb {
     static_assert(std::is_same<T, Arg0>::value, "");
     static_assert(std::is_same<Arg0, Arg1>::value, "");
     if (x == 0.0) {
-      if (base == 0.0 || base < 0.0) {
+      if (base <= 0.0 || !std::isfinite(base)) {
         return std::numeric_limits<T>::quiet_NaN();
-      } else {
-        return -std::numeric_limits<T>::infinity();
       }
+      const auto infinity = std::numeric_limits<T>::infinity();
+      return base < 1.0 ? infinity : -infinity;
     } else if (x < 0.0) {
       return std::numeric_limits<T>::quiet_NaN();
     }
