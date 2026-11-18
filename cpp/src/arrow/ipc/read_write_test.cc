@@ -3401,6 +3401,135 @@ TEST(PreBuffering, MixedAccess) {
   ASSERT_EQ(2, stats.num_record_batches);
 }
 
+TEST(TestMessageDecoderBounds, NegativeConsumeSize) {
+  std::unique_ptr<Message> message;
+  auto listener = std::make_shared<AssignMessageDecoderListener>(&message);
+  MessageDecoder decoder(listener);
+  const uint8_t data[4] = {0};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid data size: negative byte count"),
+      decoder.Consume(data, -1));
+}
+
+TEST(TestMessageDecoderBounds, NegativeContinuationToken) {
+  std::unique_ptr<Message> message;
+  auto listener = std::make_shared<AssignMessageDecoderListener>(&message);
+  MessageDecoder decoder(listener);
+  int32_t negative_token = -5;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IOError, ::testing::HasSubstr("negative continuation token"),
+      decoder.Consume(reinterpret_cast<const uint8_t*>(&negative_token),
+                      sizeof(int32_t)));
+}
+
+TEST(TestMessageDecoderBounds, NegativeMetadataLength) {
+  std::unique_ptr<Message> message;
+  auto listener = std::make_shared<AssignMessageDecoderListener>(&message);
+  MessageDecoder decoder(listener);
+  int32_t buf[2] = {internal::kIpcContinuationToken, -10};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IOError, ::testing::HasSubstr("negative metadata length"),
+      decoder.Consume(reinterpret_cast<const uint8_t*>(buf), sizeof(buf)));
+}
+
+TEST(TestMessageDecoderBounds, MaxMetadataLengthExceeded) {
+  std::unique_ptr<Message> message;
+  auto listener = std::make_shared<AssignMessageDecoderListener>(&message);
+  auto options = IpcReadOptions::Defaults();
+  options.max_metadata_length = 50;
+  MessageDecoder decoder(listener, options);
+  int32_t buf[2] = {internal::kIpcContinuationToken, 100};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
+      decoder.Consume(reinterpret_cast<const uint8_t*>(buf), sizeof(buf)));
+}
+
+TEST(TestStreamDecoderLimits, MaxBodyLengthExceeded) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  StreamWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_body_length = 1;
+  auto listener = std::make_shared<CollectListener>();
+  StreamDecoder decoder(listener, options);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
+      decoder.Consume(writer_helper.buffer_));
+
+  auto default_listener = std::make_shared<CollectListener>();
+  StreamDecoder default_decoder(default_listener);
+  ASSERT_OK(default_decoder.Consume(writer_helper.buffer_));
+  ASSERT_EQ(default_listener->num_record_batches(), 1);
+}
+
+TEST(TestDecompressBufferLimits, NegativeUncompressedSize) {
+  if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
+    GTEST_SKIP() << "LZ4 compression not available";
+  }
+  ASSERT_OK_AND_ASSIGN(auto codec, util::Codec::Create(Compression::LZ4_FRAME));
+  int64_t uncompressed_size = -5;
+  std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
+                       sizeof(int64_t));
+  buf_data.append(16, 'x');
+  auto buf = Buffer::FromString(std::move(buf_data));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("negative capacity: -5"),
+      internal::DecompressBuffer(buf, IpcReadOptions::Defaults(), codec.get()));
+}
+
+TEST(TestDecompressBufferLimits, ZeroCompressedPayloadWithNonZeroUncompressed) {
+  if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
+    GTEST_SKIP() << "LZ4 compression not available";
+  }
+  ASSERT_OK_AND_ASSIGN(auto codec, util::Codec::Create(Compression::LZ4_FRAME));
+  int64_t uncompressed_size = 100;
+  std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
+                       sizeof(int64_t));
+  auto buf = Buffer::FromString(std::move(buf_data));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "Compressed buffer has 0 payload bytes but non-zero uncompressed size 100"),
+      internal::DecompressBuffer(buf, IpcReadOptions::Defaults(), codec.get()));
+}
+
+TEST(TestDecompressBufferLimits, MaxDecompressionRatioExceeded) {
+  if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
+    GTEST_SKIP() << "LZ4 compression not available";
+  }
+  ASSERT_OK_AND_ASSIGN(auto codec, util::Codec::Create(Compression::LZ4_FRAME));
+  int64_t uncompressed_size = 1000;
+  std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
+                       sizeof(int64_t));
+  buf_data.append(10, 'x');
+  auto buf = Buffer::FromString(std::move(buf_data));
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_decompression_ratio = 5;
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      CapacityError,
+      ::testing::HasSubstr("exceeds maximum allowed decompression ratio (5)"),
+      internal::DecompressBuffer(buf, options, codec.get()));
+}
+
+TEST(TestMetadataBounds, EmptyOrInvalidTensorMetadata) {
+  auto empty_buf = Buffer::FromString("");
+  std::shared_ptr<DataType> type;
+  std::vector<int64_t> shape;
+  std::vector<int64_t> strides;
+  std::vector<std::string> dim_names;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IOError, ::testing::HasSubstr("Invalid flatbuffers message"),
+      internal::GetTensorMetadata(*empty_buf, &type, &shape, &strides, &dim_names));
+}
+
 }  // namespace test
 }  // namespace ipc
 }  // namespace arrow

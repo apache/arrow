@@ -189,6 +189,15 @@ struct ARROW_EXPORT IpcReadOptions {
   /// The lazy property will always be reset to true to deliver the expected behavior
   io::CacheOptions pre_buffer_cache_options = io::CacheOptions::LazyDefaults();
 
+  /// \brief Maximum allowed metadata length in bytes (-1 means unlimited).
+  int64_t max_metadata_length = -1;
+
+  /// \brief Maximum allowed body length in bytes (-1 means unlimited).
+  int64_t max_body_length = -1;
+
+  /// \brief Maximum allowed decompression expansion ratio (-1 means unlimited).
+  int32_t max_decompression_ratio = -1;
+
   static IpcReadOptions Defaults();
 };
 

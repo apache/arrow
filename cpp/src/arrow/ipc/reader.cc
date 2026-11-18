@@ -23,6 +23,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -555,6 +556,10 @@ class ArrayLoader {
   ArrayData* out_ = nullptr;
 };
 
+}  // namespace
+
+namespace internal {
+
 Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& buf,
                                                  const IpcReadOptions& options,
                                                  util::Codec* codec) {
@@ -576,12 +581,35 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
     return SliceBuffer(buf, sizeof(int64_t), compressed_size);
   }
 
+  if (compressed_size == 0 && uncompressed_size > 0) {
+    return Status::Invalid(
+        "Compressed buffer has 0 payload bytes but non-zero uncompressed size ",
+        uncompressed_size);
+  }
+
+  if (options.max_decompression_ratio > 0) {
+    int64_t max_allowed = 0;
+    if (ARROW_PREDICT_FALSE(::arrow::internal::MultiplyWithOverflow(
+            compressed_size, static_cast<int64_t>(options.max_decompression_ratio),
+            &max_allowed))) {
+      max_allowed = std::numeric_limits<int64_t>::max();
+    }
+    if (ARROW_PREDICT_FALSE(uncompressed_size > max_allowed)) {
+      return Status::CapacityError("Decompressed size (", uncompressed_size,
+                                   ") exceeds maximum allowed decompression ratio (",
+                                   options.max_decompression_ratio, ")");
+    }
+  }
+
+  std::span<const uint8_t> compressed_payload(data + sizeof(int64_t),
+                                              static_cast<size_t>(compressed_size));
+
   ARROW_ASSIGN_OR_RAISE(auto uncompressed,
                         AllocateBuffer(uncompressed_size, options.memory_pool));
 
   ARROW_ASSIGN_OR_RAISE(
       int64_t actual_decompressed,
-      codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
+      codec->Decompress(compressed_size, compressed_payload.data(), uncompressed_size,
                         uncompressed->mutable_data()));
   if (actual_decompressed != uncompressed_size) {
     return Status::Invalid("Failed to fully decompress buffer, expected ",
@@ -591,6 +619,12 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
 
   return uncompressed;
 }
+
+}  // namespace internal
+
+namespace {
+
+using internal::DecompressBuffer;
 
 Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
                          ArrayDataVector* fields) {
@@ -2167,7 +2201,7 @@ class StreamDecoder::StreamDecoderImpl : public StreamDecoderInternal {
   explicit StreamDecoderImpl(std::shared_ptr<Listener> listener, IpcReadOptions options)
       : StreamDecoderInternal(std::move(listener), options),
         message_decoder_(std::shared_ptr<StreamDecoderImpl>(this, [](void*) {}),
-                         options.memory_pool) {}
+                         options) {}
 
   Status Consume(const uint8_t* data, int64_t size) {
     return message_decoder_.Consume(data, size);
