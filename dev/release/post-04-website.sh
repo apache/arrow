@@ -75,10 +75,34 @@ rough_n_development_months=$((
 git_tag=apache-arrow-${version}
 git_range=apache-arrow-${previous_version}..${git_tag}
 
-committers_command_line="git shortlog -sn --group=trailer:signed-off-by ${git_range}"
 contributors_command_line="git shortlog -sn ${git_range}"
 
-committers=$(${committers_command_line})
+# Count the pull requests of the commits in ${git_range} by who merged
+# them. We ask GitHub because commits merged with the merge button
+# don't have "Signed-off-by:" trailers.
+list_committers() {
+  git log --pretty=%s ${git_range} |
+    sed -n -E 's/^.* \(#([0-9]+)\)$/\1/p' |
+    xargs -n 50 |
+    while read -r -a numbers; do
+      local query="query {repository(owner: \"apache\", name: \"arrow\") {"
+      local number
+      for number in "${numbers[@]}"; do
+        query+=" pr${number}: pullRequest(number: ${number})"
+        query+=" {mergedBy {login ... on User {name}}}"
+      done
+      query+="}}"
+      gh api graphql -f query="${query}" \
+        --jq '.data.repository[].mergedBy | select(. != null) |
+                if (.name // "") == "" then .login else .name end'
+    done |
+    sort |
+    uniq -c |
+    sort -k1,1nr -k2 |
+    awk '{count = $1; sub(/^ *[0-9]+ /, ""); printf "%6d\t%s\n", count, $0}'
+}
+
+committers=$(set -o pipefail; list_committers)
 contributors=$(${contributors_command_line})
 
 n_commits=$(git log --pretty=oneline ${git_range} | wc -l)
@@ -151,8 +175,7 @@ cat <<ANNOUNCE >> "${announce_file}"
 
 The following Apache committers merged contributed patches to the repository.
 
-\`\`\`console
-$ ${committers_command_line}
+\`\`\`text
 ANNOUNCE
 
 echo "${committers}" >> "${announce_file}"

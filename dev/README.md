@@ -38,24 +38,25 @@ you merge, check that:
 
 * The pull request title is what you want as the commit title:
   `GH-XXX: [Component] Title` or `MINOR: [Component] Title`. The
-  merge is blocked by the "PR Title" status of the Boring Cyborg app
-  (`.github/boring-cyborg.yml`) unless the title starts with `GH-XXX`
-  or `MINOR: `.
+  "PR Title" status of the Boring Cyborg app
+  (`.github/boring-cyborg.yml`) fails unless the title starts with
+  `GH-XXX` or `MINOR: ` but it doesn't block the merge. Keep the
+  ` (#YYY)` suffix that GitHub adds to the commit title in the merge
+  dialog: the workflow below needs it.
 * The pull request description is what you want as the commit
   message. Remove leftovers of the pull request template in the
   merge dialog if needed. You must remove CI directives such as
   `[skip ci]`: GitHub doesn't run the workflow below for a commit
   with them and you need to close the issue manually.
 
-After the merge, the "Dev PR merged" GitHub Actions workflow assigns
-the issue `GH-XXX` to the pull request author if it isn't assigned to
-anyone, sets its milestone, closes it and comments which pull request
-resolved the issue. The milestone is taken from the pull request. Set
-it before merging if the pull request isn't targeted for the next
-major release. If the pull request doesn't have a milestone, the
-existing issue milestone is retained; if the issue doesn't have a
-milestone either, the next major release is used. This is only done
-for pull requests to `main`.
+After the merge, the "Dev PR merged" GitHub Actions workflow reads
+`GH-XXX` and `(#YYY)` from the commit title. It assigns the issue to
+the pull request author if it isn't assigned to anyone, sets its
+milestone, closes it and comments which pull request resolved the
+issue. The existing issue milestone is retained: set it before merging
+if the pull request isn't targeted for the next major release. If the
+issue doesn't have a milestone, the next major release is used. This
+is only done for pull requests to `main`.
 
 ### Merge script
 

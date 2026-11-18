@@ -24,7 +24,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
   issues: write
 
 jobs:
@@ -33,29 +32,25 @@ jobs:
     if: github.repository == 'apache/arrow'
     runs-on: ubuntu-latest
     steps:
-      # A pushed commit that isn't the merge commit of a pull request
-      # is ignored.
+      # A pushed commit that isn't the merge commit of a
+      # "GH-XXX: ... (#YYY)" pull request is ignored.
       - name: Resolve issue
         env:
-          COMMIT: ${{ github.sha }}
+          AUTHOR: ${{ github.event.head_commit.author.username }}
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
 
-          pull_request=$(
-            gh api "repos/${GH_REPO}/commits/${COMMIT}/pulls" \
-              --jq "map(select(.merge_commit_sha == \"${COMMIT}\"))[0] // empty")
-          if [ -z "${pull_request}" ]; then
-            echo "${COMMIT} isn't the merge commit of a pull request."
-            exit 0
-          fi
-          title=$(jq -r .title <<< "${pull_request}")
-          if [[ ! "${title}" =~ ^GH-([0-9]+) ]]; then
-            echo "No GitHub issue in the title: ${title}"
+          title=${MESSAGE%%$'\n'*}
+          title=${title%$'\r'}
+          if [[ ! "${title}" =~ ^GH-([0-9]+).*\ \(#([0-9]+)\)$ ]]; then
+            echo "Not the merge commit of a GH-XXX pull request: ${title}"
             exit 0
           fi
           issue_number=${BASH_REMATCH[1]}
+          pull_request_number=${BASH_REMATCH[2]}
           issue_path="repos/${GH_REPO}/issues/${issue_number}"
           issue=$(gh api "${issue_path}")
           if [ "$(jq 'has("pull_request")' <<< "${issue}")" = "true" ]; then
@@ -63,22 +58,19 @@ jobs:
             exit 0
           fi
 
-          # Assign the issue to the pull request author if it isn't
-          # assigned to anyone. GitHub ignores this silently if the
-          # author can't be assigned.
-          if [ "$(jq '.assignees | length' <<< "${issue}")" -eq 0 ]; then
-            author=$(jq -r .user.login <<< "${pull_request}")
-            gh api "${issue_path}/assignees" -f "assignees[]=${author}" > /dev/null
+          # Assign the issue to the commit author, who is the pull
+          # request author for a squash merge, if it isn't assigned to
+          # anyone. GitHub ignores this silently if the author can't be
+          # assigned.
+          if [ -n "${AUTHOR}" ] && \
+               [ "$(jq '.assignees | length' <<< "${issue}")" -eq 0 ]; then
+            gh api "${issue_path}/assignees" -f "assignees[]=${AUTHOR}" > /dev/null
           fi
 
-          # Use the milestone of the pull request. If the pull request
-          # doesn't have a milestone, keep the milestone of the issue.
-          # If the issue doesn't have a milestone either, use the next
-          # major release that doesn't have a maintenance branch yet
-          # like dev/merge_arrow_pr.py does.
-          milestone=$(jq -r '.milestone.number // empty' <<< "${pull_request}")
-          if [ -z "${milestone}" ] && \
-               [ "$(jq '.milestone' <<< "${issue}")" = "null" ]; then
+          # Keep the milestone of the issue. If the issue doesn't have
+          # a milestone, use the next major release that doesn't have a
+          # maintenance branch yet like dev/merge_arrow_pr.py does.
+          if [ "$(jq '.milestone' <<< "${issue}")" = "null" ]; then
             maintenance_versions=$(
               gh api --paginate "repos/${GH_REPO}/git/matching-refs/heads/maint-" \
                 --jq '.[].ref | ltrimstr("refs/heads/maint-")')
@@ -88,13 +80,11 @@ jobs:
                 sort -V)
             for major_version in ${major_versions}; do
               if ! grep -qxF "${major_version%:*}" <<< "${maintenance_versions}"; then
-                milestone=${major_version#*:}
+                gh api -X PATCH "${issue_path}" \
+                  -F "milestone=${major_version#*:}" > /dev/null
                 break
               fi
             done
-          fi
-          if [ -n "${milestone}" ]; then
-            gh api -X PATCH "${issue_path}" -F "milestone=${milestone}" > /dev/null
           fi
 
           # Close the issue and comment which pull request resolved it
@@ -102,9 +92,9 @@ jobs:
           if [ "$(jq -r .state <<< "${issue}")" != "closed" ]; then
             gh issue close "${issue_number}"
           fi
-          comment="Issue resolved by pull request $(jq -r .number <<< "${pull_request}")"
+          comment="Issue resolved by pull request ${pull_request_number}"
           comments=$(gh api --paginate "${issue_path}/comments" --jq '.[].body')
           if ! grep -qxF "${comment}" <<< "${comments}"; then
             gh issue comment "${issue_number}" \
-              --body "${comment}"$'\n'"$(jq -r .html_url <<< "${pull_request}")"
+              --body "${comment}"$'\n'"${GITHUB_SERVER_URL}/${GH_REPO}/pull/${pull_request_number}"
           fi
