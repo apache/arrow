@@ -1878,19 +1878,6 @@ TEST(Expression, SimplifyImpureFunctionCall) {
 }
 
 TEST(Expression, SimplifyWithGuarantee) {
-  // One field's range makes the other side of a comparison constant; the other
-  // field's range then decides the comparison, whichever comes first in the
-  // guarantee and whichever side the constant is on.
-  auto x = field_ref("i32");
-  auto y_gt_5 = greater(field_ref("i32_req"), literal(5));
-  auto x_lt_0 = less(x, literal(0));
-  auto one_if_y_gt_5 = call("if_else", {y_gt_5, literal(1), literal(2)});
-  for (const auto& guarantee : {and_(y_gt_5, x_lt_0), and_(x_lt_0, y_gt_5)}) {
-    Simplify{greater(x, one_if_y_gt_5)}.WithGuarantee(guarantee).Expect(false);
-    Simplify{less(one_if_y_gt_5, x)}.WithGuarantee(guarantee).Expect(false);
-    Simplify{greater(one_if_y_gt_5, x)}.WithGuarantee(guarantee).Expect(true);
-  }
-
   // drop both members of a conjunctive filter
   Simplify{
       and_(equal(field_ref("i32"), literal(2)), equal(field_ref("f32"), literal(3.5F)))}
@@ -2452,10 +2439,9 @@ TEST(Expression, SimplifyIsInLargeValueSetNullMatching) {
       {or_(equal(i32, literal(75)), is_null(i32)), true,
        R"([{"i32": null}, {"i32": 75}])"},
       {greater(i32, literal(150)), false, R"([{"i32": 151}])"},
-      // Another inequality or is_valid elsewhere in the guarantee rules out nulls
+      // Another inequality elsewhere in the guarantee rules out nulls
       {and_(nullable_above, less_equal(i32, literal(200))), false, R"([{"i32": 151}])"},
       {and_(nullable_in_gap, greater(i32, literal(0))), false, R"([{"i32": 51}])"},
-      {and_(nullable_in_gap, is_valid(i32)), false, R"([{"i32": 51}])"},
   };
   for (auto null_matching :
        {SetLookupOptions::MATCH, SetLookupOptions::SKIP, SetLookupOptions::EMIT_NULL,

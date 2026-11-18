@@ -46,9 +46,14 @@ namespace compute::internal {
 namespace {
 
 /// Value sets up to this length are sorted for RangeEvaluator::EvaluateOverRange.
-/// Sorting costs more than building the lookup table of the kernel, so longer value
-/// sets are only bounded by their smallest and largest value, which is cheap to find
-/// and prunes as well when the values are clustered.
+/// Longer ones are only bounded by their smallest and largest value.
+///
+/// The sort is paid once, before it is known whether it rules anything out, so it
+/// has to stay cheap next to what a range can save, which is reading a row group.
+/// At this length it costs about as much as reading one row group of a million
+/// integers; at ten times the length, about as much as reading ten. The smallest
+/// and largest value are cheap to find at any length and rule out as much when the
+/// values are clustered, but nothing which lies between them.
 constexpr int64_t kIsInMaxSortedValueSet = 1 << 17;
 
 /// Whether a (valid) scalar of a floating point type is NaN.

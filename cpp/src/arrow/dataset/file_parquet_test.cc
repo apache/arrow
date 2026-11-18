@@ -855,10 +855,14 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownNullableFloatRangeWithNaN) {
   SetSchema({field("x", float64())});
   auto batch = RecordBatchFromJSON(opts_->dataset_schema, "[[1], [2], [NaN], [null]]");
   ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({batch}));
-  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*GetFileSource(reader.get())));
+  ASSERT_OK_AND_ASSIGN(auto fragment,
+                       format_->MakeFragment(*GetFileSource(reader.get())));
 
-  // The NaN row matches the first filter; every non-null row matches the second.
+  // The statistics ignore NaN, so the range only decides a comparison the way it
+  // evaluates for NaN. No row is greater than 100, NaN included.
   auto x = field_ref("x");
+  ExpectRowGroupsRead(fragment, greater(x, literal(100.0)), {});
+  // The NaN row matches the first filter; every non-null row matches the second.
   ExpectRowGroupsRead(fragment, not_(greater(x, literal(0.0))), {0});
   auto nan = literal(std::numeric_limits<double>::quiet_NaN());
   ExpectRowGroupsRead(fragment, not_(less(x, nan)), {0});

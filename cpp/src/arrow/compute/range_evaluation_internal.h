@@ -28,8 +28,8 @@ namespace arrow::compute::internal {
 /// \brief The values the argument of a unary call is known to take, for example
 ///   from the statistics of a Parquet row group.
 struct ArgumentRange {
-  /// The smallest and largest value the argument may take, in the argument's
-  /// type and neither null nor NaN. A null pointer leaves that side unbounded.
+  /// Bounds on the argument's non-null, non-NaN values, in the argument's type.
+  /// A null pointer leaves that side unbounded. Floating arguments may also be NaN.
   std::shared_ptr<Scalar> lower, upper;
   /// Whether the argument may be equal to the respective bound
   bool lower_inclusive = true, upper_inclusive = true;
