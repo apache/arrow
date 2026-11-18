@@ -1655,6 +1655,16 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     std::shared_ptr<io::internal::ReadRangeCache> cached_source;
     if (coalesce && !file_->supports_zero_copy()) {
       if (!owned_file_) return Status::Invalid("Cannot coalesce without an owned file");
+      for (int i = 0; i < state->num_dictionaries(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto block, state->GetDictionaryBlock(i));
+        RETURN_NOT_OK(CheckAligned(block));
+        RETURN_NOT_OK(CheckBlockLimits(block, options_));
+      }
+      for (int i = 0; i < state->num_record_batches(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto block, state->GetRecordBatchBlock(i));
+        RETURN_NOT_OK(CheckAligned(block));
+        RETURN_NOT_OK(CheckBlockLimits(block, options_));
+      }
       // Since the user is asking for all fields then we can cache the entire
       // file (up to the footer)
       cached_source = std::make_shared<io::internal::ReadRangeCache>(file_, io_context,
@@ -1674,12 +1684,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
           all_metadata_ready.Then([this, index]() -> Result<std::shared_ptr<Message>> {
             stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
             ARROW_ASSIGN_OR_RAISE(FileBlock block, GetRecordBatchBlock(index));
-            if (options_.max_metadata_length >= 0 &&
-                block.metadata_length > options_.max_metadata_length) {
-              return Status::Invalid("IPC metadata length ", block.metadata_length,
-                                     " exceeds maximum allowed metadata length ",
-                                     options_.max_metadata_length);
-            }
+            RETURN_NOT_OK(CheckAligned(block));
+            RETURN_NOT_OK(CheckBlockLimits(block, options_));
             ARROW_ASSIGN_OR_RAISE(
                 std::shared_ptr<Buffer> metadata,
                 metadata_cache_->Read({block.offset, block.metadata_length}));
@@ -1786,6 +1792,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // Adds all dictionaries to the range cache
     for (int i = 0; i < num_dictionaries(); ++i) {
       ARROW_ASSIGN_OR_RAISE(FileBlock block, GetDictionaryBlock(i));
+      RETURN_NOT_OK(CheckAligned(block));
+      RETURN_NOT_OK(CheckBlockLimits(block, options_));
       ranges->push_back({block.offset, block.metadata_length + block.body_length});
     }
     return Status::OK();
@@ -1795,6 +1803,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
                            std::vector<io::ReadRange>* ranges) {
     for (int index : indices) {
       ARROW_ASSIGN_OR_RAISE(FileBlock block, GetRecordBatchBlock(index));
+      RETURN_NOT_OK(CheckAligned(block));
+      RETURN_NOT_OK(CheckBlockLimits(block, options_));
       ranges->push_back({block.offset, block.metadata_length});
     }
     return Status::OK();
@@ -1951,7 +1961,11 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
         .Then([this, index](const std::shared_ptr<Message>& message_obj)
                   -> Future<std::shared_ptr<RecordBatch>> {
           ARROW_ASSIGN_OR_RAISE(auto block, GetRecordBatchBlock(index));
-          ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(message_obj));
+          RETURN_NOT_OK(CheckAligned(block));
+          RETURN_NOT_OK(CheckBlockLimits(block, options_));
+          ARROW_ASSIGN_OR_RAISE(auto checked_message,
+                                CheckBodyLength(message_obj, block));
+          ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(checked_message));
           ARROW_ASSIGN_OR_RAISE(auto batch, GetBatchFromMessage(message));
           ARROW_ASSIGN_OR_RAISE(auto context, GetIpcReadContext(message, batch));
 
@@ -2131,16 +2145,18 @@ WholeIpcFileRecordBatchGenerator::operator()() {
 
 Future<std::shared_ptr<Message>> WholeIpcFileRecordBatchGenerator::ReadBlock(
     const FileBlock& block) {
+  RETURN_NOT_OK(CheckAligned(block));
   RETURN_NOT_OK(CheckBlockLimits(block, state_->options_));
   if (cached_source_) {
     auto cached_source = cached_source_;
     io::ReadRange range{block.offset, block.metadata_length + block.body_length};
     auto options = state_->options_;
     return cached_source->WaitFor({range}).Then(
-        [cached_source, options, range]() -> Result<std::shared_ptr<Message>> {
+        [cached_source, options, range, block]() -> Result<std::shared_ptr<Message>> {
           ARROW_ASSIGN_OR_RAISE(auto buffer, cached_source->Read(range));
           io::BufferReader stream(std::move(buffer));
-          return ReadMessage(&stream, options);
+          ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(&stream, options));
+          return CheckBodyLength(std::move(message), block);
         });
   } else {
     return ReadMessageFromBlockAsync(block, state_->options_, state_->file_, io_context_);

@@ -3588,6 +3588,61 @@ TEST(TestFileReaderLimits, MaxBodyLengthExceeded) {
       reader->ReadRecordBatch(0));
 }
 
+TEST(TestFileReaderLimits, PreBufferMetadataExceeded) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  auto metadata = key_value_metadata({"large_field"}, {std::string(2000, 'x')});
+  FileWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch, metadata));
+  ASSERT_OK(writer_helper.Finish());
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_metadata_length = 500;
+  auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchFileReader::Open(buf_reader.get(), options));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
+      reader->PreBufferMetadata({0}));
+}
+
+TEST(TestFileReaderLimits, PreBufferBodyLengthExceeded) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  FileWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_body_length = 1;
+  auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchFileReader::Open(buf_reader.get(), options));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
+      reader->PreBufferMetadata({0}));
+}
+
+TEST(TestFileReaderLimits, GeneratorCoalesceBlockLimitsExceeded) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  FileWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_body_length = 1;
+  auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchFileReader::Open(buf_reader, options));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
+      reader->GetRecordBatchGenerator(/*coalesce=*/true));
+}
+
 TEST(TestIpcReadOptions, ValidateNegativeLimits) {
   auto options = IpcReadOptions::Defaults();
   ASSERT_OK(options.Validate());
@@ -3621,7 +3676,7 @@ TEST(TestIpcReadOptions, ValidateNegativeLimits) {
 }
 
 TEST(TestStreamReaderLimits, NegativeLimitsInvalid) {
-  io::BufferReader empty_reader("");
+  io::BufferReader empty_reader(Buffer::FromString(""));
   auto options = IpcReadOptions::Defaults();
   options.max_metadata_length = -2;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -3638,7 +3693,7 @@ TEST(TestStreamReaderLimits, NegativeLimitsInvalid) {
 }
 
 TEST(TestFileReaderLimits, NegativeLimitsInvalid) {
-  io::BufferReader empty_reader("");
+  io::BufferReader empty_reader(Buffer::FromString(""));
   auto options = IpcReadOptions::Defaults();
   options.max_metadata_length = -2;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
