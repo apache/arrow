@@ -5660,10 +5660,14 @@ def test_filtered_dataset(tempdir, pickle_module):
     dataset = ds.dataset(tempdir, format="parquet", partitioning=["part"])
 
     filtered = ds.FilteredDataset(dataset, pc.field("value") > 1)
-    assert filtered.filter.equals(pc.field("value") > 1)
+    assert filtered.filter_expression.equals(pc.field("value") > 1)
     assert filtered.child.to_table().num_rows == 4
     assert filtered.to_table().sort_by("value")["value"].to_pylist() == [2, 3, 4]
     assert filtered.count_rows() == 3
+
+    # The inherited Dataset.filter method applies a further filter.
+    refiltered = filtered.filter(pc.field("value") < 4)
+    assert refiltered.to_table().sort_by("value")["value"].to_pylist() == [2, 3]
 
     # Fragments that cannot match the filter are pruned.
     on_part = ds.FilteredDataset(dataset, pc.field("part") == 2)

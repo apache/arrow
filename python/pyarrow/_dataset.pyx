@@ -1141,7 +1141,7 @@ cdef class FilteredDataset(Dataset):
         self.filtered_dataset = <CFilteredDataset*> sp.get()
 
     def __reduce__(self):
-        return FilteredDataset, (self.child, self.filter)
+        return FilteredDataset, (self.child, self.filter_expression)
 
     @property
     def child(self):
@@ -1149,7 +1149,7 @@ cdef class FilteredDataset(Dataset):
         return Dataset.wrap(self.filtered_dataset.child())
 
     @property
-    def filter(self):
+    def filter_expression(self):
         """The filter applied to the child Dataset."""
         return Expression.wrap(self.filtered_dataset.filter())
 
