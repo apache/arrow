@@ -1642,18 +1642,28 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
   RETURN_NOT_OK(CanonicalizeAndFoldConstants());
 
   // What the guarantee says about each field it bounds. This refers into
-  // conjunction_members, which must not change from here on. Every call is
-  // simplified against the range of its field in a single pass.
+  // conjunction_members, which must not change from here on. In a pass, every call
+  // is simplified against the range of its field.
+  //
+  // Simplifying one call can turn the argument of another into a literal (once
+  // constants are folded) or bring a literal to the right of a comparison (once it
+  // is canonicalized), after which that call can be simplified too. So passes are
+  // repeated while they change the expression: at most one per member of the
+  // guarantee, as when each member was applied in a pass of its own.
   const FieldRanges ranges = FieldRanges::Make(conjunction_members);
   if (!ranges.map.empty()) {
-    Expression before = expr;
-    ARROW_ASSIGN_OR_RAISE(expr, ModifyExpression(
-                                    std::move(expr), [](Expression expr) { return expr; },
-                                    [&](Expression expr, ...) -> Result<Expression> {
-                                      return SimplifyWithRanges(ranges, std::move(expr));
-                                    }));
+    for (size_t pass = 0; pass < conjunction_members.size(); ++pass) {
+      Expression before = expr;
+      ARROW_ASSIGN_OR_RAISE(expr,
+                            ModifyExpression(
+                                std::move(expr), [](Expression expr) { return expr; },
+                                [&](Expression expr, ...) -> Result<Expression> {
+                                  return SimplifyWithRanges(ranges, std::move(expr));
+                                }));
 
-    if (!Expression::Identical(expr, before)) {
+      if (Expression::Identical(expr, before)) break;
+      // Fold first: a comparison can only be canonicalized once its literal is known
+      ARROW_ASSIGN_OR_RAISE(expr, FoldConstants(std::move(expr)));
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
     }
   }
