@@ -656,6 +656,12 @@ build_libarrow <- function(src_dir, dst_dir) {
   # Point the build at the vendored sources of the thirdparty dependencies.
   # Some of them are required even for a minimal build, so they can't be turned
   # off like the ones above.
+  # This means we will always use the vendored dependencies, even if we are
+  # online unless this is overridden with `LIBARROW_VENDORED_DEPS = false` we
+  # might consider wrapping this to only happen when
+  # `thirdparty_deps_unavailable` is TRUE. But for now, we are doing it
+  # unconditionally in case our internet check is up, but one of these
+  # dependencies is actually unavailable.
   env_var_list <- with_vendored_dependencies(env_var_list, vendored)
   env_var_list <- with_vendored_checksums(env_var_list, vendored)
   env_vars <- env_vars_as_string(env_var_list)
