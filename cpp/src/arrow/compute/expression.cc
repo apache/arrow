@@ -1260,7 +1260,8 @@ struct Inequality {
 
       auto bound = call->arguments[1].literal();
       if (!bound) return std::nullopt;
-      if (!bound->is_scalar()) return std::nullopt;
+      // A comparison with null is null, which says nothing about the target
+      if (!bound->is_scalar() || !bound->scalar()->is_valid) return std::nullopt;
 
       return Inequality{*cmp, /*target=*/*target, *bound, /*nullable=*/false};
     }
@@ -1323,9 +1324,9 @@ struct Inequality {
 
     // Statistics based guarantees cannot bound NaN (a row group's minimum and
     // maximum ignore it) whereas `is_in` matches NaN with NaN, so a NaN in the
-    // value set must not be filtered out. Leave such value sets alone, as the
-    // kernel does for large ones.
-    if (is_floating(options->value_set.type()->id())) {
+    // value set must not be filtered out if the field can be NaN. Leave such value
+    // sets alone, as the kernel does for large ones.
+    if (is_floating(lhs.type()->id()) && is_floating(options->value_set.type()->id())) {
       ARROW_ASSIGN_OR_RAISE(Datum is_nan, IsNan(options->value_set));
       ARROW_ASSIGN_OR_RAISE(Datum any_nan, Any(is_nan));
       if (any_nan.scalar_as<BooleanScalar>().value) return std::nullopt;
@@ -1499,8 +1500,7 @@ internal::ArgumentRange ResolveRange(const std::vector<Inequality>& inequalities
     range.nullable = range.nullable && inequality.nullable;
 
     const std::shared_ptr<Scalar>& bound = inequality.bound.scalar();
-    // A comparison against null cannot be guaranteed true, but be defensive.
-    if (!bound->is_valid || !bound->type->Equals(field_type)) continue;
+    if (!bound->type->Equals(field_type)) continue;
     const bool inclusive = inequality.cmp & Comparison::EQUAL;
     // Unless the comparison admits values below the bound, it is a lower bound;
     // likewise for values above the bound. Equality is both.
@@ -1595,6 +1595,16 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
 
   RETURN_NOT_OK(ExtractKnownFieldValues(&conjunction_members, &known_values));
 
+  // Ranges which may be null are applied after the other members of the guarantee, so
+  // that what they simplify is not offered to the comparisons against those members,
+  // whose handling is left as it is (see Inequality::Extract).
+  std::stable_partition(conjunction_members.begin(), conjunction_members.end(),
+                        [](const Expression& guarantee) {
+                          auto inequalities = Inequality::Extract(guarantee);
+                          return inequalities.empty() ||
+                                 !inequalities.front().from_nullable_range;
+                        });
+
   ARROW_ASSIGN_OR_RAISE(expr,
                         ReplaceFieldsWithKnownValues(known_values, std::move(expr)));
 
@@ -1604,29 +1614,6 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
     return Status::OK();
   };
   RETURN_NOT_OK(CanonicalizeAndFoldConstants());
-
-  // Calls which can be evaluated over a range (`is_in` with a large value set) are
-  // simplified against all the inequalities of the guarantee at once, see
-  // SimplifyOverRange. The inequalities refer into conjunction_members.
-  std::vector<Inequality> inequalities;
-  for (const auto& guarantee : conjunction_members) {
-    for (const Inequality& inequality : Inequality::Extract(guarantee)) {
-      inequalities.push_back(inequality);
-    }
-  }
-  if (!inequalities.empty()) {
-    ARROW_ASSIGN_OR_RAISE(auto simplified,
-                          ModifyExpression(
-                              expr, [](Expression expr) { return expr; },
-                              [&](Expression expr, ...) -> Result<Expression> {
-                                return SimplifyOverRange(inequalities, std::move(expr));
-                              }));
-
-    if (!Expression::Identical(simplified, expr)) {
-      expr = std::move(simplified);
-      RETURN_NOT_OK(CanonicalizeAndFoldConstants());
-    }
-  }
 
   for (const auto& guarantee : conjunction_members) {
     if (!guarantee.call()) continue;
@@ -1652,6 +1639,32 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
 
       if (Expression::Identical(simplified, expr)) continue;
 
+      expr = std::move(simplified);
+      RETURN_NOT_OK(CanonicalizeAndFoldConstants());
+    }
+  }
+
+  // Calls which can be evaluated over a range (`is_in` with a large value set) are
+  // simplified against all the inequalities of the guarantee at once, see
+  // SimplifyOverRange. The inequalities refer into conjunction_members.
+  //
+  // This comes last, so that the comparisons simplified above are those which would
+  // be simplified without it: they are not offered a literal which a call folded to.
+  std::vector<Inequality> inequalities;
+  for (const auto& guarantee : conjunction_members) {
+    for (const Inequality& inequality : Inequality::Extract(guarantee)) {
+      inequalities.push_back(inequality);
+    }
+  }
+  if (!inequalities.empty()) {
+    ARROW_ASSIGN_OR_RAISE(auto simplified,
+                          ModifyExpression(
+                              expr, [](Expression expr) { return expr; },
+                              [&](Expression expr, ...) -> Result<Expression> {
+                                return SimplifyOverRange(inequalities, std::move(expr));
+                              }));
+
+    if (!Expression::Identical(simplified, expr)) {
       expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
     }

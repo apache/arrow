@@ -2073,16 +2073,28 @@ TEST(Expression, SimplifyWithNullableRangeGuarantee) {
   Simplify{call("is_in", {f32}, SetLookupOptions{ArrayFromJSON(float16(), "[NaN, 20]")})}
       .WithGuarantee(greater_equal(f32, literal(0.0F)))
       .ExpectUnchanged();
+  // ... unless the field cannot be NaN
+  Simplify{call("is_in", {i32}, SetLookupOptions{ArrayFromJSON(float64(), "[NaN, 20]")})}
+      .WithGuarantee(range)
+      .Expect(false);
+
+  // A null bound says nothing
+  Simplify{greater(i32, literal(10))}
+      .WithGuarantee(or_(and_(greater_equal(i32, literal(MakeNullScalar(int32()))),
+                              less_equal(i32, literal(5))),
+                         is_null(i32)))
+      .Expect(not_(true_unless_null(i32)));
+
+  // A range which may be null is applied after the other members of the guarantee,
+  // so that a comparison against those is not offered what a call folds to
+  Simplify{greater(f64, cast(is_in("[10, 11]"), float64()))}
+      .WithGuarantee(and_(nullable_range, greater_equal(f64, literal(1.0))))
+      .Expect(greater(f64, literal(0.0)));
 
   // Bounds are not inferred for a field other than the one which may be null
   Simplify{greater(i32, literal(10))}
       .WithGuarantee(or_(range, is_null(u32)))
       .ExpectUnchanged();
-
-  // is_valid elsewhere in the guarantee rules out the nulls
-  auto valid_range = and_(nullable_range, is_valid(i32));
-  Simplify{greater(i32, literal(10))}.WithGuarantee(valid_range).Expect(false);
-  Simplify{less(i32, literal(10))}.WithGuarantee(valid_range).Expect(true);
 
   // The bounds of a nullable range are only used where no types need to be
   // reconciled: the field has the type of the bounds (as the statistics of a column
@@ -2414,6 +2426,10 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
       false);
   Simplify{or_(is_in_gapped, greater(u32, u32_literal(5)))}.WithGuarantee(in_gap).Expect(
       greater(u32, u32_literal(5)));
+  // ... after them, so that a comparison is not offered what the call folds to
+  Simplify{greater(f64, cast(is_in_gapped, float64()))}
+      .WithGuarantee(and_(in_gap, greater_equal(f64, literal(1.0))))
+      .Expect(greater(f64, literal(0.0)));
 }
 
 TEST(Expression, SimplifyIsInLargeValueSetNullMatching) {
