@@ -20,7 +20,7 @@
 # Build the static libarrow that r/configure.win downloads on Windows.
 #
 # * Rtools40 (MSYS2): makepkg-mingw with ci/scripts/PKGBUILD.
-# * Rtools42+ (MXE, no pacman/makepkg): call CMake directly against the
+# * Rtools42+ (libraries are a fixed set built with MXE): call CMake directly against the
 #   toolchain's static libraries.
 #
 # The two zips differ in contents; r/configure.win handles both.
