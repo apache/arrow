@@ -135,6 +135,12 @@ When tests are passing and the pull request has been approved by the interested
 parties, a `committer <https://arrow.apache.org/committers/>`_
 will merge the pull request. This is done with a **squash merge**.
 
+The ``* GitHub Issue:`` line at the end of the pull request description is
+filled in automatically from the pull request title. For a pull request to
+``main`` it says ``Closes #XXX`` and GitHub closes the issue when the pull
+request is merged. If your pull request fixes only a part of the issue, change
+the line to ``* GitHub Issue: Refs #XXX`` so that the issue stays open.
+
 .. dropdown:: Details on squash merge
   :animate: fade-in-slide-down
   :class-container: sd-shadow-none

@@ -40,23 +40,27 @@ you merge, check that:
   `GH-XXX: [Component] Title` or `MINOR: [Component] Title`. The
   "PR Title" status of the Boring Cyborg app
   (`.github/boring-cyborg.yml`) fails unless the title starts with
-  `GH-XXX` or `MINOR: ` but it doesn't block the merge. Keep the
-  ` (#YYY)` suffix that GitHub adds to the commit title in the merge
-  dialog: the workflow below needs it.
+  `GH-XXX` or `MINOR: ` but it doesn't block the merge.
+* The last line of the pull request description is
+  `* GitHub Issue: Closes #XXX`. The Boring Cyborg app writes it for a
+  pull request to `main` and GitHub closes the issue on merge because
+  of it. If the pull request fixes only a part of the issue, change
+  the line to `* GitHub Issue: Refs #XXX` before you merge: the issue
+  stays open. If the line doesn't say `Closes #XXX`, for example
+  because the app is down, change it or close the issue yourself.
 * The pull request description is what you want as the commit
   message. Remove leftovers of the pull request template in the
-  merge dialog if needed. You must remove CI directives such as
+  merge dialog if needed. You should remove CI directives such as
   `[skip ci]`: GitHub doesn't run the workflow below for a commit
-  with them and you need to close the issue manually.
+  with them.
 
 After the merge, the "Dev PR merged" GitHub Actions workflow reads
-`GH-XXX` and `(#YYY)` from the commit title. It assigns the issue to
-the pull request author if it isn't assigned to anyone, sets its
-milestone, closes it and comments which pull request resolved the
-issue. The existing issue milestone is retained: set it before merging
-if the pull request isn't targeted for the next major release. If the
-issue doesn't have a milestone, the next major release is used. This
-is only done for pull requests to `main`.
+`GH-XXX` from the commit title. If GitHub closed the issue, the
+workflow assigns it to the pull request author if it isn't assigned to
+anyone and sets its milestone. The existing issue milestone is
+retained: set it before merging if the pull request isn't targeted for
+the next major release. If the issue doesn't have a milestone, the next
+major release is used. This is only done for pull requests to `main`.
 
 ### Merge script
 
