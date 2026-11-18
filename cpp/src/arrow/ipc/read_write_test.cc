@@ -3485,6 +3485,75 @@ TEST(TestStreamReaderLimits, MaxBodyLengthExceeded) {
       reader->ReadNext(&out_batch));
 }
 
+namespace {
+
+class MockCustomMessageReader : public MessageReader {
+ public:
+  explicit MockCustomMessageReader(std::vector<std::unique_ptr<Message>> messages)
+      : messages_(std::move(messages)) {}
+
+  Result<std::unique_ptr<Message>> ReadNextMessage() override {
+    if (index_ < messages_.size()) {
+      return std::move(messages_[index_++]);
+    }
+    return nullptr;
+  }
+
+ private:
+  std::vector<std::unique_ptr<Message>> messages_;
+  size_t index_ = 0;
+};
+
+}  // namespace
+
+TEST(TestStreamReaderLimits, CustomMessageReaderLimitsExceeded) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  StreamWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  // Test schema metadata length limit on custom reader
+  {
+    auto options = IpcReadOptions::Defaults();
+    options.max_metadata_length = 5;
+    std::vector<std::unique_ptr<Message>> test_messages;
+    io::BufferReader r(writer_helper.buffer_);
+    auto mr = MessageReader::Open(&r);
+    while (true) {
+      ASSERT_OK_AND_ASSIGN(auto msg, mr->ReadNextMessage());
+      if (!msg) break;
+      test_messages.push_back(std::move(msg));
+    }
+    auto custom_mr = std::make_unique<MockCustomMessageReader>(std::move(test_messages));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
+        RecordBatchStreamReader::Open(std::move(custom_mr), options));
+  }
+
+  // Test body length limit on custom reader
+  {
+    auto options = IpcReadOptions::Defaults();
+    options.max_body_length = 1;
+    std::vector<std::unique_ptr<Message>> test_messages;
+    io::BufferReader r(writer_helper.buffer_);
+    auto mr = MessageReader::Open(&r);
+    while (true) {
+      ASSERT_OK_AND_ASSIGN(auto msg, mr->ReadNextMessage());
+      if (!msg) break;
+      test_messages.push_back(std::move(msg));
+    }
+    auto custom_mr = std::make_unique<MockCustomMessageReader>(std::move(test_messages));
+    ASSERT_OK_AND_ASSIGN(auto reader,
+                         RecordBatchStreamReader::Open(std::move(custom_mr), options));
+    std::shared_ptr<RecordBatch> out_batch;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
+        reader->ReadNext(&out_batch));
+  }
+}
+
 TEST(TestFileReaderLimits, MaxFooterMetadataLengthExceeded) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeIntRecordBatch(&batch));
