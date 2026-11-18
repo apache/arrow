@@ -42,3 +42,22 @@ updates:
     ignore:
       # clang-format is pinned on purpose: bumping it reformats the codebase.
       - dependency-name: "https://github.com/pre-commit/mirrors-clang-format"
+  - package-ecosystem: "pip"
+    directory: "/python"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "MINOR: [Python] "
+    groups:
+      python-stubs:
+        patterns:
+          - "*"
+    # Only update the pins of python/requirements-stubs.txt.
+    allow:
+      - dependency-name: "fsspec"
+      - dependency-name: "mypy"
+      - dependency-name: "pandas-stubs"
+      - dependency-name: "pyright"
+      - dependency-name: "scipy-stubs"
+      - dependency-name: "ty"
+      - dependency-name: "types-*"
