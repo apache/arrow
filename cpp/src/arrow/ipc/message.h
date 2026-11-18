@@ -462,10 +462,15 @@ class ARROW_EXPORT MessageReader {
 
   /// \brief Create MessageReader that reads from InputStream
   static std::unique_ptr<MessageReader> Open(io::InputStream* stream);
+  static std::unique_ptr<MessageReader> Open(io::InputStream* stream,
+                                             const IpcReadOptions& options);
 
   /// \brief Create MessageReader that reads from owned InputStream
   static std::unique_ptr<MessageReader> Open(
       const std::shared_ptr<io::InputStream>& owned_stream);
+  static std::unique_ptr<MessageReader> Open(
+      const std::shared_ptr<io::InputStream>& owned_stream,
+      const IpcReadOptions& options);
 
   /// \brief Read next Message from the interface
   ///
@@ -522,6 +527,12 @@ Result<std::unique_ptr<Message>> ReadMessage(
     io::RandomAccessFile* file, MemoryPool* pool = default_memory_pool(),
     const FieldsLoaderFunction& fields_loader = {});
 
+ARROW_EXPORT
+Result<std::unique_ptr<Message>> ReadMessage(
+    const int64_t offset, const int32_t metadata_length, const int64_t body_length,
+    io::RandomAccessFile* file, const IpcReadOptions& options,
+    const FieldsLoaderFunction& fields_loader = {});
+
 /// \brief Read encapsulated IPC message from cached buffers
 ///
 /// The buffers should contain an entire message.  Partial reads are not handled.
@@ -541,10 +552,20 @@ Result<std::unique_ptr<Message>> ReadMessage(
 ARROW_EXPORT Result<std::unique_ptr<Message>> ReadMessage(
     std::shared_ptr<Buffer> metadata, std::shared_ptr<Buffer> body);
 
+ARROW_EXPORT Result<std::unique_ptr<Message>> ReadMessage(
+    std::shared_ptr<Buffer> metadata, std::shared_ptr<Buffer> body,
+    const IpcReadOptions& options);
+
 ARROW_EXPORT
 Future<std::shared_ptr<Message>> ReadMessageAsync(
     const int64_t offset, const int32_t metadata_length, const int64_t body_length,
     io::RandomAccessFile* file, const io::IOContext& context = io::default_io_context());
+
+ARROW_EXPORT
+Future<std::shared_ptr<Message>> ReadMessageAsync(
+    const int64_t offset, const int32_t metadata_length, const int64_t body_length,
+    io::RandomAccessFile* file, const IpcReadOptions& options,
+    const io::IOContext& context = io::default_io_context());
 
 /// \brief Advance stream to an 8-byte offset if its position is not a multiple
 /// of 8 already
@@ -580,6 +601,10 @@ Status CheckAligned(io::FileInterface* stream, int32_t alignment = 8);
 ARROW_EXPORT
 Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* stream,
                                              MemoryPool* pool = default_memory_pool());
+
+ARROW_EXPORT
+Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* stream,
+                                             const IpcReadOptions& options);
 
 /// \brief Feed data from InputStream to MessageDecoder to decode an
 /// encapsulated IPC message (metadata and body)
