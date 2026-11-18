@@ -17,7 +17,7 @@
 
 import builtins
 from collections.abc import Collection, Iterable, Iterator, Sequence
-from typing import Any, ClassVar, Self, SupportsIndex, overload
+from typing import Any, ClassVar, Self, SupportsIndex, TypeAlias, overload
 
 import numpy as np
 import pandas as pd
@@ -28,7 +28,6 @@ from numpy.typing import NDArray
 from pyarrow.__lib.scalar import Int64Scalar, Scalar
 from pyarrow._compute import CastOptions
 from pyarrow._stubs_typing import (
-    ArrayLike,
     Indices,
     MapsAsPydicts,
     Mask,
@@ -56,15 +55,19 @@ from pyarrow.lib import (
 )
 from typing_extensions import CapsuleType
 
+_ArrayConstructorInput: TypeAlias = (
+    Array
+    | Iterable[Any]
+    | SupportsArrowArray
+    | SupportsArrowDeviceArray
+    | SupportsPyArrowArray
+)
+
 # Return type Array, as most callers get that.
 # At runtime it returns ChunkedArray only for binary overflow or when
 # __arrow_array__ returns 2+ chunks (GH-55499)
 def array(
-    obj: Array
-    | Iterable[Any]
-    | SupportsArrowArray
-    | SupportsArrowDeviceArray
-    | SupportsPyArrowArray,
+    obj: _ArrayConstructorInput,
     type: Any | None = None,
     mask: Array | Iterable[bool] | NDArray[np.bool_] | None = None,
     size: int | None = None,
@@ -78,11 +81,7 @@ def asarray(  # type: ignore[overload-overlap]
 ) -> ChunkedArray: ...
 @overload
 def asarray(
-    values: Array
-    | Iterable[Any]
-    | SupportsArrowArray
-    | SupportsArrowDeviceArray
-    | SupportsPyArrowArray,
+    values: _ArrayConstructorInput,
     type: Any | None = None,
 ) -> Array: ...
 def nulls(
@@ -161,7 +160,7 @@ class Array(_PandasConvertible):
     def value_counts(self) -> StructArray: ...
     @staticmethod
     def from_pandas(
-        obj: pd.Series | NDArray[Any] | ArrayLike,
+        obj: _ArrayConstructorInput,
         mask: Array | Iterable[bool] | NDArray[np.bool_] | None = None,
         type: DataType | str | None = None,
         safe: bool = True,
