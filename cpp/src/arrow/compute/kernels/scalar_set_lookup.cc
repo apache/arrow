@@ -199,16 +199,16 @@ struct SetLookupStateBase : public KernelState, public RangeEvaluator {
   }
 
   static Result<SortedValueSet> SortValueSet(const Datum& value_set, ExecContext* ctx) {
+    if (value_set.length() > kIsInMaxSortedValueSet) {
+      ARROW_ASSIGN_OR_RAISE(auto bounds, ValueSetBounds(value_set, ctx));
+      return SortedValueSet{std::move(bounds), /*exact=*/false};
+    }
     std::shared_ptr<Array> values;
     if (value_set.is_array()) {
       values = value_set.make_array();
     } else {
       ARROW_ASSIGN_OR_RAISE(
           values, Concatenate(value_set.chunked_array()->chunks(), ctx->memory_pool()));
-    }
-    if (values->length() > kIsInMaxSortedValueSet) {
-      ARROW_ASSIGN_OR_RAISE(auto bounds, ValueSetBounds(values, ctx));
-      return SortedValueSet{std::move(bounds), /*exact=*/false};
     }
     ARROW_ASSIGN_OR_RAISE(auto sorted, SortValues(values, ctx));
     return SortedValueSet{std::move(sorted), /*exact=*/true};
@@ -236,9 +236,9 @@ struct SetLookupStateBase : public KernelState, public RangeEvaluator {
 
   /// \return the smallest and largest value of `values`, or nullptr if it contains NaN
   ///   or only nulls
-  static Result<std::shared_ptr<Array>> ValueSetBounds(
-      const std::shared_ptr<Array>& values, ExecContext* ctx) {
-    if (is_floating(values->type_id())) {
+  static Result<std::shared_ptr<Array>> ValueSetBounds(const Datum& values,
+                                                       ExecContext* ctx) {
+    if (is_floating(values.type()->id())) {
       ARROW_ASSIGN_OR_RAISE(Datum is_nan, IsNan(values, ctx));
       ARROW_ASSIGN_OR_RAISE(Datum any_nan,
                             Any(is_nan, ScalarAggregateOptions::Defaults(), ctx));
@@ -248,7 +248,7 @@ struct SetLookupStateBase : public KernelState, public RangeEvaluator {
                           MinMax(values, ScalarAggregateOptions::Defaults(), ctx));
     const auto& bounds = min_max.scalar_as<StructScalar>().value;
     if (!bounds[0]->is_valid) return nullptr;
-    ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(values->type(), ctx->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(values.type(), ctx->memory_pool()));
     RETURN_NOT_OK(builder->AppendScalar(*bounds[0]));
     RETURN_NOT_OK(builder->AppendScalar(*bounds[1]));
     return builder->Finish();

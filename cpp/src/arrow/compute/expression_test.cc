@@ -31,6 +31,7 @@
 #include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 
@@ -2388,11 +2389,19 @@ TEST(Expression, SimplifyIsInLargeValueSet) {
 
   // Value sets longer than kIsInMaxSortedValueSet are only bounded by their smallest
   // and largest value, so a guarantee inside a gap of the value set does not prune
-  auto huge = call("is_in", {i32},
-                   SetLookupOptions{ArrayFromJSON(
-                       int32(), concat_json(make_range_json(1, 70000),
-                                            make_range_json(100001, 170000)))});
-  Simplify{huge}.WithGuarantee(greater(i32, literal(170000))).Expect(false);
+  auto chunks = ChunkedArrayFromJSON(
+      int32(), {make_range_json(1, 70000), make_range_json(100001, 170000)});
+  auto huge = call("is_in", {i32}, SetLookupOptions{chunks});
+  // Computing the bounds must not allocate a contiguous copy of the chunks.
+  ProxyMemoryPool pool(default_memory_pool());
+  ExecContext ctx(&pool);
+  ASSERT_OK_AND_ASSIGN(auto bound_huge, huge.Bind(*kBoringSchema, &ctx));
+  auto before = pool.total_bytes_allocated();
+  ASSERT_OK_AND_ASSIGN(auto simplified,
+                       SimplifyWithGuarantee(bound_huge, greater(i32, literal(170000))));
+  EXPECT_EQ(simplified, literal(false));
+  EXPECT_LT(pool.total_bytes_allocated() - before,
+            chunks->length() * int32()->byte_width());
   Simplify{huge}
       .WithGuarantee(and_(greater(i32, literal(70000)), less(i32, literal(100001))))
       .ExpectUnchanged();
