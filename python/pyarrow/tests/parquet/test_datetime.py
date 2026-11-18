@@ -158,6 +158,47 @@ def test_coerce_timestamps_truncated(tempdir):
     tm.assert_frame_equal(df_expected, df_ms)
 
 
+def test_parquet_writer_accepts_timestamp_options(tempdir):
+    table = pa.table({
+        'ts': [datetime.datetime(2020, 1, 1), datetime.datetime(2020, 1, 2)]
+    })
+    filename = tempdir / 'writer_kwargs.parquet'
+
+    writer = pq.ParquetWriter(
+        filename,
+        table.schema,
+        coerce_timestamps='ms',
+        allow_truncated_timestamps=True,
+        size_statistics_level='page_and_column',
+    )
+    writer.write_table(table)
+    writer.close()
+
+    result = pq.read_table(filename)
+    assert result.schema.field('ts').type == pa.timestamp('ms')
+
+
+def test_parquet_writer_accepts_size_statistics_level(tempdir):
+    table = pa.table({
+        'a': [1, 2],
+        'ts': [datetime.datetime(2020, 1, 1), datetime.datetime(2020, 1, 2)]
+    })
+
+    writer_filename = tempdir / 'writer_size_statistics.parquet'
+    writer = pq.ParquetWriter(
+        writer_filename,
+        table.schema,
+        size_statistics_level='page_and_column',
+    )
+    writer.write_table(table)
+    writer.close()
+    assert pq.read_table(writer_filename).num_rows == 2
+
+    write_table_filename = tempdir / 'write_table_size_statistics.parquet'
+    pq.write_table(table, write_table_filename, size_statistics_level='column')
+    assert pq.read_table(write_table_filename).num_rows == 2
+
+
 @pytest.mark.pandas
 def test_date_time_types(tempdir):
     t1 = pa.date32()

@@ -1001,6 +1001,9 @@ min_compression_savings : float, default 0.01
     levels. The default is 0.01, so compression must save at least 1%.
     Values above this default require ``data_page_version="2.0"``. Using
     a larger value with V1 or a number outside the allowed range raises ``ValueError``.
+size_statistics_level : {"none", "column", "page_and_column"}, default None
+    Set the level of size statistics written to the file metadata. If None,
+    the default size statistics behavior is used.
 """
 
 _parquet_writer_example_doc = """\
@@ -1065,7 +1068,7 @@ where : path or file-like object
 schema : pyarrow.Schema
 {_parquet_writer_arg_docs}
 writer_engine_version : unused
-**options : dict
+**kwargs : dict
     If options contains a key `metadata_collector` then the
     corresponding value is assumed to be a list (or any object with
     `.append` method) that will be filled with the file metadata instance
@@ -1083,6 +1086,9 @@ Examples
                  compression='snappy',
                  write_statistics=True,
                  use_deprecated_int96_timestamps=None,
+                 coerce_timestamps=None,
+                 allow_truncated_timestamps=False,
+                 data_page_size=None,
                  compression_level=None,
                  use_byte_stream_split=False,
                  column_encoding=None,
@@ -1102,13 +1108,17 @@ Examples
                  bloom_filter_options=None,
                  use_content_defined_chunking=False,
                  min_compression_savings=0.01,
-                 **options):
+                 size_statistics_level=None,
+                 **kwargs):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
             if flavor is not None and 'spark' in flavor:
                 use_deprecated_int96_timestamps = True
             else:
                 use_deprecated_int96_timestamps = False
+
+        size_statistics_level = kwargs.pop('size_statistics_level',
+                                          size_statistics_level)
 
         self.flavor = flavor
         if flavor is not None:
@@ -1132,7 +1142,7 @@ Examples
                 path, compression=None)
         else:
             sink = where
-        self._metadata_collector = options.pop('metadata_collector', None)
+        self._metadata_collector = kwargs.pop('metadata_collector', None)
         engine_version = 'V2'
         self.writer = _parquet.ParquetWriter(
             sink, schema,
@@ -1141,6 +1151,9 @@ Examples
             use_dictionary=use_dictionary,
             write_statistics=write_statistics,
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
+            coerce_timestamps=coerce_timestamps,
+            data_page_size=data_page_size,
+            allow_truncated_timestamps=allow_truncated_timestamps,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
             column_encoding=column_encoding,
@@ -1160,7 +1173,8 @@ Examples
             bloom_filter_options=bloom_filter_options,
             use_content_defined_chunking=use_content_defined_chunking,
             min_compression_savings=min_compression_savings,
-            **options)
+            size_statistics_level=size_statistics_level,
+            **kwargs)
         self.is_open = True
 
     def __del__(self):
