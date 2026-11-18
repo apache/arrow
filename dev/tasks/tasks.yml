@@ -633,14 +633,28 @@ tasks:
     template: r/github.linux.offline.build.yml
 
   # Simulate a CRAN builder without network access: the build should detect
-  # that it is offline and fall back to a minimal build without downloading
-  # anything.
-  test-r-offline-minimal:
+  # that it is offline and build libarrow without downloading anything, using
+  # the thirdparty sources vendored in the package (tools/vendored) to still
+  # include Parquet, Dataset, JSON, the compression codecs, etc.
+  # ARROW_SOURCE_HOME='' makes it use the C++ source copied into tools/cpp
+  # (like the CRAN package does), whose versions.txt has the checksums of the
+  # trimmed tarballs. bz2 is off by default on Linux, so it is turned on to make
+  # sure every vendored tarball is built. Brotli and Zstandard aren't vendored.
+  test-r-offline-vendored:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      flags: '-e ARROW_R_TEST_OFFLINE=true -e NOT_CRAN=false -e SKIP_VIGNETTES=true'
+      flags: >-
+        -e ARROW_R_TEST_OFFLINE=true
+        -e NOT_CRAN=false
+        -e SKIP_VIGNETTES=true
+        -e ARROW_SOURCE_HOME=''
+        -e ARROW_WITH_BZ2=ON
+        -e ARROW_R_EXPECTED_FEATURES=dataset,parquet,json,mimalloc,re2,utf8proc,snappy,gzip,lz4,bz2
       image: r
+      # A full libarrow build with 2 cores (NOT_CRAN=false) and no sccache
+      # (it's offline)
+      timeout: 180
 
   # This one has -flto=auto
   test-r-ubuntu-22.04:

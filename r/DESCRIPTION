@@ -24,6 +24,7 @@ Description: 'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language
     package provides an interface to the 'Arrow C++' library.
 Depends: R (>= 4.2)
 License: Apache License (>= 2.0)
+Copyright: See file inst/COPYRIGHTS
 URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://github.com/apache/arrow/issues
 Encoding: UTF-8
