@@ -29,3 +29,16 @@ updates:
         patterns:
           - "apache/infrastructure-actions/stash/save"
           - "apache/infrastructure-actions/stash/restore"
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "MINOR: [Dev] "
+    groups:
+      pre-commit-hooks:
+        patterns:
+          - "*"
+    ignore:
+      # clang-format is pinned on purpose: bumping it reformats the codebase.
+      - dependency-name: "https://github.com/pre-commit/mirrors-clang-format"
