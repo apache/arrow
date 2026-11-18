@@ -52,12 +52,12 @@ updates:
       python-stubs:
         patterns:
           - "*"
-    # Only update the pins of python/requirements-stubs.txt.
-    allow:
-      - dependency-name: "fsspec"
-      - dependency-name: "mypy"
-      - dependency-name: "pandas-stubs"
-      - dependency-name: "pyright"
-      - dependency-name: "scipy-stubs"
-      - dependency-name: "ty"
-      - dependency-name: "types-*"
+    # Only update the pins of python/requirements-stubs.txt: skip the other
+    # manifests that Dependabot reads in python/ and its subdirectories.
+    exclude-paths:
+      - "python/pyproject.toml"
+      - "python/setup.cfg"
+      - "python/requirements-build.txt"
+      - "python/requirements-test.txt"
+      - "python/requirements-wheel-*.txt"
+      - "python/*/**"
