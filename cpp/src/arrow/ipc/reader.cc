@@ -563,6 +563,7 @@ namespace internal {
 Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& buf,
                                                  const IpcReadOptions& options,
                                                  util::Codec* codec) {
+  RETURN_NOT_OK(options.Validate());
   if (buf == nullptr || buf->size() == 0) {
     return buf;
   }
@@ -599,9 +600,6 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
                                    ") exceeds maximum allowed decompression ratio (",
                                    options.max_decompression_ratio, ")");
     }
-  } else if (ARROW_PREDICT_FALSE(options.max_decompression_ratio < -1)) {
-    return Status::Invalid("max_decompression_ratio must be -1 or non-negative, got ",
-                           options.max_decompression_ratio);
   }
 
   std::span<const uint8_t> compressed_payload(data + sizeof(int64_t),
@@ -1269,6 +1267,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader,
 
 Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     std::unique_ptr<MessageReader> message_reader, const IpcReadOptions& options) {
+  RETURN_NOT_OK(options.Validate());
   // Private ctor
   auto result =
       std::make_shared<RecordBatchStreamReaderImpl>(std::move(message_reader), options);
@@ -1278,11 +1277,13 @@ Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
 
 Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     io::InputStream* stream, const IpcReadOptions& options) {
+  RETURN_NOT_OK(options.Validate());
   return Open(MessageReader::Open(stream, options), options);
 }
 
 Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     const std::shared_ptr<io::InputStream>& stream, const IpcReadOptions& options) {
+  RETURN_NOT_OK(options.Validate());
   return Open(MessageReader::Open(stream, options), options);
 }
 
@@ -1318,6 +1319,7 @@ Status CheckAligned(const FileBlock& block) {
 }
 
 Status CheckBlockLimits(const FileBlock& block, const IpcReadOptions& options) {
+  RETURN_NOT_OK(options.Validate());
   if (options.max_metadata_length >= 0 &&
       block.metadata_length > options.max_metadata_length) {
     return Status::Invalid("IPC metadata length ", block.metadata_length,
@@ -1555,6 +1557,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   Status Open(io::RandomAccessFile* file, int64_t footer_offset,
               const IpcReadOptions& options) {
+    RETURN_NOT_OK(options.Validate());
     // The metadata_cache_ may have already been constructed with an owned file in the
     // owning overload of Open
     if (!metadata_cache_) {
@@ -1584,6 +1587,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   Future<> OpenAsync(io::RandomAccessFile* file, int64_t footer_offset,
                      const IpcReadOptions& options) {
+    RETURN_NOT_OK(options.Validate());
     // The metadata_cache_ may have already been constructed with an owned file in the
     // owning overload of OpenAsync
     if (!metadata_cache_) {
@@ -1982,6 +1986,13 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
           if (footer_length <= 0 ||
               footer_length > self->footer_offset_ - kMagicSize * 2 - 4) {
             return Status::Invalid("File is smaller than indicated metadata size");
+          }
+
+          if (self->options_.max_metadata_length >= 0 &&
+              footer_length > self->options_.max_metadata_length) {
+            return Status::Invalid("IPC file footer metadata length ", footer_length,
+                                   " exceeds maximum allowed metadata length ",
+                                   self->options_.max_metadata_length);
           }
 
           // Now read the footer

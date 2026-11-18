@@ -426,6 +426,7 @@ static Result<std::unique_ptr<Message>> ReadMessageContinued(
 Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
                                              std::shared_ptr<Buffer> body,
                                              const IpcReadOptions& options) {
+  RETURN_NOT_OK(options.Validate());
   std::unique_ptr<Message> result;
   auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
   // If the user does not pass in a body buffer then we assume they are skipping it
@@ -498,6 +499,7 @@ static Result<std::unique_ptr<Message>> ReadMessageInternal(
     int64_t offset, int32_t metadata_length, std::optional<int64_t> body_length,
     io::RandomAccessFile* file, const IpcReadOptions& options,
     const FieldsLoaderFunction& fields_loader) {
+  RETURN_NOT_OK(options.Validate());
   if (options.max_metadata_length >= 0 && metadata_length > options.max_metadata_length) {
     return Status::Invalid("IPC metadata length ", metadata_length,
                            " exceeds maximum allowed metadata length ",
@@ -564,6 +566,7 @@ Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metada
                                                   io::RandomAccessFile* file,
                                                   const IpcReadOptions& options,
                                                   const io::IOContext& context) {
+  RETURN_NOT_OK(options.Validate());
   if (options.max_metadata_length >= 0 && metadata_length > options.max_metadata_length) {
     return Status::Invalid("IPC metadata length ", metadata_length,
                            " exceeds maximum allowed metadata length ",
@@ -775,6 +778,7 @@ class MessageDecoder::MessageDecoderImpl {
         skip_body_(skip_body) {}
 
   Status ConsumeData(const uint8_t* data, int64_t size) {
+    RETURN_NOT_OK(options_.Validate());
     if (size < 0) {
       return Status::Invalid("Invalid data size: negative byte count");
     }
@@ -860,6 +864,7 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeBuffer(std::shared_ptr<Buffer> buffer) {
+    RETURN_NOT_OK(options_.Validate());
     if (buffered_size_ == 0) {
       while (buffer->size() > 0 && buffer->size() >= next_required_size_) {
         auto used_size = next_required_size_;
