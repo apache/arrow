@@ -67,7 +67,12 @@ set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
 # On macOS, always link Arrow libraries statically.
 # On Windows and Linux, link Arrow libraries dynamically if the shared libraries are
 # built, and statically otherwise.
-if(NOT APPLE)
+if(APPLE)
+  # macOS: arrow_odbc_spi_impl always links Arrow statically.
+  # ODBC libraries are linked through STATIC_LINK_LIBS.
+  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_odbc_spi_impl)
+  set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS ODBC::ODBC ${ODBCINST})
+else()
   if(ARROW_BUILD_SHARED)
     set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared
                                                arrow_odbc_spi_impl)
@@ -87,10 +92,6 @@ if(NOT APPLE)
          ArrowFlight::arrow_flight_sql_static)
   endif()
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS ODBC::ODBC ${ODBCINST})
-else()
-  # macOS: arrow_odbc_spi_impl always links Arrow statically.
-  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_odbc_spi_impl)
-  set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS ODBC::ODBC ${ODBCINST})
 endif()
 
 add_arrow_lib(arrow_flight_sql_odbc
