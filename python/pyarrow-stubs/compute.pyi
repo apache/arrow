@@ -292,19 +292,7 @@ _TemporalArray: TypeAlias = (
 )
 _ListArray: TypeAlias = BaseListArray | ChunkedArray
 
-# =============================== 1. Aggregation ===============================
-
-def array_take(
-    array: _ArrayOrChunkedArray | RecordBatch | Table | Expression,
-    indices: Indices | Expression,
-    /,
-    *,
-    boundscheck: bool = True,
-    options: TakeOptions | None = None,
-    memory_pool: MemoryPool | None = None,
-) -> _ArrayOrChunkedArray | RecordBatch | Table | Expression: ...
-
-# ========================= 1.1 functions =========================
+# =============================== Aggregations ========================================
 
 def all(
     array: BooleanScalar | _ArrayOrChunkedArray | Expression,
@@ -457,15 +445,6 @@ def variance(
     options: VarianceOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> DoubleScalar | Expression: ...
-def winsorize(
-    array: _ArrayOrChunkedArray | Expression,
-    /,
-    lower_limit: float,
-    upper_limit: float,
-    *,
-    options: WinsorizeOptions | None = None,
-    memory_pool: MemoryPool | None = None,
-) -> _NumericArray | Expression: ...
 def skew(
     array: _NumericScalar | _ArrayOrChunkedArray | ArrayLike | Expression,
     /,
@@ -486,26 +465,20 @@ def kurtosis(
     options: SkewOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> DoubleScalar | Expression: ...
-def top_k_unstable(
-    values: _ArrayOrChunkedArray | RecordBatch | Table,
-    k: int,
-    sort_keys: Sequence[str] | None = None,
-    null_placements: Sequence[NullPlacement] | None = None,
+def pivot_wider(
+    pivot_keys: _ArrayOrChunkedArray | Sequence[str],
+    pivot_values: _ArrayOrChunkedArray | Sequence[Any],
+    /,
+    key_names: Sequence[str],
     *,
+    unexpected_key_behavior: _UnexpectedKeyBehavior = "ignore",
+    options: PivotWiderOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> UInt64Array: ...
-def bottom_k_unstable(
-    values: _ArrayOrChunkedArray | RecordBatch | Table,
-    k: int,
-    sort_keys: Sequence[str] | None = None,
-    null_placements: Sequence[NullPlacement] | None = None,
-    *,
-    memory_pool: MemoryPool | None = None,
-) -> UInt64Array: ...
+) -> StructScalar: ...
 
-# ========================= 2. Element-wise (“scalar”) functions =========
+# =============================== Element-wise ("scalar") functions ===================
 
-# ========================= 2.1 Arithmetic =========================
+# ========================= Arithmetic functions =========================
 def abs(
     x: _NumericOrDurationScalar | _ArrayOrChunkedArray | Expression | float,
     /,
@@ -606,7 +579,7 @@ sqrt_checked = _clone_signature(sqrt)
 subtract = _clone_signature(add)
 subtract_checked = _clone_signature(add)
 
-# ========================= 2.1 Bit-wise functions =========================
+# ========================= Bit-wise functions =========================
 
 def bit_wise_and(
     x: _NumericScalar | _ArrayOrChunkedArray | Expression | float,
@@ -629,7 +602,7 @@ shift_left_checked = _clone_signature(bit_wise_and)
 shift_right = _clone_signature(bit_wise_and)
 shift_right_checked = _clone_signature(bit_wise_and)
 
-# ========================= 2.2 Rounding functions =========================
+# ========================= Rounding functions =========================
 
 def ceil(
     x: _FloatScalar | _ArrayOrChunkedArray | Expression | float,
@@ -670,7 +643,7 @@ def round_binary(
 
 trunc = _clone_signature(ceil)
 
-# ========================= 2.3 Logarithmic functions =========================
+# ========================= Logarithmic functions =========================
 
 def ln(
     x: _NumericScalar | _ArrayOrChunkedArray | Expression | float,
@@ -697,26 +670,18 @@ def logb(
 
 logb_checked = _clone_signature(logb)
 
-# ========================= 2.4 Trigonometric functions =========================
+# ========================= Trigonometric functions =========================
 acos = _clone_signature(ln)
 acos_checked = _clone_signature(ln)
-acosh = _clone_signature(ln)
-acosh_checked = _clone_signature(ln)
 asin = _clone_signature(ln)
 asin_checked = _clone_signature(ln)
-asinh = _clone_signature(ln)
 atan = _clone_signature(ln)
-atanh_checked = _clone_signature(ln)
-atanh = _clone_signature(ln)
 cos = _clone_signature(ln)
 cos_checked = _clone_signature(ln)
-cosh = _clone_signature(ln)
 sin = _clone_signature(ln)
 sin_checked = _clone_signature(ln)
-sinh = _clone_signature(ln)
 tan = _clone_signature(ln)
 tan_checked = _clone_signature(ln)
-tanh = _clone_signature(ln)
 
 def atan2(
     y: _NumericScalar | _ArrayOrChunkedArray | float | Expression,
@@ -726,7 +691,17 @@ def atan2(
     memory_pool: MemoryPool | None = None,
 ) -> _FloatScalar | _FloatArray | Expression: ...
 
-# ========================= 2.5 Comparisons functions =========================
+# ========================= Hyperbolic trigonometric functions =========================
+acosh = _clone_signature(ln)
+acosh_checked = _clone_signature(ln)
+asinh = _clone_signature(ln)
+atanh_checked = _clone_signature(ln)
+atanh = _clone_signature(ln)
+cosh = _clone_signature(ln)
+sinh = _clone_signature(ln)
+tanh = _clone_signature(ln)
+
+# ========================= Comparisons =========================
 def equal(
     x: _ScalarOrArray | ScalarLike | Expression,
     y: _ScalarOrArray | ScalarLike | Expression,
@@ -750,7 +725,7 @@ def max_element_wise(
 
 min_element_wise = _clone_signature(max_element_wise)
 
-# ========================= 2.6 Logical functions =========================
+# ========================= Logical functions =========================
 
 def and_(
     x: BooleanScalar | _ArrayOrChunkedArray | bool | Expression,
@@ -774,7 +749,7 @@ def invert(
     memory_pool: MemoryPool | None = None,
 ) -> BooleanScalar | _BooleanArray | Expression: ...
 
-# ========================= 2.10 String predicates =========================
+# ========================= String predicates =========================
 def ascii_is_alnum(
     strings: _StringScalar | _ArrayOrChunkedArray | Expression,
     /,
@@ -801,7 +776,7 @@ ascii_is_title = _clone_signature(ascii_is_alnum)
 utf8_is_title = _clone_signature(ascii_is_alnum)
 string_is_ascii = _clone_signature(ascii_is_alnum)
 
-# ========================= 2.11 String transforms =========================
+# ========================= String transforms =========================
 
 def ascii_capitalize(
     strings: _StringScalar | _ArrayOrChunkedArray | Expression,
@@ -893,7 +868,16 @@ utf8_swapcase = _clone_signature(utf8_capitalize)
 utf8_title = _clone_signature(utf8_capitalize)
 utf8_upper = _clone_signature(utf8_capitalize)
 
-# ========================= 2.12 String padding =========================
+def utf8_normalize(
+    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    /,
+    form: _Form,
+    *,
+    options: Utf8NormalizeOptions | None = None,
+    memory_pool: MemoryPool | None = None,
+) -> _StringScalar | _StringArray | Expression: ...
+
+# ========================= String padding =========================
 
 def ascii_center(
     strings: _StringScalar | _ArrayOrChunkedArray | Expression,
@@ -924,7 +908,7 @@ def utf8_zero_fill(
 
 utf8_zfill = utf8_zero_fill
 
-# ========================= 2.13 String trimming =========================
+# ========================= String trimming =========================
 
 def ascii_ltrim(
     strings: _StringScalar | _ArrayOrChunkedArray | Expression,
@@ -954,7 +938,7 @@ utf8_ltrim_whitespace = _clone_signature(ascii_ltrim_whitespace)
 utf8_rtrim_whitespace = _clone_signature(ascii_ltrim_whitespace)
 utf8_trim_whitespace = _clone_signature(ascii_ltrim_whitespace)
 
-# ========================= 2.14 String splitting =========================
+# ========================= String splitting =========================
 
 def ascii_split_whitespace(
     strings: _StringScalar | _ArrayOrChunkedArray | Expression,
@@ -979,7 +963,7 @@ def split_pattern(
 split_pattern_regex = _clone_signature(split_pattern)
 utf8_split_whitespace = _clone_signature(ascii_split_whitespace)
 
-# ========================= 2.15 String component extraction =========================
+# ========================= String component extraction =========================
 
 def extract_regex(
     strings: _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
@@ -992,7 +976,7 @@ def extract_regex(
 
 extract_regex_span = _clone_signature(extract_regex)
 
-# ========================= 2.16 String join =========================
+# ========================= String joining =========================
 def binary_join(
     strings: _ListScalar | _ArrayOrChunkedArray | Expression,
     separator: str | bytes | _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
@@ -1013,7 +997,7 @@ def binary_join_element_wise(
     memory_pool: MemoryPool | None = None,
 ) -> _StringOrBinaryScalar | _StringOrBinaryArray | Expression: ...
 
-# ========================= 2.17 String Slicing =========================
+# ========================= String Slicing =========================
 def binary_slice(
     strings: _BinaryScalar | _ArrayOrChunkedArray | Expression,
     /,
@@ -1034,16 +1018,8 @@ def utf8_slice_codeunits(
     options: SliceOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> _StringScalar | _StringArray | Expression: ...
-def utf8_normalize(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
-    /,
-    form: _Form,
-    *,
-    options: Utf8NormalizeOptions | None = None,
-    memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
 
-# ========================= 2.18 Containment tests =========================
+# ========================= Containment tests =========================
 def count_substring(
     strings: _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
     /,
@@ -1103,7 +1079,7 @@ match_substring = _clone_signature(ends_with)
 match_substring_regex = _clone_signature(ends_with)
 starts_with = _clone_signature(ends_with)
 
-# ========================= 2.19 Categorizations =========================
+# ========================= Categorizations =========================
 
 def is_finite(
     values: _NumericScalar | NullScalar | _ArrayOrChunkedArray | Expression,
@@ -1132,7 +1108,7 @@ def is_valid(
 
 true_unless_null = _clone_signature(is_valid)
 
-# ========================= 2.20 Selecting / multiplexing =========================
+# ========================= Selecting / multiplexing =========================
 
 def case_when(
     cond: StructScalar | _ArrayOrChunkedArray | Expression,
@@ -1161,7 +1137,7 @@ def if_else(
     memory_pool: MemoryPool | None = None,
 ) -> ArrayLike | ScalarLike: ...
 
-# ========================= 2.21 Structural transforms =========================
+# ========================= Structural transforms =========================
 
 def list_value_length(
     lists: _ArrayOrChunkedArray | Expression,
@@ -1180,7 +1156,7 @@ def make_struct(
     memory_pool: MemoryPool | None = None,
 ) -> StructScalar | StructArray | ChunkedArray | Expression: ...
 
-# ========================= 2.22 Conversions =========================
+# ========================= Conversions =========================
 def ceil_temporal(
     timestamps: _TemporalScalar | _ArrayOrChunkedArray | Expression,
     /,
@@ -1223,8 +1199,22 @@ def strptime(
     options: StrptimeOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> TimestampScalar | TimestampArray | ChunkedArray | Expression: ...
+def run_end_encode(
+    array: _ArrayOrChunkedArray | Expression,
+    /,
+    run_end_type: DataType | str = ...,
+    *,
+    options: RunEndEncodeOptions | None = None,
+    memory_pool: MemoryPool | None = None,
+) -> RunEndEncodedArray | ChunkedArray | Expression: ...
+def run_end_decode(
+    array: _ArrayOrChunkedArray | Expression,
+    /,
+    *,
+    memory_pool: MemoryPool | None = None,
+) -> _ArrayOrChunkedArray | Expression: ...
 
-# ========================= 2.23 Temporal component extraction =========================
+# ========================= Temporal component extraction =========================
 def day(
     values: _TemporalScalar | _ArrayOrChunkedArray | Expression,
     /,
@@ -1310,7 +1300,7 @@ def year_month_day(
 
 iso_calendar = _clone_signature(year_month_day)
 
-# ========================= 2.24 Temporal difference =========================
+# ========================= Temporal difference =========================
 def day_time_interval_between(
     start: _TemporalScalar | _ArrayOrChunkedArray | Expression,
     end: _TemporalScalar | _ArrayOrChunkedArray | Expression,
@@ -1365,7 +1355,7 @@ def weeks_between(
 
 years_between = _clone_signature(days_between)
 
-# ========================= 2.25 Timezone handling =========================
+# ========================= Timezone handling =========================
 
 def assume_timezone(
     timestamps: TimestampScalar | _ArrayOrChunkedArray | Expression,
@@ -1384,7 +1374,7 @@ def local_timestamp(
     memory_pool: MemoryPool | None = None,
 ) -> TimestampScalar | TimestampArray | ChunkedArray | Expression: ...
 
-# ========================= 2.26 Random number generation =========================
+# ========================= Random number generation =========================
 def random(
     n: int,
     *,
@@ -1393,9 +1383,9 @@ def random(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleArray: ...
 
-# ========================= 3. Array-wise (“vector”) functions =========================
+# =============================== Array-wise ("vector") functions =====================
 
-# ========================= 3.1 Cumulative Functions =========================
+# ========================= Cumulative Functions =========================
 def cumulative_sum(
     values: _ArrayOrChunkedArray | ArrayLike | Expression,
     /,
@@ -1412,7 +1402,19 @@ cumulative_prod_checked = _clone_signature(cumulative_sum)
 cumulative_max = _clone_signature(cumulative_sum)
 cumulative_min = _clone_signature(cumulative_sum)
 cumulative_mean = _clone_signature(cumulative_sum)
-# ========================= 3.2 Associative transforms =========================
+
+# ========================= Statistical functions =========================
+def winsorize(
+    array: _ArrayOrChunkedArray | Expression,
+    /,
+    lower_limit: float,
+    upper_limit: float,
+    *,
+    options: WinsorizeOptions | None = None,
+    memory_pool: MemoryPool | None = None,
+) -> _NumericArray | Expression: ...
+
+# ========================= Associative transforms =========================
 
 def dictionary_encode(
     array: _ScalarOrArray | Expression,
@@ -1441,7 +1443,7 @@ def value_counts(
     memory_pool: MemoryPool | None = None,
 ) -> StructArray | Expression: ...
 
-# ========================= 3.3 Selections =========================
+# ========================= Selections =========================
 
 def array_filter(
     array: _ArrayOrChunkedArray | Expression,
@@ -1452,6 +1454,15 @@ def array_filter(
     options: FilterOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> _ArrayOrChunkedArray | Expression: ...
+def array_take(
+    array: _ArrayOrChunkedArray | RecordBatch | Table | Expression,
+    indices: Indices | Expression,
+    /,
+    *,
+    boundscheck: bool = True,
+    options: TakeOptions | None = None,
+    memory_pool: MemoryPool | None = None,
+) -> _ArrayOrChunkedArray | RecordBatch | Table | Expression: ...
 def drop_null(
     input: _ArrayOrChunkedArray | RecordBatch | Table | Expression,
     /,
@@ -1493,7 +1504,7 @@ def take(
     memory_pool: MemoryPool | None = None,
 ) -> _ArrayOrChunkedArray | RecordBatch | Table: ...
 
-# ========================= 3.4 Containment tests  =========================
+# ========================= Containment tests =========================
 
 def indices_nonzero(
     values: _ArrayOrChunkedArray | Expression,
@@ -1502,7 +1513,7 @@ def indices_nonzero(
     memory_pool: MemoryPool | None = None,
 ) -> UInt64Array | Expression: ...
 
-# ========================= 3.5 Sorts and partitions  =========================
+# ========================= Sorts and partitions =========================
 def array_sort_indices(
     array: _ArrayOrChunkedArray | Expression,
     /,
@@ -1521,16 +1532,6 @@ def partition_nth_indices(
     options: PartitionNthOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> UInt64Array | Expression: ...
-def pivot_wider(
-    pivot_keys: _ArrayOrChunkedArray | Sequence[str],
-    pivot_values: _ArrayOrChunkedArray | Sequence[Any],
-    /,
-    key_names: Sequence[str],
-    *,
-    unexpected_key_behavior: _UnexpectedKeyBehavior = "ignore",
-    options: PivotWiderOptions | None = None,
-    memory_pool: MemoryPool | None = None,
-) -> StructScalar: ...
 def rank(
     input: _ArrayOrChunkedArray,
     /,
@@ -1586,8 +1587,24 @@ def search_sorted(
     options: SearchSortedOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> UInt64Scalar | UInt64Array | ChunkedArray | Expression: ...
+def top_k_unstable(
+    values: _ArrayOrChunkedArray | RecordBatch | Table,
+    k: int,
+    sort_keys: Sequence[str] | None = None,
+    null_placements: Sequence[NullPlacement] | None = None,
+    *,
+    memory_pool: MemoryPool | None = None,
+) -> UInt64Array: ...
+def bottom_k_unstable(
+    values: _ArrayOrChunkedArray | RecordBatch | Table,
+    k: int,
+    sort_keys: Sequence[str] | None = None,
+    null_placements: Sequence[NullPlacement] | None = None,
+    *,
+    memory_pool: MemoryPool | None = None,
+) -> UInt64Array: ...
 
-# ========================= 3.6 Structural transforms =========================
+# ========================= Structural transforms =========================
 def list_element(
     lists: _ListScalar | _ArrayOrChunkedArray | Expression,
     index: int | _IntegerScalar | Expression,
@@ -1637,6 +1654,8 @@ def struct_field(
     options: StructFieldOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> _ScalarOrArray | Expression: ...
+
+# ========================= Replace functions =========================
 def fill_null_backward(
     values: _ScalarOrArray | ScalarLike | Expression,
     /,
@@ -1658,7 +1677,7 @@ def replace_with_mask(
     memory_pool: MemoryPool | None = None,
 ) -> _ScalarOrArray | Expression: ...
 
-# ========================= 3.7 Pairwise functions =========================
+# ========================= Pairwise functions =========================
 def pairwise_diff(
     input: _ArrayOrChunkedArray | Expression,
     /,
@@ -1667,19 +1686,5 @@ def pairwise_diff(
     options: PairwiseOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> _NumericOrTemporalArray | Expression: ...
-def run_end_encode(
-    array: _ArrayOrChunkedArray | Expression,
-    /,
-    run_end_type: DataType | str = ...,
-    *,
-    options: RunEndEncodeOptions | None = None,
-    memory_pool: MemoryPool | None = None,
-) -> RunEndEncodedArray | ChunkedArray | Expression: ...
-def run_end_decode(
-    array: _ArrayOrChunkedArray | Expression,
-    /,
-    *,
-    memory_pool: MemoryPool | None = None,
-) -> _ArrayOrChunkedArray | Expression: ...
 
 pairwise_diff_checked = _clone_signature(pairwise_diff)
