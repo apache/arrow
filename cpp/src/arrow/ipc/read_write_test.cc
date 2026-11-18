@@ -3466,6 +3466,61 @@ TEST(TestStreamDecoderLimits, MaxBodyLengthExceeded) {
   ASSERT_EQ(default_listener->num_record_batches(), 1);
 }
 
+TEST(TestStreamReaderLimits, MaxBodyLengthExceeded) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  StreamWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_body_length = 1;
+  io::BufferReader stream_reader_buf(writer_helper.buffer_);
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchStreamReader::Open(&stream_reader_buf, options));
+  std::shared_ptr<RecordBatch> out_batch;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
+      reader->ReadNext(&out_batch));
+}
+
+TEST(TestFileReaderLimits, MaxMetadataLengthExceeded) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  FileWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_metadata_length = 10;
+  auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchFileReader::Open(buf_reader.get(), options));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
+      reader->ReadRecordBatch(0));
+}
+
+TEST(TestFileReaderLimits, MaxBodyLengthExceeded) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+  FileWriterHelper writer_helper;
+  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(writer_helper.WriteBatch(batch));
+  ASSERT_OK(writer_helper.Finish());
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_body_length = 1;
+  auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchFileReader::Open(buf_reader.get(), options));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
+      reader->ReadRecordBatch(0));
+}
+
 TEST(TestDecompressBufferLimits, NegativeUncompressedSize) {
   if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
     GTEST_SKIP() << "LZ4 compression not available";
@@ -3516,6 +3571,46 @@ TEST(TestDecompressBufferLimits, MaxDecompressionRatioExceeded) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       CapacityError,
       ::testing::HasSubstr("exceeds maximum allowed decompression ratio (5)"),
+      internal::DecompressBuffer(buf, options, codec.get()));
+}
+
+TEST(TestDecompressBufferLimits, ZeroDecompressionRatioExceeded) {
+  if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
+    GTEST_SKIP() << "LZ4 compression not available";
+  }
+  ASSERT_OK_AND_ASSIGN(auto codec, util::Codec::Create(Compression::LZ4_FRAME));
+  int64_t uncompressed_size = 1000;
+  std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
+                       sizeof(int64_t));
+  buf_data.append(10, 'x');
+  auto buf = Buffer::FromString(std::move(buf_data));
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_decompression_ratio = 0;
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      CapacityError,
+      ::testing::HasSubstr("exceeds maximum allowed decompression ratio (0)"),
+      internal::DecompressBuffer(buf, options, codec.get()));
+}
+
+TEST(TestDecompressBufferLimits, NegativeDecompressionRatioInvalid) {
+  if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
+    GTEST_SKIP() << "LZ4 compression not available";
+  }
+  ASSERT_OK_AND_ASSIGN(auto codec, util::Codec::Create(Compression::LZ4_FRAME));
+  int64_t uncompressed_size = 1000;
+  std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
+                       sizeof(int64_t));
+  buf_data.append(10, 'x');
+  auto buf = Buffer::FromString(std::move(buf_data));
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_decompression_ratio = -2;
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_decompression_ratio must be -1 or non-negative, got -2"),
       internal::DecompressBuffer(buf, options, codec.get()));
 }
 

@@ -330,6 +330,10 @@ struct ReadMessageState {
       : listener(std::make_shared<AssignMessageDecoderListener>(&result)),
         decoder(std::make_shared<MessageDecoder>(listener)) {}
 
+  explicit ReadMessageState(const IpcReadOptions& options)
+      : listener(std::make_shared<AssignMessageDecoderListener>(&result)),
+        decoder(std::make_shared<MessageDecoder>(listener, options)) {}
+
   // ReadMessageState points into itself, so it shouldn't be moved
   ReadMessageState(ReadMessageState&&) = delete;
   ReadMessageState& operator=(ReadMessageState&&) = delete;
@@ -420,11 +424,25 @@ static Result<std::unique_ptr<Message>> ReadMessageContinued(
 }  // namespace
 
 Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
-                                             std::shared_ptr<Buffer> body) {
+                                             std::shared_ptr<Buffer> body,
+                                             const IpcReadOptions& options) {
   std::unique_ptr<Message> result;
   auto listener = std::make_shared<AssignMessageDecoderListener>(&result);
   // If the user does not pass in a body buffer then we assume they are skipping it
-  MessageDecoder decoder(listener, default_memory_pool(), body == nullptr);
+  MessageDecoder decoder(listener, options, body == nullptr);
+
+  if (options.max_metadata_length >= 0 &&
+      metadata->size() > options.max_metadata_length) {
+    return Status::Invalid("IPC metadata length ", metadata->size(),
+                           " exceeds maximum allowed metadata length ",
+                           options.max_metadata_length);
+  }
+  if (body != nullptr && options.max_body_length >= 0 &&
+      body->size() > options.max_body_length) {
+    return Status::Invalid("IPC body length ", body->size(),
+                           " exceeds maximum allowed body length ",
+                           options.max_body_length);
+  }
 
   if (metadata->size() < decoder.next_required_size()) {
     return Status::Invalid("metadata_length should be at least ",
@@ -467,15 +485,31 @@ Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
   }
 }
 
+Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
+                                             std::shared_ptr<Buffer> body) {
+  return ReadMessage(std::move(metadata), std::move(body), IpcReadOptions::Defaults());
+}
+
 // Common helper for the two ReadMessage overloads that take a file + offset.
 // When body_length is provided, metadata and body are read in a single IO.
 // When body_length is absent, metadata is read first, then the body is read
 // separately.
 static Result<std::unique_ptr<Message>> ReadMessageInternal(
     int64_t offset, int32_t metadata_length, std::optional<int64_t> body_length,
-    io::RandomAccessFile* file, MemoryPool* pool,
+    io::RandomAccessFile* file, const IpcReadOptions& options,
     const FieldsLoaderFunction& fields_loader) {
-  ReadMessageState state;
+  if (options.max_metadata_length >= 0 && metadata_length > options.max_metadata_length) {
+    return Status::Invalid("IPC metadata length ", metadata_length,
+                           " exceeds maximum allowed metadata length ",
+                           options.max_metadata_length);
+  }
+  if (body_length.has_value() && options.max_body_length >= 0 &&
+      *body_length > options.max_body_length) {
+    return Status::Invalid("IPC body length ", *body_length,
+                           " exceeds maximum allowed body length ",
+                           options.max_body_length);
+  }
+  ReadMessageState state(options);
 
   if (metadata_length < state.decoder->next_required_size()) {
     return Status::Invalid("metadata_length should be at least ",
@@ -491,15 +525,17 @@ static Result<std::unique_ptr<Message>> ReadMessageInternal(
                         file->ReadAt(offset, read_size,
                                      /*allow_short_read=*/false));
 
-  return ReadMessageContinued(offset, metadata_length, body_length, metadata, file, pool,
-                              fields_loader, &state);
+  return ReadMessageContinued(offset, metadata_length, body_length, metadata, file,
+                              options.memory_pool, fields_loader, &state);
 }
 
 Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
                                              io::RandomAccessFile* file,
                                              const FieldsLoaderFunction& fields_loader) {
+  auto options = IpcReadOptions::Defaults();
+  options.memory_pool = file->io_context().pool();
   return ReadMessageInternal(offset, metadata_length, /*body_length=*/std::nullopt, file,
-                             file->io_context().pool(), fields_loader);
+                             options, fields_loader);
 }
 
 Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
@@ -507,17 +543,40 @@ Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
                                              const int64_t body_length,
                                              io::RandomAccessFile* file, MemoryPool* pool,
                                              const FieldsLoaderFunction& fields_loader) {
-  return ReadMessageInternal(offset, metadata_length, body_length, file, pool,
+  auto options = IpcReadOptions::Defaults();
+  options.memory_pool = pool;
+  return ReadMessageInternal(offset, metadata_length, body_length, file, options,
+                             fields_loader);
+}
+
+Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
+                                             const int32_t metadata_length,
+                                             const int64_t body_length,
+                                             io::RandomAccessFile* file,
+                                             const IpcReadOptions& options,
+                                             const FieldsLoaderFunction& fields_loader) {
+  return ReadMessageInternal(offset, metadata_length, body_length, file, options,
                              fields_loader);
 }
 
 Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metadata_length,
                                                   int64_t body_length,
                                                   io::RandomAccessFile* file,
+                                                  const IpcReadOptions& options,
                                                   const io::IOContext& context) {
+  if (options.max_metadata_length >= 0 && metadata_length > options.max_metadata_length) {
+    return Status::Invalid("IPC metadata length ", metadata_length,
+                           " exceeds maximum allowed metadata length ",
+                           options.max_metadata_length);
+  }
+  if (options.max_body_length >= 0 && body_length > options.max_body_length) {
+    return Status::Invalid("IPC body length ", body_length,
+                           " exceeds maximum allowed body length ",
+                           options.max_body_length);
+  }
   // Make a std::shared_ptr so as to have a stable ReadMessageState pointer,
   // since state->listener will point back to state->result.
-  auto state = std::make_shared<ReadMessageState>();
+  auto state = std::make_shared<ReadMessageState>(options);
 
   if (metadata_length < state->decoder->next_required_size()) {
     return Status::Invalid("metadata_length should be at least ",
@@ -530,9 +589,18 @@ Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metada
         // Pass a nullptr file to ensure that no further IO occurs
         // (we have fetched all the required bytes).
         return ReadMessageContinued(offset, metadata_length, body_length, metadata,
-                                    /*file=*/nullptr, context.pool(),
+                                    /*file=*/nullptr, options.memory_pool,
                                     /*fields_loader=*/{}, state.get());
       });
+}
+
+Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metadata_length,
+                                                  int64_t body_length,
+                                                  io::RandomAccessFile* file,
+                                                  const io::IOContext& context) {
+  auto options = IpcReadOptions::Defaults();
+  options.memory_pool = context.pool();
+  return ReadMessageAsync(offset, metadata_length, body_length, file, options, context);
 }
 
 Status AlignStream(io::InputStream* stream, int32_t alignment) {
@@ -614,16 +682,23 @@ Status DecodeMessage(MessageDecoder* decoder, io::InputStream* file) {
   }
 }
 
-Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* pool) {
+Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file,
+                                             const IpcReadOptions& options) {
   std::unique_ptr<Message> message;
   auto listener = std::make_shared<AssignMessageDecoderListener>(&message);
-  MessageDecoder decoder(listener, pool);
+  MessageDecoder decoder(listener, options);
   ARROW_RETURN_NOT_OK(DecodeMessage(&decoder, file));
   if (!message) {
     return nullptr;
   } else {
     return message;
   }
+}
+
+Result<std::unique_ptr<Message>> ReadMessage(io::InputStream* file, MemoryPool* pool) {
+  auto options = IpcReadOptions::Defaults();
+  options.memory_pool = pool;
+  return ReadMessage(file, options);
 }
 
 Status WriteMessage(const Buffer& message, const IpcWriteOptions& options,
@@ -705,16 +780,29 @@ class MessageDecoder::MessageDecoderImpl {
     }
     if (buffered_size_ == 0) {
       std::span<const uint8_t> data_span(data, static_cast<size_t>(size));
-      while (data_span.size() >= static_cast<size_t>(next_required_size_)) {
+      while (!data_span.empty() &&
+             data_span.size() >= static_cast<size_t>(next_required_size_)) {
         auto used_size = next_required_size_;
         switch (state_) {
-          case State::INITIAL:
+          case State::INITIAL: {
+            bool is_eos = (bit_util::FromLittleEndian(
+                               util::SafeLoadAs<int32_t>(data_span.data())) == 0);
             RETURN_NOT_OK(ConsumeInitialData(data_span.data(), next_required_size_));
+            if (is_eos) {
+              return Status::OK();
+            }
             break;
-          case State::METADATA_LENGTH:
+          }
+          case State::METADATA_LENGTH: {
+            bool is_eos = (bit_util::FromLittleEndian(
+                               util::SafeLoadAs<int32_t>(data_span.data())) == 0);
             RETURN_NOT_OK(
                 ConsumeMetadataLengthData(data_span.data(), next_required_size_));
+            if (is_eos) {
+              return Status::OK();
+            }
             break;
+          }
           case State::METADATA: {
             // We need to copy metadata because it's used in
             // ConsumeBody(). ConsumeBody() may be called from another
@@ -741,13 +829,23 @@ class MessageDecoder::MessageDecoderImpl {
           case State::EOS:
             return Status::OK();
         }
+        if (data_span.size() == static_cast<size_t>(used_size)) {
+          return Status::OK();
+        }
         data_span = data_span.subspan(static_cast<size_t>(used_size));
+        if (state_ == State::EOS) {
+          return Status::OK();
+        }
       }
       data = data_span.data();
       size = static_cast<int64_t>(data_span.size());
     }
 
     if (size == 0) {
+      return Status::OK();
+    }
+
+    if (state_ == State::EOS) {
       return Status::OK();
     }
 
@@ -763,15 +861,27 @@ class MessageDecoder::MessageDecoderImpl {
 
   Status ConsumeBuffer(std::shared_ptr<Buffer> buffer) {
     if (buffered_size_ == 0) {
-      while (buffer->size() >= next_required_size_) {
+      while (buffer->size() > 0 && buffer->size() >= next_required_size_) {
         auto used_size = next_required_size_;
         switch (state_) {
-          case State::INITIAL:
+          case State::INITIAL: {
+            ARROW_ASSIGN_OR_RAISE(auto token, ConsumeDataBufferInt32(buffer));
+            bool is_eos = (bit_util::FromLittleEndian(token) == 0);
             RETURN_NOT_OK(ConsumeInitialBuffer(buffer));
+            if (is_eos) {
+              return Status::OK();
+            }
             break;
-          case State::METADATA_LENGTH:
+          }
+          case State::METADATA_LENGTH: {
+            ARROW_ASSIGN_OR_RAISE(auto length, ConsumeDataBufferInt32(buffer));
+            bool is_eos = (bit_util::FromLittleEndian(length) == 0);
             RETURN_NOT_OK(ConsumeMetadataLengthBuffer(buffer));
+            if (is_eos) {
+              return Status::OK();
+            }
             break;
+          }
           case State::METADATA:
             if (buffer->size() == next_required_size_) {
               return ConsumeMetadataBuffer(buffer);
@@ -795,10 +905,17 @@ class MessageDecoder::MessageDecoderImpl {
           return Status::OK();
         }
         buffer = SliceBuffer(buffer, used_size);
+        if (state_ == State::EOS) {
+          return Status::OK();
+        }
       }
     }
 
     if (buffer->size() == 0) {
+      return Status::OK();
+    }
+
+    if (state_ == State::EOS) {
       return Status::OK();
     }
 
@@ -821,12 +938,26 @@ class MessageDecoder::MessageDecoderImpl {
       }
 
       switch (state_) {
-        case State::INITIAL:
-          RETURN_NOT_OK(ConsumeInitialChunks());
+        case State::INITIAL: {
+          int32_t continuation = 0;
+          RETURN_NOT_OK(ConsumeDataChunks(sizeof(int32_t), &continuation));
+          auto token = bit_util::FromLittleEndian(continuation);
+          RETURN_NOT_OK(ConsumeInitial(token));
+          if (token == 0) {
+            return Status::OK();
+          }
           break;
-        case State::METADATA_LENGTH:
-          RETURN_NOT_OK(ConsumeMetadataLengthChunks());
+        }
+        case State::METADATA_LENGTH: {
+          int32_t metadata_length = 0;
+          RETURN_NOT_OK(ConsumeDataChunks(sizeof(int32_t), &metadata_length));
+          auto length = bit_util::FromLittleEndian(metadata_length);
+          RETURN_NOT_OK(ConsumeMetadataLength(length));
+          if (length == 0) {
+            return Status::OK();
+          }
           break;
+        }
         case State::METADATA:
           RETURN_NOT_OK(ConsumeMetadataChunks());
           break;
@@ -1130,14 +1261,17 @@ MessageDecoder::State MessageDecoder::state() const { return impl_->state(); }
 /// \brief Implementation of MessageReader that reads from InputStream
 class InputStreamMessageReader : public MessageReader, public MessageDecoderListener {
  public:
-  explicit InputStreamMessageReader(io::InputStream* stream)
+  explicit InputStreamMessageReader(io::InputStream* stream,
+                                    IpcReadOptions options = IpcReadOptions::Defaults())
       : stream_(stream),
         owned_stream_(),
         message_(),
-        decoder_(std::shared_ptr<InputStreamMessageReader>(this, [](void*) {})) {}
+        decoder_(std::shared_ptr<InputStreamMessageReader>(this, [](void*) {}),
+                 std::move(options)) {}
 
-  explicit InputStreamMessageReader(const std::shared_ptr<io::InputStream>& owned_stream)
-      : InputStreamMessageReader(owned_stream.get()) {
+  explicit InputStreamMessageReader(const std::shared_ptr<io::InputStream>& owned_stream,
+                                    IpcReadOptions options = IpcReadOptions::Defaults())
+      : InputStreamMessageReader(owned_stream.get(), std::move(options)) {
     owned_stream_ = owned_stream;
   }
 
@@ -1178,9 +1312,19 @@ std::unique_ptr<MessageReader> MessageReader::Open(io::InputStream* stream) {
   return std::make_unique<InputStreamMessageReader>(stream);
 }
 
+std::unique_ptr<MessageReader> MessageReader::Open(io::InputStream* stream,
+                                                   const IpcReadOptions& options) {
+  return std::make_unique<InputStreamMessageReader>(stream, options);
+}
+
 std::unique_ptr<MessageReader> MessageReader::Open(
     const std::shared_ptr<io::InputStream>& owned_stream) {
   return std::make_unique<InputStreamMessageReader>(owned_stream);
+}
+
+std::unique_ptr<MessageReader> MessageReader::Open(
+    const std::shared_ptr<io::InputStream>& owned_stream, const IpcReadOptions& options) {
+  return std::make_unique<InputStreamMessageReader>(owned_stream, options);
 }
 
 }  // namespace ipc
