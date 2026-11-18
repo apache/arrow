@@ -39,10 +39,10 @@ __all__ = ["assert_type", "check"]
 _T = TypeVar("_T")
 
 
-def check(actual: _T, klass: type[Any] | tuple[type[Any], ...]) -> _T:
-    """Assert that ``actual`` is an instance of ``klass`` and return it."""
-    if not isinstance(actual, klass):
+def check(actual: _T, expected_type: type[Any] | tuple[type[Any], ...]) -> _T:
+    """Assert that ``actual`` is an instance of ``expected_type`` and return it."""
+    if not isinstance(actual, expected_type):
         raise AssertionError(
-            f"Expected an instance of {klass}, got {type(actual)}: {actual!r}"
+            f"Expected an instance of {expected_type}, got {type(actual)}: {actual!r}"
         )
     return actual
