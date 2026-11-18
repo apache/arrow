@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -37,6 +38,7 @@
 #include "arrow/status.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/future.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
 
@@ -674,8 +676,21 @@ class MessageDecoder::MessageDecoderImpl {
   explicit MessageDecoderImpl(std::shared_ptr<MessageDecoderListener> listener,
                               State initial_state, int64_t initial_next_required_size,
                               MemoryPool* pool, bool skip_body)
+      : MessageDecoderImpl(
+            std::move(listener), initial_state, initial_next_required_size,
+            [pool] {
+              auto opts = IpcReadOptions::Defaults();
+              opts.memory_pool = pool;
+              return opts;
+            }(),
+            skip_body) {}
+
+  explicit MessageDecoderImpl(std::shared_ptr<MessageDecoderListener> listener,
+                              State initial_state, int64_t initial_next_required_size,
+                              IpcReadOptions options, bool skip_body)
       : listener_(std::move(listener)),
-        pool_(pool),
+        options_(std::move(options)),
+        pool_(options_.memory_pool),
         memory_manager_(CPUDevice::memory_manager(pool_)),
         state_(initial_state),
         next_required_size_(initial_next_required_size),
@@ -685,15 +700,20 @@ class MessageDecoder::MessageDecoderImpl {
         skip_body_(skip_body) {}
 
   Status ConsumeData(const uint8_t* data, int64_t size) {
+    if (size < 0) {
+      return Status::Invalid("Invalid data size: negative byte count");
+    }
     if (buffered_size_ == 0) {
-      while (size > 0 && size >= next_required_size_) {
+      std::span<const uint8_t> data_span(data, static_cast<size_t>(size));
+      while (data_span.size() >= static_cast<size_t>(next_required_size_)) {
         auto used_size = next_required_size_;
         switch (state_) {
           case State::INITIAL:
-            RETURN_NOT_OK(ConsumeInitialData(data, next_required_size_));
+            RETURN_NOT_OK(ConsumeInitialData(data_span.data(), next_required_size_));
             break;
           case State::METADATA_LENGTH:
-            RETURN_NOT_OK(ConsumeMetadataLengthData(data, next_required_size_));
+            RETURN_NOT_OK(
+                ConsumeMetadataLengthData(data_span.data(), next_required_size_));
             break;
           case State::METADATA: {
             // We need to copy metadata because it's used in
@@ -704,7 +724,8 @@ class MessageDecoder::MessageDecoderImpl {
             // here.
             ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> buffer,
                                   AllocateBuffer(next_required_size_, pool_));
-            memcpy(buffer->mutable_data(), data, next_required_size_);
+            memcpy(buffer->mutable_data(), data_span.data(),
+                   static_cast<size_t>(next_required_size_));
             RETURN_NOT_OK(ConsumeMetadataBuffer(buffer));
           } break;
           case State::BODY: {
@@ -714,15 +735,16 @@ class MessageDecoder::MessageDecoderImpl {
             // the passed message is needed to be valid after the
             // call, it's a listener_'s responsibility. The listener_
             // may copy the data for it.
-            auto buffer = std::make_shared<Buffer>(data, next_required_size_);
+            auto buffer = std::make_shared<Buffer>(data_span.data(), next_required_size_);
             RETURN_NOT_OK(ConsumeBodyBuffer(buffer));
           } break;
           case State::EOS:
             return Status::OK();
         }
-        data += used_size;
-        size -= used_size;
+        data_span = data_span.subspan(static_cast<size_t>(used_size));
       }
+      data = data_span.data();
+      size = static_cast<int64_t>(data_span.size());
     }
 
     if (size == 0) {
@@ -847,6 +869,12 @@ class MessageDecoder::MessageDecoderImpl {
       RETURN_NOT_OK(listener_->OnEOS());
       return Status::OK();
     } else if (continuation > 0) {
+      if (options_.max_metadata_length >= 0 &&
+          continuation > options_.max_metadata_length) {
+        return Status::Invalid("IPC metadata length ", continuation,
+                               " exceeds maximum allowed metadata length ",
+                               options_.max_metadata_length);
+      }
       state_ = State::METADATA;
       // ARROW-6314: Backwards compatibility for reading old IPC
       // messages produced prior to version 0.15.0
@@ -881,6 +909,12 @@ class MessageDecoder::MessageDecoderImpl {
       RETURN_NOT_OK(listener_->OnEOS());
       return Status::OK();
     } else if (metadata_length > 0) {
+      if (options_.max_metadata_length >= 0 &&
+          metadata_length > options_.max_metadata_length) {
+        return Status::Invalid("IPC metadata length ", metadata_length,
+                               " exceeds maximum allowed metadata length ",
+                               options_.max_metadata_length);
+      }
       state_ = State::METADATA;
       next_required_size_ = metadata_length;
       RETURN_NOT_OK(listener_->OnMetadata());
@@ -929,6 +963,11 @@ class MessageDecoder::MessageDecoderImpl {
     RETURN_NOT_OK(MaybeAlignMetadata(&metadata_));
     int64_t body_length = -1;
     RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata_, &body_length));
+    if (options_.max_body_length >= 0 && body_length > options_.max_body_length) {
+      return Status::Invalid("IPC body length ", body_length,
+                             " exceeds maximum allowed body length ",
+                             options_.max_body_length);
+    }
 
     state_ = State::BODY;
     next_required_size_ = skip_body_ ? 0 : body_length;
@@ -987,7 +1026,10 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   Status ConsumeDataChunks(int64_t nbytes, void* out) {
-    size_t offset = 0;
+    DCHECK_GE(nbytes, 0);
+    DCHECK_GE(buffered_size_, nbytes);
+    std::span<uint8_t> out_span(static_cast<uint8_t*>(out), static_cast<size_t>(nbytes));
+    int64_t offset = 0;
     size_t n_used_chunks = 0;
     auto required_size = nbytes;
     std::shared_ptr<Buffer> last_chunk;
@@ -995,15 +1037,23 @@ class MessageDecoder::MessageDecoderImpl {
       if (!chunk->is_cpu()) {
         ARROW_ASSIGN_OR_RAISE(chunk, Buffer::ViewOrCopy(chunk, memory_manager_));
       }
-      auto data = chunk->data();
-      auto data_size = chunk->size();
-      auto copy_size = std::min(required_size, data_size);
-      memcpy(static_cast<uint8_t*>(out) + offset, data, copy_size);
+      std::span<const uint8_t> chunk_span(chunk->data(),
+                                          static_cast<size_t>(chunk->size()));
+      auto copy_size = std::min<int64_t>(required_size, chunk->size());
+      std::memcpy(
+          out_span.subspan(static_cast<size_t>(offset), static_cast<size_t>(copy_size))
+              .data(),
+          chunk_span.data(), static_cast<size_t>(copy_size));
       n_used_chunks++;
-      offset += copy_size;
+      int64_t next_offset = 0;
+      if (ARROW_PREDICT_FALSE(
+              ::arrow::internal::AddWithOverflow(offset, copy_size, &next_offset))) {
+        return Status::Invalid("Chunk offset calculation overflowed");
+      }
+      offset = next_offset;
       required_size -= copy_size;
       if (required_size == 0) {
-        if (data_size != copy_size) {
+        if (chunk->size() != copy_size) {
           last_chunk = SliceBuffer(chunk, copy_size);
         }
         break;
@@ -1018,6 +1068,7 @@ class MessageDecoder::MessageDecoderImpl {
   }
 
   std::shared_ptr<MessageDecoderListener> listener_;
+  IpcReadOptions options_;
   MemoryPool* pool_;
   std::shared_ptr<MemoryManager> memory_manager_;
   State state_;
@@ -1040,6 +1091,21 @@ MessageDecoder::MessageDecoder(std::shared_ptr<MessageDecoderListener> listener,
                                MemoryPool* pool, bool skip_body) {
   impl_.reset(new MessageDecoderImpl(std::move(listener), initial_state,
                                      initial_next_required_size, pool, skip_body));
+}
+
+MessageDecoder::MessageDecoder(std::shared_ptr<MessageDecoderListener> listener,
+                               IpcReadOptions options, bool skip_body) {
+  impl_.reset(new MessageDecoderImpl(std::move(listener), State::INITIAL,
+                                     kMessageDecoderNextRequiredSizeInitial,
+                                     std::move(options), skip_body));
+}
+
+MessageDecoder::MessageDecoder(std::shared_ptr<MessageDecoderListener> listener,
+                               State initial_state, int64_t initial_next_required_size,
+                               IpcReadOptions options, bool skip_body) {
+  impl_.reset(new MessageDecoderImpl(std::move(listener), initial_state,
+                                     initial_next_required_size, std::move(options),
+                                     skip_body));
 }
 
 MessageDecoder::~MessageDecoder() {}

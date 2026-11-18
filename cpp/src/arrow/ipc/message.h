@@ -26,6 +26,7 @@
 #include <utility>
 
 #include "arrow/io/type_fwd.h"
+#include "arrow/ipc/options.h"
 #include "arrow/ipc/type_fwd.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -288,6 +289,28 @@ class ARROW_EXPORT MessageDecoder {
   MessageDecoder(std::shared_ptr<MessageDecoderListener> listener, State initial_state,
                  int64_t initial_next_required_size,
                  MemoryPool* pool = default_memory_pool(), bool skip_body = false);
+
+  /// \brief Construct a message decoder with options.
+  ///
+  /// \param[in] listener a MessageDecoderListener that responds events from
+  /// the decoder
+  /// \param[in] options options for reading IPC messages
+  /// \param[in] skip_body if true the body will be skipped even if the message has a body
+  explicit MessageDecoder(std::shared_ptr<MessageDecoderListener> listener,
+                          IpcReadOptions options, bool skip_body = false);
+
+  /// \brief Construct a message decoder with the specified state and options.
+  ///
+  /// \param[in] listener a MessageDecoderListener that responds events from
+  /// the decoder
+  /// \param[in] initial_state an initial state of the decoder
+  /// \param[in] initial_next_required_size the number of bytes needed
+  /// to run the next action
+  /// \param[in] options options for reading IPC messages
+  /// \param[in] skip_body if true the body will be skipped even if the message has a body
+  MessageDecoder(std::shared_ptr<MessageDecoderListener> listener, State initial_state,
+                 int64_t initial_next_required_size, IpcReadOptions options,
+                 bool skip_body = false);
 
   virtual ~MessageDecoder();
 
