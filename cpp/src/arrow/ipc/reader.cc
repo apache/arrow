@@ -1073,6 +1073,20 @@ class StreamDecoderInternal : public MessageDecoderListener {
         swap_endian_(false) {}
 
   Status OnMessageDecoded(std::unique_ptr<Message> message) override {
+    if (ARROW_PREDICT_TRUE(message != nullptr)) {
+      if (options_.max_metadata_length >= 0 &&
+          message->metadata()->size() > options_.max_metadata_length) {
+        return Status::Invalid("IPC metadata length ", message->metadata()->size(),
+                               " exceeds maximum allowed metadata length ",
+                               options_.max_metadata_length);
+      }
+      if (options_.max_body_length >= 0 &&
+          message->body_length() > options_.max_body_length) {
+        return Status::Invalid("IPC body length ", message->body_length(),
+                               " exceeds maximum allowed body length ",
+                               options_.max_body_length);
+      }
+    }
     ++stats_.num_messages;
     switch (state_) {
       case State::SCHEMA:
