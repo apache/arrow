@@ -21,7 +21,7 @@
 #include "parquet/level_comparison_simd_internal.h"
 
 #define PARQUET_IMPL_NAMESPACE standard
-#include "parquet/level_comparison_inc.h"
+#include "parquet/level_comparison_inc_internal.h"
 #undef PARQUET_IMPL_NAMESPACE
 
 #include "arrow/util/dispatch_internal.h"
