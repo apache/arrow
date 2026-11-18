@@ -1869,8 +1869,24 @@ def test_tensor_array_from_list_of_ndarrays(np_type_str):
 
     permuted_type = pa.fixed_shape_tensor(
         pa.from_numpy_dtype(np_dtype), (2, 3), permutation=[1, 0])
-    with pytest.raises(NotImplementedError, match="permutation"):
+    with pytest.raises(pa.ArrowNotImplementedError, match="permutation"):
         pa.array(elements, type=permuted_type)
+
+
+@pytest.mark.parametrize("values", ([], [None], [[0, 1, 2, 3]]))
+def test_tensor_array_from_list_with_permutation(values):
+    tensor_type = pa.fixed_shape_tensor(pa.int32(), (2, 2), permutation=[1, 0])
+    result = pa.array(values, type=tensor_type)
+    assert result.type == tensor_type
+
+
+@pytest.mark.numpy
+def test_tensor_array_from_list_with_identity_permutation():
+    tensor_type = pa.fixed_shape_tensor(pa.int64(), (2, 3), permutation=[0, 1])
+    elements = [np.arange(6).reshape(2, 3)]
+    result = pa.array(elements, type=tensor_type)
+    assert result.type == tensor_type
+    np.testing.assert_array_equal(result[0].to_numpy(), elements[0])
 
 
 @pytest.mark.numpy

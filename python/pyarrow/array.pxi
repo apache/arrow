@@ -277,15 +277,20 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         # tensor-specific constraints here where the type is still known.
         if (isinstance(extension_type, FixedShapeTensorType)
                 and isinstance(obj, (list, tuple))):
-            if extension_type.permutation is not None:
-                raise NotImplementedError(
-                    "Converting a sequence of arrays to a fixed_shape_tensor "
-                    "with a permutation is not supported")
+            permutation = extension_type.permutation
+            is_permuted = (permutation is not None
+                           and list(permutation) != list(range(len(permutation))))
             expected_shape = tuple(extension_type.shape)
             for element in obj:
                 shape = getattr(element, "shape", None)
-                if (shape is not None and len(shape) >= 2
-                        and tuple(shape) != expected_shape):
+                if shape is None or len(shape) < 2:
+                    continue
+                if is_permuted:
+                    raise ArrowNotImplementedError(
+                        "Converting a sequence of arrays to a "
+                        "fixed_shape_tensor with a permutation is not "
+                        "supported")
+                if tuple(shape) != expected_shape:
                     raise ValueError(
                         f"Cannot convert array of shape {tuple(shape)} to a "
                         f"fixed_shape_tensor of shape {expected_shape}")
