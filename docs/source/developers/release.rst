@@ -621,14 +621,15 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # BUMP_PUSH=0 BUMP_TAG=0 dev/release/post-10-bump-versions.sh 10.0.0 11.0.0
-      BUMP_PUSH=0 BUMP_TAG=0 dev/release/post-10-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
+      # dev/release/post-10-bump-versions.sh 10.0.0 11.0.0
+      dev/release/post-10-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
 
-   ``BUMP_PUSH=0`` and ``BUMP_TAG=0`` are needed because we can't push
-   to ``main`` directly: ``main`` requires the "PR Title" status check.
-   The script only creates the commits in your local ``main``. You need
-   to push them to a branch, create a pull request from the branch with
-   a ``MINOR: [Release] Update versions for NEXT_X.NEXT_Y.NEXT_Z-SNAPSHOT``
+   The script only creates the commits in your local ``main``. It
+   doesn't push them and doesn't create a tag because we can't push to
+   ``main`` directly: ``main`` requires the "PR Title" status check. You
+   need to push the commits to a branch, create a pull request from the
+   branch with a
+   ``MINOR: [Release] Update versions for NEXT_X.NEXT_Y.NEXT_Z-SNAPSHOT``
    title and merge it:
 
    .. code-block:: Bash

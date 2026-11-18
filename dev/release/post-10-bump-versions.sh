@@ -33,8 +33,13 @@ fi
 : ${BUMP_VERSION_POST_TAG:=${BUMP_DEFAULT}}
 : ${BUMP_DEB_PACKAGE_NAMES:=${BUMP_DEFAULT}}
 : ${BUMP_LINUX_PACKAGES:=${BUMP_DEFAULT}}
-: ${BUMP_PUSH:=${BUMP_DEFAULT}}
-: ${BUMP_TAG:=${BUMP_DEFAULT}}
+# These are disabled by default because we can't push to the default
+# branch directly: it requires the "PR Title" status check. Create a
+# pull request from the commits and tag the merged commit instead.
+# See also the "Bump versions" step in
+# docs/source/developers/release.rst.
+: ${BUMP_PUSH:=0}
+: ${BUMP_TAG:=0}
 
 . $SOURCE_DIR/utils-prepare.sh
 

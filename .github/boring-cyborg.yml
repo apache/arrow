@@ -59,7 +59,10 @@ labelPRBasedOnFilePath:
     - "**/*.Rd"
 
 verifyTitles:
-  titleRegexp: '^(WIP:?\s*)?GH-[0-9]+|^MINOR: '
+  # "PR Title" is a required status check of main in .asf.yaml. A
+  # "WIP: GH-XXX: ..." title must not pass: it blocks the merge until
+  # "WIP: " is removed.
+  titleRegexp: '^GH-[0-9]+|^MINOR: '
   alwaysUsePrTitle: true
   validateEitherPrOrSingleCommitTitle: false
   statusTitle: "PR Title"
