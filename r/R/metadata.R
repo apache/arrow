@@ -176,8 +176,49 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       if (is.data.frame(x)) {
         # if columns metadata exists, apply it here
         if (length(names(x)) && !is.null(columns_metadata) && !all(map_lgl(columns_metadata, is.null))) {
-          for (name in intersect(names(columns_metadata), names(x))) {
-            x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+          column_names <- intersect(names(columns_metadata), names(x))
+          standard_data_frame <- identical(class(x), "data.frame") ||
+            identical(class(x), c("tbl_df", "tbl", "data.frame"))
+          regular_names <- !anyNA(names(x)) && !anyDuplicated(names(x)) && all(nzchar(names(x)))
+          restored <- NULL
+          column_indices <- match(column_names, names(x))
+          metadata_indices <- match(column_names, names(columns_metadata))
+          simple_columns <- FALSE
+          if (standard_data_frame && regular_names && !is.object(columns_metadata)) {
+            simple_columns <- all(vapply(seq_along(column_indices), function(i) {
+              column <- x[[column_indices[[i]]]]
+              metadata <- columns_metadata[[metadata_indices[[i]]]]
+              if (!is.atomic(column) || is.object(column) || is.object(metadata)) {
+                return(FALSE)
+              }
+              if (is.null(metadata)) {
+                return(TRUE)
+              }
+              is.list(metadata) && is.null(metadata[["columns"]]) &&
+                !is.object(metadata[["attributes"]]) &&
+                !any(c("class", ".group_vars") %in% names(metadata[["attributes"]]))
+            }, logical(1)))
+          }
+          if (standard_data_frame && regular_names && simple_columns) {
+            # Assign once instead of copying a wide data frame for every column.
+            # Retry exceptional metadata in order, preserving partial restoration.
+            restored <- tryCatch({
+              result <- x
+              result[column_indices] <- lapply(seq_along(column_indices), function(i) {
+                apply_arrow_r_metadata(
+                  x[[column_indices[[i]]]], columns_metadata[[metadata_indices[[i]]]]
+                )
+              })
+              result
+            }, warning = function(w) NULL, error = function(e) NULL)
+          }
+          if (!is.null(restored)) {
+            x <- restored
+          } else {
+            # Preserve replacement-method dispatch for data frame subclasses.
+            for (name in column_names) {
+              x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
+            }
           }
         }
       } else if (is.list(x) && !inherits(x, "POSIXlt") && !is.null(columns_metadata)) {
