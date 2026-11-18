@@ -459,10 +459,11 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   EXPECT_EQ(num_rows / reader_batch_size, batches);
 
   ASSERT_OK_AND_ASSIGN(auto indexed,
-                       reader->GetRecordBatchReaderByIndices(reader_batch_size, {0, 1}));
+                       reader->GetRecordBatchReaderByIndices(reader_batch_size, {1}));
   ASSERT_OK_AND_ASSIGN(auto indexed_table, indexed->ToTable());
   ASSERT_OK_AND_ASSIGN(auto expected_table, reader->Read());
-  AssertTablesEqual(*expected_table, *indexed_table, false, false);
+  ASSERT_OK_AND_ASSIGN(auto projected, expected_table->SelectColumns({1}));
+  AssertTablesEqual(*projected, *indexed_table, false, false);
 }
 
 TEST(TestAdapterRead, RecordBatchReaderByIndices) {
