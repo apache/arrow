@@ -363,6 +363,10 @@ TEST_F(TestFilteredDataset, FilterOnPartitionField) {
   ASSERT_OK_AND_ASSIGN(auto fragment_it, first->GetFragments());
   ASSERT_OK_AND_ASSIGN(auto fragments, fragment_it.ToVector());
   ASSERT_EQ(1, fragments.size());
+  ASSERT_EQ("filtered", fragments[0]->type_name());
+  // ToString() is used for the __filename field, so must match the wrapped fragment.
+  ASSERT_EQ(checked_cast<const FilteredFragment&>(*fragments[0]).fragment()->ToString(),
+            fragments[0]->ToString());
 
   ASSERT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(schema_, {first, second}));
   ASSERT_OK_AND_ASSIGN(auto builder, dataset->NewScan());

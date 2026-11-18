@@ -5665,6 +5665,10 @@ def test_filtered_dataset(tempdir, pickle_module):
     assert filtered.to_table().sort_by("value")["value"].to_pylist() == [2, 3, 4]
     assert filtered.count_rows() == 3
 
+    # The __filename field holds the paths of the underlying files.
+    filenames = filtered.to_table(columns=["__filename"])["__filename"]
+    assert set(filenames.to_pylist()) == {f.path for f in dataset.get_fragments()}
+
     # The inherited Dataset.filter method applies a further filter.
     refiltered = filtered.filter(pc.field("value") < 4)
     assert refiltered.to_table().sort_by("value")["value"].to_pylist() == [2, 3]

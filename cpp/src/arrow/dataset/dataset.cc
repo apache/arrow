@@ -338,7 +338,9 @@ Status FilteredFragment::ClearCachedMetadata() {
 }
 
 std::string FilteredFragment::ToString() const {
-  return "filtered(" + fragment_->ToString() + ", " + filter_.ToString() + ")";
+  // The scanner uses ToString() for the __filename augmented field, so this must
+  // match the wrapped fragment.
+  return fragment_->ToString();
 }
 
 Result<RecordBatchGenerator> FilteredFragment::ScanBatchesAsync(
