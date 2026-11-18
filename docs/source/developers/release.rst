@@ -400,7 +400,8 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   Add a release note for the new version to our website and update the latest release information:
+   Add a release note for the new version to our website and update the latest release information.
+   The script needs an authenticated ``gh`` to ask GitHub who merged the pull requests of the release:
 
    .. code-block:: Bash
 

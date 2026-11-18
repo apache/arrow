@@ -79,7 +79,8 @@ contributors_command_line="git shortlog -sn ${git_range}"
 
 # Count the pull requests of the commits in ${git_range} by who merged
 # them. We ask GitHub because commits merged with the merge button
-# don't have "Signed-off-by:" trailers.
+# don't have "Signed-off-by:" trailers. A failed request stops the
+# script: we must not publish a partial count.
 list_committers() {
   git log --pretty=%s ${git_range} |
     sed -n -E 's/^.* \(#([0-9]+)\)$/\1/p' |
@@ -94,7 +95,8 @@ list_committers() {
       query+="}}"
       gh api graphql -f query="${query}" \
         --jq '.data.repository[].mergedBy | select(. != null) |
-                if (.name // "") == "" then .login else .name end'
+                if (.name // "") == "" then .login else .name end' ||
+        exit 1
     done |
     sort |
     uniq -c |
