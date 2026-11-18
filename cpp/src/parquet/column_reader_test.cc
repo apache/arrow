@@ -2248,7 +2248,9 @@ TEST(FixedSizeListRecordReader, DifferentialPagesBatchesAndSkips) {
             ASSERT_EQ(generic->SkipRecords(2), fast->SkipRecords(2));
           } else {
             ASSERT_EQ(generic->ReadRecords(4), fast->ReadRecords(4));
-            if (step == 0) ASSERT_TRUE(fast->dense_fixed_size_list());
+            if (step == 0) {
+              ASSERT_TRUE(fast->dense_fixed_size_list());
+            }
             ASSERT_EQ(generic->values_written(), fast->values_written());
             ASSERT_EQ(generic->null_count(), fast->null_count());
             const auto* expected = reinterpret_cast<const int32_t*>(generic->values());
