@@ -18,6 +18,7 @@
 #include "arrow/dataset/file_parquet.h"
 
 #include <functional>
+#include <limits>
 #include <memory>
 #include <numeric>
 #include <thread>
@@ -848,6 +849,19 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
   auto small_set = ArrayFromJSON(int64(), "[5, 25]");
   expect_row_groups(is_in(small_set), {0, 2});
   expect_row_groups(and_(is_in(small_set), is_valid(field_ref("i64"))), {0, 2});
+}
+
+TEST_P(TestParquetFileFormatScan, PredicatePushdownNullableFloatRangeWithNaN) {
+  SetSchema({field("x", float64())});
+  auto batch = RecordBatchFromJSON(opts_->dataset_schema, "[[1], [2], [NaN], [null]]");
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({batch}));
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*GetFileSource(reader.get())));
+
+  // The NaN row matches the first filter; every non-null row matches the second.
+  auto x = field_ref("x");
+  ExpectRowGroupsRead(fragment, not_(greater(x, literal(0.0))), {0});
+  auto nan = literal(std::numeric_limits<double>::quiet_NaN());
+  ExpectRowGroupsRead(fragment, not_(less(x, nan)), {0});
 }
 
 TEST_P(TestParquetFileFormatScan, PredicatePushdownColumnReadAsAnotherType) {

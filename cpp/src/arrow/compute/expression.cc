@@ -1408,6 +1408,9 @@ struct Inequality {
     if (!lhs.field_ref()) return expr;
     if (*lhs.field_ref() != guarantee.target) return expr;
     if (!guarantee.AppliesTo(call->arguments[0])) return expr;
+    // Nullable Parquet min/max ranges exclude NaNs from their bounds, not from the
+    // data. Don't use these ranges to fold ordinary floating-point comparisons.
+    if (guarantee.same_type_only && is_floating(lhs.type()->id())) return expr;
 
     // Whether the RHS of the expression is EQUAL, LESS, or GREATER than the
     // RHS of the guarantee. N.B. Comparison::type is a bitmask
