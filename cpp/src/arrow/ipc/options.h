@@ -190,6 +190,8 @@ struct ARROW_EXPORT IpcReadOptions {
   io::CacheOptions pre_buffer_cache_options = io::CacheOptions::LazyDefaults();
 
   /// \brief Maximum allowed metadata length in bytes (-1 means unlimited).
+  ///
+  /// Enforced on message metadata in IPC streams and file footer metadata in IPC files.
   int64_t max_metadata_length = -1;
 
   /// \brief Maximum allowed body length in bytes (-1 means unlimited).
@@ -197,6 +199,9 @@ struct ARROW_EXPORT IpcReadOptions {
 
   /// \brief Maximum allowed decompression expansion ratio (-1 means unlimited).
   int32_t max_decompression_ratio = -1;
+
+  /// \brief Validate read options.
+  Status Validate() const;
 
   static IpcReadOptions Defaults();
 };

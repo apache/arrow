@@ -3485,7 +3485,7 @@ TEST(TestStreamReaderLimits, MaxBodyLengthExceeded) {
       reader->ReadNext(&out_batch));
 }
 
-TEST(TestFileReaderLimits, MaxMetadataLengthExceeded) {
+TEST(TestFileReaderLimits, MaxFooterMetadataLengthExceeded) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeIntRecordBatch(&batch));
   FileWriterHelper writer_helper;
@@ -3496,11 +3496,9 @@ TEST(TestFileReaderLimits, MaxMetadataLengthExceeded) {
   auto options = IpcReadOptions::Defaults();
   options.max_metadata_length = 10;
   auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
-  ASSERT_OK_AND_ASSIGN(auto reader,
-                       RecordBatchFileReader::Open(buf_reader.get(), options));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
-      reader->ReadRecordBatch(0));
+      RecordBatchFileReader::Open(buf_reader.get(), options));
 }
 
 TEST(TestFileReaderLimits, MaxBodyLengthExceeded) {
@@ -3519,6 +3517,82 @@ TEST(TestFileReaderLimits, MaxBodyLengthExceeded) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
       reader->ReadRecordBatch(0));
+}
+
+TEST(TestIpcReadOptions, ValidateNegativeLimits) {
+  auto options = IpcReadOptions::Defaults();
+  ASSERT_OK(options.Validate());
+
+  options.max_metadata_length = -2;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_metadata_length must be -1 or non-negative, got -2"),
+      options.Validate());
+
+  options = IpcReadOptions::Defaults();
+  options.max_body_length = -2;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_body_length must be -1 or non-negative, got -2"),
+      options.Validate());
+
+  options = IpcReadOptions::Defaults();
+  options.max_decompression_ratio = -2;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_decompression_ratio must be -1 or non-negative, got -2"),
+      options.Validate());
+
+  options = IpcReadOptions::Defaults();
+  options.max_recursion_depth = -1;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_recursion_depth must be non-negative, got -1"),
+      options.Validate());
+}
+
+TEST(TestStreamReaderLimits, NegativeLimitsInvalid) {
+  io::BufferReader empty_reader("");
+  auto options = IpcReadOptions::Defaults();
+  options.max_metadata_length = -2;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_metadata_length must be -1 or non-negative, got -2"),
+      RecordBatchStreamReader::Open(&empty_reader, options));
+
+  options = IpcReadOptions::Defaults();
+  options.max_body_length = -2;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_body_length must be -1 or non-negative, got -2"),
+      RecordBatchStreamReader::Open(&empty_reader, options));
+}
+
+TEST(TestFileReaderLimits, NegativeLimitsInvalid) {
+  io::BufferReader empty_reader("");
+  auto options = IpcReadOptions::Defaults();
+  options.max_metadata_length = -2;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_metadata_length must be -1 or non-negative, got -2"),
+      RecordBatchFileReader::Open(&empty_reader, options));
+
+  options = IpcReadOptions::Defaults();
+  options.max_body_length = -2;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_body_length must be -1 or non-negative, got -2"),
+      RecordBatchFileReader::Open(&empty_reader, options));
+}
+
+TEST(TestMessageDecoderBounds, NegativeLimitsInvalid) {
+  auto options = IpcReadOptions::Defaults();
+  options.max_metadata_length = -2;
+  auto empty_buf = Buffer::FromString("");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_metadata_length must be -1 or non-negative, got -2"),
+      ReadMessage(empty_buf, nullptr, options));
 }
 
 TEST(TestDecompressBufferLimits, NegativeUncompressedSize) {
