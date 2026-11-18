@@ -5686,6 +5686,11 @@ def test_filtered_dataset(tempdir, pickle_module):
     assert pickle_module.loads(
         pickle_module.dumps(filtered)).to_table().num_rows == 3
 
+    # A filter applied with Dataset.filter() is kept when pickling.
+    restored = pickle_module.loads(pickle_module.dumps(refiltered))
+    assert restored.filter_expression.equals(pc.field("value") > 1)
+    assert restored.to_table().sort_by("value")["value"].to_pylist() == [2, 3]
+
     with pytest.raises(pa.ArrowInvalid):
         ds.FilteredDataset(dataset, pc.field("missing") > 1)
     with pytest.raises(TypeError):

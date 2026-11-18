@@ -1141,7 +1141,11 @@ cdef class FilteredDataset(Dataset):
         self.filtered_dataset = <CFilteredDataset*> sp.get()
 
     def __reduce__(self):
-        return FilteredDataset, (self.child, self.filter_expression)
+        return (FilteredDataset, (self.child, self.filter_expression),
+                self._scan_options.copy())
+
+    def __setstate__(self, state):
+        self._scan_options = state
 
     @property
     def child(self):
