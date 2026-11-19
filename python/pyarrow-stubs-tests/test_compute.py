@@ -182,6 +182,16 @@ def test_array_functions() -> None:
     check(pc.round([1.5, 2.5]), pa.Array)
     check(pc.binary_join_element_wise(["a", "b"], ["c", "d"], "-"), pa.Array)
 
+    import numpy as np
+    check(pc.variance([1, 2, 3]), pa.DoubleScalar)
+    check(pc.variance((1, 2, 3)), pa.DoubleScalar)
+    check(pc.variance(np.array([1.0, 2.0, 3.0])), pa.DoubleScalar)
+
+    selected = pc.if_else([True, False], [1, 2], [3, 4])
+    check(assert_type(selected, pa.Scalar | pa.Array | pa.ChunkedArray | pc.Expression),
+          pa.Array)
+    check(pc.if_else(pc.field("a") > 1, 1, 2), pc.Expression)
+
     # Python literals are accepted next to arrays.
     check(pc.power(arr, 2), pa.Array)
     check(pc.divide(arr, 2.0), pa.Array)
@@ -193,3 +203,4 @@ def test_array_functions() -> None:
     if TYPE_CHECKING:
         pc.top_k_unstable(arr, "2")  # type: ignore[arg-type]
         pc.sort_indices(table, [("a", "up")])  # type: ignore[list-item]
+        pc.cumulative_sum(range(3))  # type: ignore[arg-type]

@@ -18,6 +18,8 @@
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from typing import Any, ParamSpec, TypeAlias, TypeVar
 
+from numpy.typing import NDArray
+
 # Placeholders (Any) until scalar.pyi is annotated; mypy rejects them as
 # types when imported through pyarrow.lib.
 from pyarrow.__lib.scalar import (
@@ -157,7 +159,6 @@ from pyarrow._compute import (
     _UnexpectedKeyBehavior,
 )
 from pyarrow._stubs_typing import (
-    ArrayLike,
     Indices,
     Mask,
     NullEncoding,
@@ -259,6 +260,9 @@ _NumericOrTemporalScalar: TypeAlias = _NumericScalar | _TemporalScalar
 # chunked input is the same for every kind.
 _ArrayOrChunkedArray: TypeAlias = Array | ChunkedArray
 _ScalarOrArray: TypeAlias = Scalar | Array | ChunkedArray
+_ArrayLike: TypeAlias = (
+    list[Any] | tuple[Any, ...] | NDArray[Any] | Array | ChunkedArray
+)
 _DecimalArray: TypeAlias = (
     Decimal32Array | Decimal64Array | Decimal128Array | Decimal256Array
 )
@@ -436,7 +440,7 @@ def tdigest(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleArray | Expression: ...
 def variance(
-    array: _NumericScalar | _ArrayOrChunkedArray | ArrayLike | Expression,
+    array: _NumericScalar | _ArrayOrChunkedArray | _ArrayLike | Expression,
     /,
     *,
     ddof: int = 0,
@@ -446,7 +450,7 @@ def variance(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleScalar | Expression: ...
 def skew(
-    array: _NumericScalar | _ArrayOrChunkedArray | ArrayLike | Expression,
+    array: _NumericScalar | _ArrayOrChunkedArray | _ArrayLike | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -456,7 +460,7 @@ def skew(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleScalar | Expression: ...
 def kurtosis(
-    array: _NumericScalar | _ArrayOrChunkedArray | ArrayLike | Expression,
+    array: _NumericScalar | _ArrayOrChunkedArray | _ArrayLike | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -489,8 +493,10 @@ def abs(
 abs_checked = _clone_signature(abs)
 
 def add(
-    x: _NumericOrTemporalScalar | _ArrayOrChunkedArray | ArrayLike | int | Expression,
-    y: (_NumericOrTemporalScalar | _ArrayOrChunkedArray | ArrayLike | int | Expression),
+    x: _NumericOrTemporalScalar | _ArrayOrChunkedArray | _ArrayLike | int | Expression,
+    y: (
+        _NumericOrTemporalScalar | _ArrayOrChunkedArray | _ArrayLike | int | Expression
+    ),
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -717,7 +723,7 @@ less_equal = _clone_signature(equal)
 not_equal = _clone_signature(equal)
 
 def max_element_wise(
-    *args: _ScalarOrArray | Expression | ScalarLike | ArrayLike,
+    *args: _ScalarOrArray | Expression | ScalarLike | _ArrayLike,
     skip_nulls: bool = True,
     options: ElementWiseAggregateOptions | None = None,
     memory_pool: MemoryPool | None = None,
@@ -1100,7 +1106,7 @@ def is_null(
     memory_pool: MemoryPool | None = None,
 ) -> BooleanScalar | _BooleanArray | Expression: ...
 def is_valid(
-    values: _ScalarOrArray | Expression | ArrayLike,
+    values: _ScalarOrArray | Expression | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1113,29 +1119,29 @@ true_unless_null = _clone_signature(is_valid)
 def case_when(
     cond: StructScalar | _ArrayOrChunkedArray | Expression,
     /,
-    *cases: _ScalarOrArray | ArrayLike,
+    *cases: _ScalarOrArray | _ArrayLike,
     memory_pool: MemoryPool | None = None,
 ) -> _ScalarOrArray | Array | Expression: ...
 def choose(
-    indices: ArrayLike | ScalarLike,
+    indices: _ArrayLike | ScalarLike | Expression,
     /,
-    *values: ArrayLike | ScalarLike,
+    *values: _ArrayLike | ScalarLike,
     memory_pool: MemoryPool | None = None,
-) -> ArrayLike | ScalarLike: ...
+) -> _ScalarOrArray | Expression: ...
 def coalesce(
     *values: _ScalarOrArray | Expression, memory_pool: MemoryPool | None = None
 ) -> _ScalarOrArray | Expression: ...
 def fill_null(
-    values: _ScalarOrArray | ScalarLike, fill_value: ArrayLike | ScalarLike
+    values: _ScalarOrArray | ScalarLike, fill_value: _ArrayLike | ScalarLike
 ) -> _ScalarOrArray | ScalarLike: ...
 def if_else(
-    cond: ArrayLike | ScalarLike,
-    left: ArrayLike | ScalarLike,
-    right: ArrayLike | ScalarLike,
+    cond: _ArrayLike | ScalarLike | Expression,
+    left: _ArrayLike | ScalarLike,
+    right: _ArrayLike | ScalarLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> ArrayLike | ScalarLike: ...
+) -> _ScalarOrArray | Expression: ...
 
 # ========================= Structural transforms =========================
 
@@ -1148,7 +1154,7 @@ def list_value_length(
     Int32Scalar | Int64Scalar | Int32Array | Int64Array | ChunkedArray | Expression
 ): ...
 def make_struct(
-    *args: _ScalarOrArray | Expression | ArrayLike,
+    *args: _ScalarOrArray | Expression | _ArrayLike,
     field_names: Sequence[str] = (),
     field_nullability: bool | None = None,
     field_metadata: Sequence[KeyValueMetadata] | None = None,
@@ -1387,7 +1393,7 @@ def random(
 
 # ========================= Cumulative Functions =========================
 def cumulative_sum(
-    values: _ArrayOrChunkedArray | ArrayLike | Expression,
+    values: _ArrayOrChunkedArray | _ArrayLike | Expression,
     /,
     start: float | Scalar | None = None,
     *,
@@ -1671,7 +1677,7 @@ def fill_null_forward(
 def replace_with_mask(
     values: _ScalarOrArray | Expression,
     mask: Mask,
-    replacements: ArrayLike,
+    replacements: _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
