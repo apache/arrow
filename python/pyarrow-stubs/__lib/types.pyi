@@ -532,7 +532,7 @@ def map_(
     keys_sorted: bool = False,
 ) -> MapType: ...
 def dictionary(
-    index_type: IntegerType | _DataTypeAliasInput,
+    index_type: _DataTypeLike,
     value_type: _DataTypeLike,
     ordered: bool = False,
 ) -> DictionaryType: ...
@@ -551,7 +551,7 @@ def union(
     type_codes: Sequence[int] | None = None,
 ) -> SparseUnionType | DenseUnionType: ...
 def run_end_encoded(
-    run_end_type: _RunEndType | _DataTypeAliasInput,
+    run_end_type: _DataTypeLike,
     value_type: _DataTypeLike,
 ) -> RunEndEncodedType: ...
 def json_(storage_type: DataType = ...) -> JsonType: ...

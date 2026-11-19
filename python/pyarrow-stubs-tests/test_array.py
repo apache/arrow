@@ -369,6 +369,7 @@ def test_array_arguments_without_cast() -> None:
     check(assert_type(pa.StructArray.from_arrays([(1, 2)], fields=fields),
                       pa.StructArray),
           pa.StructArray)
+    pa.StructArray.from_arrays(children, type=pa.array([{"a": 1}]).type)
     check(assert_type(pa.RunEndEncodedArray.from_arrays(pa.array([1, 3]), ["a", "b"]),
                       pa.RunEndEncodedArray),
           pa.RunEndEncodedArray)

@@ -86,7 +86,7 @@ def test_list_types() -> None:
 
 
 def test_dictionary_type() -> None:
-    dict_type = pa.dictionary(pa.int8(), pa.string())
+    dict_type = pa.dictionary(pa.array([1]).type, pa.string())
     check(assert_type(dict_type, pa.DictionaryType), pa.DictionaryType)
     check(assert_type(dict_type.ordered, bool), bool)
     check(assert_type(dict_type.value_type, pa.DataType), pa.DataType)
@@ -99,7 +99,7 @@ def test_map_and_run_end_encoded_types() -> None:
     check(assert_type(map_type.key_type, pa.DataType), pa.DataType)
     check(assert_type(map_type.keys_sorted, bool), bool)
 
-    ree = pa.run_end_encoded(pa.int16(), pa.string())
+    ree = pa.run_end_encoded(pa.array([1]).type, pa.string())
     check(assert_type(ree, pa.RunEndEncodedType), pa.RunEndEncodedType)
     check(assert_type(ree.run_end_type, Int16Type | Int32Type | Int64Type), pa.DataType)
 

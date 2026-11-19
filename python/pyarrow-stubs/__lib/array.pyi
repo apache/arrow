@@ -49,7 +49,6 @@ from pyarrow.lib import (
     Field,
     MemoryManager,
     MemoryPool,
-    StructType,
     Tensor,
     _Weakrefable,
 )
@@ -538,7 +537,7 @@ class StructArray(Array):
         fields: Sequence[Field] | None = None,
         mask: Array | None = None,
         memory_pool: MemoryPool | None = None,
-        type: StructType | None = None,
+        type: DataType | None = None,
     ) -> StructArray: ...
     def sort(
         self,
