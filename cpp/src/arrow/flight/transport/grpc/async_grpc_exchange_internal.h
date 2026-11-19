@@ -34,8 +34,9 @@ namespace arrow::flight::transport::grpc::detail {
 // the reactor finishes the RPC with. The three classes below are mutually
 // coupled on purpose:
 // - the reader asks the reactor for the next read
-// - the writer asks it to write a payload, and the reactor drives both from the gRPC callbacks
-// so they are declared together here and implemented one per translation unit (async_grpc_exchange.cc, async_grpc_exchange_reader.cc, async_grpc_exchange_writer.cc).
+// - the writer asks it to write a payload, and the reactor drives both from the gRPC
+// callbacks so they are declared together here and implemented one per translation unit
+// (async_grpc_exchange.cc, async_grpc_exchange_reader.cc, async_grpc_exchange_writer.cc).
 
 class ExchangeReactor;
 

@@ -153,7 +153,7 @@ void ExchangeWriter::Pump() {
     if (write_in_flight_) {
       return;
     }
-    if (queue_.empty()) { 
+    if (queue_.empty()) {
       drained = std::move(flush_);
       flush_ = arrow::Future<>();
       action = Action::kDrained;
