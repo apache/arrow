@@ -546,8 +546,9 @@ cdef class ChunkedArray(_PandasConvertible):
         ----------
         target_type : DataType, None
             Type to cast array to.
-        safe : boolean, default True
-            Whether to check for conversion errors such as overflow.
+        safe : bool or None, default None
+            Check for conversion errors such as overflow. If ``options`` is
+            omitted, ``None`` uses a safe cast.
         options : CastOptions, default None
             Additional checks pass by CastOptions
 
@@ -3277,8 +3278,9 @@ cdef class RecordBatch(_Tabular):
         ----------
         target_schema : Schema
             Schema to cast to, the names and order of fields must match.
-        safe : bool, default True
-            Check for overflows or other unsafe conversions.
+        safe : bool or None, default None
+            Check for overflows or other unsafe conversions. If ``options`` is
+            omitted, ``None`` uses a safe cast.
         options : CastOptions, default None
             Additional checks pass by CastOptions
 
@@ -4627,8 +4629,9 @@ cdef class Table(_Tabular):
         ----------
         target_schema : Schema
             Schema to cast to, the names and order of fields must match.
-        safe : bool, default True
-            Check for overflows or other unsafe conversions.
+        safe : bool or None, default None
+            Check for overflows or other unsafe conversions. If ``options`` is
+            omitted, ``None`` uses a safe cast.
         options : CastOptions, default None
             Additional checks pass by CastOptions
 
