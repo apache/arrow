@@ -198,7 +198,7 @@ jobs:
           MINGW_ARCH: "ucrt64"
           RTOOLS_VERSION: 40
         {{ macros.github_set_sccache_envvars()|indent(8) }}
-        run: arrow/ci/scripts/r_windows_build.sh
+        run: arrow/ci/scripts/r_windows_build_rtools40.sh
       - name: Create Checksum
         shell: bash
         run: |

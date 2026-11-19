@@ -17,12 +17,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Build the static libarrow that r/configure.win downloads on Windows.
+# Build the static libarrow that r/configure.win downloads on Windows, using
+# Rtools42+ (libraries are a fixed set built with MXE): call CMake directly
+# against the toolchain's static libraries.
 #
-# * Rtools40 (MSYS2): makepkg-mingw with ci/scripts/PKGBUILD.
-# * Rtools42+ (libraries are a fixed set built with MXE): call CMake directly against the
-#   toolchain's static libraries.
-#
+# Rtools40 (MSYS2) is built by ci/scripts/r_windows_build_rtools40.sh instead.
 # The two zips differ in contents; r/configure.win handles both.
 
 set -ex
@@ -33,78 +32,6 @@ ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 export ARROW_HOME
 
 : "${RTOOLS_VERSION:=45}"
-
-if [ "${RTOOLS_VERSION}" = "40" ]; then
-  pacman --noconfirm -Syy
-
-  : "${MINGW_ARCH:=mingw32 mingw64 ucrt64}"
-  export MINGW_ARCH
-
-  cp "${ARROW_HOME}/ci/scripts/PKGBUILD" .
-  printenv
-  makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
-
-  VERSION="$(grep Version "${ARROW_HOME}/r/DESCRIPTION" | cut -d " " -f 2)"
-  DST_DIR="r-libarrow-windows-x86_64-$VERSION"
-
-  # Collect the build artifacts and make the shape of zip file that rwinlib expects
-  ls
-  mkdir -p build
-  mv mingw* build
-  cd build
-
-  # This may vary by system/CI provider
-  MSYS_LIB_DIR="/c/rtools${RTOOLS_VERSION}"
-
-  # Untar the builds we made
-  find . -maxdepth 1 -type f -name '*.xz' -print0 | xargs -0 -n1 tar -xJf
-  mkdir -p "${DST_DIR}"
-  # Grab the headers from one, either one is fine
-  # (if we're building twice to combine old and new toolchains, this may already exist)
-  if [ ! -d "${DST_DIR}/include" ]; then
-    mv "$(echo "${MINGW_ARCH}" | cut -d ' ' -f 1)/include" "${DST_DIR}"
-  fi
-
-  # mingw64 -> x64
-  # mingw32 -> i386
-  # ucrt64 -> x64-ucrt
-
-  if [ -d mingw64/lib/ ]; then
-    ls "${MSYS_LIB_DIR}/mingw64/lib/"
-    # Make the rest of the directory structure
-    mkdir -p "${DST_DIR}/lib/x64"
-    # Move the 64-bit versions of libarrow into the expected location
-    mv mingw64/lib/*.a "${DST_DIR}/lib/x64"
-    # These are from https://dl.bintray.com/rtools/mingw{32,64}/
-    cp "${MSYS_LIB_DIR}"/mingw64/lib/lib{snappy,zstd,lz4,bz2,crypto,curl,ss*,utf8proc,re2,nghttp2}.a "${DST_DIR}/lib/x64"
-  fi
-
-  # Same for the 32-bit versions
-  if [ -d mingw32/lib/ ]; then
-    ls "${MSYS_LIB_DIR}/mingw32/lib/"
-    mkdir -p "${DST_DIR}/lib/i386"
-    mv mingw32/lib/*.a "${DST_DIR}/lib/i386"
-    cp "${MSYS_LIB_DIR}"/mingw32/lib/lib{snappy,zstd,lz4,bz2,crypto,curl,ss*,utf8proc,re2,nghttp2}.a "${DST_DIR}/lib/i386"
-  fi
-
-  # Do the same also for ucrt64
-  if [ -d ucrt64/lib/ ]; then
-    ls "${MSYS_LIB_DIR}/ucrt64/lib/"
-    mkdir -p "${DST_DIR}/lib/x64-ucrt"
-    mv ucrt64/lib/*.a "${DST_DIR}/lib/x64-ucrt"
-    cp "${MSYS_LIB_DIR}"/ucrt64/lib/lib{snappy,zstd,lz4,bz2,crypto,curl,ss*,utf8proc,re2,nghttp2}.a "$DST_DIR"/lib/x64-ucrt
-  fi
-
-  # Create build artifact
-  zip -r "${DST_DIR}.zip" "$DST_DIR"
-
-  # Copy that to a file name/path that does not vary by version number so we
-  # can easily find it in the R package tests on CI
-  cp "${DST_DIR}.zip" ../libarrow.zip
-
-  exit 0
-fi
-
 : "${RTOOLS_HOME:=/c/rtools${RTOOLS_VERSION}}"
 TOOLCHAIN="${RTOOLS_HOME}/x86_64-w64-mingw32.static.posix"
 export PATH="${TOOLCHAIN}/bin:${RTOOLS_HOME}/usr/bin:${PATH}"

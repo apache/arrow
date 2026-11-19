@@ -79,11 +79,11 @@ function configure_binaries() {
     RWINLIB="../windows/$(ls windows/ | grep ^r-libarrow- | tail -n 1)"
   fi
 
-  # A libarrow zip built with Rtools42+ (see ci/scripts/r_windows_build.sh)
-  # contains libcurl.libs. In that zip snappy, utf8proc and re2 are in
-  # arrow_bundled_dependencies, and libcurl.libs has cURL's link flags.
-  # -ldbghelp is for google-cloud-cpp. The Rtools Brotli is never linked:
-  # cURL uses the bundled Brotli (GH-55165).
+  # A libarrow zip built with Rtools42+ contains libcurl.libs. In that zip
+  # snappy, utf8proc and re2 are in arrow_bundled_dependencies, and
+  # libcurl.libs has cURL's link flags. -ldbghelp is for google-cloud-cpp.
+  # The Rtools Brotli is never linked: cURL uses the bundled Brotli
+  # (GH-55165).
   UTF8PROC_SNAPPY_LIBS="-lutf8proc -lsnappy"
   RE2_LIBS="-lre2"
   CURL_LIBS_FILE="${RWINLIB#../}/lib/x64-ucrt/libcurl.libs"
@@ -93,8 +93,6 @@ function configure_binaries() {
     GCS_LIBS="$(cat "${CURL_LIBS_FILE}") -ldbghelp"
   fi
 
-  # NOTE: If you make changes to the libraries below, you should also change
-  # ci/scripts/r_windows_build.sh and ci/scripts/PKGBUILD
   PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DARROW_COMPUTE_STATIC -DPARQUET_STATIC \
               -DARROW_DS_STATIC -DARROW_ACERO_STATIC -DARROW_S3_STATIC -DARROW_GCS_STATIC \
               -DARROW_R_WITH_PARQUET -DARROW_R_WITH_COMPUTE -DARROW_R_WITH_ACERO \
