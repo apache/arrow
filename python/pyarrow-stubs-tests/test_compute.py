@@ -137,7 +137,7 @@ def test_options() -> None:
         _: Hashable = options  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # noqa: E501
 
 
-def test_array_functions() -> None:
+def test_array_wise_functions() -> None:
     arr = pa.array([3, 1, 2])
     table = pa.table({"a": [3, 1, 2]})
 
@@ -155,14 +155,8 @@ def test_array_functions() -> None:
           pa.UInt64Array)
     check(assert_type(pc.indices_nonzero(arr), pa.UInt64Array | pc.Expression),
           pa.UInt64Array)
-    check(assert_type(pc.quantile(arr, q=[0.25, 0.75]),
-                      pa.DoubleArray | pc.Expression),
-          pa.DoubleArray)
-    check(assert_type(pc.mode(arr, n=2), pa.StructArray | pc.Expression),
-          pa.StructArray)
     check(assert_type(pc.value_counts(arr), pa.StructArray | pc.Expression),
           pa.StructArray)
-    check(assert_type(pc.random(3), pa.DoubleArray), pa.DoubleArray)
 
     mask = pa.array([True, False, True])
     check(assert_type(pc.filter(table, mask), _Filtered), pa.Table)
@@ -172,20 +166,31 @@ def test_array_functions() -> None:
           pc.Expression)
 
     # Python lists and other iterables are accepted where the stubs list them.
-    check(pc.round((1.5, 2.5)), pa.Array)
-    check(pc.first_last((1, 2)), pa.StructScalar)
-    check(pc.binary_repeat(pa.array(["a"]), (2,)), pa.Array)
-    check(pc.struct_field(pa.array([{"a": 1}]), ("a",)), pa.Array)
     check(assert_type(pc.partition_nth_indices([3, 1, 2], pivot=1),
                       pa.UInt64Array | pc.Expression),
           pa.UInt64Array)
-    check(pc.round([1.5, 2.5]), pa.Array)
-    check(pc.binary_join_element_wise(["a", "b"], ["c", "d"], "-"), pa.Array)
 
-    import numpy as np
-    check(pc.variance([1, 2, 3]), pa.DoubleScalar)
-    check(pc.variance((1, 2, 3)), pa.DoubleScalar)
-    check(pc.variance(np.array([1.0, 2.0, 3.0])), pa.DoubleScalar)
+    taken = pc.take(arr, [0, 2])
+    check(assert_type(taken, pa.Array | pa.ChunkedArray | pa.RecordBatch | pa.Table),
+          pa.Array)
+
+    if TYPE_CHECKING:
+        pc.top_k_unstable(arr, "2")  # type: ignore[arg-type]
+        pc.sort_indices(table, [("a", "up")])  # type: ignore[list-item]
+        pc.cumulative_sum(range(3))  # type: ignore[arg-type]
+
+
+def test_element_wise_functions() -> None:
+    arr = pa.array([3, 1, 2])
+
+    check(assert_type(pc.random(3), pa.DoubleArray), pa.DoubleArray)
+
+    # Python lists and other iterables are accepted where the stubs list them.
+    check(pc.round((1.5, 2.5)), pa.Array)
+    check(pc.round([1.5, 2.5]), pa.Array)
+    check(pc.binary_repeat(pa.array(["a"]), (2,)), pa.Array)
+    check(pc.binary_join_element_wise(["a", "b"], ["c", "d"], "-"), pa.Array)
+    check(pc.struct_field(pa.array([{"a": 1}]), ("a",)), pa.Array)
 
     selected = pc.if_else([True, False], [1, 2], [3, 4])
     check(assert_type(selected, pa.Scalar | pa.Array | pa.ChunkedArray | pc.Expression),
@@ -196,11 +201,20 @@ def test_array_functions() -> None:
     check(pc.power(arr, 2), pa.Array)
     check(pc.divide(arr, 2.0), pa.Array)
 
-    taken = pc.take(arr, [0, 2])
-    check(assert_type(taken, pa.Array | pa.ChunkedArray | pa.RecordBatch | pa.Table),
-          pa.Array)
 
-    if TYPE_CHECKING:
-        pc.top_k_unstable(arr, "2")  # type: ignore[arg-type]
-        pc.sort_indices(table, [("a", "up")])  # type: ignore[list-item]
-        pc.cumulative_sum(range(3))  # type: ignore[arg-type]
+def test_agg_functions() -> None:
+    import numpy as np
+
+    arr = pa.array([3, 1, 2])
+    scalar = pa.scalar([1, 2])
+
+    check(pc.count(scalar), pa.Int64Scalar)
+    check(pc.first_last((1, 2)), pa.StructScalar)
+    check(assert_type(pc.quantile(arr, q=[0.25, 0.75]),
+                      pa.DoubleArray | pc.Expression),
+          pa.DoubleArray)
+    check(assert_type(pc.mode(arr, n=2), pa.StructArray | pc.Expression),
+          pa.StructArray)
+    check(pc.variance([1, 2, 3]), pa.DoubleScalar)
+    check(pc.variance((1, 2, 3)), pa.DoubleScalar)
+    check(pc.variance(np.array([1.0, 2.0, 3.0])), pa.DoubleScalar)
