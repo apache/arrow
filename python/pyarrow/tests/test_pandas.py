@@ -4602,6 +4602,26 @@ def test_roundtrip_empty_table_with_extension_dtype_index():
     tm.assert_index_equal(table.to_pandas().index, df.index)
 
 
+@pytest.mark.parametrize("values, dtype", [
+    ([1, None, 3], "Int64"),
+    ([1.5, None, 3.5], "Float32"),
+    ([True, False, None], "boolean"),
+    (["a", None, "c"], "string"),
+    ([1, 2, 3], "UInt8"),
+    ([1, None, 3], "int64[pyarrow]"),
+])
+def test_roundtrip_index_with_extension_dtype(values, dtype):
+    index = pd.Index(pd.array(values, dtype=dtype), name="idx")
+    df = pd.DataFrame({"a": [1, 2, 3]}, index=index)
+    result = pa.Table.from_pandas(df).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+    mi = pd.MultiIndex.from_arrays([index, ["x", "y", "z"]], names=["i", "j"])
+    df = pd.DataFrame({"a": [1, 2, 3]}, index=mi)
+    result = pa.Table.from_pandas(df).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
 @pytest.mark.parametrize("index", ["a", ["a", "b"]])
 def test_to_pandas_types_mapper_index(index):
     df = pd.DataFrame(
