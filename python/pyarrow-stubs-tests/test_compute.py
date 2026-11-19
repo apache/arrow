@@ -206,10 +206,14 @@ def test_agg_functions() -> None:
     import numpy as np
 
     arr = pa.array([3, 1, 2])
-    scalar = pa.scalar([1, 2])
+    scalar = pa.scalar(1)
 
     check(pc.count(scalar), pa.Int64Scalar)
+    check(pc.count_distinct(scalar), pa.Int64Scalar)
+    check(pc.first(scalar), pa.Int64Scalar)
+    check(pc.last(scalar), pa.Int64Scalar)
     check(pc.first_last((1, 2)), pa.StructScalar)
+    check(pc.first_last(scalar), pa.StructScalar)
     check(assert_type(pc.quantile(arr, q=[0.25, 0.75]),
                       pa.DoubleArray | pc.Expression),
           pa.DoubleArray)

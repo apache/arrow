@@ -49,7 +49,6 @@ from pyarrow.__lib.scalar import (
     ListScalar,
     ListViewScalar,
     MonthDayNanoIntervalScalar,
-    NullScalar,
     Scalar,
     StringScalar,
     StringViewScalar,
@@ -227,7 +226,6 @@ _FloatScalar: TypeAlias = HalfFloatScalar | FloatScalar | DoubleScalar
 _DecimalScalar: TypeAlias = (
     Decimal32Scalar | Decimal64Scalar | Decimal128Scalar | Decimal256Scalar
 )
-_NonFloatNumericScalar: TypeAlias = _IntegerScalar | _DecimalScalar
 _NumericScalar: TypeAlias = _IntegerScalar | _FloatScalar | _DecimalScalar
 _BinaryScalar: TypeAlias = (
     BinaryScalar | LargeBinaryScalar | BinaryViewScalar | FixedSizeBinaryScalar
@@ -298,7 +296,7 @@ _ListArray: TypeAlias = BaseListArray | ChunkedArray
 
 # =============================== Aggregations ========================================
 def all(
-    array: BooleanScalar | _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -310,7 +308,7 @@ def all(
 any = _clone_signature(all)
 
 def approximate_median(
-    array: _NumericScalar | _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -319,7 +317,7 @@ def approximate_median(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleScalar | Expression: ...
 def count(
-    array: Scalar | _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     mode: _CountMode = "only_valid",
     *,
@@ -327,7 +325,7 @@ def count(
     memory_pool: MemoryPool | None = None,
 ) -> Int64Scalar | Expression: ...
 def count_distinct(
-    array: _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     mode: _CountMode = "only_valid",
     *,
@@ -335,7 +333,7 @@ def count_distinct(
     memory_pool: MemoryPool | None = None,
 ) -> Int64Scalar | Expression: ...
 def first(
-    array: _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -344,7 +342,7 @@ def first(
     memory_pool: MemoryPool | None = None,
 ) -> Scalar | Expression: ...
 def first_last(
-    array: _ArrayOrChunkedArray | Iterable[Any] | Expression,
+    array: _ScalarOrArray | Iterable[Any] | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -361,7 +359,7 @@ def index(
     memory_pool: MemoryPool | None = None,
 ) -> Int64Scalar: ...
 def kurtosis(
-    array: _NumericScalar | _ArrayOrChunkedArray | _ArrayLike | Expression,
+    array: _ScalarOrArray | _ArrayLike | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -375,7 +373,7 @@ last = _clone_signature(first)
 max = _clone_signature(first)
 
 def mean(
-    array: _NumericScalar | _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -388,7 +386,7 @@ min = _clone_signature(first)
 min_max = _clone_signature(first_last)
 
 def mode(
-    array: _NumericScalar | _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     n: int = 1,
     *,
@@ -408,7 +406,7 @@ def pivot_wider(
     memory_pool: MemoryPool | None = None,
 ) -> StructScalar: ...
 def product(
-    array: _NumericScalar | _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -417,7 +415,7 @@ def product(
     memory_pool: MemoryPool | None = None,
 ) -> _NumericScalar | Expression: ...
 def quantile(
-    array: _NumericScalar | _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     q: float | Sequence[float] = 0.5,
     *,
@@ -428,7 +426,7 @@ def quantile(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleArray | Expression: ...
 def skew(
-    array: _NumericScalar | _ArrayOrChunkedArray | _ArrayLike | Expression,
+    array: _ScalarOrArray | _ArrayLike | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -438,7 +436,7 @@ def skew(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleScalar | Expression: ...
 def stddev(
-    array: _NumericScalar | _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     *,
     ddof: float = 0,
@@ -448,7 +446,7 @@ def stddev(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleScalar | Expression: ...
 def sum(
-    array: _NumericScalar | _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     *,
     skip_nulls: bool = True,
@@ -457,7 +455,7 @@ def sum(
     memory_pool: MemoryPool | None = None,
 ) -> _NumericScalar | Expression: ...
 def tdigest(
-    array: _NumericScalar | _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | Expression,
     /,
     q: float | Sequence[float] = 0.5,
     *,
@@ -469,7 +467,7 @@ def tdigest(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleArray | Expression: ...
 def variance(
-    array: _NumericScalar | _ArrayOrChunkedArray | _ArrayLike | Expression,
+    array: _ScalarOrArray | _ArrayLike | Expression,
     /,
     *,
     ddof: int = 0,
@@ -483,7 +481,7 @@ def variance(
 
 # ========================= Arithmetic functions =========================
 def abs(
-    x: _NumericOrDurationScalar | _ArrayOrChunkedArray | Expression | float,
+    x: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -492,10 +490,8 @@ def abs(
 abs_checked = _clone_signature(abs)
 
 def add(
-    x: _NumericOrTemporalScalar | _ArrayOrChunkedArray | _ArrayLike | int | Expression,
-    y: (
-        _NumericOrTemporalScalar | _ArrayOrChunkedArray | _ArrayLike | int | Expression
-    ),
+    x: _ScalarOrArray | _ArrayLike | int | Expression,
+    y: _ScalarOrArray | _ArrayLike | int | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -504,8 +500,8 @@ def add(
 add_checked = _clone_signature(add)
 
 def divide(
-    x: _NumericOrTemporalScalar | _ArrayOrChunkedArray | Expression | float,
-    y: _NumericOrTemporalScalar | _ArrayOrChunkedArray | Expression | float,
+    x: _ScalarOrArray | Expression | float,
+    y: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -514,11 +510,7 @@ def divide(
 divide_checked = _clone_signature(divide)
 
 def exp(
-    exponent: _ArrayOrChunkedArray
-    | _FloatScalar
-    | _NonFloatNumericScalar
-    | DoubleScalar
-    | Expression,
+    exponent: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -527,15 +519,15 @@ def exp(
 expm1 = _clone_signature(exp)
 
 def hypot(
-    x: _NumericScalar | _ArrayOrChunkedArray | float | Expression,
-    y: _NumericScalar | _ArrayOrChunkedArray | float | Expression,
+    x: _ScalarOrArray | float | Expression,
+    y: _ScalarOrArray | float | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> _FloatScalar | _FloatArray | Expression: ...
 def modulo(
-    dividend: _NumericScalar | _ArrayOrChunkedArray | float | Expression,
-    divisor: _NumericScalar | _ArrayOrChunkedArray | float | Expression,
+    dividend: _ScalarOrArray | float | Expression,
+    divisor: _ScalarOrArray | float | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -546,7 +538,7 @@ multiply = _clone_signature(add)
 multiply_checked = _clone_signature(add)
 
 def negate(
-    x: _NumericOrDurationScalar | _ArrayOrChunkedArray | Expression | float,
+    x: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -555,8 +547,8 @@ def negate(
 negate_checked = _clone_signature(negate)
 
 def power(
-    base: _NumericScalar | Expression | _ArrayOrChunkedArray | float,
-    exponent: _NumericScalar | Expression | _ArrayOrChunkedArray | float,
+    base: _ScalarOrArray | Expression | float,
+    exponent: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -567,13 +559,13 @@ remainder = _clone_signature(modulo)
 remainder_checked = _clone_signature(modulo)
 
 def sign(
-    x: _ArrayOrChunkedArray | _NumericOrDurationScalar | Expression | float,
+    x: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> Int8Scalar | _FloatScalar | NumericArray | ChunkedArray | Expression: ...
 def sqrt(
-    x: _ArrayOrChunkedArray | _NumericScalar | Expression | float,
+    x: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -585,14 +577,14 @@ subtract_checked = _clone_signature(add)
 
 # ========================= Bit-wise functions =========================
 def bit_wise_and(
-    x: _NumericScalar | _ArrayOrChunkedArray | Expression | float,
-    y: _NumericScalar | _ArrayOrChunkedArray | Expression | float,
+    x: _ScalarOrArray | Expression | float,
+    y: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> _NumericScalar | _NumericArray | Expression: ...
 def bit_wise_not(
-    x: _NumericScalar | _ArrayOrChunkedArray | Expression | float,
+    x: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -607,7 +599,7 @@ shift_right_checked = _clone_signature(bit_wise_and)
 
 # ========================= Rounding functions =========================
 def ceil(
-    x: _FloatScalar | _ArrayOrChunkedArray | Expression | float,
+    x: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -616,7 +608,7 @@ def ceil(
 floor = _clone_signature(ceil)
 
 def round(
-    x: _NumericScalar | _ArrayOrChunkedArray | Iterable[Any] | Expression | float,
+    x: _ScalarOrArray | Iterable[Any] | Expression | float,
     /,
     ndigits: int = 0,
     round_mode: _RoundMode = "half_to_even",
@@ -625,17 +617,17 @@ def round(
     memory_pool: MemoryPool | None = None,
 ) -> _NumericScalar | _NumericArray | Expression: ...
 def round_to_multiple(
-    x: _NumericScalar | _ArrayOrChunkedArray | Iterable[Any] | Expression | float,
+    x: _ScalarOrArray | Iterable[Any] | Expression | float,
     /,
-    multiple: float | _NumericScalar = 1.0,
+    multiple: float | Scalar = 1.0,
     round_mode: _RoundMode = "half_to_even",
     *,
     options: RoundToMultipleOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> _NumericScalar | _NumericArray | Expression: ...
 def round_binary(
-    x: _NumericScalar | _ArrayOrChunkedArray | Iterable[Any] | float | Expression,
-    s: _SignedIntegerScalar | _ArrayOrChunkedArray | int | Expression,
+    x: _ScalarOrArray | Iterable[Any] | float | Expression,
+    s: _ScalarOrArray | int | Expression,
     /,
     round_mode: _RoundMode = "half_to_even",
     *,
@@ -647,7 +639,7 @@ trunc = _clone_signature(ceil)
 
 # ========================= Logarithmic functions =========================
 def ln(
-    x: _NumericScalar | _ArrayOrChunkedArray | Expression | float,
+    x: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -662,8 +654,8 @@ log2 = _clone_signature(ln)
 log2_checked = _clone_signature(ln)
 
 def logb(
-    x: _NumericScalar | _ArrayOrChunkedArray | float | Expression,
-    b: _NumericScalar | _ArrayOrChunkedArray | float | Expression,
+    x: _ScalarOrArray | float | Expression,
+    b: _ScalarOrArray | float | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -679,8 +671,8 @@ asin_checked = _clone_signature(ln)
 atan = _clone_signature(ln)
 
 def atan2(
-    y: _NumericScalar | _ArrayOrChunkedArray | float | Expression,
-    x: _NumericScalar | _ArrayOrChunkedArray | float | Expression,
+    y: _ScalarOrArray | float | Expression,
+    x: _ScalarOrArray | float | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -729,8 +721,8 @@ min_element_wise = _clone_signature(max_element_wise)
 
 # ========================= Logical functions =========================
 def and_(
-    x: BooleanScalar | _ArrayOrChunkedArray | bool | Expression,
-    y: BooleanScalar | _ArrayOrChunkedArray | bool | Expression,
+    x: _ScalarOrArray | bool | Expression,
+    y: _ScalarOrArray | bool | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -741,7 +733,7 @@ and_not = _clone_signature(and_)
 and_not_kleene = _clone_signature(and_)
 
 def invert(
-    x: BooleanScalar | _ArrayOrChunkedArray | Expression,
+    x: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -753,7 +745,7 @@ xor = _clone_signature(and_)
 
 # ========================= String predicates =========================
 def ascii_is_alnum(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -780,7 +772,7 @@ string_is_ascii = _clone_signature(ascii_is_alnum)
 
 # ========================= String transforms =========================
 def ascii_capitalize(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -793,7 +785,7 @@ ascii_title = _clone_signature(ascii_capitalize)
 ascii_upper = _clone_signature(ascii_capitalize)
 
 def binary_length(
-    strings: _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -801,14 +793,14 @@ def binary_length(
     Int32Scalar | Int64Scalar | Int32Array | Int64Array | ChunkedArray | Expression
 ): ...
 def binary_repeat(
-    strings: _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     num_repeats: int | _ArrayOrChunkedArray | Iterable[int | None] | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> _StringOrBinaryScalar | _StringOrBinaryArray | Expression: ...
 def binary_replace_slice(
-    strings: _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     start: int,
     stop: int,
@@ -818,13 +810,13 @@ def binary_replace_slice(
     memory_pool: MemoryPool | None = None,
 ) -> _StringOrBinaryScalar | _StringOrBinaryArray | Expression: ...
 def binary_reverse(
-    strings: _BinaryScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> _BinaryScalar | _BinaryArray | Expression: ...
 def replace_substring(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     pattern: str | bytes,
     replacement: str | bytes,
@@ -837,13 +829,13 @@ def replace_substring(
 replace_substring_regex = _clone_signature(replace_substring)
 
 def utf8_capitalize(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> _StringScalar | _StringArray | Expression: ...
 def utf8_length(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -854,7 +846,7 @@ def utf8_length(
 utf8_lower = _clone_signature(utf8_capitalize)
 
 def utf8_replace_slice(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     start: int,
     stop: int,
@@ -870,7 +862,7 @@ utf8_title = _clone_signature(utf8_capitalize)
 utf8_upper = _clone_signature(utf8_capitalize)
 
 def utf8_normalize(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     form: _Form,
     *,
@@ -880,7 +872,7 @@ def utf8_normalize(
 
 # ========================= String padding =========================
 def ascii_center(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     width: int,
     padding: str = " ",
@@ -897,7 +889,7 @@ utf8_lpad = _clone_signature(ascii_center)
 utf8_rpad = _clone_signature(ascii_center)
 
 def utf8_zero_fill(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     width: int,
     padding: str = "0",
@@ -910,7 +902,7 @@ utf8_zfill = utf8_zero_fill
 
 # ========================= String trimming =========================
 def ascii_ltrim(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     characters: str,
     *,
@@ -918,7 +910,7 @@ def ascii_ltrim(
     memory_pool: MemoryPool | None = None,
 ) -> _StringScalar | _StringArray | Expression: ...
 def ascii_ltrim_whitespace(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -937,7 +929,7 @@ utf8_trim_whitespace = _clone_signature(ascii_ltrim_whitespace)
 
 # ========================= String splitting =========================
 def ascii_split_whitespace(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     *,
     max_splits: int | None = None,
@@ -946,7 +938,7 @@ def ascii_split_whitespace(
     memory_pool: MemoryPool | None = None,
 ) -> _ListScalar | _ListArray | Expression: ...
 def split_pattern(
-    strings: _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     pattern: str,
     *,
@@ -961,7 +953,7 @@ utf8_split_whitespace = _clone_signature(ascii_split_whitespace)
 
 # ========================= String component extraction =========================
 def extract_regex(
-    strings: _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     pattern: str,
     *,
@@ -973,19 +965,14 @@ extract_regex_span = _clone_signature(extract_regex)
 
 # ========================= String joining =========================
 def binary_join(
-    strings: _ListScalar | _ArrayOrChunkedArray | Expression,
-    separator: str | bytes | _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
+    separator: str | bytes | _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> _StringOrBinaryScalar | _StringOrBinaryArray | Expression: ...
 def binary_join_element_wise(
-    *strings: str
-    | bytes
-    | _StringOrBinaryScalar
-    | _ArrayOrChunkedArray
-    | Iterable[Any]
-    | Expression,
+    *strings: str | bytes | _ScalarOrArray | Iterable[Any] | Expression,
     null_handling: _NullHandling = "emit_null",
     null_replacement: str = "",
     options: JoinOptions | None = None,
@@ -994,7 +981,7 @@ def binary_join_element_wise(
 
 # ========================= String Slicing =========================
 def binary_slice(
-    strings: _BinaryScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     start: int,
     stop: int | None = None,
@@ -1004,7 +991,7 @@ def binary_slice(
     memory_pool: MemoryPool | None = None,
 ) -> _BinaryScalar | _BinaryArray | Expression: ...
 def utf8_slice_codeunits(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     start: int,
     stop: int | None = None,
@@ -1016,7 +1003,7 @@ def utf8_slice_codeunits(
 
 # ========================= Containment tests =========================
 def count_substring(
-    strings: _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     pattern: str,
     *,
@@ -1030,7 +1017,7 @@ def count_substring(
 count_substring_regex = _clone_signature(count_substring)
 
 def ends_with(
-    strings: _StringOrBinaryScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     pattern: str,
     *,
@@ -1078,7 +1065,7 @@ is_in_meta_binary = _clone_signature(index_in_meta_binary)
 
 # ========================= Categorizations =========================
 def is_finite(
-    values: _NumericScalar | NullScalar | _ArrayOrChunkedArray | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1106,7 +1093,7 @@ true_unless_null = _clone_signature(is_valid)
 
 # ========================= Selecting / multiplexing =========================
 def case_when(
-    cond: StructScalar | _ArrayOrChunkedArray | Expression,
+    cond: _ScalarOrArray | Expression,
     /,
     *cases: _ScalarOrArray | _ArrayLike,
     memory_pool: MemoryPool | None = None,
@@ -1152,7 +1139,7 @@ def make_struct(
 
 # ========================= Conversions =========================
 def ceil_temporal(
-    timestamps: _TemporalScalar | _ArrayOrChunkedArray | Expression,
+    timestamps: _ScalarOrArray | Expression,
     /,
     multiple: int = 1,
     unit: _DateTimeUnit = "day",
@@ -1175,7 +1162,7 @@ def cast(
     memory_pool: MemoryPool | None = None,
 ) -> Scalar | Array | ChunkedArray | Table: ...
 def strftime(
-    timestamps: _TemporalScalar | _ArrayOrChunkedArray | Expression,
+    timestamps: _ScalarOrArray | Expression,
     /,
     format: str = "%Y-%m-%dT%H:%M:%S",
     locale: str = "C",
@@ -1184,7 +1171,7 @@ def strftime(
     memory_pool: MemoryPool | None = None,
 ) -> StringScalar | StringArray | ChunkedArray | Expression: ...
 def strptime(
-    strings: _StringScalar | _ArrayOrChunkedArray | Expression,
+    strings: _ScalarOrArray | Expression,
     /,
     format: str,
     unit: TimeUnit,
@@ -1210,13 +1197,13 @@ def run_end_decode(
 
 # ========================= Temporal component extraction =========================
 def day(
-    values: _TemporalScalar | _ArrayOrChunkedArray | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> Int64Scalar | Int64Array | ChunkedArray | Expression: ...
 def day_of_week(
-    values: _TemporalScalar | _ArrayOrChunkedArray | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     *,
     count_from_zero: bool = True,
@@ -1228,23 +1215,19 @@ def day_of_week(
 day_of_year = _clone_signature(day)
 
 def hour(
-    values: TimestampScalar
-    | Time32Scalar
-    | Time64Scalar
-    | _ArrayOrChunkedArray
-    | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> Int64Scalar | Int64Array | ChunkedArray | Expression: ...
 def is_dst(
-    values: TimestampScalar | _ArrayOrChunkedArray | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> BooleanScalar | _BooleanArray | Expression: ...
 def iso_week(
-    values: TimestampScalar | _ArrayOrChunkedArray | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1253,11 +1236,7 @@ def iso_week(
 iso_year = _clone_signature(iso_week)
 
 def is_leap_year(
-    values: TimestampScalar
-    | Date32Scalar
-    | Date64Scalar
-    | _ArrayOrChunkedArray
-    | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1275,7 +1254,7 @@ us_week = _clone_signature(iso_week)
 us_year = _clone_signature(iso_week)
 
 def week(
-    values: TimestampScalar | _ArrayOrChunkedArray | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     *,
     week_starts_monday: bool = True,
@@ -1288,7 +1267,7 @@ def week(
 year = _clone_signature(iso_week)
 
 def year_month_day(
-    values: _TemporalScalar | _ArrayOrChunkedArray | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1298,15 +1277,15 @@ iso_calendar = _clone_signature(year_month_day)
 
 # ========================= Temporal difference =========================
 def day_time_interval_between(
-    start: _TemporalScalar | _ArrayOrChunkedArray | Expression,
-    end: _TemporalScalar | _ArrayOrChunkedArray | Expression,
+    start: _ScalarOrArray | Expression,
+    end: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> _ScalarOrArray | Expression: ...
 def days_between(
-    start: _TemporalScalar | _ArrayOrChunkedArray | Expression,
-    end: _TemporalScalar | _ArrayOrChunkedArray | Expression,
+    start: _ScalarOrArray | Expression,
+    end: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1318,8 +1297,8 @@ milliseconds_between = _clone_signature(days_between)
 minutes_between = _clone_signature(days_between)
 
 def month_day_nano_interval_between(
-    start: _TemporalScalar | _ArrayOrChunkedArray | Expression,
-    end: _TemporalScalar | _ArrayOrChunkedArray | Expression,
+    start: _ScalarOrArray | Expression,
+    end: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1327,8 +1306,8 @@ def month_day_nano_interval_between(
     MonthDayNanoIntervalScalar | MonthDayNanoIntervalArray | ChunkedArray | Expression
 ): ...
 def month_interval_between(
-    start: _TemporalScalar | _ArrayOrChunkedArray | Expression,
-    end: _TemporalScalar | _ArrayOrChunkedArray | Expression,
+    start: _ScalarOrArray | Expression,
+    end: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1339,8 +1318,8 @@ quarters_between = _clone_signature(days_between)
 seconds_between = _clone_signature(days_between)
 
 def weeks_between(
-    start: _TemporalScalar | _ArrayOrChunkedArray | Expression,
-    end: _TemporalScalar | _ArrayOrChunkedArray | Expression,
+    start: _ScalarOrArray | Expression,
+    end: _ScalarOrArray | Expression,
     /,
     *,
     count_from_zero: bool = True,
@@ -1353,7 +1332,7 @@ years_between = _clone_signature(days_between)
 
 # ========================= Timezone handling =========================
 def assume_timezone(
-    timestamps: TimestampScalar | _ArrayOrChunkedArray | Expression,
+    timestamps: _ScalarOrArray | Expression,
     /,
     timezone: str,
     *,
@@ -1363,7 +1342,7 @@ def assume_timezone(
     memory_pool: MemoryPool | None = None,
 ) -> TimestampScalar | TimestampArray | ChunkedArray | Expression: ...
 def local_timestamp(
-    values: TimestampScalar | _ArrayOrChunkedArray | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1598,8 +1577,8 @@ def bottom_k_unstable(
 
 # ========================= Structural transforms =========================
 def list_element(
-    lists: _ListScalar | _ArrayOrChunkedArray | Expression,
-    index: int | _IntegerScalar | Expression,
+    lists: _ScalarOrArray | Expression,
+    index: int | Scalar | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1639,7 +1618,7 @@ def map_lookup(
     memory_pool: MemoryPool | None = None,
 ) -> _ScalarOrArray | Expression: ...
 def struct_field(
-    values: StructScalar | _ArrayOrChunkedArray | Expression,
+    values: _ScalarOrArray | Expression,
     /,
     indices: Sequence[str | bytes | int] | Expression | bytes | str | int,
     *,
