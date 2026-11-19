@@ -31,16 +31,17 @@ jobs:
     name: Update issue
     if: github.repository == 'apache/arrow'
     runs-on: ubuntu-latest
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       # GitHub closes the issue of a "GH-XXX: ..." pull request on merge
       # because of "* GitHub Issue: Closes #XXX" in the pull request
-      # description. This sets what GitHub doesn't set: the assignee
-      # and the milestone of the issue.
-      - name: Update issue
+      # description. The following steps set what GitHub doesn't set:
+      # the assignee and the milestone of the issue.
+      - name: Get issue
+        id: issue
         env:
-          AUTHOR: ${{ github.event.head_commit.author.username }}
-          GH_REPO: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}
           MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           set -euo pipefail
@@ -51,8 +52,7 @@ jobs:
             exit 0
           fi
           issue_number=${BASH_REMATCH[1]}
-          issue_path="repos/${GH_REPO}/issues/${issue_number}"
-          issue=$(gh api "${issue_path}")
+          issue=$(gh api "repos/${GH_REPO}/issues/${issue_number}")
           if [ "$(jq 'has("pull_request")' <<< "${issue}")" = "true" ]; then
             echo "#${issue_number} is a pull request, not an issue."
             exit 0
@@ -64,31 +64,47 @@ jobs:
             exit 0
           fi
 
-          # Assign the issue to the commit author, who is the pull
-          # request author for a squash merge, if it isn't assigned to
-          # anyone. GitHub ignores this silently if the author can't be
-          # assigned.
-          if [ -n "${AUTHOR}" ] && \
-               [ "$(jq '.assignees | length' <<< "${issue}")" -eq 0 ]; then
-            gh api "${issue_path}/assignees" -f "assignees[]=${AUTHOR}" > /dev/null
-          fi
+          # The following steps don't run without these outputs.
+          {
+            echo "number=${issue_number}"
+            echo "n_assignees=$(jq '.assignees | length' <<< "${issue}")"
+            echo "has_milestone=$(jq '.milestone != null' <<< "${issue}")"
+          } | tee -a "${GITHUB_OUTPUT}"
+      # Assign the issue to the commit author, who is the pull request
+      # author for a squash merge, if it isn't assigned to anyone.
+      # GitHub ignores this silently if the author can't be assigned.
+      - name: Assign issue
+        if: >-
+          steps.issue.outputs.n_assignees == '0' &&
+          github.event.head_commit.author.username
+        env:
+          AUTHOR: ${{ github.event.head_commit.author.username }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          gh api "repos/${GH_REPO}/issues/${ISSUE_NUMBER}/assignees" \
+            -f "assignees[]=${AUTHOR}" > /dev/null
+      # Keep the milestone of the issue. If the issue doesn't have a
+      # milestone, use the next major release that doesn't have a
+      # maintenance branch yet like dev/merge_arrow_pr.py does.
+      - name: Set milestone
+        if: steps.issue.outputs.has_milestone == 'false'
+        env:
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          set -euo pipefail
 
-          # Keep the milestone of the issue. If the issue doesn't have
-          # a milestone, use the next major release that doesn't have a
-          # maintenance branch yet like dev/merge_arrow_pr.py does.
-          if [ "$(jq '.milestone' <<< "${issue}")" = "null" ]; then
-            maintenance_versions=$(
-              gh api --paginate "repos/${GH_REPO}/git/matching-refs/heads/maint-" \
-                --jq '.[].ref | ltrimstr("refs/heads/maint-")')
-            major_versions=$(
-              gh api --paginate "repos/${GH_REPO}/milestones?per_page=100" \
-                --jq '.[] | select(.title | test("^[0-9]+\\.0\\.0$")) | "\(.title):\(.number)"' |
-                sort -V)
-            for major_version in ${major_versions}; do
-              if ! grep -qxF "${major_version%:*}" <<< "${maintenance_versions}"; then
-                gh api -X PATCH "${issue_path}" \
-                  -F "milestone=${major_version#*:}" > /dev/null
-                break
-              fi
-            done
-          fi
+          maintenance_versions=$(
+            gh api --paginate "repos/${GH_REPO}/git/matching-refs/heads/maint-" \
+              --jq '.[].ref | ltrimstr("refs/heads/maint-")')
+          major_versions=$(
+            gh api --paginate "repos/${GH_REPO}/milestones?per_page=100" \
+              --jq '.[] | select(.title | test("^[0-9]+\\.0\\.0$")) | "\(.title):\(.number)"' |
+              sort -V)
+          for major_version in ${major_versions}; do
+            if ! grep -qxF "${major_version%:*}" <<< "${maintenance_versions}"; then
+              echo "Milestone: ${major_version%:*}"
+              gh api -X PATCH "repos/${GH_REPO}/issues/${ISSUE_NUMBER}" \
+                -F "milestone=${major_version#*:}" > /dev/null
+              break
+            fi
+          done
