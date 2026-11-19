@@ -34,4 +34,10 @@ In accordance to the [AI generation guidelines](https://arrow.apache.org/docs/de
 - [ ] AI
 - [ ] Not reviewed
 
+<!--
+The line below is filled in automatically from the PR title. For a PR to main
+it says "Closes #XXX" and GitHub closes the issue when the PR is merged. If
+your PR fixes only a part of the issue, change "Closes" to "Refs" so that the
+issue stays open.
+-->
 * GitHub Issue: (filled in automatically from the PR title)
