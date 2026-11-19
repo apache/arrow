@@ -1074,18 +1074,8 @@ class StreamDecoderInternal : public MessageDecoderListener {
 
   Status OnMessageDecoded(std::unique_ptr<Message> message) override {
     if (ARROW_PREDICT_TRUE(message != nullptr)) {
-      if (options_.max_metadata_length >= 0 &&
-          message->metadata()->size() > options_.max_metadata_length) {
-        return Status::Invalid("IPC metadata length ", message->metadata()->size(),
-                               " exceeds maximum allowed metadata length ",
-                               options_.max_metadata_length);
-      }
-      if (options_.max_body_length >= 0 &&
-          message->body_length() > options_.max_body_length) {
-        return Status::Invalid("IPC body length ", message->body_length(),
-                               " exceeds maximum allowed body length ",
-                               options_.max_body_length);
-      }
+      RETURN_NOT_OK(options_.CheckMetadataLength(message->metadata()->size()));
+      RETURN_NOT_OK(options_.CheckBodyLength(message->body_length()));
     }
     ++stats_.num_messages;
     switch (state_) {
@@ -1323,28 +1313,14 @@ Result<FileBlock> FileBlockFromFlatbuffer(const flatbuf::Block* fb_block,
   return block;
 }
 
-Status CheckAligned(const FileBlock& block) {
+Status CheckBlock(const FileBlock& block, const IpcReadOptions& options) {
   if (!bit_util::IsMultipleOf8(block.offset) ||
       !bit_util::IsMultipleOf8(block.metadata_length) ||
       !bit_util::IsMultipleOf8(block.body_length)) {
     return Status::Invalid("Unaligned block in IPC file");
   }
-  return Status::OK();
-}
-
-Status CheckBlockLimits(const FileBlock& block, const IpcReadOptions& options) {
-  RETURN_NOT_OK(options.Validate());
-  if (options.max_metadata_length >= 0 &&
-      block.metadata_length > options.max_metadata_length) {
-    return Status::Invalid("IPC metadata length ", block.metadata_length,
-                           " exceeds maximum allowed metadata length ",
-                           options.max_metadata_length);
-  }
-  if (options.max_body_length >= 0 && block.body_length > options.max_body_length) {
-    return Status::Invalid("IPC body length ", block.body_length,
-                           " exceeds maximum allowed body length ",
-                           options.max_body_length);
-  }
+  RETURN_NOT_OK(options.CheckMetadataLength(block.metadata_length));
+  RETURN_NOT_OK(options.CheckBodyLength(block.body_length));
   return Status::OK();
 }
 
@@ -1364,8 +1340,7 @@ Result<MessagePtr> CheckBodyLength(MessagePtr message, const FileBlock& block) {
 Result<std::unique_ptr<Message>> ReadMessageFromBlock(
     const FileBlock& block, const IpcReadOptions& options, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader) {
-  RETURN_NOT_OK(CheckAligned(block));
-  RETURN_NOT_OK(CheckBlockLimits(block, options));
+  RETURN_NOT_OK(CheckBlock(block, options));
   ARROW_ASSIGN_OR_RAISE(
       auto message, ReadMessage(block.offset, block.metadata_length, block.body_length,
                                 file, options, fields_loader));
@@ -1375,8 +1350,7 @@ Result<std::unique_ptr<Message>> ReadMessageFromBlock(
 Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
     const FileBlock& block, const IpcReadOptions& options, io::RandomAccessFile* file,
     const io::IOContext& io_context) {
-  RETURN_NOT_OK(CheckAligned(block));
-  RETURN_NOT_OK(CheckBlockLimits(block, options));
+  RETURN_NOT_OK(CheckBlock(block, options));
   return ReadMessageAsync(block.offset, block.metadata_length, block.body_length, file,
                           options, io_context)
       .Then([block](std::shared_ptr<Message> message) {
@@ -1657,13 +1631,11 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
       if (!owned_file_) return Status::Invalid("Cannot coalesce without an owned file");
       for (int i = 0; i < state->num_dictionaries(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto block, state->GetDictionaryBlock(i));
-        RETURN_NOT_OK(CheckAligned(block));
-        RETURN_NOT_OK(CheckBlockLimits(block, options_));
+        RETURN_NOT_OK(CheckBlock(block, options_));
       }
       for (int i = 0; i < state->num_record_batches(); ++i) {
         ARROW_ASSIGN_OR_RAISE(auto block, state->GetRecordBatchBlock(i));
-        RETURN_NOT_OK(CheckAligned(block));
-        RETURN_NOT_OK(CheckBlockLimits(block, options_));
+        RETURN_NOT_OK(CheckBlock(block, options_));
       }
       // Since the user is asking for all fields then we can cache the entire
       // file (up to the footer)
@@ -1684,8 +1656,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
           all_metadata_ready.Then([this, index]() -> Result<std::shared_ptr<Message>> {
             stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
             ARROW_ASSIGN_OR_RAISE(FileBlock block, GetRecordBatchBlock(index));
-            RETURN_NOT_OK(CheckAligned(block));
-            RETURN_NOT_OK(CheckBlockLimits(block, options_));
+            RETURN_NOT_OK(CheckBlock(block, options_));
             ARROW_ASSIGN_OR_RAISE(
                 std::shared_ptr<Buffer> metadata,
                 metadata_cache_->Read({block.offset, block.metadata_length}));
@@ -1792,8 +1763,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // Adds all dictionaries to the range cache
     for (int i = 0; i < num_dictionaries(); ++i) {
       ARROW_ASSIGN_OR_RAISE(FileBlock block, GetDictionaryBlock(i));
-      RETURN_NOT_OK(CheckAligned(block));
-      RETURN_NOT_OK(CheckBlockLimits(block, options_));
+      RETURN_NOT_OK(CheckBlock(block, options_));
       ranges->push_back({block.offset, block.metadata_length + block.body_length});
     }
     return Status::OK();
@@ -1803,8 +1773,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
                            std::vector<io::ReadRange>* ranges) {
     for (int index : indices) {
       ARROW_ASSIGN_OR_RAISE(FileBlock block, GetRecordBatchBlock(index));
-      RETURN_NOT_OK(CheckAligned(block));
-      RETURN_NOT_OK(CheckBlockLimits(block, options_));
+      RETURN_NOT_OK(CheckBlock(block, options_));
       ranges->push_back({block.offset, block.metadata_length});
     }
     return Status::OK();
@@ -1961,8 +1930,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
         .Then([this, index](const std::shared_ptr<Message>& message_obj)
                   -> Future<std::shared_ptr<RecordBatch>> {
           ARROW_ASSIGN_OR_RAISE(auto block, GetRecordBatchBlock(index));
-          RETURN_NOT_OK(CheckAligned(block));
-          RETURN_NOT_OK(CheckBlockLimits(block, options_));
+          RETURN_NOT_OK(CheckBlock(block, options_));
           ARROW_ASSIGN_OR_RAISE(auto checked_message,
                                 CheckBodyLength(message_obj, block));
           ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(checked_message));
@@ -2016,12 +1984,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
             return Status::Invalid("File is smaller than indicated metadata size");
           }
 
-          if (self->options_.max_metadata_length >= 0 &&
-              footer_length > self->options_.max_metadata_length) {
-            return Status::Invalid("IPC file footer metadata length ", footer_length,
-                                   " exceeds maximum allowed metadata length ",
-                                   self->options_.max_metadata_length);
-          }
+          RETURN_NOT_OK(self->options_.CheckMetadataLength(
+              footer_length, "IPC file footer metadata length "));
 
           // Now read the footer
           auto read_footer = self->file_->ReadAsync(
@@ -2145,8 +2109,7 @@ WholeIpcFileRecordBatchGenerator::operator()() {
 
 Future<std::shared_ptr<Message>> WholeIpcFileRecordBatchGenerator::ReadBlock(
     const FileBlock& block) {
-  RETURN_NOT_OK(CheckAligned(block));
-  RETURN_NOT_OK(CheckBlockLimits(block, state_->options_));
+  RETURN_NOT_OK(CheckBlock(block, state_->options_));
   if (cached_source_) {
     auto cached_source = cached_source_;
     io::ReadRange range{block.offset, block.metadata_length + block.body_length};

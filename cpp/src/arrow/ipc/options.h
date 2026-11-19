@@ -203,6 +203,13 @@ struct ARROW_EXPORT IpcReadOptions {
   /// \brief Validate read options.
   Status Validate() const;
 
+  /// \brief Validate that metadata length does not exceed max_metadata_length.
+  Status CheckMetadataLength(int64_t length,
+                             const char* prefix = "IPC metadata length ") const;
+
+  /// \brief Validate that body length does not exceed max_body_length.
+  Status CheckBodyLength(int64_t length) const;
+
   static IpcReadOptions Defaults();
 };
 

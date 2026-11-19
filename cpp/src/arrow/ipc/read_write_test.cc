@@ -3401,91 +3401,59 @@ TEST(PreBuffering, MixedAccess) {
   ASSERT_EQ(2, stats.num_record_batches);
 }
 
-TEST(TestMessageDecoderBounds, NegativeConsumeSize) {
+TEST(TestMessageDecoderBounds, MalformedOrExceededHeaders) {
   std::unique_ptr<Message> message;
   auto listener = std::make_shared<AssignMessageDecoderListener>(&message);
-  MessageDecoder decoder(listener);
+
   const uint8_t data[4] = {0};
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("Invalid data size: negative byte count"),
-      decoder.Consume(data, -1));
-}
+      MessageDecoder(listener).Consume(data, -1));
 
-TEST(TestMessageDecoderBounds, NegativeContinuationToken) {
-  std::unique_ptr<Message> message;
-  auto listener = std::make_shared<AssignMessageDecoderListener>(&message);
-  MessageDecoder decoder(listener);
-  int32_t negative_token = -5;
+  int32_t neg_token = -5;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       IOError, ::testing::HasSubstr("negative continuation token"),
-      decoder.Consume(reinterpret_cast<const uint8_t*>(&negative_token),
-                      sizeof(int32_t)));
-}
+      MessageDecoder(listener).Consume(reinterpret_cast<const uint8_t*>(&neg_token),
+                                       sizeof(int32_t)));
 
-TEST(TestMessageDecoderBounds, NegativeMetadataLength) {
-  std::unique_ptr<Message> message;
-  auto listener = std::make_shared<AssignMessageDecoderListener>(&message);
-  MessageDecoder decoder(listener);
-  int32_t buf[2] = {internal::kIpcContinuationToken, -10};
+  int32_t neg_meta[2] = {internal::kIpcContinuationToken, -10};
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       IOError, ::testing::HasSubstr("negative metadata length"),
-      decoder.Consume(reinterpret_cast<const uint8_t*>(buf), sizeof(buf)));
-}
+      MessageDecoder(listener).Consume(reinterpret_cast<const uint8_t*>(neg_meta),
+                                       sizeof(neg_meta)));
 
-TEST(TestMessageDecoderBounds, MaxMetadataLengthExceeded) {
-  std::unique_ptr<Message> message;
-  auto listener = std::make_shared<AssignMessageDecoderListener>(&message);
   auto options = IpcReadOptions::Defaults();
   options.max_metadata_length = 50;
-  MessageDecoder decoder(listener, options);
-  int32_t buf[2] = {internal::kIpcContinuationToken, 100};
+  int32_t exceeded_meta[2] = {internal::kIpcContinuationToken, 100};
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
-      decoder.Consume(reinterpret_cast<const uint8_t*>(buf), sizeof(buf)));
-}
-
-TEST(TestStreamDecoderLimits, MaxBodyLengthExceeded) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntRecordBatch(&batch));
-  StreamWriterHelper writer_helper;
-  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
-  ASSERT_OK(writer_helper.WriteBatch(batch));
-  ASSERT_OK(writer_helper.Finish());
-
-  auto options = IpcReadOptions::Defaults();
-  options.max_body_length = 1;
-  auto listener = std::make_shared<CollectListener>();
-  StreamDecoder decoder(listener, options);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
-      decoder.Consume(writer_helper.buffer_));
-
-  auto default_listener = std::make_shared<CollectListener>();
-  StreamDecoder default_decoder(default_listener);
-  ASSERT_OK(default_decoder.Consume(writer_helper.buffer_));
-  ASSERT_EQ(default_listener->num_record_batches(), 1);
-}
-
-TEST(TestStreamReaderLimits, MaxBodyLengthExceeded) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntRecordBatch(&batch));
-  StreamWriterHelper writer_helper;
-  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
-  ASSERT_OK(writer_helper.WriteBatch(batch));
-  ASSERT_OK(writer_helper.Finish());
-
-  auto options = IpcReadOptions::Defaults();
-  options.max_body_length = 1;
-  io::BufferReader stream_reader_buf(writer_helper.buffer_);
-  ASSERT_OK_AND_ASSIGN(auto reader,
-                       RecordBatchStreamReader::Open(&stream_reader_buf, options));
-  std::shared_ptr<RecordBatch> out_batch;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
-      reader->ReadNext(&out_batch));
+      MessageDecoder(listener, options)
+          .Consume(reinterpret_cast<const uint8_t*>(exceeded_meta),
+                   sizeof(exceeded_meta)));
 }
 
 namespace {
+
+Result<std::shared_ptr<Buffer>> MakeTestStreamBuffer() {
+  std::shared_ptr<RecordBatch> batch;
+  RETURN_NOT_OK(MakeIntRecordBatch(&batch));
+  StreamWriterHelper writer;
+  RETURN_NOT_OK(writer.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  RETURN_NOT_OK(writer.WriteBatch(batch));
+  RETURN_NOT_OK(writer.Finish());
+  return writer.buffer_;
+}
+
+Result<std::shared_ptr<Buffer>> MakeTestFileBuffer(
+    std::shared_ptr<KeyValueMetadata> metadata = nullptr) {
+  std::shared_ptr<RecordBatch> batch;
+  RETURN_NOT_OK(MakeIntRecordBatch(&batch));
+  FileWriterHelper writer;
+  RETURN_NOT_OK(writer.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  RETURN_NOT_OK(writer.WriteBatch(batch, std::move(metadata)));
+  RETURN_NOT_OK(writer.Finish());
+  return writer.buffer_;
+}
 
 class MockCustomMessageReader : public MessageReader {
  public:
@@ -3506,310 +3474,169 @@ class MockCustomMessageReader : public MessageReader {
 
 }  // namespace
 
-TEST(TestStreamReaderLimits, CustomMessageReaderLimitsExceeded) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntRecordBatch(&batch));
-  StreamWriterHelper writer_helper;
-  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
-  ASSERT_OK(writer_helper.WriteBatch(batch));
-  ASSERT_OK(writer_helper.Finish());
-
-  // Test schema metadata length limit on custom reader
-  {
-    auto options = IpcReadOptions::Defaults();
-    options.max_metadata_length = 5;
-    std::vector<std::unique_ptr<Message>> test_messages;
-    io::BufferReader r(writer_helper.buffer_);
-    auto mr = MessageReader::Open(&r);
-    while (true) {
-      ASSERT_OK_AND_ASSIGN(auto msg, mr->ReadNextMessage());
-      if (!msg) break;
-      test_messages.push_back(std::move(msg));
-    }
-    auto custom_mr = std::make_unique<MockCustomMessageReader>(std::move(test_messages));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
-        RecordBatchStreamReader::Open(std::move(custom_mr), options));
-  }
-
-  // Test body length limit on custom reader
-  {
-    auto options = IpcReadOptions::Defaults();
-    options.max_body_length = 1;
-    std::vector<std::unique_ptr<Message>> test_messages;
-    io::BufferReader r(writer_helper.buffer_);
-    auto mr = MessageReader::Open(&r);
-    while (true) {
-      ASSERT_OK_AND_ASSIGN(auto msg, mr->ReadNextMessage());
-      if (!msg) break;
-      test_messages.push_back(std::move(msg));
-    }
-    auto custom_mr = std::make_unique<MockCustomMessageReader>(std::move(test_messages));
-    ASSERT_OK_AND_ASSIGN(auto reader,
-                         RecordBatchStreamReader::Open(std::move(custom_mr), options));
-    std::shared_ptr<RecordBatch> out_batch;
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
-        reader->ReadNext(&out_batch));
-  }
-}
-
-TEST(TestFileReaderLimits, MaxFooterMetadataLengthExceeded) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntRecordBatch(&batch));
-  FileWriterHelper writer_helper;
-  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
-  ASSERT_OK(writer_helper.WriteBatch(batch));
-  ASSERT_OK(writer_helper.Finish());
+TEST(TestStreamReaderLimits, MaxBodyLengthExceeded) {
+  ASSERT_OK_AND_ASSIGN(auto buffer, MakeTestStreamBuffer());
 
   auto options = IpcReadOptions::Defaults();
-  options.max_metadata_length = 10;
-  auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
+  options.max_body_length = 1;
+
+  // RecordBatchStreamReader
+  io::BufferReader stream_reader_buf(buffer);
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchStreamReader::Open(&stream_reader_buf, options));
+  std::shared_ptr<RecordBatch> out_batch;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
+      reader->ReadNext(&out_batch));
+
+  // StreamDecoder
+  auto listener = std::make_shared<CollectListener>();
+  StreamDecoder decoder(listener, options);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
+      decoder.Consume(buffer));
+
+  auto default_listener = std::make_shared<CollectListener>();
+  StreamDecoder default_decoder(default_listener);
+  ASSERT_OK(default_decoder.Consume(buffer));
+  ASSERT_EQ(default_listener->num_record_batches(), 1);
+}
+
+TEST(TestStreamReaderLimits, CustomMessageReaderLimitsExceeded) {
+  ASSERT_OK_AND_ASSIGN(auto buffer, MakeTestStreamBuffer());
+
+  auto make_custom_reader = [&]() -> std::unique_ptr<MessageReader> {
+    std::vector<std::unique_ptr<Message>> messages;
+    io::BufferReader r(buffer);
+    auto mr = MessageReader::Open(&r);
+    while (true) {
+      auto msg = mr->ReadNextMessage().ValueOrDie();
+      if (!msg) break;
+      messages.push_back(std::move(msg));
+    }
+    return std::make_unique<MockCustomMessageReader>(std::move(messages));
+  };
+
+  auto options = IpcReadOptions::Defaults();
+  options.max_metadata_length = 5;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
-      RecordBatchFileReader::Open(buf_reader.get(), options));
+      RecordBatchStreamReader::Open(make_custom_reader(), options));
+
+  options = IpcReadOptions::Defaults();
+  options.max_body_length = 1;
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchStreamReader::Open(make_custom_reader(), options));
+  std::shared_ptr<RecordBatch> out_batch;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
+      reader->ReadNext(&out_batch));
+}
+
+TEST(TestFileReaderLimits, MaxMetadataLengthExceeded) {
+  ASSERT_OK_AND_ASSIGN(auto buffer, MakeTestFileBuffer());
+  auto options = IpcReadOptions::Defaults();
+  options.max_metadata_length = 10;
+  io::BufferReader buf_reader(buffer);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
+      RecordBatchFileReader::Open(&buf_reader, options));
+
+  auto metadata = key_value_metadata({"large_field"}, {std::string(2000, 'x')});
+  ASSERT_OK_AND_ASSIGN(auto large_buffer, MakeTestFileBuffer(metadata));
+  options.max_metadata_length = 500;
+  io::BufferReader large_buf_reader(large_buffer);
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchFileReader::Open(&large_buf_reader, options));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
+      reader->PreBufferMetadata({0}));
 }
 
 TEST(TestFileReaderLimits, MaxBodyLengthExceeded) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntRecordBatch(&batch));
-  FileWriterHelper writer_helper;
-  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
-  ASSERT_OK(writer_helper.WriteBatch(batch));
-  ASSERT_OK(writer_helper.Finish());
-
+  ASSERT_OK_AND_ASSIGN(auto buffer, MakeTestFileBuffer());
   auto options = IpcReadOptions::Defaults();
   options.max_body_length = 1;
-  auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
-  ASSERT_OK_AND_ASSIGN(auto reader,
-                       RecordBatchFileReader::Open(buf_reader.get(), options));
+  auto buf_reader = std::make_shared<NoZeroCopyBufferReader>(buffer);
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchFileReader::Open(buf_reader, options));
+
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
       reader->ReadRecordBatch(0));
-}
-
-TEST(TestFileReaderLimits, PreBufferMetadataExceeded) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntRecordBatch(&batch));
-  auto metadata = key_value_metadata({"large_field"}, {std::string(2000, 'x')});
-  FileWriterHelper writer_helper;
-  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
-  ASSERT_OK(writer_helper.WriteBatch(batch, metadata));
-  ASSERT_OK(writer_helper.Finish());
-
-  auto options = IpcReadOptions::Defaults();
-  options.max_metadata_length = 500;
-  auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
-  ASSERT_OK_AND_ASSIGN(auto reader,
-                       RecordBatchFileReader::Open(buf_reader.get(), options));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
-      reader->PreBufferMetadata({0}));
-}
-
-TEST(TestFileReaderLimits, PreBufferBodyLengthExceeded) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntRecordBatch(&batch));
-  FileWriterHelper writer_helper;
-  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
-  ASSERT_OK(writer_helper.WriteBatch(batch));
-  ASSERT_OK(writer_helper.Finish());
-
-  auto options = IpcReadOptions::Defaults();
-  options.max_body_length = 1;
-  auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
-  ASSERT_OK_AND_ASSIGN(auto reader,
-                       RecordBatchFileReader::Open(buf_reader.get(), options));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
       reader->PreBufferMetadata({0}));
-}
-
-TEST(TestFileReaderLimits, GeneratorCoalesceBlockLimitsExceeded) {
-  std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeIntRecordBatch(&batch));
-  FileWriterHelper writer_helper;
-  ASSERT_OK(writer_helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
-  ASSERT_OK(writer_helper.WriteBatch(batch));
-  ASSERT_OK(writer_helper.Finish());
-
-  auto options = IpcReadOptions::Defaults();
-  options.max_body_length = 1;
-  auto buf_reader = std::make_shared<io::BufferReader>(writer_helper.buffer_);
-  ASSERT_OK_AND_ASSIGN(auto reader,
-                       RecordBatchFileReader::Open(buf_reader, options));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
       reader->GetRecordBatchGenerator(/*coalesce=*/true));
 }
 
-TEST(TestIpcReadOptions, ValidateNegativeLimits) {
+TEST(TestIpcReadOptions, NegativeLimitsInvalid) {
   auto options = IpcReadOptions::Defaults();
   ASSERT_OK(options.Validate());
 
-  options.max_metadata_length = -2;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("max_metadata_length must be -1 or non-negative, got -2"),
-      options.Validate());
+  for (auto* opt : {&options.max_metadata_length, &options.max_body_length,
+                    &options.max_decompression_ratio}) {
+    *opt = -2;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, ::testing::HasSubstr("must be -1 or non-negative, got -2"),
+        options.Validate());
+    *opt = -1;
+  }
 
-  options = IpcReadOptions::Defaults();
-  options.max_body_length = -2;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("max_body_length must be -1 or non-negative, got -2"),
-      options.Validate());
-
-  options = IpcReadOptions::Defaults();
-  options.max_decompression_ratio = -2;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("max_decompression_ratio must be -1 or non-negative, got -2"),
-      options.Validate());
-
-  options = IpcReadOptions::Defaults();
   options.max_recursion_depth = -1;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("max_recursion_depth must be non-negative, got -1"),
+      Invalid, ::testing::HasSubstr("max_recursion_depth must be non-negative, got -1"),
       options.Validate());
-}
-
-TEST(TestStreamReaderLimits, NegativeLimitsInvalid) {
-  io::BufferReader empty_reader(Buffer::FromString(""));
-  auto options = IpcReadOptions::Defaults();
-  options.max_metadata_length = -2;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("max_metadata_length must be -1 or non-negative, got -2"),
-      RecordBatchStreamReader::Open(&empty_reader, options));
 
   options = IpcReadOptions::Defaults();
-  options.max_body_length = -2;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("max_body_length must be -1 or non-negative, got -2"),
-      RecordBatchStreamReader::Open(&empty_reader, options));
-}
-
-TEST(TestFileReaderLimits, NegativeLimitsInvalid) {
+  options.max_metadata_length = -2;
   io::BufferReader empty_reader(Buffer::FromString(""));
-  auto options = IpcReadOptions::Defaults();
-  options.max_metadata_length = -2;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("max_metadata_length must be -1 or non-negative, got -2"),
-      RecordBatchFileReader::Open(&empty_reader, options));
-
-  options = IpcReadOptions::Defaults();
-  options.max_body_length = -2;
+      Invalid, ::testing::HasSubstr("max_metadata_length must be -1 or non-negative"),
+      RecordBatchStreamReader::Open(&empty_reader, options));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("max_body_length must be -1 or non-negative, got -2"),
+      Invalid, ::testing::HasSubstr("max_metadata_length must be -1 or non-negative"),
       RecordBatchFileReader::Open(&empty_reader, options));
-}
-
-TEST(TestMessageDecoderBounds, NegativeLimitsInvalid) {
-  auto options = IpcReadOptions::Defaults();
-  options.max_metadata_length = -2;
   auto empty_buf = Buffer::FromString("");
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("max_metadata_length must be -1 or non-negative, got -2"),
+      Invalid, ::testing::HasSubstr("max_metadata_length must be -1 or non-negative"),
       ReadMessage(empty_buf, nullptr, options));
 }
 
-TEST(TestDecompressBufferLimits, NegativeUncompressedSize) {
+TEST(TestDecompressBufferLimits, Limits) {
   if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
     GTEST_SKIP() << "LZ4 compression not available";
   }
   ASSERT_OK_AND_ASSIGN(auto codec, util::Codec::Create(Compression::LZ4_FRAME));
-  int64_t uncompressed_size = -5;
-  std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
-                       sizeof(int64_t));
-  buf_data.append(16, 'x');
-  auto buf = Buffer::FromString(std::move(buf_data));
+
+  auto make_buf = [](int64_t uncompressed_size, size_t payload_len = 10) {
+    std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
+                         sizeof(int64_t));
+    buf_data.append(payload_len, 'x');
+    return Buffer::FromString(std::move(buf_data));
+  };
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("negative capacity: -5"),
-      internal::DecompressBuffer(buf, IpcReadOptions::Defaults(), codec.get()));
-}
-
-TEST(TestDecompressBufferLimits, ZeroCompressedPayloadWithNonZeroUncompressed) {
-  if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
-    GTEST_SKIP() << "LZ4 compression not available";
-  }
-  ASSERT_OK_AND_ASSIGN(auto codec, util::Codec::Create(Compression::LZ4_FRAME));
-  int64_t uncompressed_size = 100;
-  std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
-                       sizeof(int64_t));
-  auto buf = Buffer::FromString(std::move(buf_data));
+      internal::DecompressBuffer(make_buf(-5, 16), IpcReadOptions::Defaults(),
+                                 codec.get()));
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
           "Compressed buffer has 0 payload bytes but non-zero uncompressed size 100"),
-      internal::DecompressBuffer(buf, IpcReadOptions::Defaults(), codec.get()));
-}
-
-TEST(TestDecompressBufferLimits, MaxDecompressionRatioExceeded) {
-  if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
-    GTEST_SKIP() << "LZ4 compression not available";
-  }
-  ASSERT_OK_AND_ASSIGN(auto codec, util::Codec::Create(Compression::LZ4_FRAME));
-  int64_t uncompressed_size = 1000;
-  std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
-                       sizeof(int64_t));
-  buf_data.append(10, 'x');
-  auto buf = Buffer::FromString(std::move(buf_data));
+      internal::DecompressBuffer(make_buf(100, 0), IpcReadOptions::Defaults(),
+                                 codec.get()));
 
   auto options = IpcReadOptions::Defaults();
-  options.max_decompression_ratio = 5;
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      CapacityError,
-      ::testing::HasSubstr("exceeds maximum allowed decompression ratio (5)"),
-      internal::DecompressBuffer(buf, options, codec.get()));
-}
-
-TEST(TestDecompressBufferLimits, ZeroDecompressionRatioExceeded) {
-  if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
-    GTEST_SKIP() << "LZ4 compression not available";
+  for (int ratio : {5, 0}) {
+    options.max_decompression_ratio = ratio;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        CapacityError,
+        ::testing::HasSubstr("exceeds maximum allowed decompression ratio"),
+        internal::DecompressBuffer(make_buf(1000), options, codec.get()));
   }
-  ASSERT_OK_AND_ASSIGN(auto codec, util::Codec::Create(Compression::LZ4_FRAME));
-  int64_t uncompressed_size = 1000;
-  std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
-                       sizeof(int64_t));
-  buf_data.append(10, 'x');
-  auto buf = Buffer::FromString(std::move(buf_data));
-
-  auto options = IpcReadOptions::Defaults();
-  options.max_decompression_ratio = 0;
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      CapacityError,
-      ::testing::HasSubstr("exceeds maximum allowed decompression ratio (0)"),
-      internal::DecompressBuffer(buf, options, codec.get()));
-}
-
-TEST(TestDecompressBufferLimits, NegativeDecompressionRatioInvalid) {
-  if (!util::Codec::IsAvailable(Compression::LZ4_FRAME)) {
-    GTEST_SKIP() << "LZ4 compression not available";
-  }
-  ASSERT_OK_AND_ASSIGN(auto codec, util::Codec::Create(Compression::LZ4_FRAME));
-  int64_t uncompressed_size = 1000;
-  std::string buf_data(reinterpret_cast<const char*>(&uncompressed_size),
-                       sizeof(int64_t));
-  buf_data.append(10, 'x');
-  auto buf = Buffer::FromString(std::move(buf_data));
-
-  auto options = IpcReadOptions::Defaults();
-  options.max_decompression_ratio = -2;
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr("max_decompression_ratio must be -1 or non-negative, got -2"),
-      internal::DecompressBuffer(buf, options, codec.get()));
 }
 
 TEST(TestMetadataBounds, EmptyOrInvalidTensorMetadata) {

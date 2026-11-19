@@ -432,17 +432,9 @@ Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
   // If the user does not pass in a body buffer then we assume they are skipping it
   MessageDecoder decoder(listener, options, body == nullptr);
 
-  if (options.max_metadata_length >= 0 &&
-      metadata->size() > options.max_metadata_length) {
-    return Status::Invalid("IPC metadata length ", metadata->size(),
-                           " exceeds maximum allowed metadata length ",
-                           options.max_metadata_length);
-  }
-  if (body != nullptr && options.max_body_length >= 0 &&
-      body->size() > options.max_body_length) {
-    return Status::Invalid("IPC body length ", body->size(),
-                           " exceeds maximum allowed body length ",
-                           options.max_body_length);
+  RETURN_NOT_OK(options.CheckMetadataLength(metadata->size()));
+  if (body != nullptr) {
+    RETURN_NOT_OK(options.CheckBodyLength(body->size()));
   }
 
   if (metadata->size() < decoder.next_required_size()) {
@@ -500,16 +492,9 @@ static Result<std::unique_ptr<Message>> ReadMessageInternal(
     io::RandomAccessFile* file, const IpcReadOptions& options,
     const FieldsLoaderFunction& fields_loader) {
   RETURN_NOT_OK(options.Validate());
-  if (options.max_metadata_length >= 0 && metadata_length > options.max_metadata_length) {
-    return Status::Invalid("IPC metadata length ", metadata_length,
-                           " exceeds maximum allowed metadata length ",
-                           options.max_metadata_length);
-  }
-  if (body_length.has_value() && options.max_body_length >= 0 &&
-      *body_length > options.max_body_length) {
-    return Status::Invalid("IPC body length ", *body_length,
-                           " exceeds maximum allowed body length ",
-                           options.max_body_length);
+  RETURN_NOT_OK(options.CheckMetadataLength(metadata_length));
+  if (body_length.has_value()) {
+    RETURN_NOT_OK(options.CheckBodyLength(*body_length));
   }
   ReadMessageState state(options);
 
@@ -567,16 +552,8 @@ Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metada
                                                   const IpcReadOptions& options,
                                                   const io::IOContext& context) {
   RETURN_NOT_OK(options.Validate());
-  if (options.max_metadata_length >= 0 && metadata_length > options.max_metadata_length) {
-    return Status::Invalid("IPC metadata length ", metadata_length,
-                           " exceeds maximum allowed metadata length ",
-                           options.max_metadata_length);
-  }
-  if (options.max_body_length >= 0 && body_length > options.max_body_length) {
-    return Status::Invalid("IPC body length ", body_length,
-                           " exceeds maximum allowed body length ",
-                           options.max_body_length);
-  }
+  RETURN_NOT_OK(options.CheckMetadataLength(metadata_length));
+  RETURN_NOT_OK(options.CheckBodyLength(body_length));
   // Make a std::shared_ptr so as to have a stable ReadMessageState pointer,
   // since state->listener will point back to state->result.
   auto state = std::make_shared<ReadMessageState>(options);
@@ -1005,12 +982,7 @@ class MessageDecoder::MessageDecoderImpl {
       RETURN_NOT_OK(listener_->OnEOS());
       return Status::OK();
     } else if (continuation > 0) {
-      if (options_.max_metadata_length >= 0 &&
-          continuation > options_.max_metadata_length) {
-        return Status::Invalid("IPC metadata length ", continuation,
-                               " exceeds maximum allowed metadata length ",
-                               options_.max_metadata_length);
-      }
+      RETURN_NOT_OK(options_.CheckMetadataLength(continuation));
       state_ = State::METADATA;
       // ARROW-6314: Backwards compatibility for reading old IPC
       // messages produced prior to version 0.15.0
@@ -1045,12 +1017,7 @@ class MessageDecoder::MessageDecoderImpl {
       RETURN_NOT_OK(listener_->OnEOS());
       return Status::OK();
     } else if (metadata_length > 0) {
-      if (options_.max_metadata_length >= 0 &&
-          metadata_length > options_.max_metadata_length) {
-        return Status::Invalid("IPC metadata length ", metadata_length,
-                               " exceeds maximum allowed metadata length ",
-                               options_.max_metadata_length);
-      }
+      RETURN_NOT_OK(options_.CheckMetadataLength(metadata_length));
       state_ = State::METADATA;
       next_required_size_ = metadata_length;
       RETURN_NOT_OK(listener_->OnMetadata());
@@ -1099,11 +1066,7 @@ class MessageDecoder::MessageDecoderImpl {
     RETURN_NOT_OK(MaybeAlignMetadata(&metadata_));
     int64_t body_length = -1;
     RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata_, &body_length));
-    if (options_.max_body_length >= 0 && body_length > options_.max_body_length) {
-      return Status::Invalid("IPC body length ", body_length,
-                             " exceeds maximum allowed body length ",
-                             options_.max_body_length);
-    }
+    RETURN_NOT_OK(options_.CheckBodyLength(body_length));
 
     state_ = State::BODY;
     next_required_size_ = skip_body_ ? 0 : body_length;
@@ -1173,20 +1136,13 @@ class MessageDecoder::MessageDecoderImpl {
       if (!chunk->is_cpu()) {
         ARROW_ASSIGN_OR_RAISE(chunk, Buffer::ViewOrCopy(chunk, memory_manager_));
       }
-      std::span<const uint8_t> chunk_span(chunk->data(),
-                                          static_cast<size_t>(chunk->size()));
       auto copy_size = std::min<int64_t>(required_size, chunk->size());
       std::memcpy(
           out_span.subspan(static_cast<size_t>(offset), static_cast<size_t>(copy_size))
               .data(),
-          chunk_span.data(), static_cast<size_t>(copy_size));
+          chunk->data(), static_cast<size_t>(copy_size));
       n_used_chunks++;
-      int64_t next_offset = 0;
-      if (ARROW_PREDICT_FALSE(
-              ::arrow::internal::AddWithOverflow(offset, copy_size, &next_offset))) {
-        return Status::Invalid("Chunk offset calculation overflowed");
-      }
-      offset = next_offset;
+      offset += copy_size;
       required_size -= copy_size;
       if (required_size == 0) {
         if (chunk->size() != copy_size) {
@@ -1196,7 +1152,7 @@ class MessageDecoder::MessageDecoderImpl {
       }
     }
     chunks_.erase(chunks_.begin(), chunks_.begin() + n_used_chunks);
-    if (last_chunk.get() != nullptr) {
+    if (last_chunk != nullptr) {
       chunks_.insert(chunks_.begin(), std::move(last_chunk));
     }
     buffered_size_ -= offset;
