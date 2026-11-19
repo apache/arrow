@@ -494,7 +494,7 @@ The build system supports a number of third-party dependencies
   * ``BZip2``: for data compression
   * ``c-ares``: a dependency of gRPC
   * ``gflags``: for command line utilities (formerly Googleflags)
-  * ``GLOG``: for logging
+  * ``GLOG``: for logging (deprecated)
   * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires
     system cURL and can use the ``BUNDLED`` method described below
   * ``gRPC``: for remote procedure calls
