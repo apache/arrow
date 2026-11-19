@@ -1,5 +1,9 @@
 # Tokens for arrow-csv-fuzz: CSV dialect characters, null/bool spellings,
 # numeric edge cases and timestamp formats understood by the Arrow CSV reader.
+#
+# Note that the dictionary only provides hints to the fuzzing engine: inputs
+# are not restricted to combinations of these tokens, random mutations are
+# still applied on top.
 ","
 ";"
 "\x09"
