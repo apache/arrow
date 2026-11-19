@@ -319,7 +319,7 @@ def approximate_median(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleScalar | Expression: ...
 def count(
-    array: _ArrayOrChunkedArray | Expression,
+    array: Scalar | _ArrayOrChunkedArray | Expression,
     /,
     mode: _CountMode = "only_valid",
     *,
