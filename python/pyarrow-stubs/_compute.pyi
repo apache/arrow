@@ -82,7 +82,13 @@ _Tiebreaker: TypeAlias = Literal["min", "max", "first", "dense"]
 _TimezoneResolution: TypeAlias = Literal["raise", "earliest", "latest"]
 _UnexpectedKeyBehavior: TypeAlias = Literal["ignore", "raise"]
 
+# ==================== Kernels and functions ====================
+
 class Kernel(_Weakrefable): ...
+class ScalarKernel(Kernel): ...
+class VectorKernel(Kernel): ...
+class ScalarAggregateKernel(Kernel): ...
+class HashAggregateKernel(Kernel): ...
 
 class Function(_Weakrefable):
     @property
@@ -103,63 +109,49 @@ class Function(_Weakrefable):
         length: int | None = None,
     ) -> Any: ...
 
+class ScalarFunction(Function):
+    @property
+    def kernels(self) -> list[ScalarKernel]: ...
+
+class VectorFunction(Function):
+    @property
+    def kernels(self) -> list[VectorKernel]: ...
+
+class ScalarAggregateFunction(Function):
+    @property
+    def kernels(self) -> list[ScalarAggregateKernel]: ...
+
+class HashAggregateFunction(Function):
+    @property
+    def kernels(self) -> list[HashAggregateKernel]: ...
+
+class MetaFunction(Function):
+    @property
+    def kernels(self) -> list[Kernel]: ...
+
+class FunctionRegistry(_Weakrefable):
+    def get_function(self, name: str) -> Function: ...
+    def list_functions(self) -> list[str]: ...
+
+def function_registry() -> FunctionRegistry: ...
+def get_function(name: str) -> Function: ...
+def list_functions() -> list[str]: ...
+def call_function(
+    name: str,
+    args: list[Any],
+    options: FunctionOptions | None = None,
+    memory_pool: MemoryPool | None = None,
+    length: int | None = None,
+) -> Any: ...
+
+# ==================== Option classes ====================
+
 class FunctionOptions(_Weakrefable):
     __hash__: ClassVar[None]  # type: ignore[assignment]
 
     def serialize(self) -> Buffer: ...
     @staticmethod
     def deserialize(buf: Buffer) -> FunctionOptions: ...
-
-class FunctionRegistry(_Weakrefable):
-    def get_function(self, name: str) -> Function: ...
-    def list_functions(self) -> list[str]: ...
-
-class HashAggregateFunction(Function):
-    @property
-    def kernels(self) -> list[HashAggregateKernel]: ...
-
-class HashAggregateKernel(Kernel): ...
-
-class MetaFunction(Function):
-    @property
-    def kernels(self) -> list[Kernel]: ...
-
-class ScalarAggregateFunction(Function):
-    @property
-    def kernels(self) -> list[ScalarAggregateKernel]: ...
-
-class ScalarAggregateKernel(Kernel): ...
-
-class ScalarFunction(Function):
-    @property
-    def kernels(self) -> list[ScalarKernel]: ...
-
-class ScalarKernel(Kernel): ...
-
-class VectorFunction(Function):
-    @property
-    def kernels(self) -> list[VectorKernel]: ...
-
-class VectorKernel(Kernel): ...
-
-# ==================== Option classes ====================
-
-class ArraySortOptions(FunctionOptions):
-    def __init__(
-        self,
-        order: Order = "ascending",
-        *,
-        null_placement: NullPlacement = "at_end",
-    ) -> None: ...
-
-class AssumeTimezoneOptions(FunctionOptions):
-    def __init__(
-        self,
-        timezone: str,
-        *,
-        ambiguous: _TimezoneResolution = "raise",
-        nonexistent: _TimezoneResolution = "raise",
-    ) -> None: ...
 
 class CastOptions(FunctionOptions):
     allow_int_overflow: bool
@@ -186,45 +178,33 @@ class CastOptions(FunctionOptions):
     def unsafe(target_type: DataType | str | None = None) -> CastOptions: ...
     def is_safe(self) -> bool: ...
 
-class CountOptions(FunctionOptions):
-    def __init__(self, mode: _CountMode = "only_valid") -> None: ...
-
-class CumulativeOptions(FunctionOptions):
-    def __init__(
-        self, start: Scalar | None = None, *, skip_nulls: bool = False
-    ) -> None: ...
-
-class DayOfWeekOptions(FunctionOptions):
-    def __init__(
-        self, *, count_from_zero: bool = True, week_start: int = 1
-    ) -> None: ...
-
-class DictionaryEncodeOptions(FunctionOptions):
-    def __init__(self, null_encoding: NullEncoding = "mask") -> None: ...
-
-class RunEndEncodeOptions(FunctionOptions):
-    def __init__(self, run_end_type: DataType | str = ...) -> None: ...
-
 class ElementWiseAggregateOptions(FunctionOptions):
     def __init__(self, *, skip_nulls: bool = True) -> None: ...
 
-class ExtractRegexOptions(FunctionOptions):
-    def __init__(self, pattern: str) -> None: ...
-
-class ExtractRegexSpanOptions(FunctionOptions):
-    def __init__(self, pattern: str) -> None: ...
-
-class FilterOptions(FunctionOptions):
+class RoundOptions(FunctionOptions):
     def __init__(
-        self, null_selection_behavior: NullSelectionBehavior = "drop"
+        self, ndigits: int = 0, round_mode: _RoundMode = "half_to_even"
     ) -> None: ...
 
-class IndexOptions(FunctionOptions):
-    def __init__(self, value: Scalar) -> None: ...
+class RoundBinaryOptions(FunctionOptions):
+    def __init__(self, round_mode: _RoundMode = "half_to_even") -> None: ...
 
-class InversePermutationOptions(FunctionOptions):
+class RoundTemporalOptions(FunctionOptions):
     def __init__(
-        self, max_index: int = -1, output_type: DataType | str | None = None
+        self,
+        multiple: int = 1,
+        unit: _DateTimeUnit = "day",
+        *,
+        week_starts_monday: bool = True,
+        ceil_is_strictly_greater: bool = False,
+        calendar_based_origin: bool = False,
+    ) -> None: ...
+
+class RoundToMultipleOptions(FunctionOptions):
+    def __init__(
+        self,
+        multiple: float | Scalar = 1.0,
+        round_mode: _RoundMode = "half_to_even",
     ) -> None: ...
 
 class JoinOptions(FunctionOptions):
@@ -233,6 +213,34 @@ class JoinOptions(FunctionOptions):
         null_handling: _NullHandling = "emit_null",
         null_replacement: str = "",
     ) -> None: ...
+
+class MatchSubstringOptions(FunctionOptions):
+    def __init__(self, pattern: str, *, ignore_case: bool = False) -> None: ...
+
+class PadOptions(FunctionOptions):
+    def __init__(
+        self, width: int, padding: str = " ", lean_left_on_odd_padding: bool = True
+    ) -> None: ...
+
+class ZeroFillOptions(FunctionOptions):
+    def __init__(self, width: int, padding: str = "0") -> None: ...
+
+class TrimOptions(FunctionOptions):
+    def __init__(self, characters: str) -> None: ...
+
+class ReplaceSubstringOptions(FunctionOptions):
+    def __init__(
+        self, pattern: str, replacement: str, *, max_replacements: int | None = None
+    ) -> None: ...
+
+class ExtractRegexOptions(FunctionOptions):
+    def __init__(self, pattern: str) -> None: ...
+
+class ExtractRegexSpanOptions(FunctionOptions):
+    def __init__(self, pattern: str) -> None: ...
+
+class SliceOptions(FunctionOptions):
+    def __init__(self, start: int, stop: int | None = None, step: int = 1) -> None: ...
 
 class ListSliceOptions(FunctionOptions):
     def __init__(
@@ -243,8 +251,30 @@ class ListSliceOptions(FunctionOptions):
         return_fixed_size_list: bool | None = None,
     ) -> None: ...
 
-class ListFlattenOptions(FunctionOptions):
-    def __init__(self, recursive: bool = False) -> None: ...
+class ReplaceSliceOptions(FunctionOptions):
+    def __init__(self, start: int, stop: int, replacement: str) -> None: ...
+
+class FilterOptions(FunctionOptions):
+    def __init__(
+        self, null_selection_behavior: NullSelectionBehavior = "drop"
+    ) -> None: ...
+
+class DictionaryEncodeOptions(FunctionOptions):
+    def __init__(self, null_encoding: NullEncoding = "mask") -> None: ...
+
+class RunEndEncodeOptions(FunctionOptions):
+    def __init__(self, run_end_type: DataType | str = ...) -> None: ...
+
+class InversePermutationOptions(FunctionOptions):
+    def __init__(
+        self, max_index: int = -1, output_type: DataType | str | None = None
+    ) -> None: ...
+
+class ScatterOptions(FunctionOptions):
+    def __init__(self, max_index: int = -1) -> None: ...
+
+class TakeOptions(FunctionOptions):
+    def __init__(self, *, boundscheck: bool = True) -> None: ...
 
 class MakeStructOptions(FunctionOptions):
     def __init__(
@@ -255,27 +285,89 @@ class MakeStructOptions(FunctionOptions):
         field_metadata: Sequence[KeyValueMetadata | None] | None = None,
     ) -> None: ...
 
+class StructFieldOptions(FunctionOptions):
+    def __init__(
+        self,
+        indices: Sequence[str | bytes | int] | Expression | bytes | str | int,
+    ) -> None: ...
+
+class ScalarAggregateOptions(FunctionOptions):
+    def __init__(self, *, skip_nulls: bool = True, min_count: int = 1) -> None: ...
+
+class CountOptions(FunctionOptions):
+    def __init__(self, mode: _CountMode = "only_valid") -> None: ...
+
+class IndexOptions(FunctionOptions):
+    def __init__(self, value: Scalar) -> None: ...
+
 class MapLookupOptions(FunctionOptions):
     def __init__(self, query_key: Any, occurrence: _Occurrence) -> None: ...
-
-class MatchSubstringOptions(FunctionOptions):
-    def __init__(self, pattern: str, *, ignore_case: bool = False) -> None: ...
 
 class ModeOptions(FunctionOptions):
     def __init__(
         self, n: int = 1, *, skip_nulls: bool = True, min_count: int = 0
     ) -> None: ...
 
+class SetLookupOptions(FunctionOptions):
+    def __init__(
+        self, value_set: Array | ChunkedArray | Scalar, *, skip_nulls: bool = False
+    ) -> None: ...
+
+class StrptimeOptions(FunctionOptions):
+    def __init__(
+        self, format: str, unit: TimeUnit, error_is_null: bool = False
+    ) -> None: ...
+
+class StrftimeOptions(FunctionOptions):
+    def __init__(
+        self, format: str = "%Y-%m-%dT%H:%M:%S", locale: str = "C"
+    ) -> None: ...
+
+class DayOfWeekOptions(FunctionOptions):
+    def __init__(
+        self, *, count_from_zero: bool = True, week_start: int = 1
+    ) -> None: ...
+
+class WeekOptions(FunctionOptions):
+    def __init__(
+        self,
+        *,
+        week_starts_monday: bool = True,
+        count_from_zero: bool = False,
+        first_week_is_fully_in_year: bool = False,
+    ) -> None: ...
+
+class AssumeTimezoneOptions(FunctionOptions):
+    def __init__(
+        self,
+        timezone: str,
+        *,
+        ambiguous: _TimezoneResolution = "raise",
+        nonexistent: _TimezoneResolution = "raise",
+    ) -> None: ...
+
 class NullOptions(FunctionOptions):
     def __init__(self, *, nan_is_null: bool = False) -> None: ...
 
-class PadOptions(FunctionOptions):
+class VarianceOptions(FunctionOptions):
     def __init__(
-        self, width: int, padding: str = " ", lean_left_on_odd_padding: bool = True
+        self, *, ddof: int = 0, skip_nulls: bool = True, min_count: int = 0
     ) -> None: ...
 
-class PairwiseOptions(FunctionOptions):
-    def __init__(self, period: int = 1) -> None: ...
+class SkewOptions(FunctionOptions):
+    def __init__(
+        self, *, skip_nulls: bool = True, biased: bool = True, min_count: int = 0
+    ) -> None: ...
+
+class SplitOptions(FunctionOptions):
+    def __init__(
+        self, *, max_splits: int | None = None, reverse: bool = False
+    ) -> None: ...
+
+class SplitPatternOptions(FunctionOptions):
+    def __init__(
+        self, pattern: str, *, max_splits: int | None = None, reverse: bool = False
+    ) -> None: ...
 
 class PartitionNthOptions(FunctionOptions):
     def __init__(
@@ -284,6 +376,39 @@ class PartitionNthOptions(FunctionOptions):
 
 class WinsorizeOptions(FunctionOptions):
     def __init__(self, lower_limit: float, upper_limit: float) -> None: ...
+
+class CumulativeOptions(FunctionOptions):
+    def __init__(
+        self, start: Scalar | None = None, *, skip_nulls: bool = False
+    ) -> None: ...
+
+class PairwiseOptions(FunctionOptions):
+    def __init__(self, period: int = 1) -> None: ...
+
+class ListFlattenOptions(FunctionOptions):
+    def __init__(self, recursive: bool = False) -> None: ...
+
+class ArraySortOptions(FunctionOptions):
+    def __init__(
+        self,
+        order: Order = "ascending",
+        *,
+        null_placement: NullPlacement = "at_end",
+    ) -> None: ...
+
+class SearchSortedOptions(FunctionOptions):
+    def __init__(self, side: _Side = "left") -> None: ...
+
+class SortOptions(FunctionOptions):
+    def __init__(
+        self,
+        sort_keys: Sequence[_SortKey] = (),
+        *,
+        null_placement: NullPlacement | None = None,
+    ) -> None: ...
+
+class SelectKOptions(FunctionOptions):
+    def __init__(self, k: int, sort_keys: Sequence[_SortKey]) -> None: ...
 
 class QuantileOptions(FunctionOptions):
     def __init__(
@@ -294,6 +419,20 @@ class QuantileOptions(FunctionOptions):
         skip_nulls: bool = True,
         min_count: int = 0,
     ) -> None: ...
+
+class TDigestOptions(FunctionOptions):
+    def __init__(
+        self,
+        q: float | Sequence[float] = 0.5,
+        *,
+        delta: int = 100,
+        buffer_size: int = 500,
+        skip_nulls: bool = True,
+        min_count: int = 0,
+    ) -> None: ...
+
+class Utf8NormalizeOptions(FunctionOptions):
+    def __init__(self, form: _Form) -> None: ...
 
 class RandomOptions(FunctionOptions):
     def __init__(self, *, initializer: Hashable = "system") -> None: ...
@@ -322,200 +461,6 @@ class PivotWiderOptions(FunctionOptions):
         *,
         unexpected_key_behavior: _UnexpectedKeyBehavior = "ignore",
     ) -> None: ...
-
-class ReplaceSliceOptions(FunctionOptions):
-    def __init__(self, start: int, stop: int, replacement: str) -> None: ...
-
-class ReplaceSubstringOptions(FunctionOptions):
-    def __init__(
-        self, pattern: str, replacement: str, *, max_replacements: int | None = None
-    ) -> None: ...
-
-class RoundBinaryOptions(FunctionOptions):
-    def __init__(self, round_mode: _RoundMode = "half_to_even") -> None: ...
-
-class RoundOptions(FunctionOptions):
-    def __init__(
-        self, ndigits: int = 0, round_mode: _RoundMode = "half_to_even"
-    ) -> None: ...
-
-class RoundTemporalOptions(FunctionOptions):
-    def __init__(
-        self,
-        multiple: int = 1,
-        unit: _DateTimeUnit = "day",
-        *,
-        week_starts_monday: bool = True,
-        ceil_is_strictly_greater: bool = False,
-        calendar_based_origin: bool = False,
-    ) -> None: ...
-
-class RoundToMultipleOptions(FunctionOptions):
-    def __init__(
-        self,
-        multiple: float | Scalar = 1.0,
-        round_mode: _RoundMode = "half_to_even",
-    ) -> None: ...
-
-class ScalarAggregateOptions(FunctionOptions):
-    def __init__(self, *, skip_nulls: bool = True, min_count: int = 1) -> None: ...
-
-class ScatterOptions(FunctionOptions):
-    def __init__(self, max_index: int = -1) -> None: ...
-
-class SearchSortedOptions(FunctionOptions):
-    def __init__(self, side: _Side = "left") -> None: ...
-
-class SelectKOptions(FunctionOptions):
-    def __init__(self, k: int, sort_keys: Sequence[_SortKey]) -> None: ...
-
-class SetLookupOptions(FunctionOptions):
-    def __init__(
-        self, value_set: Array | ChunkedArray | Scalar, *, skip_nulls: bool = False
-    ) -> None: ...
-
-class SliceOptions(FunctionOptions):
-    def __init__(self, start: int, stop: int | None = None, step: int = 1) -> None: ...
-
-class SortOptions(FunctionOptions):
-    def __init__(
-        self,
-        sort_keys: Sequence[_SortKey] = (),
-        *,
-        null_placement: NullPlacement | None = None,
-    ) -> None: ...
-
-class SplitOptions(FunctionOptions):
-    def __init__(
-        self, *, max_splits: int | None = None, reverse: bool = False
-    ) -> None: ...
-
-class SplitPatternOptions(FunctionOptions):
-    def __init__(
-        self, pattern: str, *, max_splits: int | None = None, reverse: bool = False
-    ) -> None: ...
-
-class StrftimeOptions(FunctionOptions):
-    def __init__(
-        self, format: str = "%Y-%m-%dT%H:%M:%S", locale: str = "C"
-    ) -> None: ...
-
-class StrptimeOptions(FunctionOptions):
-    def __init__(
-        self, format: str, unit: TimeUnit, error_is_null: bool = False
-    ) -> None: ...
-
-class StructFieldOptions(FunctionOptions):
-    def __init__(
-        self,
-        indices: Sequence[str | bytes | int] | Expression | bytes | str | int,
-    ) -> None: ...
-
-class TakeOptions(FunctionOptions):
-    def __init__(self, *, boundscheck: bool = True) -> None: ...
-
-class TDigestOptions(FunctionOptions):
-    def __init__(
-        self,
-        q: float | Sequence[float] = 0.5,
-        *,
-        delta: int = 100,
-        buffer_size: int = 500,
-        skip_nulls: bool = True,
-        min_count: int = 0,
-    ) -> None: ...
-
-class TrimOptions(FunctionOptions):
-    def __init__(self, characters: str) -> None: ...
-
-class Utf8NormalizeOptions(FunctionOptions):
-    def __init__(self, form: _Form) -> None: ...
-
-class VarianceOptions(FunctionOptions):
-    def __init__(
-        self, *, ddof: int = 0, skip_nulls: bool = True, min_count: int = 0
-    ) -> None: ...
-
-class SkewOptions(FunctionOptions):
-    def __init__(
-        self, *, skip_nulls: bool = True, biased: bool = True, min_count: int = 0
-    ) -> None: ...
-
-class WeekOptions(FunctionOptions):
-    def __init__(
-        self,
-        *,
-        week_starts_monday: bool = True,
-        count_from_zero: bool = False,
-        first_week_is_fully_in_year: bool = False,
-    ) -> None: ...
-
-class ZeroFillOptions(FunctionOptions):
-    def __init__(self, width: int, padding: str = "0") -> None: ...
-
-# ==================== Functions ====================
-
-def call_function(
-    name: str,
-    args: list[Any],
-    options: FunctionOptions | None = None,
-    memory_pool: MemoryPool | None = None,
-    length: int | None = None,
-) -> Any: ...
-def function_registry() -> FunctionRegistry: ...
-def get_function(name: str) -> Function: ...
-def list_functions() -> list[str]: ...
-
-# ==================== User-defined functions ====================
-
-def call_tabular_function(
-    function_name: str,
-    args: Iterable[Any] | None = None,
-    func_registry: FunctionRegistry | None = None,
-) -> RecordBatchReader: ...
-
-class _FunctionDoc(TypedDict):
-    summary: str
-    description: str
-
-def register_scalar_function(
-    func: Callable[..., Any],
-    function_name: str,
-    function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType | str],
-    out_type: DataType | str,
-    func_registry: FunctionRegistry | None = None,
-) -> None: ...
-def register_tabular_function(
-    func: Callable[..., Any],
-    function_name: str,
-    function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType | str],
-    out_type: DataType | str,
-    func_registry: FunctionRegistry | None = None,
-) -> None: ...
-def register_aggregate_function(
-    func: Callable[..., Any],
-    function_name: str,
-    function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType | str],
-    out_type: DataType | str,
-    func_registry: FunctionRegistry | None = None,
-) -> None: ...
-def register_vector_function(
-    func: Callable[..., Any],
-    function_name: str,
-    function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType | str],
-    out_type: DataType | str,
-    func_registry: FunctionRegistry | None = None,
-) -> None: ...
-
-class UdfContext:
-    @property
-    def batch_length(self) -> int: ...
-    @property
-    def memory_pool(self) -> MemoryPool: ...
 
 # ==================== Expression ====================
 
@@ -558,3 +503,53 @@ class Expression(_Weakrefable):
     ) -> Expression: ...
     def isin(self, values: Array | Iterable[Any]) -> Expression: ...
     def equals(self, other: Expression) -> bool: ...
+
+# ==================== User-defined functions ====================
+
+class UdfContext:
+    @property
+    def batch_length(self) -> int: ...
+    @property
+    def memory_pool(self) -> MemoryPool: ...
+
+class _FunctionDoc(TypedDict):
+    summary: str
+    description: str
+
+def register_scalar_function(
+    func: Callable[..., Any],
+    function_name: str,
+    function_doc: _FunctionDoc | dict[str, str],
+    in_types: Mapping[str, DataType | str],
+    out_type: DataType | str,
+    func_registry: FunctionRegistry | None = None,
+) -> None: ...
+def register_vector_function(
+    func: Callable[..., Any],
+    function_name: str,
+    function_doc: _FunctionDoc | dict[str, str],
+    in_types: Mapping[str, DataType | str],
+    out_type: DataType | str,
+    func_registry: FunctionRegistry | None = None,
+) -> None: ...
+def register_aggregate_function(
+    func: Callable[..., Any],
+    function_name: str,
+    function_doc: _FunctionDoc | dict[str, str],
+    in_types: Mapping[str, DataType | str],
+    out_type: DataType | str,
+    func_registry: FunctionRegistry | None = None,
+) -> None: ...
+def register_tabular_function(
+    func: Callable[..., Any],
+    function_name: str,
+    function_doc: _FunctionDoc | dict[str, str],
+    in_types: Mapping[str, DataType | str],
+    out_type: DataType | str,
+    func_registry: FunctionRegistry | None = None,
+) -> None: ...
+def call_tabular_function(
+    function_name: str,
+    args: Iterable[Any] | None = None,
+    func_registry: FunctionRegistry | None = None,
+) -> RecordBatchReader: ...
