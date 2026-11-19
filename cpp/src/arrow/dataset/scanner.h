@@ -459,8 +459,7 @@ class ARROW_DS_EXPORT Scanner {
   /// easily used with APIs that expect a reader.
   ///
   /// Closing or destroying the reader before the end of the stream stops the scan.
-  /// Close() returns once the scan's plan has finished, but reads that were already in
-  /// flight may finish in the background afterwards.
+  /// Reads that were already in flight may finish in the background afterwards.
   virtual Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader() = 0;
 
   /// \brief Get the options for this scan.
