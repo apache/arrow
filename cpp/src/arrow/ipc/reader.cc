@@ -841,8 +841,11 @@ Result<RecordBatchWithMetadata> ReadRecordBatchInternal(
     const Buffer& metadata, const std::shared_ptr<Schema>& schema,
     const std::vector<bool>& inclusion_mask, IpcReadContext& context,
     io::RandomAccessFile* file) {
+  RETURN_NOT_OK(context.options.Validate());
+  RETURN_NOT_OK(context.options.CheckMetadataLength(metadata.size()));
   const flatbuf::Message* message = nullptr;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
+  RETURN_NOT_OK(context.options.CheckBodyLength(message->bodyLength()));
   auto batch = message->header_as_RecordBatch();
   if (batch == nullptr) {
     return Status::IOError(
@@ -1314,6 +1317,9 @@ Result<FileBlock> FileBlockFromFlatbuffer(const flatbuf::Block* fb_block,
 }
 
 Status CheckBlock(const FileBlock& block, const IpcReadOptions& options) {
+  if (block.offset < 0) {
+    return Status::Invalid("negative block offset in IPC file");
+  }
   if (!bit_util::IsMultipleOf8(block.offset) ||
       !bit_util::IsMultipleOf8(block.metadata_length) ||
       !bit_util::IsMultipleOf8(block.body_length)) {

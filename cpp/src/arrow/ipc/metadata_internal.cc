@@ -1288,7 +1288,6 @@ Result<std::shared_ptr<KeyValueMetadata>> GetKeyValueMetadata(
 
   auto metadata = std::make_shared<KeyValueMetadata>();
 
-  metadata->reserve(fb_metadata->size());
   for (const auto pair : *fb_metadata) {
     CHECK_FLATBUFFERS_NOT_NULL(pair, "custom_metadata.pair");
     CHECK_FLATBUFFERS_NOT_NULL(pair->key(), "custom_metadata.key");

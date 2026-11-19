@@ -340,6 +340,9 @@ struct ReadMessageState {
 };
 
 Status CheckBodyLength(int64_t offset, int64_t body_length, io::RandomAccessFile* file) {
+  if (body_length < 0) {
+    return Status::Invalid("IPC body length ", body_length, " must be non-negative");
+  }
   ARROW_ASSIGN_OR_RAISE(auto file_size, file->GetSize());
   if (body_length > file_size - offset) {
     return Status::IOError(

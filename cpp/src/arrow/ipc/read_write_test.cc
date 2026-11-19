@@ -3575,14 +3575,19 @@ TEST(TestIpcReadOptions, NegativeLimitsInvalid) {
   auto options = IpcReadOptions::Defaults();
   ASSERT_OK(options.Validate());
 
-  for (auto* opt : {&options.max_metadata_length, &options.max_body_length,
-                    &options.max_decompression_ratio}) {
+  for (int64_t* opt : {&options.max_metadata_length, &options.max_body_length}) {
     *opt = -2;
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("must be -1 or non-negative, got -2"),
         options.Validate());
     *opt = -1;
   }
+
+  options.max_decompression_ratio = -2;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("max_decompression_ratio must be -1 or non-negative, got -2"),
+      options.Validate());
+  options.max_decompression_ratio = -1;
 
   options.max_recursion_depth = -1;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
@@ -3602,6 +3607,41 @@ TEST(TestIpcReadOptions, NegativeLimitsInvalid) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("max_metadata_length must be -1 or non-negative"),
       ReadMessage(empty_buf, nullptr, options));
+}
+
+TEST(TestIpcReadOptions, NegativeLengthsRejected) {
+  auto options = IpcReadOptions::Defaults();
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("IPC metadata length -10 must be non-negative"),
+      options.CheckMetadataLength(-10));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("IPC body length -10 must be non-negative"),
+      options.CheckBodyLength(-10));
+}
+
+TEST(TestReadRecordBatchLimits, DirectRecordBatchLimitsExceeded) {
+  ASSERT_OK_AND_ASSIGN(auto buffer, MakeTestFileBuffer());
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchFileReader::Open(
+                                        std::make_shared<io::BufferReader>(buffer)));
+  ASSERT_OK_AND_ASSIGN(auto block, reader->GetRecordBatchBlock(0));
+  ASSERT_OK_AND_ASSIGN(auto message,
+                       ReadMessage(block.offset, block.metadata_length, block.body_length,
+                                   reader->file().get()));
+
+  DictionaryMemo memo;
+  auto options = IpcReadOptions::Defaults();
+  options.max_metadata_length = 5;
+  io::BufferReader body_reader(message->body());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
+      ReadRecordBatch(*message->metadata(), reader->schema(), &memo, options,
+                      &body_reader));
+
+  options = IpcReadOptions::Defaults();
+  options.max_body_length = 1;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
+      ReadRecordBatch(*message, reader->schema(), &memo, options));
 }
 
 TEST(TestDecompressBufferLimits, Limits) {
