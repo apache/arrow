@@ -1007,11 +1007,11 @@ use_finite_vector_logical_type : bool, default False
     FLOAT, DOUBLE, FLOAT16 or DECIMAL primitive. FINITE_VECTOR elements are written
     as required, and writing fails if a non-null list contains a null or
     non-finite (NaN or infinite) element. Other FixedSizeList columns are
-    written as ordinary LISTs. The FINITE_VECTOR logical type is a proposal that has
-    not been adopted by the Parquet format yet. Files containing it cannot be
-    opened by PyArrow releases older than this one and may not be readable
-    by other Parquet readers, so leave this disabled for data that needs to
-    stay portable.
+    written as ordinary LISTs. The FINITE_VECTOR logical type was added to the
+    Parquet format after version 2.14.0 and is not part of a format release
+    yet. Files containing it cannot be opened by PyArrow releases older than
+    this one and may not be readable by other Parquet readers, so leave this
+    disabled for data that needs to stay portable.
 """
 
 _parquet_writer_example_doc = """\

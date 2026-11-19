@@ -416,16 +416,17 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
         logical_type_->is_compatible(converted_type_))) {
     ThrowInvalidLogicalType(*logical_type_);
   }
+  // Check before the fields are given this node as their parent, so that they
+  // are left untouched if the check throws.
+  if (logical_type_->is_finite_vector()) {
+    CheckFiniteVectorStructure(*this);
+  }
 
   field_name_to_idx_.clear();
   auto field_idx = 0;
   for (NodePtr& field : fields_) {
     field->SetParent(this);
     field_name_to_idx_.emplace(field->name(), field_idx++);
-  }
-
-  if (logical_type_->is_finite_vector()) {
-    CheckFiniteVectorStructure(*this);
   }
 }
 

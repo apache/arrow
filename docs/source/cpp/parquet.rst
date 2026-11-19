@@ -517,7 +517,8 @@ physical type.
 * \(3) On the write side, an Arrow Date64 is also mapped to a Parquet DATE INT32.
 
 * \(4) On the write side, an Arrow FixedSizeList, ListView or LargeListView is
-  also mapped to a Parquet LIST.
+  also mapped to a Parquet LIST. A FixedSizeList may instead be written as a
+  Parquet FINITE_VECTOR, see \(8).
 
 * \(5) On the read side, a key with multiple values does not get deduplicated,
   in contradiction with the

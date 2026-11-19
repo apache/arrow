@@ -2597,6 +2597,14 @@ TEST(TestFiniteVectorLogicalType, InvalidStructure) {
   ASSERT_THROW(
       GroupNode::Make("vector", Repetition::OPTIONAL, {}, LogicalType::FiniteVector(3)),
       ParquetException);
+
+  // A rejected group must not be left as the parent of its fields
+  auto list = GroupNode::Make("list", Repetition::REPEATED,
+                              {float_element(Repetition::OPTIONAL)});
+  ASSERT_THROW(GroupNode::Make("vector", Repetition::OPTIONAL, {list},
+                               LogicalType::FiniteVector(3)),
+               ParquetException);
+  ASSERT_EQ(list->parent(), nullptr);
 }
 
 TEST(TestFiniteVectorLogicalType, ThriftRoundtrip) {

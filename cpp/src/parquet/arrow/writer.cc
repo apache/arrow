@@ -120,6 +120,17 @@ const SchemaField* GetRootField(const SchemaManifest& schema_manifest,
   return schema_field;
 }
 
+// Returns true if |schema_field| or one of its descendants is a FINITE_VECTOR-annotated
+// group.
+//
+// |schema_field| comes from the SchemaManifest built from the Parquet schema,
+// where a FixedSizeList is only inferred from a FINITE_VECTOR-annotated group.
+bool HasFiniteVector(const SchemaField& schema_field) {
+  return schema_field.field->type()->id() == ::arrow::Type::FIXED_SIZE_LIST ||
+         std::any_of(schema_field.children.begin(), schema_field.children.end(),
+                     HasFiniteVector);
+}
+
 // Returns a nested type of the same kind as |type| with the given child |fields|.
 Result<std::shared_ptr<DataType>> WithChildFields(const DataType& type,
                                                   FieldVector fields) {
@@ -391,7 +402,8 @@ class ArrowColumnWriterV2 {
     std::vector<std::unique_ptr<MultipathLevelBuilder>> builders;
     const int leaf_count = CalculateLeafCount(data.type().get());
     bool is_nullable = false;
-    const SchemaField* root_field = nullptr;
+    // Set only if the column contains a FINITE_VECTOR-annotated group
+    const SchemaField* vector_root_field = nullptr;
 
     int column_index = 0;
     if (row_group_writer->buffered()) {
@@ -409,7 +421,10 @@ class ArrowColumnWriterV2 {
       bool nullable_root = HasNullableRoot(schema_manifest, schema_field);
       if (leaf_offset == 0) {
         is_nullable = nullable_root;
-        root_field = GetRootField(schema_manifest, schema_field);
+        const SchemaField* root_field = GetRootField(schema_manifest, schema_field);
+        if (HasFiniteVector(*root_field)) {
+          vector_root_field = root_field;
+        }
       }
 
 // Don't validate common ancestry for all leafs if not in debug.
@@ -431,10 +446,10 @@ class ArrowColumnWriterV2 {
       // The chunk offset here will be 0 except for possibly the first chunk
       // because of the advancing logic above
       std::shared_ptr<Array> array_to_write = chunk.Slice(chunk_offset, chunk_write_size);
-      if (root_field != nullptr) {
+      if (vector_root_field != nullptr) {
         ARROW_ASSIGN_OR_RAISE(
             std::shared_ptr<ArrayData> prepared,
-            MakeFiniteVectorElementsRequired(array_to_write->data(), *root_field));
+            MakeFiniteVectorElementsRequired(array_to_write->data(), *vector_root_field));
         if (prepared != array_to_write->data()) {
           array_to_write = ::arrow::MakeArray(std::move(prepared));
         }
