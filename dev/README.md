@@ -64,7 +64,7 @@ major release is used. This is only done for pull requests to `main`.
 
 ### Merge script
 
-The merge script is still available for now. It additionally adds
+The merge script is still available for now but using the merge button is encouraged. It additionally adds
 `Authored-by:`, `Co-authored-by:` and `Signed-off-by:` trailers to the
 commit message. Run the following command:
 
