@@ -469,6 +469,12 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
     continue()
   endif()
 
+  # Allow overriding checksums by environment variables, e.g. for a source
+  # archive given by ARROW_$LIBRARY_URL that differs from the upstream one
+  if(_VARIABLE_NAME MATCHES "_CHECKSUM$" AND DEFINED ENV{${_VARIABLE_NAME}})
+    set(_VARIABLE_VALUE "$ENV{${_VARIABLE_NAME}}")
+  endif()
+
   # For debugging
   message(STATUS "${_VARIABLE_NAME}: ${_VARIABLE_VALUE}")
 
