@@ -18,9 +18,10 @@
 import pathlib
 
 import click
+from git import Repo
 
 from ..utils.cli import validate_arrow_sources
-from .core import IssueTracker, Release
+from .core import IssueTracker, Release, count_committers
 
 
 @click.group('release')
@@ -50,6 +51,19 @@ def release_curate(obj, version, minimal):
     curation = release.curate(minimal)
 
     click.echo(curation.render('console'))
+
+
+@release.command('committers')
+@click.argument('previous_version')
+@click.argument('version')
+@click.pass_obj
+def release_committers(obj, previous_version, version):
+    """Count the pull requests of a release by who merged them."""
+    commit_range = f"apache-arrow-{previous_version}..apache-arrow-{version}"
+    commits = Repo(obj['repo']).iter_commits(commit_range)
+    committers = count_committers(commits, obj['issue_tracker'].github_repo)
+    for name, count in committers:
+        click.echo(f"{count:6d}\t{name}")
 
 
 @release.group('changelog')

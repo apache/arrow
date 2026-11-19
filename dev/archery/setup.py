@@ -35,7 +35,7 @@ extras = {
     'integration': ['cffi', 'numpy'],
     'integration-java': ['jpype1'],
     'numpydoc': ['numpydoc==1.1.0'],
-    'release': ['pygithub<2.9.0', jinja_req, 'semver', 'gitpython'],
+    'release': ['pygithub>=2.5.0,<2.9.0', jinja_req, 'semver', 'gitpython'],
 }
 extras['bot'] = extras['crossbow'] + ['pygithub<2.9.0']
 extras['all'] = list(set(functools.reduce(operator.add, extras.values())))

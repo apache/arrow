@@ -35,6 +35,10 @@ if ! archery --help > /dev/null 2>&1; then
   exit 1
 fi
 
+# Without a token archery waits on the rate limit of GitHub for a long
+# time instead of failing.
+: "${GH_TOKEN:?GH_TOKEN is required to ask GitHub who merged the pull requests}"
+
 previous_version=$1
 version=$2
 
@@ -78,33 +82,8 @@ git_range=apache-arrow-${previous_version}..${git_tag}
 contributors_command_line="git shortlog -sn ${git_range}"
 
 # Count the pull requests of the commits in ${git_range} by who merged
-# them. We ask GitHub because commits merged with the merge button
-# don't have "Signed-off-by:" trailers. A failed request stops the
-# script: we must not publish a partial count.
-list_committers() {
-  git log --pretty=%s ${git_range} |
-    sed -n -E 's/^.* \(#([0-9]+)\)$/\1/p' |
-    xargs -n 50 |
-    while read -r -a numbers; do
-      local query="query {repository(owner: \"apache\", name: \"arrow\") {"
-      local number
-      for number in "${numbers[@]}"; do
-        query+=" pr${number}: pullRequest(number: ${number})"
-        query+=" {mergedBy {login ... on User {name}}}"
-      done
-      query+="}}"
-      gh api graphql -f query="${query}" \
-        --jq '.data.repository[].mergedBy | select(. != null) |
-                if (.name // "") == "" then .login else .name end' ||
-        exit 1
-    done |
-    sort |
-    uniq -c |
-    sort -k1,1nr -k2 |
-    awk '{count = $1; sub(/^ *[0-9]+ /, ""); printf "%6d\t%s\n", count, $0}'
-}
-
-committers=$(set -o pipefail; list_committers)
+# them. This asks GitHub: it needs GH_TOKEN.
+committers=$(archery release committers ${previous_version} ${version})
 contributors=$(${contributors_command_line})
 
 n_commits=$(git log --pretty=oneline ${git_range} | wc -l)

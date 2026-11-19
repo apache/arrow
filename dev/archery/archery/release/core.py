@@ -242,6 +242,46 @@ class Commit:
         return self._title
 
 
+_PULL_REQUEST_NUMBER_REGEX = re.compile(r" \(#(\d+)\)$")
+
+
+def count_committers(commits, github_repo):
+    """
+    Count the pull requests of the commits by who merged them.
+
+    We ask GitHub because commits merged with the merge button don't
+    have "Signed-off-by:" trailers.
+
+    Returns (name, count) pairs sorted by count (descending) and name.
+    """
+    # Release commits and direct pushes don't have a pull request number.
+    matches = (_PULL_REQUEST_NUMBER_REGEX.search(commit.summary)
+               for commit in commits)
+    numbers = [int(match.group(1)) for match in matches if match]
+
+    counts = defaultdict(int)
+    # We use GraphQL because it can return many pull requests per
+    # request. REST needs a request per pull request.
+    n_per_request = 50
+    for i in range(0, len(numbers), n_per_request):
+        batch = numbers[i:i + n_per_request]
+        fields = " ".join(
+            f"pr{number}: pullRequest(number: {number}) "
+            "{mergedBy {login ... on User {name}}}"
+            for number in batch)
+        query = ('query {repository(owner: "apache", name: "arrow") {'
+                 f'{fields}}}}}')
+        _, result = github_repo.requester.graphql_query(query, {})
+        for number in batch:
+            merger = result["data"]["repository"][f"pr{number}"]["mergedBy"]
+            if merger is None:
+                warnings.warn(f"#{number} doesn't have a merger. It isn't "
+                              "counted.")
+                continue
+            counts[merger.get("name") or merger["login"]] += 1
+    return sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+
+
 class Release:
 
     def __new__(self, version, repo=None, github_token=None,

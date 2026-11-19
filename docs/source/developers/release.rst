@@ -401,7 +401,7 @@ Be sure to go through on the following checklist:
    :class-container: sd-shadow-md
 
    Add a release note for the new version to our website and update the latest release information.
-   The script needs an authenticated ``gh`` to ask GitHub who merged the pull requests of the release:
+   The script needs a GitHub token in ``GH_TOKEN`` to ask GitHub who merged the pull requests of the release:
 
    .. code-block:: Bash
 

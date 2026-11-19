@@ -15,11 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from types import SimpleNamespace
+
 import pytest
 
 from archery.release.core import (
     Release, MajorRelease, MinorRelease, PatchRelease,
-    IssueTracker, Version, Issue, CommitTitle, Commit
+    IssueTracker, Version, Issue, CommitTitle, Commit, count_committers
 )
 
 
@@ -355,3 +357,57 @@ def test_maintenance_patch_selection(fake_issue_tracker):
         '9123dadfd123bca7af4eaa9455f5b0d1ca8b929d',
     ]
     assert shas_to_pick == expected
+
+
+def test_count_committers():
+    commits = [
+        SimpleNamespace(summary=summary) for summary in [
+            "GH-1: [C++] Title (#11)",
+            "GH-2: [Python] Title (#12)",
+            "MINOR: [Release] Update versions for 2.0.0",
+            "GH-3: [R] Title (#13)",
+            "GH-4: [Docs] Title (#14)",
+            "GH-5: [CI] Mention (#10) in the middle",
+            "GH-6: [Ruby] Title (#15)",
+            "GH-7: [Go] Title (#16)",
+        ]
+    ]
+    mergers = {
+        "pr11": {"login": "zoe", "name": "Zoe Z"},
+        "pr12": {"login": "bob", "name": "Bob B"},
+        "pr13": {"login": "zoe", "name": "Zoe Z"},
+        # a user without a name: the login is used
+        "pr14": {"login": "alice", "name": None},
+        # no merger: not counted
+        "pr15": None,
+        # not a user, for example a bot: the login is used
+        "pr16": {"login": "carol"},
+    }
+    queries = []
+
+    def graphql_query(query, variables):
+        queries.append(query)
+        pull_requests = {
+            alias: {"mergedBy": merger} for alias, merger in mergers.items()
+        }
+        return {}, {"data": {"repository": pull_requests}}
+
+    github_repo = SimpleNamespace(
+        requester=SimpleNamespace(graphql_query=graphql_query))
+
+    with pytest.warns(UserWarning, match="#15 doesn't have a merger"):
+        committers = count_committers(commits, github_repo)
+
+    assert committers == [
+        ("Zoe Z", 2),
+        ("Bob B", 1),
+        ("alice", 1),
+        ("carol", 1),
+    ]
+    assert queries == [
+        'query {repository(owner: "apache", name: "arrow") {' +
+        " ".join(f"pr{number}: pullRequest(number: {number}) "
+                 "{mergedBy {login ... on User {name}}}"
+                 for number in range(11, 17)) +
+        '}}'
+    ]
