@@ -29,7 +29,7 @@ from _check import assert_type, check
 
 
 class _PyArrowArrayProvider:
-    def __arrow_array__(self, type: pa.DataType | None = None) -> pa.Array:
+    def __arrow_array__(self, *, type: pa.DataType | None) -> pa.Array:
         return pa.array([1, 2], type=type)
 
 
