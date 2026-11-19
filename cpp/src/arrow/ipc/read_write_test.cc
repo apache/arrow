@@ -3620,28 +3620,31 @@ TEST(TestIpcReadOptions, NegativeLengthsRejected) {
 }
 
 TEST(TestReadRecordBatchLimits, DirectRecordBatchLimitsExceeded) {
-  ASSERT_OK_AND_ASSIGN(auto buffer, MakeTestFileBuffer());
-  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchFileReader::Open(
-                                        std::make_shared<io::BufferReader>(buffer)));
-  ASSERT_OK_AND_ASSIGN(auto block, reader->GetRecordBatchBlock(0));
-  ASSERT_OK_AND_ASSIGN(auto message,
-                       ReadMessage(block.offset, block.metadata_length, block.body_length,
-                                   reader->file().get()));
+  ASSERT_OK_AND_ASSIGN(auto buffer, MakeTestStreamBuffer());
+  io::BufferReader stream_reader(buffer);
+  auto message_reader = MessageReader::Open(&stream_reader);
 
+  ASSERT_OK_AND_ASSIGN(auto schema_message, message_reader->ReadNextMessage());
+  ASSERT_NE(schema_message, nullptr);
   DictionaryMemo memo;
+  ASSERT_OK_AND_ASSIGN(auto schema, ReadSchema(*schema_message, &memo));
+
+  ASSERT_OK_AND_ASSIGN(auto batch_message, message_reader->ReadNextMessage());
+  ASSERT_NE(batch_message, nullptr);
+
   auto options = IpcReadOptions::Defaults();
   options.max_metadata_length = 5;
-  io::BufferReader body_reader(message->body());
+  io::BufferReader body_reader(batch_message->body());
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("exceeds maximum allowed metadata length"),
-      ReadRecordBatch(*message->metadata(), reader->schema(), &memo, options,
+      ReadRecordBatch(*batch_message->metadata(), schema, &memo, options,
                       &body_reader));
 
   options = IpcReadOptions::Defaults();
   options.max_body_length = 1;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid, ::testing::HasSubstr("exceeds maximum allowed body length"),
-      ReadRecordBatch(*message, reader->schema(), &memo, options));
+      ReadRecordBatch(*batch_message, schema, &memo, options));
 }
 
 TEST(TestDecompressBufferLimits, Limits) {
