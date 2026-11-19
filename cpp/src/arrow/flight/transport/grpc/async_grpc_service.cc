@@ -92,8 +92,6 @@ AsyncGenericFlightService::AsyncGenericFlightService(
           ? helper_->MakeCallContext(flight_method, context, &flight_context)
           : helper_->CheckAuth(flight_method, context, &flight_context);
   if (!prepare_status.ok()) {
-    // CheckAuth()/MakeCallContext() already ran FinishRequest() for this call,
-    // so only the gRPC status is left to send.
     return new Unimplemented(prepare_status);
   }
 

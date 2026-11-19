@@ -17,7 +17,7 @@
 
 #include "arrow/flight/flight_data_decoder.h"
 
-#include <algorithm>
+#include <atomic>
 #include <deque>
 
 #include "arrow/flight/serialization_internal.h"
@@ -171,7 +171,11 @@ class AsyncFlightMessageDecoder::AsyncFlightMessageDecoderImpl {
           ipc::RecordBatchStreamReader::Open(
               std::make_unique<FlightDataMessageReaderRef>(message_reader_.get()),
               options_));
-      return listener_->OnSchemaDecoded(batch_reader_->schema());
+      // Open() read the schema message through the reader above, so its
+      // app_metadata is now in the reader. OnSchemaDecoded() has no place for it:
+      // deliver it as a metadata-only chunk, or it is lost.
+      RETURN_NOT_OK(listener_->OnSchemaDecoded(batch_reader_->schema()));
+      return DeliverMetadata(message_reader_->ReadAppMetadata());
     }
 
     message_reader_->Push(std::move(message), std::move(data.app_metadata));

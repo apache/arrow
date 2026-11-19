@@ -196,9 +196,6 @@ void ExchangeReader::Consume(internal::FlightData data) {
 
 void ExchangeReader::RequestRead() {
   ExchangeReactor* reactor = nullptr;
-  // Taken under mutex_: DetachReactor() takes the same lock, and OnDone()
-  // drops the RPC's reference only after detaching, so the reactor outlives
-  // the unlocked call below. Released when this function returns.
   AsyncReactorBase::HoldToken token;
   {
     std::lock_guard<std::mutex> lock(mutex_);

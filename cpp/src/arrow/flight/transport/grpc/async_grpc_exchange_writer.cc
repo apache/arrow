@@ -145,9 +145,6 @@ arrow::Future<> ExchangeWriter::Flush() {
 void ExchangeWriter::Pump() {
   FlightPayload payload;
   ExchangeReactor* reactor = nullptr;
-  // Taken under mutex_ on the write path only: DetachReactor() takes the same
-  // lock, and OnDone() drops the RPC's reference only after detaching, so the
-  // reactor outlives the unlocked WritePayload() call. Released on return.
   AsyncReactorBase::HoldToken token;
   enum class Action { kIdle, kDrained, kNoReactor, kWrite } action = Action::kIdle;
   arrow::Future<> drained;
@@ -156,7 +153,7 @@ void ExchangeWriter::Pump() {
     if (write_in_flight_) {
       return;
     }
-    if (queue_.empty()) {
+    if (queue_.empty()) { 
       drained = std::move(flush_);
       flush_ = arrow::Future<>();
       action = Action::kDrained;
@@ -199,8 +196,6 @@ void ExchangeWriter::Pump() {
 }
 
 void ExchangeWriter::FailFlush(Status status) {
-  // Claim the future under the lock, complete it outside: MarkFinished() runs
-  // continuations inline, which may re-enter the writer.
   arrow::Future<> flush;
   {
     std::lock_guard<std::mutex> lock(mutex_);

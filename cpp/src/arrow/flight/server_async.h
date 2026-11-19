@@ -38,13 +38,13 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataStream {
  public:
   virtual ~AsyncFlightDataStream();
 
-  /// \brief Like GetSchemaPayload(), but the payload arrives later.
+  /// \brief Compute FlightPayload containing serialized RecordBatch schema
   ///
   /// Called once, before any NextAsync() payload is requested.
   /// \return A future completed with the schema payload. A non-OK status fails the RPC.
   virtual arrow::Future<FlightPayload> GetSchemaPayloadAsync() = 0;
 
-  /// \brief Like Next(), but the payload arrives later.
+  /// \brief When the stream is completed, the last payload written will have null metadata
   ///
   /// The transport keeps one call in flight at a time and only asks again once
   /// the previous payload has been written.

@@ -204,7 +204,6 @@ class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
   bool finished() const { return finished_.load(); }
 
   /// The transport's teardown on cancellation: finish the RPC as cancelled.
-  /// Reactors with more to unwind override it and call FinishOnce() first.
   virtual void TearDownOnCancel() { FinishOnce(arrow::Status::Cancelled()); }
 
   /// The call context: handlers and the teardown paths need it.

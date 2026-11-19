@@ -26,8 +26,7 @@ namespace {
 
 /// Serve the Handshake RPC over the generic callback API. The handler is
 /// synchronous, so every path finishes the RPC from the callback that started
-/// it: no callback outlives its read or write, and the single reference the base
-/// class holds is enough.
+/// it.
 class HandshakeReactor final : public AsyncReactorBase {
  public:
   HandshakeReactor(AsyncCallContext flight_context, AsyncGenericFlightServerBase* base)

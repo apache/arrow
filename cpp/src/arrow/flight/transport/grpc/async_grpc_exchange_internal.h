@@ -32,25 +32,14 @@ namespace arrow::flight::transport::grpc::detail {
 // Its handler is asynchronous user code: it receives an
 // AsyncFlightMessageReader/AsyncFlightMessageWriter pair and returns a future
 // the reactor finishes the RPC with. The three classes below are mutually
-// coupled on purpose -- the reader asks the reactor for the next read, the
-// writer asks it to write a payload, and the reactor drives both from the
-// gRPC callbacks -- so they are declared together here and implemented one
-// per translation unit (async_grpc_exchange.cc, async_grpc_exchange_reader.cc,
-// async_grpc_exchange_writer.cc).
+// coupled on purpose:
+// - the reader asks the reactor for the next read
+// - the writer asks it to write a payload, and the reactor drives both from the gRPC callbacks
+// so they are declared together here and implemented one per translation unit (async_grpc_exchange.cc, async_grpc_exchange_reader.cc, async_grpc_exchange_writer.cc).
 
 class ExchangeReactor;
 
 /// \brief The AsyncFlightMessageReader of one DoExchange RPC.
-///
-/// Decoding reuses the push decoder DoPut uses, so the wire shapes behave
-/// identically: the schema and dictionary messages are read through (they are
-/// not chunks), a metadata-only message is a chunk with a null data member,
-/// and the end of the exchange is the chunk whose members are both null.
-/// Messages are pulled one demand at a time: NextAsync() arms the next read,
-/// and the chunk (or the end, or the failure) resolves the demand.
-///
-/// The reactor drives the I/O (it owns the read buffer and calls OnMessage /
-/// OnReadClosed / OnReadFailed), this class owns the decode state machine.
 class ExchangeReader final : public AsyncFlightMessageReader,
                              public std::enable_shared_from_this<ExchangeReader> {
  public:
@@ -183,7 +172,7 @@ class ExchangeReactor final : public AsyncReactorBase {
   /// caller).
   void StartReadNext();
 
-  /// \brief Serialize one payload into the write buffer and start the write.
+  /// \brief SeriaIn ExchangeReader::OnReadClosed() and start the write.
   /// Called by ExchangeWriter, OnWriteDone() resumes it.
   arrow::Status WritePayload(FlightPayload payload);
 

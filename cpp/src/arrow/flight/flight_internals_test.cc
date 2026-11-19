@@ -1081,6 +1081,70 @@ TEST(AsyncFlightMessageDecoder, DictionaryStream) {
   EXPECT_EQ(listener->chunks[0].app_metadata, nullptr);
 }
 
+TEST(AsyncFlightMessageDecoder, DictionaryAfterSchemaMessage) {
+  // A dictionary-encoded schema needs a dictionary message before the first
+  // batch. Init() reads through the schema message alone, so the dictionary
+  // arrives on the next Consume() with no batch queued behind it: the decoder
+  // must consume it there, not retain it waiting for a record batch.
+  const auto dict_type = dictionary(arrow::int32(), utf8());
+  const auto schema = arrow::schema({arrow::field("d", dict_type)});
+  const auto batch =
+      RecordBatch::Make(schema, 3, {ArrayFromJSON(dict_type, R"(["a", "b", "a"])")});
+  auto reader = RecordBatchReader::Make({batch}, schema).ValueOrDie();
+  RecordBatchStream stream(std::move(reader));
+
+  auto listener = std::make_shared<DecoderTestListener>();
+  AsyncFlightMessageDecoder decoder(listener);
+
+  ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
+  ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
+  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
+  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded"));
+
+  // The dictionary message alone: no record batch is queued behind it.
+  ASSERT_OK_AND_ASSIGN(auto dict_payload, stream.Next());
+  ASSERT_OK_AND_ASSIGN(auto dict_wire, DecoderTestWireBuffer(dict_payload));
+  ASSERT_OK(decoder.Consume(std::move(dict_wire)).status());
+  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded"))
+      << "a dictionary message must not surface as a chunk";
+
+  // The batch decodes against that dictionary.
+  ASSERT_OK_AND_ASSIGN(auto batch_payload, stream.Next());
+  ASSERT_OK_AND_ASSIGN(auto batch_wire, DecoderTestWireBuffer(batch_payload));
+  ASSERT_OK(decoder.Consume(std::move(batch_wire)).status());
+  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
+  ASSERT_EQ(listener->chunks.size(), 1);
+  ASSERT_NE(listener->chunks[0].data, nullptr);
+  EXPECT_TRUE(listener->chunks[0].data->Equals(*batch));
+}
+
+TEST(AsyncFlightMessageDecoder, SchemaMessageAppMetadataIsNotLost) {
+  // A client may attach app_metadata to the message that carries the schema.
+  // The decoder reports the schema through OnSchemaDecoded(), which has no
+  // place for metadata, so it must still surface it rather than drop it: the
+  // synchronous path hands it to the reader's app_metadata.
+  const auto schema = arrow::schema({arrow::field("a", arrow::int32())});
+  const auto batch =
+      RecordBatch::Make(schema, 1, {ArrayFromJSON(arrow::int32(), "[42]")});
+  auto reader = RecordBatchReader::Make({batch}).ValueOrDie();
+  RecordBatchStream stream(std::move(reader));
+
+  auto listener = std::make_shared<DecoderTestListener>();
+  AsyncFlightMessageDecoder decoder(listener);
+
+  ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
+  schema_payload.app_metadata = Buffer::FromString("schema-meta");
+  ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
+  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
+
+  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"))
+      << "the schema message's app_metadata must reach the listener as a chunk";
+  ASSERT_EQ(listener->chunks.size(), 1);
+  ASSERT_NE(listener->chunks[0].app_metadata, nullptr)
+      << "the schema message's app_metadata was dropped";
+  EXPECT_EQ("schema-meta", listener->chunks[0].app_metadata->ToString());
+}
+
 TEST(AsyncFlightMessageDecoder, DescriptorReachesListener) {
   // An upload message carries the descriptor of the DoPut command, the
   // listener sees it before anything else from that message is decoded.
