@@ -3574,8 +3574,8 @@ def test_csv_format_pad_short_rows(tempdir, dataset_reader):
         sink.write('a,b,c\n1,2,3\n4,5\n6\n')
 
     # Default format fails on short rows
-    dataset_default = ds.dataset(path, format='csv')
     with pytest.raises(pa.ArrowInvalid, match="Expected 3 columns, got 2: 4,5"):
+        dataset_default = ds.dataset(path, format='csv')
         dataset_reader.to_table(dataset_default)
 
     # With pad_short_rows=True, short rows are padded with nulls
