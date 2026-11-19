@@ -433,11 +433,11 @@ Status AlpVectorReader<T>::Decode(int32_t vector_index, std::span<TargetType> ou
 }
 
 template ARROW_TEMPLATE_EXPORT Status
-AlpVectorReader<float>::Decode<float>(int32_t, std::span<float>);
+    AlpVectorReader<float>::Decode<float>(int32_t, std::span<float>);
 template ARROW_TEMPLATE_EXPORT Status
-AlpVectorReader<float>::Decode<double>(int32_t, std::span<double>);
+    AlpVectorReader<float>::Decode<double>(int32_t, std::span<double>);
 template ARROW_TEMPLATE_EXPORT Status
-AlpVectorReader<double>::Decode<double>(int32_t, std::span<double>);
+    AlpVectorReader<double>::Decode<double>(int32_t, std::span<double>);
 
 template class AlpVectorReader<float>;
 template class AlpVectorReader<double>;
