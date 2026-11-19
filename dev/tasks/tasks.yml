@@ -408,6 +408,7 @@ tasks:
         DEBIAN: "{{ debian_version }}"
       flags: "-e ARROW_AZURE=OFF -e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-cpp
+      runs_on: ubuntu-24.04
 {% endfor %}
 
   test-debian-experimental-cpp-gcc-15:
@@ -526,6 +527,7 @@ tasks:
         DEBIAN: "{{ debian_version }}"
       flags: "-e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-python
+      runs_on: ubuntu-24.04
 {% endfor %}
 
   test-ubuntu-24.04-python-3:
