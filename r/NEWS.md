@@ -17,6 +17,12 @@
   under the License.
 -->
 
+# arrow 26.0.1.1
+
+- Third party dependency source is now included in the package to produce a
+  more fully-featured build of arrow even in circumstances where the
+  installation is offline.
+
 # arrow 26.0.1
 
 ## Breaking changes
