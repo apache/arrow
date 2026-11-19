@@ -2895,8 +2895,9 @@ cdef class Expression(_Weakrefable):
         ----------
         type : DataType, default None
             Type to cast array to.
-        safe : boolean, default True
-            Whether to check for conversion errors such as overflow.
+        safe : bool or None, default None
+            Check for conversion errors such as overflow. If ``options`` is
+            omitted, ``None`` uses a safe cast.
         options : CastOptions, default None
             Additional checks pass by CastOptions
 
