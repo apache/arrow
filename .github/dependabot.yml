@@ -52,12 +52,17 @@ updates:
       python-stubs:
         patterns:
           - "*"
-    # Only update the pins of python/requirements-stubs.txt: skip the other
-    # manifests that Dependabot reads in python/ and its subdirectories.
+    ignore:
+      # NumPy 2.5 requires Python 3.12 but the stubs still support 3.11.
+      # Revisit when 3.11 is dropped
+      - dependency-name: "numpy"
+        versions: [">=2.5"]
+    # Only update the pins of python/requirements-stubs.txt. Skip the other
+    # manifests in python/ and also .txt files in pyarrow-stubs-tests/
     exclude-paths:
-      - "python/pyproject.toml"
-      - "python/setup.cfg"
-      - "python/requirements-build.txt"
-      - "python/requirements-test.txt"
-      - "python/requirements-wheel-*.txt"
-      - "python/*/**"
+      - "pyproject.toml"
+      - "setup.cfg"
+      - "requirements-build.txt"
+      - "requirements-test.txt"
+      - "requirements-wheel-*.txt"
+      - "pyarrow-stubs-tests/**"
