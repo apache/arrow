@@ -24,6 +24,8 @@ set -ex
 ARROW_HOME="$(cd "${ARROW_HOME}" && pwd)"
 export ARROW_HOME
 
+RTOOLS_VERSION=40
+
 pacman --noconfirm -Syy
 
 : "${MINGW_ARCH:=mingw32 mingw64 ucrt64}"
@@ -34,7 +36,7 @@ printenv
 makepkg-mingw --noconfirm --noprogressbar --skippgpcheck --nocheck --syncdeps --cleanbuild
 
 VERSION="$(grep Version "${ARROW_HOME}/r/DESCRIPTION" | cut -d " " -f 2)"
-DST_DIR="r-libarrow-windows-x86_64-$VERSION"
+DST_DIR="r-libarrow-windows-x86_64-rtools${RTOOLS_VERSION}-$VERSION"
 
 # Collect the build artifacts and make the shape of zip file that rwinlib expects
 ls

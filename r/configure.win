@@ -69,15 +69,16 @@ function configure_binaries() {
   # AZURE_LIBS="-lcurl -lssl -lxml2"
 
   # Set the right flags to point to and enable arrow/parquet
-  if [ -d "windows/r-libarrow-windows-x86_64-$VERSION" ]; then
-    RWINLIB="../windows/r-libarrow-windows-x86_64-$VERSION"
-  else
+  # The directory is named after the Rtools version that built the libarrow
+  # binary, so find what the dir is actually called.
+  RWINLIB_DIR="$(ls windows/ | grep "^r-libarrow-.*-${VERSION}\$" | tail -n 1)"
+  if [ -z "${RWINLIB_DIR}" ]; then
     # It's possible that the version of the libarrow binary is not identical to the
-    # R version, e.g. if the R build is a patch release, so find what the dir is
-    # actually called. If there is more than one version present, use the one
-    # with the highest version:
-    RWINLIB="../windows/$(ls windows/ | grep ^r-libarrow- | tail -n 1)"
+    # R version, e.g. if the R build is a patch release. If there is more than
+    # one version present, use the one with the highest version:
+    RWINLIB_DIR="$(ls windows/ | grep ^r-libarrow- | tail -n 1)"
   fi
+  RWINLIB="../windows/${RWINLIB_DIR}"
 
   # A libarrow zip built with Rtools42+ contains libcurl.libs. In that zip
   # snappy, utf8proc and re2 are in arrow_bundled_dependencies, and

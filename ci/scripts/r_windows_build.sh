@@ -132,7 +132,7 @@ popd
 ccache --show-stats || echo "ccache not found"
 
 VERSION="$(grep Version "${ARROW_HOME}/r/DESCRIPTION" | cut -d " " -f 2)"
-DST_DIR="r-libarrow-windows-x86_64-${VERSION}"
+DST_DIR="r-libarrow-windows-x86_64-rtools${RTOOLS_VERSION}-${VERSION}"
 
 # Make the zip layout r/configure.win expects: include/ and lib/x64-ucrt/
 pushd "${BUILD_DIR}"
