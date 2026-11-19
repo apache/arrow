@@ -29,6 +29,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/fuzz_internal.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/thread_pool.h"
 
@@ -97,8 +98,11 @@ void MakeFuzzJsonOptions(const uint8_t* header, ReadOptions* read_options,
   read_options->use_threads = (header[3] & 1) != 0;
 }
 
-// Merge a Result's status into the aggregate without aborting the other
-// reader paths, so a failure in one path cannot mask coverage of the rest.
+// Merge a tolerated reader error (e.g. a parse failure on malformed input)
+// into the aggregate without aborting the other reader paths, so a failure in
+// one path cannot mask coverage of the rest.  Validation failures of
+// successful reads are not merged: they indicate a reader bug and are fatal
+// (see ARROW_CHECK_OK below).
 void MergeStatus(Status st, Status* out) { *out &= std::move(st); }
 
 Status ReadAllWays(const ReadOptions& read_options_in, const ParseOptions& parse_options,
@@ -119,26 +123,45 @@ Status ReadAllWays(const ReadOptions& read_options_in, const ParseOptions& parse
     }
     auto maybe_table = (*maybe_reader)->Read();
     if (maybe_table.ok()) {
-      MergeStatus((*maybe_table)->ValidateFull(), &st);
+      // A successful read that yields an invalid table is a reader bug, not a
+      // tolerated parse error, so make it fatal rather than merging it.
+      ARROW_CHECK_OK((*maybe_table)->ValidateFull());
     } else {
       MergeStatus(maybe_table.status(), &st);
     }
   }
 
-  // 3. Incremental (streaming) read, multi-threaded.
+  // 3. Incremental (streaming) read, with the threading setting encoded in
+  //    the fuzz header: reader.cc implements separate threaded and
+  //    non-threaded streaming paths, and both must be reachable.
   {
     auto read_options = read_options_in;
-    read_options.use_threads = true;
     auto input = std::make_shared<::arrow::io::BufferReader>(json);
     auto maybe_reader = StreamingReader::Make(input, read_options, parse_options);
     if (!maybe_reader.ok()) {
       MergeStatus(maybe_reader.status(), &st);
     } else {
-      auto maybe_table = (*maybe_reader)->ToTable();
-      if (maybe_table.ok()) {
-        MergeStatus((*maybe_table)->ValidateFull(), &st);
-      } else {
-        MergeStatus(maybe_table.status(), &st);
+      auto reader = *maybe_reader;
+      // Consume batches directly rather than via ToTable(): ToTable can
+      // silently discard batches when a later read fails, and it only checks
+      // aggregate column lengths - both would hide invalid batches from the
+      // fuzz findings.  Only reader errors (malformed JSON) are tolerated;
+      // a successfully delivered batch must be valid and match the reader
+      // schema.
+      while (true) {
+        auto maybe_batch = reader->ReadNext();
+        if (!maybe_batch.ok()) {
+          MergeStatus(maybe_batch.status(), &st);
+          break;
+        }
+        auto batch = *maybe_batch;
+        if (batch == nullptr) {
+          break;
+        }
+        if (!batch->schema()->Equals(reader->schema())) {
+          ARROW_CHECK_OK(Status::Invalid("streaming batch schema mismatch"));
+        }
+        ARROW_CHECK_OK(batch->ValidateFull());
       }
     }
   }
@@ -147,7 +170,8 @@ Status ReadAllWays(const ReadOptions& read_options_in, const ParseOptions& parse
   {
     auto maybe_batch = ParseOne(parse_options, json);
     if (maybe_batch.ok()) {
-      MergeStatus((*maybe_batch)->ValidateFull(), &st);
+      // As above: invalid output from a successful read is a reader bug.
+      ARROW_CHECK_OK((*maybe_batch)->ValidateFull());
     } else {
       MergeStatus(maybe_batch.status(), &st);
     }
