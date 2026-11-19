@@ -40,13 +40,9 @@ namespace parquet {
 /// Configuration for ALP encoding.
 struct PARQUET_EXPORT AlpOptions {
   static constexpr int32_t kDefaultVectorSize = 1024;
-  static constexpr int64_t kDefaultSamplingWindowSize = 122880;
 
   /// Values per encoded vector. Must be a power of two in [8, 32768].
   int32_t vector_size{kDefaultVectorSize};
-  /// Input window size used to space sampled chunks within each page.
-  /// Must be positive.
-  int64_t sampling_window_size{kDefaultSamplingWindowSize};
 
   /// Throws ParquetException if a configuration value is invalid.
   void Validate() const;

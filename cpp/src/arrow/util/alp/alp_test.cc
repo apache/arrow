@@ -760,7 +760,7 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationDecimalData) {
   for (size_t i = 0; i < data.size(); ++i) {
     data[i] = static_cast<TypeParam>(100.0 + i * 0.01);
   }
-  AlpSampler<TypeParam> sampler(static_cast<int64_t>(data.size()));
+  AlpSampler<TypeParam> sampler;
   sampler.AddSample(data);
 
   constexpr size_t kNumValues = 1024;
@@ -774,35 +774,11 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationDecimalData) {
       output, std::vector<TypeParam>(data.begin(), data.begin() + kNumValues)));
 }
 
-TYPED_TEST(AlpSamplerTest, SamplingWindowSize) {
-  constexpr int64_t kChunkSize = AlpSamplingConstants::kChunkSize;
-  const std::vector<TypeParam> nan_chunk(kChunkSize,
-                                         std::numeric_limits<TypeParam>::quiet_NaN());
-  const std::vector<TypeParam> decimal_chunk(kChunkSize, static_cast<TypeParam>(1.25));
-  const auto decimal_preset = AlpCompression<TypeParam>::MakePreset({decimal_chunk});
-
-  // The sampler targets eight chunks per window. An eight-chunk window samples
-  // both inputs, but only decimal_chunk can contribute usable parameters.
-  AlpSampler<TypeParam> every_chunk(/*sampling_window_size=*/8 * kChunkSize);
-  every_chunk.AddSample(nan_chunk);
-  every_chunk.AddSample(decimal_chunk);
-  EXPECT_EQ(decimal_preset.combinations, every_chunk.MakePreset().combinations);
-
-  // A sixteen-chunk window samples every other chunk, skipping decimal_chunk.
-  // With only NaNs sampled, the preset falls back to identity.
-  AlpSampler<TypeParam> every_other_chunk(AlpSamplingConstants::kSampleChunksPerWindow *
-                                          2 * kChunkSize);
-  every_other_chunk.AddSample(nan_chunk);
-  every_other_chunk.AddSample(decimal_chunk);
-  EXPECT_EQ(AlpEncodingPreset::MakeDefault().combinations,
-            every_other_chunk.MakePreset().combinations);
-}
-
 TYPED_TEST(AlpSamplerTest, NoUsableSamplesFallBackToDefault) {
   const std::vector<AlpExponentAndFactor> identity =
       AlpEncodingPreset::MakeDefault().combinations;
 
-  AlpSampler<TypeParam> empty_sampler(/*sampling_window_size=*/1);
+  AlpSampler<TypeParam> empty_sampler;
   EXPECT_EQ(empty_sampler.MakePreset().combinations, identity);
 
   const std::vector<TypeParam> unusable(8, std::numeric_limits<TypeParam>::quiet_NaN());

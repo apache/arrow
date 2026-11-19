@@ -33,7 +33,6 @@
 #include "arrow/stl_allocator.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/alp/alp_codec_internal.h"
-#include "arrow/util/alp/alp_sampler_internal.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -75,9 +74,6 @@ void AlpOptions::Validate() const {
   if (vector_size < 8 || vector_size > 32768 ||
       !::arrow::bit_util::HasSingleBit(static_cast<uint32_t>(vector_size))) {
     throw ParquetException("ALP vector size must be a power of two in [8, 32768]");
-  }
-  if (sampling_window_size <= 0) {
-    throw ParquetException("ALP sampling window size must be positive");
   }
 }
 
@@ -1038,7 +1034,6 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   using T = typename DType::c_type;
   using ArrowType = typename EncodingTraits<DType>::ArrowType;
   using Codec = ::arrow::util::alp::AlpCodec<T>;
-  using Sampler = ::arrow::util::alp::AlpSampler<T>;
   using TypedEncoder<DType>::Put;
 
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
@@ -1056,10 +1051,6 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     const std::span<const T> input{reinterpret_cast<const T*>(sink_.data()),
                                    static_cast<size_t>(num_elements)};
 
-    Sampler sampler(alp_options_.sampling_window_size);
-    sampler.AddSample(input);
-    const auto preset = sampler.MakePreset();
-
     PARQUET_ASSIGN_OR_THROW(
         int64_t max_comp_size,
         Codec::GetMaxCompressedSize(num_elements, alp_options_.vector_size));
@@ -1068,7 +1059,7 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
         ::arrow::AllocateResizableBuffer(max_comp_size, this->memory_pool()));
     PARQUET_ASSIGN_OR_THROW(
         const int64_t compressed_size,
-        Codec::Encode(input, preset, alp_options_.vector_size,
+        Codec::Encode(input, alp_options_.vector_size,
                       compressed_buffer->template mutable_span_as<uint8_t>()));
     PARQUET_THROW_NOT_OK(compressed_buffer->Resize(compressed_size));
     sink_.Reset();

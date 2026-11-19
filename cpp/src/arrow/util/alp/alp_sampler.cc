@@ -48,8 +48,8 @@ AlpSamplingParameters GetSamplingParameters(int64_t chunk_size) {
 }
 
 bool ShouldSkipChunk(const int64_t chunk_index, const int64_t sampled_chunk_count,
-                     const int64_t chunk_size, const int64_t sampled_chunk_stride) {
-  if ((chunk_index % sampled_chunk_stride) != 0) {
+                     const int64_t chunk_size) {
+  if ((chunk_index % AlpSamplingConstants::kSampledChunkStride) != 0) {
     return true;
   }
 
@@ -59,14 +59,6 @@ bool ShouldSkipChunk(const int64_t chunk_index, const int64_t sampled_chunk_coun
 }
 
 }  // namespace
-
-template <AlpFloatingType T>
-AlpSampler<T>::AlpSampler(int64_t sampling_window_size)
-    : sampled_chunk_stride_(bit_util::CeilDiv(
-          bit_util::CeilDiv(sampling_window_size, AlpSamplingConstants::kChunkSize),
-          AlpSamplingConstants::kSampleChunksPerWindow)) {
-  ARROW_DCHECK_GT(sampling_window_size, 0);
-}
 
 template <AlpFloatingType T>
 void AlpSampler<T>::AddSample(std::span<const T> input) {
@@ -84,11 +76,10 @@ void AlpSampler<T>::AddSampleChunk(std::span<const T> input) {
   }
 
   const int64_t input_size = static_cast<int64_t>(input.size());
-  const bool should_skip = ShouldSkipChunk(chunks_processed_, chunks_sampled_, input_size,
-                                           sampled_chunk_stride_);
+  const bool should_skip =
+      ShouldSkipChunk(chunks_processed_, chunks_sampled_, input_size);
 
   chunks_processed_ += 1;
-  values_processed_ += input_size;
   if (should_skip) {
     return;
   }
@@ -106,7 +97,6 @@ void AlpSampler<T>::AddSampleChunk(std::span<const T> input) {
        i += sampling_params.sample_stride) {
     chunk_sample.push_back(input[static_cast<size_t>(i)]);
   }
-  sampled_values_count_ += static_cast<int64_t>(chunk_sample.size());
 
   chunk_samples_.push_back(std::move(chunk_sample));
   chunks_sampled_++;
@@ -115,9 +105,7 @@ void AlpSampler<T>::AddSampleChunk(std::span<const T> input) {
 template <AlpFloatingType T>
 AlpEncodingPreset AlpSampler<T>::MakePreset() const {
   ARROW_LOG(DEBUG) << "AlpSampler create preset: chunksSampled=" << chunks_sampled_ << "/"
-                   << chunks_processed_ << " total"
-                   << ", valuesSampled=" << sampled_values_count_ << "/"
-                   << values_processed_ << " total";
+                   << chunks_processed_ << " total";
 
   AlpEncodingPreset preset = AlpCompression<T>::MakePreset(chunk_samples_);
 

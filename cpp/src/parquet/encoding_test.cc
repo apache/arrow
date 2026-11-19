@@ -3006,11 +3006,8 @@ TYPED_TEST(TestAlpEncoding, ReusesEncoderAcrossFlushes) {
   using c_type = typename TypeParam::c_type;
 
   for (const AlpOptions& alp_options :
-       {AlpOptions{}, AlpOptions{/*vector_size=*/8, /*sampling_window_size=*/16},
-        AlpOptions{/*vector_size=*/4096, /*sampling_window_size=*/8192}}) {
-    SCOPED_TRACE(::testing::Message()
-                 << "vector_size=" << alp_options.vector_size
-                 << " sampling_window_size=" << alp_options.sampling_window_size);
+       {AlpOptions{}, AlpOptions{/*vector_size=*/8}, AlpOptions{/*vector_size=*/4096}}) {
+    SCOPED_TRACE(alp_options.vector_size);
     EncodingOptions options;
     options.options.emplace(Encoding::ALP, alp_options);
     auto encoder = MakeTypedEncoder<TypeParam>(
