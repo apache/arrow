@@ -67,8 +67,8 @@ struct AlpSamplingConstants {
   /// Samples collected per chunk.
   static constexpr int64_t kSamplesPerChunk = 256;
 
-  /// Target number of sampled chunks per window.
-  static constexpr int64_t kSampleChunksPerWindow = 8;
+  /// Sample every fourth chunk, starting with chunk 0.
+  static constexpr int64_t kSampledChunkStride = 4;
 
   /// Consecutive non-improving combinations before an early exit.
   static constexpr uint8_t kEarlyExitThreshold = 4;

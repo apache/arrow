@@ -34,7 +34,7 @@ namespace arrow::util::alp {
 template <AlpFloatingType T>
 class ARROW_EXPORT AlpSampler {
  public:
-  explicit AlpSampler(int64_t sampling_window_size);
+  AlpSampler() = default;
 
   /// Adds input values to the sample set.
   void AddSample(std::span<const T> input);
@@ -49,16 +49,10 @@ class ARROW_EXPORT AlpSampler {
   /// AlpSamplingConstants::kChunkSampleWindowSize values (or all if shorter).
   void AddSampleChunk(std::span<const T> input);
 
-  /// Stride between sampled chunks.
-  const int64_t sampled_chunk_stride_;
   /// Number of chunks that have contributed a sample.
   int64_t chunks_sampled_{0};
   /// Number of chunks processed.
   int64_t chunks_processed_{0};
-  /// Number of values processed.
-  int64_t values_processed_{0};
-  /// Number of values retained in chunk_samples_.
-  int64_t sampled_values_count_{0};
   /// One strided sample per sampled chunk. MakePreset() only reads these.
   std::vector<std::vector<T>> chunk_samples_;
 };

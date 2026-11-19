@@ -73,29 +73,20 @@ TEST(TestWriterProperties, Basics) {
 
 TEST(TestWriterProperties, AlpOptions) {
   WriterProperties::Builder builder;
-  const AlpOptions alp_options{/*vector_size=*/4096, /*sampling_window_size=*/8192};
+  const AlpOptions alp_options{/*vector_size=*/4096};
   EncodingOptions options;
   options.options.emplace(Encoding::ALP, alp_options);
   auto properties = builder.encoding_options(options)->build();
   const auto& stored = properties->encoding_options().Get<AlpOptions>(Encoding::ALP);
   EXPECT_EQ(alp_options.vector_size, stored.vector_size);
-  EXPECT_EQ(alp_options.sampling_window_size, stored.sampling_window_size);
 
   auto copy = WriterProperties::Builder(*properties).build();
   const auto& copied = copy->encoding_options().Get<AlpOptions>(Encoding::ALP);
   EXPECT_EQ(alp_options.vector_size, copied.vector_size);
-  EXPECT_EQ(alp_options.sampling_window_size, copied.sampling_window_size);
 
   for (int32_t invalid_size : {0, 7, 1000, 65536}) {
     EncodingOptions invalid_options;
-    invalid_options.options.emplace(
-        Encoding::ALP, AlpOptions{invalid_size, alp_options.sampling_window_size});
-    EXPECT_THROW(builder.encoding_options(invalid_options), ParquetException);
-  }
-  for (int64_t invalid_size : {0, -1}) {
-    EncodingOptions invalid_options;
-    invalid_options.options.emplace(Encoding::ALP,
-                                    AlpOptions{alp_options.vector_size, invalid_size});
+    invalid_options.options.emplace(Encoding::ALP, AlpOptions{invalid_size});
     EXPECT_THROW(builder.encoding_options(invalid_options), ParquetException);
   }
   for (const std::any& value : {std::any{}, std::any{1024}}) {
