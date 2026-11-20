@@ -156,14 +156,53 @@ struct MethodRequest {
   std::string message;
 };
 
-// A well-formed but incomplete FlightDescriptor protobuf: field 1 announces 127
-// bytes and carries two.
-const char kTruncatedDescriptor[] = "\x0a\x7f\x01\x02";
+/// The wire bytes of one length-delimited protobuf field: `field`, a varint
+/// length, then the bytes.
+///
+/// Needed for requests no Flight type expresses: the Flight types always
+/// serialize a known descriptor type, and a handshake payload has no type here.
+/// Encoding by field name keeps the numbers out of the call sites.
+std::string ProtoBytes(int field, std::string_view value) {
+  std::string out;
+  const auto varint = [&out](uint64_t v) {
+    while (v >= 0x80) {
+      out.push_back(static_cast<char>((v & 0x7f) | 0x80));
+      v >>= 7;
+    }
+    out.push_back(static_cast<char>(v));
+  };
+  varint(static_cast<uint64_t>(field) << 3 | 2);  // wire type 2: length-delimited
+  varint(value.size());
+  out.append(value);
+  return out;
+}
+
+/// The wire bytes of one varint protobuf field.
+std::string ProtoVarint(int field, uint64_t value) {
+  std::string out;
+  uint64_t tag = static_cast<uint64_t>(field) << 3;  // wire type 0: varint
+  while (tag >= 0x80) {
+    out.push_back(static_cast<char>((tag & 0x7f) | 0x80));
+    tag >>= 7;
+  }
+  out.push_back(static_cast<char>(tag));
+  while (value >= 0x80) {
+    out.push_back(static_cast<char>((value & 0x7f) | 0x80));
+    value >>= 7;
+  }
+  out.push_back(static_cast<char>(value));
+  return out;
+}
+
+/// A message whose first field announces 127 bytes and carries 2: the framing
+/// says exactly where the field ends, but the message stops first, so the
+/// protobuf parser must reject it.
+const std::string kTruncatedRequest =
+    ProtoBytes(/*flight_descriptor=*/1, std::string(127, 'x')).substr(0, 4);
 
 std::optional<MethodRequest> ValidRequest(std::string_view method) {
   if (method == "Handshake") {
-    // Field 2 (bytes payload): the only field the reactor reads.
-    return MethodRequest{method, std::string("\x12\x04user", 6)};
+    return MethodRequest{method, ProtoBytes(/*payload=*/2, "user")};
   }
   if (method == "DoGet") {
     return MethodRequest{method, WireBytes(Ticket{"ticket"})};
@@ -238,15 +277,15 @@ TEST(AsyncGrpcTest, RawRequestFailures) {
   // One truncated length-delimited protobuf.
   for (const auto& [method, what] : parse_names) {
     cases.push_back({method + " with a truncated request", method,
-                     {RawMessage(std::string(kTruncatedDescriptor, 4))},
+                     {RawMessage(kTruncatedRequest)},
                      ::grpc::StatusCode::INVALID_ARGUMENT,
                      std::string("Failed to parse ") + what, false});
   }
-  // A valid protobuf whose descriptor type is UNKNOWN: field 1 = 0, then
-  // field 3 (path) = "path".
+  // A valid protobuf whose descriptor type is UNKNOWN: type = 0, then a path.
   for (const auto& method : {"GetFlightInfo", "GetSchema", "PollFlightInfo"}) {
     cases.push_back({std::string(method) + " with an UNKNOWN descriptor", method,
-                     {RawMessage(std::string("\x08\x00\x1a\x04path", 8))},
+                     {RawMessage(ProtoVarint(/*type=*/1, /*UNKNOWN=*/0) +
+                                 ProtoBytes(/*path=*/3, "path"))},
                      ::grpc::StatusCode::INVALID_ARGUMENT, "UNKNOWN descriptor type",
                      false});
   }
@@ -295,7 +334,7 @@ TEST(AsyncGrpcTest, DoPutRawRequestFailures) {
   const std::vector<Case> cases = {
       {"descriptor-less schema", {descriptor_less}, "Descriptor missing"},
       {"malformed first message",
-       {RawMessage(std::string(kTruncatedDescriptor, 4))},
+       {RawMessage(kTruncatedRequest)},
        "Unable to read FlightDescriptor"},
       {"no message at all", {}, "empty upload"},
   };
@@ -332,8 +371,7 @@ TEST(AsyncGrpcTest, DoExchangeRawRequestFailures) {
     ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
     ASSERT_OK_AND_ASSIGN(auto raw, CallRaw(flight_server.port(),
                                            MethodPath("DoExchange"),
-                                           {RawMessage(std::string(
-                                               "\x0a\x7f\x01\x02", 4))}));
+                                           {RawMessage(kTruncatedRequest)}));
     // FlightDataDeserialize() reports gRPC's own reason, wrapped by the reactor.
     EXPECT_EQ(::grpc::StatusCode::INTERNAL, raw.status.error_code());
     EXPECT_THAT(raw.status.error_message(),

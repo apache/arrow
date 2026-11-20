@@ -1007,7 +1007,7 @@ TEST(AsyncGrpcTest, DoPutSendsNoAcknowledgementOfItsOwn) {
       {"one ack", [] { return std::make_shared<OneAckListener>(); }, 1,
        [](const std::vector<::grpc::ByteBuffer>& replies) {
          ASSERT_EQ(1u, replies.size()) << "an extra PutResult was written";
-         EXPECT_EQ("ack", PutResultMetadata(ByteBufferToString(replies[0])));
+         EXPECT_EQ("ack", PutResultAppMetadata(ByteBufferToString(replies[0])));
        }},
       {"reply from OnFinish",
        [] {
@@ -1015,7 +1015,7 @@ TEST(AsyncGrpcTest, DoPutSendsNoAcknowledgementOfItsOwn) {
        },
        1, [](const std::vector<::grpc::ByteBuffer>& replies) {
         ASSERT_EQ(1u, replies.size()) << "an extra PutResult was written";
-        EXPECT_EQ("ingested 2 rows", PutResultMetadata(ByteBufferToString(replies[0])));
+        EXPECT_EQ("ingested 2 rows", PutResultAppMetadata(ByteBufferToString(replies[0])));
       }},
   };
 
@@ -1292,7 +1292,7 @@ TEST(AsyncGrpcTest, DoPutOverlappingMetadataWritesAreRejected) {
   EXPECT_TRUE(first.status().ok()) << first.status();
   {
     auto writes = upload.stream.writes();
-    EXPECT_EQ("orig", PutResultMetadata(ByteBufferToString(writes[0])))
+    EXPECT_EQ("orig", PutResultAppMetadata(ByteBufferToString(writes[0])))
         << "the reply was not copied";
   }
 
@@ -1304,7 +1304,7 @@ TEST(AsyncGrpcTest, DoPutOverlappingMetadataWritesAreRejected) {
   EXPECT_TRUE(third.status().ok()) << third.status();
   auto writes = upload.stream.writes();
   ASSERT_EQ(2u, writes.size());
-  EXPECT_EQ("third", PutResultMetadata(ByteBufferToString(writes[1])));
+  EXPECT_EQ("third", PutResultAppMetadata(ByteBufferToString(writes[1])));
 
   upload.HalfClose();
   ASSERT_TRUE(upload.stream.finish_observed().Wait(10));

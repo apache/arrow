@@ -888,32 +888,6 @@ std::string WireBytes(const T& value) {
   return out;
 }
 
-/// The app_metadata of one serialized PutResult reply, or an empty string.
-///
-/// PutResult declares exactly one field, `bytes app_metadata = 1`, so the reply
-/// is that field's tag, a varint length, then the bytes, or nothing at all when
-/// the field is empty. Decoding it here needs no protobuf code, which a Windows
-/// test could not link against.
-inline std::string PutResultMetadata(std::string_view bytes) {
-  auto read_varint = [&](size_t* i, uint64_t* out) {
-    *out = 0;
-    for (int shift = 0; *i < bytes.size() && shift < 64; shift += 7) {
-      const auto byte = static_cast<unsigned char>(bytes[(*i)++]);
-      *out |= static_cast<uint64_t>(byte & 0x7f) << shift;
-      if ((byte & 0x80) == 0) return true;
-    }
-    return false;
-  };
-  size_t i = 0;
-  uint64_t tag = 0;
-  if (!read_varint(&i, &tag)) return std::string();
-  // Field 1, wire type 2 (length-delimited).
-  if (tag != 0x0a) return std::string();
-  uint64_t length = 0;
-  if (!read_varint(&i, &length) || length > bytes.size() - i) return std::string();
-  return std::string(bytes.substr(i, static_cast<size_t>(length)));
-}
-
 // What one raw generic call to the service produced.
 struct RawCallResult {
   ::grpc::Status status;
