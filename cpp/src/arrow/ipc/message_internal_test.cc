@@ -407,6 +407,50 @@ TEST_F(MessageDecodingTest, ReadMessage3) {
   }
 }
 
+TEST_F(MessageDecodingTest, ReadMessageValidBodyLength) {
+  const int kStreamOffset = 42;
+  for (const auto& params : message_params()) {
+    ARROW_SCOPED_TRACE("Params: ", params);
+    ASSERT_OK_AND_ASSIGN(auto sample_message, GetSampleMessage(params));
+    ASSERT_OK_AND_ASSIGN(
+        auto stream_buf,
+        ConcatenateMessage(sample_message, /*padding_size=*/kStreamOffset));
+    const auto metadata_length =
+        static_cast<int32_t>(sample_message.metadata_bytes->size());
+    const auto body_length = static_cast<int64_t>(sample_message.body_bytes->size());
+    io::BufferReader reader(stream_buf);
+    ASSERT_OK_AND_ASSIGN(
+        auto message, ReadMessage(kStreamOffset, metadata_length, body_length, &reader));
+    ASSERT_EQ(message->body_length(), body_length);
+    auto future = ReadMessageAsync(kStreamOffset, metadata_length, body_length, &reader);
+    ASSERT_OK_AND_ASSIGN(auto async_message, future.result());
+    ASSERT_EQ(async_message->body_length(), body_length);
+  }
+}
+
+TEST_F(MessageDecodingTest, ReadMessageInvalidBodyLength) {
+  const int kStreamOffset = 42;
+  for (const auto& params : message_params()) {
+    ARROW_SCOPED_TRACE("Params: ", params);
+    ASSERT_OK_AND_ASSIGN(auto sample_message, GetSampleMessage(params));
+    ASSERT_OK_AND_ASSIGN(
+        auto stream_buf,
+        ConcatenateMessage(sample_message, /*padding_size=*/kStreamOffset));
+    const auto metadata_length =
+        static_cast<int32_t>(sample_message.metadata_bytes->size());
+    io::BufferReader reader(stream_buf);
+    for (const int64_t invalid_body_length :
+         {int64_t{-1}, int64_t{-8}, int64_t{INT64_MAX}}) {
+      ARROW_SCOPED_TRACE("body_length = ", invalid_body_length);
+      ASSERT_RAISES(Invalid, ReadMessage(kStreamOffset, metadata_length,
+                                         invalid_body_length, &reader));
+      ASSERT_RAISES(Invalid, ReadMessageAsync(kStreamOffset, metadata_length,
+                                              invalid_body_length, &reader)
+                                 .result());
+    }
+  }
+}
+
 TEST_F(MessageDecodingTest, ReadMessage4) {
   FieldsLoaderFunction fields_loader = [&](const void* void_batch,
                                            io::RandomAccessFile* file) -> Status {
