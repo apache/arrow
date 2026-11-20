@@ -136,6 +136,15 @@ class TransportRegistry::Impl final {
     }
     return it->second(base, std::move(memory_manager));
   }
+  arrow::Result<std::unique_ptr<ServerTransport>> MakeServerAsync(
+      const std::string& scheme, AsyncGenericFlightServerBase* async_base,
+      std::shared_ptr<MemoryManager> memory_manager) const {
+    auto it = async_server_factories_.find(scheme);
+    if (it == async_server_factories_.end()) {
+      return Status::KeyError("No async server transport implementation for ", scheme);
+    }
+    return it->second(async_base, std::move(memory_manager));
+  }
   Status RegisterClient(const std::string& scheme, ClientFactory factory) {
     auto it = client_factories_.insert({scheme, std::move(factory)});
     if (!it.second) {
@@ -150,10 +159,19 @@ class TransportRegistry::Impl final {
     }
     return Status::OK();
   }
+  Status RegisterAsyncServer(const std::string& scheme, AsyncServerFactory factory) {
+    auto it = async_server_factories_.insert({scheme, std::move(factory)});
+    if (!it.second) {
+      return Status::Invalid("Async server transport already registered for ", scheme);
+    }
+    return Status::OK();
+  }
 
  private:
   std::unordered_map<std::string, TransportRegistry::ClientFactory> client_factories_;
   std::unordered_map<std::string, TransportRegistry::ServerFactory> server_factories_;
+  std::unordered_map<std::string, TransportRegistry::AsyncServerFactory>
+      async_server_factories_;
 };
 
 TransportRegistry::TransportRegistry() { impl_ = std::make_unique<Impl>(); }
@@ -167,6 +185,11 @@ arrow::Result<std::unique_ptr<ServerTransport>> TransportRegistry::MakeServer(
     std::shared_ptr<MemoryManager> memory_manager) const {
   return impl_->MakeServer(scheme, base, std::move(memory_manager));
 }
+arrow::Result<std::unique_ptr<ServerTransport>> TransportRegistry::MakeServerAsync(
+    const std::string& scheme, AsyncGenericFlightServerBase* async_base,
+    std::shared_ptr<MemoryManager> memory_manager) const {
+  return impl_->MakeServerAsync(scheme, async_base, std::move(memory_manager));
+}
 Status TransportRegistry::RegisterClient(const std::string& scheme,
                                          ClientFactory factory) {
   return impl_->RegisterClient(scheme, std::move(factory));
@@ -174,6 +197,10 @@ Status TransportRegistry::RegisterClient(const std::string& scheme,
 Status TransportRegistry::RegisterServer(const std::string& scheme,
                                          ServerFactory factory) {
   return impl_->RegisterServer(scheme, std::move(factory));
+}
+Status TransportRegistry::RegisterAsyncServer(const std::string& scheme,
+                                              AsyncServerFactory factory) {
+  return impl_->RegisterAsyncServer(scheme, std::move(factory));
 }
 
 TransportRegistry* GetDefaultTransportRegistry() {
