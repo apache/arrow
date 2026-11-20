@@ -24,6 +24,7 @@ processorcount(NPROC)
 # including allocators like jemalloc and mimalloc
 set(ARROW_BUNDLED_STATIC_LIBS)
 set(ARROW_GCS_BUNDLED_STATIC_LIBS)
+set(ARROW_AZURE_BUNDLED_STATIC_LIBS)
 
 # Accumulate all system dependencies to provide suitable static link
 # parameters to the third party libraries.
@@ -4434,28 +4435,31 @@ function(build_azure_sdk)
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)
-  list(PREPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       Azure::azure-core
-       Azure::azure-identity
-       Azure::azure-storage-blobs
-       Azure::azure-storage-common
-       Azure::azure-storage-files-datalake)
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+  set(ARROW_AZURE_BUNDLED_STATIC_LIBS
+      Azure::azure-storage-files-datalake
+      Azure::azure-storage-blobs
+      Azure::azure-storage-common
+      Azure::azure-identity
+      Azure::azure-core
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
 if(ARROW_WITH_AZURE_SDK)
-  resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
+  resolve_dependency(Azure
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowAzure
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-azure
+                     REQUIRED_VERSION
+                     1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
   if(AZURE_SDK_VENDORED AND NOT WIN32)
-    find_curl(ARROW)
+    find_curl(ARROW_AZURE)
     find_package(LibXml2 REQUIRED)
-    list(APPEND ARROW_SYSTEM_DEPENDENCIES LibXml2)
+    list(APPEND ARROW_AZURE_SYSTEM_DEPENDENCIES LibXml2)
   endif()
 endif()
 
@@ -4470,12 +4474,15 @@ if(ARROW_BUILD_STATIC)
   if(ARROW_AZURE
      AND AZURE_SDK_VENDORED
      AND NOT WIN32)
-    arrow_append_pc_system_library("libcurl" ARROW_CURL_PC "-lcurl" ARROW)
+    arrow_append_pc_system_library("libcurl" ARROW_AZURE_CURL_PC "-lcurl" ARROW_AZURE)
+    arrow_append_pc_system_library("openssl" ARROW_AZURE_OPENSSL_PC "-lssl -lcrypto"
+                                   ARROW_AZURE)
   endif()
   if(ARROW_AZURE
      AND AZURE_SDK_VENDORED
      AND NOT WIN32)
-    arrow_append_pc_system_library("libxml-2.0" ARROW_LIBXML2_PC "-lxml2" ARROW)
+    arrow_append_pc_system_library("libxml-2.0" ARROW_AZURE_LIBXML2_PC "-lxml2"
+                                   ARROW_AZURE)
   endif()
   if(ARROW_GCS
      AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
@@ -4523,3 +4530,4 @@ endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
 message(STATUS "GCS bundled static libraries: ${ARROW_GCS_BUNDLED_STATIC_LIBS}")
+message(STATUS "Azure bundled static libraries: ${ARROW_AZURE_BUNDLED_STATIC_LIBS}")

@@ -146,6 +146,7 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
   cmake \
     -S "${source_dir}/examples/minimal_build" \
     -B "${build_dir}/examples/minimal_build" \
+    -DARROW_EXAMPLE_AZURE_STATIC_CHECK=ON \
     -DARROW_EXAMPLE_GCS_STATIC_CHECK=ON \
     -DARROW_EXAMPLE_S3_STATIC_CHECK=ON \
     -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
@@ -157,7 +158,8 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
   # Test static filesystem linking
   for static_example in arrow-example-s3-static \
                         arrow-example-gcs-static \
-                        arrow-example-s3-gcs-static; do
+                        arrow-example-s3-gcs-static \
+                        arrow-example-azure-static; do
     example="${build_dir}/examples/minimal_build/${static_example}"
     if [ -x "${example}" ]; then
       PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \

@@ -94,3 +94,20 @@ elseif(ARROW_EXAMPLE_GCS_STATIC_CHECK)
   message(STATUS "Skipping GCS static examples: requires ARROW_GCS and Arrow::arrow_static"
   )
 endif()
+
+option(ARROW_EXAMPLE_AZURE_STATIC_CHECK "Verify Azure and static linking" OFF)
+if(ARROW_EXAMPLE_AZURE_STATIC_CHECK
+   AND ARROW_AZURE
+   AND TARGET Arrow::arrow_static)
+  find_package(ArrowAzure REQUIRED)
+  if(NOT TARGET ArrowAzure::arrow_azure_static)
+    message(FATAL_ERROR "ArrowAzure::arrow_azure_static not found")
+  endif()
+  add_executable(arrow-example-azure-static example.cc)
+  target_compile_definitions(arrow-example-azure-static
+                             PRIVATE ARROW_EXAMPLE_AZURE_STATIC_CHECK)
+  target_link_libraries(arrow-example-azure-static PRIVATE ArrowAzure::arrow_azure_static)
+elseif(ARROW_EXAMPLE_AZURE_STATIC_CHECK)
+  message(STATUS "Skipping Azure static example: requires ARROW_AZURE and Arrow::arrow_static"
+  )
+endif()
