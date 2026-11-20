@@ -408,6 +408,9 @@ tasks:
         DEBIAN: "{{ debian_version }}"
       flags: "-e ARROW_AZURE=OFF -e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-cpp
+      # This can be unpinned to use latest once the following issue is solved:
+      # https://github.com/actions/runner-images/issues/14790
+      runs_on: ubuntu-24.04
 {% endfor %}
 
   test-debian-experimental-cpp-gcc-15:
@@ -526,6 +529,9 @@ tasks:
         DEBIAN: "{{ debian_version }}"
       flags: "-e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-python
+      # This can be unpinned to use latest once the following issue is solved:
+      # https://github.com/actions/runner-images/issues/14790
+      runs_on: ubuntu-24.04
 {% endfor %}
 
   test-ubuntu-24.04-python-3:
