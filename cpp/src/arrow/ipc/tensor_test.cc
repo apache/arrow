@@ -35,6 +35,7 @@
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/ipc/writer.h"
+#include "arrow/memory_pool.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
@@ -655,6 +656,70 @@ TEST(TestSparseTensor, RejectNegativeShapeAndNonZeroLength) {
                                           /*axis_order_size=*/2));
   ASSERT_RAISES(Invalid, ReadSparseTensor(*message));
   ARROW_UNSUPPRESS_DEPRECATION_WARNING
+}
+
+TEST(TestTensor, GetTensorMessageUsesGivenMemoryPool) {
+  // GH-55623: GetTensorMessage() must allocate only from the given pool
+  std::vector<int64_t> values;
+  randint(24, 0, 100, &values);
+  auto data = Buffer::Wrap(values);
+  // A non-contiguous tensor is also copied to a contiguous one from the pool
+  Tensor contiguous(int64(), data, {4, 6}, {48, 8}, {"foo", "bar"});
+  Tensor non_contiguous(int64(), data, {4, 3}, {48, 16});
+
+  for (const Tensor* tensor : {&contiguous, &non_contiguous}) {
+    // A pool with its own statistics, distinct from default_memory_pool() even when
+    // both use the same allocator
+    std::unique_ptr<MemoryPool> pool = MemoryPool::CreateDefault();
+    MemoryPool* default_pool = default_memory_pool();
+    const int64_t default_allocated_before = default_pool->total_bytes_allocated();
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+    ASSERT_OK_AND_ASSIGN(auto message, GetTensorMessage(*tensor, pool.get()));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    ASSERT_EQ(default_pool->total_bytes_allocated(), default_allocated_before);
+    ASSERT_GT(pool->total_bytes_allocated(), 0);
+
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+    ASSERT_OK_AND_ASSIGN(auto result, ReadTensor(*message));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    ASSERT_TRUE(tensor->Equals(*result));
+  }
+}
+
+TEST(TestSparseTensor, GetSparseTensorPayloadUsesGivenMemoryPool) {
+  // GH-55623: GetSparseTensorPayload() and GetSparseTensorMessage() must allocate
+  // only from the given pool
+  std::vector<int64_t> values = {1, 0, 2, 0, 0, 3, 0, 4, 5, 0, 6, 0};
+  auto data = Buffer::Wrap(values);
+  Tensor dense(int64(), data, {3, 4});
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<SparseTensor> sparse,
+                       SparseCOOTensor::Make(dense, int64()));
+
+  // A pool with its own statistics, distinct from default_memory_pool() even when
+  // both use the same allocator
+  std::unique_ptr<MemoryPool> pool = MemoryPool::CreateDefault();
+  MemoryPool* default_pool = default_memory_pool();
+  int64_t default_allocated_before = default_pool->total_bytes_allocated();
+  IpcPayload payload;
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  ASSERT_OK(GetSparseTensorPayload(*sparse, pool.get(), &payload));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+  ASSERT_EQ(default_pool->total_bytes_allocated(), default_allocated_before);
+  ASSERT_GT(pool->total_bytes_allocated(), 0);
+
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  ASSERT_OK_AND_ASSIGN(auto result, internal::ReadSparseTensorPayload(payload));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+  ASSERT_TRUE(sparse->Equals(*result));
+
+  std::unique_ptr<MemoryPool> message_pool = MemoryPool::CreateDefault();
+  default_allocated_before = default_pool->total_bytes_allocated();
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  ASSERT_OK_AND_ASSIGN(auto message, GetSparseTensorMessage(*sparse, message_pool.get()));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+  ASSERT_EQ(default_pool->total_bytes_allocated(), default_allocated_before);
+  ASSERT_GT(message_pool->total_bytes_allocated(), 0);
+  ASSERT_TRUE(message->metadata()->Equals(*payload.metadata));
 }
 
 }  // namespace test
