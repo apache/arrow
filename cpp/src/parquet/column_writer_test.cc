@@ -18,6 +18,7 @@
 #include <cmath>
 #include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -2619,6 +2620,189 @@ TEST_F(TestFloatValuesWriter, AlpAllNullDataPageV2) {
 
 TEST_F(TestDoubleValuesWriter, AlpAllNullDataPageV2) {
   this->TestAlpOptionalDataPageV2(/*num_nulls=*/SMALL_SIZE);
+}
+
+namespace {
+
+int32_t CountEncodingStatPages(const ColumnChunkMetaData& col_meta,
+                               PageType::type page_type, Encoding::type encoding) {
+  int32_t total = 0;
+  for (const auto& stat : col_meta.encoding_stats()) {
+    if (stat.page_type == page_type && stat.encoding == encoding) {
+      total += stat.count;
+    }
+  }
+  return total;
+}
+
+template <typename ReaderType, typename T>
+std::vector<T> ReadFixedColumn(RowGroupReader* rgr, int col, int num_rows) {
+  auto reader = std::static_pointer_cast<ReaderType>(rgr->Column(col));
+  std::vector<T> out(num_rows);
+  int64_t total_read = 0;
+  while (reader->HasNext()) {
+    int64_t values_read = 0;
+    int64_t levels_read = reader->ReadBatch(num_rows - total_read, nullptr, nullptr,
+                                            out.data() + total_read, &values_read);
+    EXPECT_EQ(levels_read, values_read);
+    EXPECT_GT(levels_read, 0);
+    total_read += values_read;
+  }
+  EXPECT_EQ(num_rows, total_read);
+  return out;
+}
+
+}  // namespace
+
+TEST(TestColumnWriter, ConfiguredDictionaryFallbackEncoding) {
+  constexpr int kRows = 40;
+  std::vector<std::string> str_backing(kRows);
+  std::vector<ByteArray> str_vals(kRows);
+  std::vector<int16_t> def_levels(kRows, 1);
+  std::vector<uint8_t> valid_bytes(kRows, 1);
+  std::vector<std::string> expected_spaced_non_null;
+  std::vector<int64_t> i64_vals(kRows);
+  std::vector<double> f64_vals(kRows);
+
+  for (int i = 0; i < kRows; ++i) {
+    str_backing[i] = (i < 10)    ? ("dup_" + std::to_string(i % 2))
+                     : (i >= 30) ? ""
+                                 : ("unique_fallback_val_" + std::to_string(i));
+    str_vals[i] = ByteArray(static_cast<uint32_t>(str_backing[i].size()),
+                            reinterpret_cast<const uint8_t*>(str_backing[i].data()));
+    if (i % 4 == 0) {
+      def_levels[i] = 0;
+      valid_bytes[i] = 0;
+    } else {
+      expected_spaced_non_null.push_back(str_backing[i]);
+    }
+    i64_vals[i] = (i < 10) ? (i % 2) : (10000 + i * 37);
+    f64_vals[i] = (i < 10) ? static_cast<double>(i % 2) : (100.0 + 0.125 * i);
+  }
+  ASSERT_OK_AND_ASSIGN(auto valid_bits, ::arrow::internal::BytesToBits(valid_bytes));
+
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED,
+                      {
+                          schema::ByteArray("dlba", Repetition::REQUIRED),
+                          schema::ByteArray("dlba_spaced", Repetition::OPTIONAL),
+                          schema::ByteArray("dba", Repetition::REQUIRED),
+                          schema::Int64("i64_delta", Repetition::REQUIRED),
+                          schema::Double("f64_bss", Repetition::REQUIRED),
+                          schema::Double("f64_alp", Repetition::REQUIRED),
+                      }));
+
+  const std::vector<Encoding::type> expected_fallbacks = {
+      Encoding::DELTA_LENGTH_BYTE_ARRAY, Encoding::DELTA_LENGTH_BYTE_ARRAY,
+      Encoding::DELTA_BYTE_ARRAY,        Encoding::DELTA_BINARY_PACKED,
+      Encoding::BYTE_STREAM_SPLIT,       Encoding::ALP,
+  };
+
+  for (ParquetDataPageVersion page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    SCOPED_TRACE(page_version == ParquetDataPageVersion::V1 ? "V1" : "V2");
+    auto sink = CreateOutputStream();
+    auto props = WriterProperties::Builder()
+                     .version(ParquetVersion::PARQUET_2_6)
+                     ->data_page_version(page_version)
+                     ->dictionary_pagesize_limit(64)
+                     ->write_batch_size(10)
+                     ->data_pagesize(1)
+                     ->encoding("dlba", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+                     ->encoding("dlba_spaced", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+                     ->encoding("dba", Encoding::DELTA_BYTE_ARRAY)
+                     ->encoding("i64_delta", Encoding::DELTA_BINARY_PACKED)
+                     ->encoding("f64_bss", Encoding::BYTE_STREAM_SPLIT)
+                     ->encoding("f64_alp", Encoding::ALP)
+                     ->build();
+
+    auto fw = ParquetFileWriter::Open(sink, schema, props);
+    auto rg = fw->AppendRowGroup();
+    static_cast<ByteArrayWriter*>(rg->NextColumn())
+        ->WriteBatch(kRows, nullptr, nullptr, str_vals.data());
+    static_cast<ByteArrayWriter*>(rg->NextColumn())
+        ->WriteBatchSpaced(kRows, def_levels.data(), nullptr, valid_bits->data(), 0,
+                           str_vals.data());
+    static_cast<ByteArrayWriter*>(rg->NextColumn())
+        ->WriteBatch(kRows, nullptr, nullptr, str_vals.data());
+    static_cast<Int64Writer*>(rg->NextColumn())
+        ->WriteBatch(kRows, nullptr, nullptr, i64_vals.data());
+    static_cast<DoubleWriter*>(rg->NextColumn())
+        ->WriteBatch(kRows, nullptr, nullptr, f64_vals.data());
+    static_cast<DoubleWriter*>(rg->NextColumn())
+        ->WriteBatch(kRows, nullptr, nullptr, f64_vals.data());
+    ASSERT_NO_THROW(fw->Close());
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+    auto fr =
+        ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
+    auto rg_meta = fr->metadata()->RowGroup(0);
+    for (int col = 0; col < static_cast<int>(expected_fallbacks.size()); ++col) {
+      auto m = rg_meta->ColumnChunk(col);
+      EXPECT_TRUE(m->has_dictionary_page()) << "col=" << col;
+      EXPECT_EQ(1, CountEncodingStatPages(*m, PageType::DICTIONARY_PAGE, Encoding::PLAIN))
+          << "col=" << col;
+      EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::RLE_DICTIONARY),
+                1)
+          << "col=" << col;
+      EXPECT_GE(CountEncodingStatPages(*m, PageType::DATA_PAGE, expected_fallbacks[col]),
+                1)
+          << "col=" << col;
+      EXPECT_EQ(0, CountEncodingStatPages(*m, PageType::DATA_PAGE, Encoding::PLAIN))
+          << "col=" << col;
+    }
+
+    auto rgr = fr->RowGroup(0);
+    auto read_strings = [&](int col, std::vector<int16_t>* out_def) {
+      auto reader = std::static_pointer_cast<ByteArrayReader>(rgr->Column(col));
+      std::vector<std::string> out;
+      int64_t total_levels = 0;
+      while (reader->HasNext()) {
+        std::vector<ByteArray> batch(kRows);
+        int64_t values_read = 0;
+        int16_t* def_ptr = out_def != nullptr ? out_def->data() + total_levels : nullptr;
+        int64_t levels_read = reader->ReadBatch(kRows - total_levels, def_ptr, nullptr,
+                                                batch.data(), &values_read);
+        EXPECT_GT(levels_read, 0);
+        total_levels += levels_read;
+        for (int64_t j = 0; j < values_read; ++j) {
+          out.emplace_back(reinterpret_cast<const char*>(batch[j].ptr), batch[j].len);
+        }
+      }
+      EXPECT_EQ(kRows, total_levels);
+      return out;
+    };
+
+    EXPECT_EQ(str_backing, read_strings(0, nullptr));
+    std::vector<int16_t> out_def(kRows);
+    EXPECT_EQ(expected_spaced_non_null, read_strings(1, &out_def));
+    EXPECT_EQ(def_levels, out_def);
+    EXPECT_EQ(str_backing, read_strings(2, nullptr));
+
+    EXPECT_EQ(i64_vals, (ReadFixedColumn<Int64Reader, int64_t>(rgr.get(), 3, kRows)));
+    EXPECT_EQ(f64_vals, (ReadFixedColumn<DoubleReader, double>(rgr.get(), 4, kRows)));
+    EXPECT_EQ(f64_vals, (ReadFixedColumn<DoubleReader, double>(rgr.get(), 5, kRows)));
+  }
+}
+
+TEST(TestColumnWriter, IncompatibleDictionaryFallbackEncodingThrows) {
+  const std::vector<std::pair<NodePtr, Encoding::type>> cases = {
+      {schema::Int64("col", Repetition::REQUIRED), Encoding::DELTA_LENGTH_BYTE_ARRAY},
+      {schema::ByteArray("col", Repetition::REQUIRED), Encoding::DELTA_BINARY_PACKED},
+      {schema::ByteArray("col", Repetition::REQUIRED), Encoding::BYTE_STREAM_SPLIT},
+      {schema::Int64("col", Repetition::REQUIRED), Encoding::ALP},
+  };
+  for (const auto& [col_node, bad_encoding] : cases) {
+    auto schema = std::static_pointer_cast<GroupNode>(
+        GroupNode::Make("schema", Repetition::REQUIRED, {col_node}));
+    auto props = WriterProperties::Builder()
+                     .enable_dictionary()
+                     ->encoding("col", bad_encoding)
+                     ->build();
+    auto fw = ParquetFileWriter::Open(CreateOutputStream(), schema, props);
+    auto rg = fw->AppendRowGroup();
+    EXPECT_THROW(rg->NextColumn(), ParquetException);
+  }
 }
 
 }  // namespace test
