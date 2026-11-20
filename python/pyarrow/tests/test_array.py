@@ -2745,6 +2745,10 @@ def test_array_from_list_of_timestamps(unit):
 
 
 @pytest.mark.numpy
+@pytest.mark.filterwarnings(
+    "ignore:The 'generic' unit for NumPy timedelta is deprecated:"
+    "DeprecationWarning"
+)
 def test_array_from_timestamp_with_generic_unit():
     if Version(np.__version__) >= Version("2.5.0"):
         pytest.skip("generic units of timedelta64 deprecated")
@@ -2787,6 +2791,10 @@ def test_array_from_numpy_timedelta(dtype, type):
 
 
 @pytest.mark.numpy
+@pytest.mark.filterwarnings(
+    "ignore:The 'generic' unit for NumPy timedelta is deprecated:"
+    "DeprecationWarning"
+)
 def test_array_from_numpy_timedelta_incorrect_unit():
     # generic (no unit)
     if Version(np.__version__) < Version("2.5.0"):
