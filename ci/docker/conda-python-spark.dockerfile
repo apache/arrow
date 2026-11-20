@@ -25,7 +25,9 @@ ARG jdk=17
 ARG maven=3.9.9
 
 ARG numpy=latest
-ARG pandas=latest
+# Spark master requires pandas<3, remove pin and use latest once resolved:
+#     https://github.com/apache/spark/issues/59824
+ARG pandas=2.*
 COPY ci/scripts/install_pandas.sh /arrow/ci/scripts/
 
 RUN mamba install -q -y \
