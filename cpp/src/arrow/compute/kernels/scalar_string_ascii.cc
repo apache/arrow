@@ -2640,8 +2640,36 @@ struct SliceBytesTransform : StringSliceTransformBase {
       // on the resulting slice lengths, so return a worst case estimate.
       return input_bytes;
     }
-    int64_t max_slice_bytes = (opt.stop - opt.start + opt.step - 1) / opt.step;
-    return std::min(input_bytes, ninputs * std::max<int64_t>(0, max_slice_bytes));
+    const int64_t max_slice_bytes = MaxSliceBytes(opt, input_bytes);
+    // The output is never larger than the input; avoid overflowing the product
+    if (max_slice_bytes > 0 && ninputs > input_bytes / max_slice_bytes) {
+      return input_bytes;
+    }
+    return std::min(input_bytes, ninputs * max_slice_bytes);
+  }
+
+  // Upper bound on the output size for one string of at most `max_string_bytes`
+  // bytes, when start and stop have the same sign.
+  static int64_t MaxSliceBytes(const SliceOptions& opt, int64_t max_string_bytes) {
+    // start and stop may be INT64_MIN/INT64_MAX (e.g. the default stop). Indices
+    // past either end select the same bytes as the end itself, where
+    // -max_string_bytes - 1 is "before the first byte" when slicing backward.
+    const int64_t lower = -max_string_bytes - 1;
+    const int64_t start = std::clamp(opt.start, lower, max_string_bytes);
+    const int64_t stop = std::clamp(opt.stop, lower, max_string_bytes);
+    return NumSelectedBytes(opt.step > 0 ? stop - start : start - stop, opt.step);
+  }
+
+  // ceil(span / |step|), without overflow for any non-zero step
+  static int64_t NumSelectedBytes(int64_t span, int64_t step) {
+    if (span <= 0) {
+      return 0;
+    }
+    if (step >= span || step <= -span) {
+      return 1;
+    }
+    // |step| < span, so negating step cannot overflow
+    return (span - 1) / (step > 0 ? step : -step) + 1;
   }
 
   int64_t Transform(const uint8_t* input, int64_t input_string_bytes, uint8_t* output) {
@@ -2724,11 +2752,14 @@ struct SliceBytesTransform : StringSliceTransformBase {
     uint8_t* dest = output;
     const uint8_t* i = begin_sliced;
 
-    while (i < end_sliced) {
-      *dest = *i;
+    while (true) {
+      *dest++ = *i;
+      // Don't step past end_sliced, a large step would overflow the pointer
+      if (opt.step >= end_sliced - i) {
+        break;
+      }
       // skip step codeunits
       i += opt.step;
-      dest++;
     }
     return dest - output;
   }
@@ -2743,7 +2774,8 @@ struct SliceBytesTransform : StringSliceTransformBase {
 
     if (opt.start >= 0) {
       // +1 because begin_sliced acts as as the end of a reverse iterator
-      begin_sliced = std::min(begin + opt.start + 1, end);
+      // (clamp first so that INT64_MAX doesn't overflow)
+      begin_sliced = std::min(opt.start, end - 1) + 1;
     } else {
       // -1 because start=-1 means the last byte, which is 0 advances
       begin_sliced = std::max(end + opt.start + 1, begin);
@@ -2752,7 +2784,8 @@ struct SliceBytesTransform : StringSliceTransformBase {
 
     // similar to opt.start
     if (opt.stop >= 0) {
-      end_sliced = std::min(begin + opt.stop + 1, end);
+      // clamp first so that INT64_MAX doesn't overflow
+      end_sliced = std::min(opt.stop, end - 1) + 1;
     } else {
       end_sliced = std::max(end + opt.stop + 1, begin);
     }
@@ -2783,12 +2816,15 @@ struct SliceBytesTransform : StringSliceTransformBase {
     // Copy computed slice to output
     uint8_t* dest = output;
     const uint8_t* i = begin_sliced;
-    while (i > end_sliced) {
+    while (true) {
       // write a single codepoint
-      *dest = *i;
+      *dest++ = *i;
+      // Don't step past end_sliced, a large step would overflow the pointer
+      if (opt.step <= end_sliced - i) {
+        break;
+      }
       // and skip the remainder
       i += opt.step;
-      dest++;
     }
 
     return dest - output;
@@ -2802,11 +2838,11 @@ struct SliceBytesTransform : StringSliceTransformBase {
     if (step > 0) {
       // forward slice
       auto [begin_index, end_index] = SliceForwardRange(options, input_width_32);
-      return static_cast<int32_t>((end_index - begin_index + step - 1) / step);
+      return static_cast<int32_t>(NumSelectedBytes(end_index - begin_index, step));
     } else {
       // backward slice
       auto [begin_index, end_index] = SliceBackwardRange(options, input_width_32);
-      return static_cast<int32_t>((end_index - begin_index + step + 1) / step);
+      return static_cast<int32_t>(NumSelectedBytes(begin_index - end_index, step));
     }
   }
 };
