@@ -55,6 +55,13 @@ parquet_srcs = files(
     'stream_reader.cc',
     'stream_writer.cc',
     'types.cc',
+    'variant/array_internal.cc',
+    'variant/builder.cc',
+    'variant/decoding.cc',
+    'variant/shred.cc',
+    'variant/slot_internal.cc',
+    'variant/unshred.cc',
+    'variant/validate.cc',
     'xxhasher.cc',
 )
 
@@ -130,6 +137,7 @@ subdir('api')
 subdir('arrow')
 subdir('encryption')
 subdir('geospatial')
+subdir('variant')
 
 install_headers(
     [
@@ -231,6 +239,7 @@ parquet_tests = {
             'arrow/arrow_reader_writer_test.cc',
             'arrow/arrow_statistics_test.cc',
             'arrow/variant_test.cc',
+            'variant/test_util_internal.cc',
         ),
     },
     'arrow-index-test': {'sources': files('arrow/index_test.cc')},
