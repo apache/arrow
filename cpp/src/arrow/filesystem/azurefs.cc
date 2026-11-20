@@ -480,7 +480,7 @@ AzureOptions::MakeDataLakeServiceClient() const {
           AccountDfsUrl(account_name), storage_shared_key_credential_, client_options);
     case CredentialKind::kSASToken:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountBlobUrl(account_name) + sas_token_, client_options);
+          AccountDfsUrl(account_name) + sas_token_, client_options);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
