@@ -747,8 +747,8 @@ TEST_F(TestORCWriterTrivialNoConversion, writeSlicedBatch) {
 }
 
 TEST_F(TestORCWriterTrivialNoConversion, writeSlicedBatchWithStructNulls) {
-  std::shared_ptr<Schema> local_schema = schema(
-      {field("id", int32()), field("s", struct_({field("a", int64())}))});
+  std::shared_ptr<Schema> local_schema =
+      schema({field("id", int32()), field("s", struct_({field("a", int64())}))});
   std::shared_ptr<Table> table = TableFromJSON(local_schema, {R"([
     {"id": 0, "s": {"a": 0}}, {"id": 1, "s": null}, {"id": 2, "s": {"a": 2}},
     {"id": 3, "s": {"a": 3}}, {"id": 4, "s": null}, {"id": 5, "s": {"a": 5}}])"});

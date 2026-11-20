@@ -409,14 +409,12 @@ Result<std::shared_ptr<Array>> NormalizeArray(const std::shared_ptr<Array>& arra
         // The children have been rebased to offset 0, so rebase the struct's
         // own validity bitmap to offset 0 as well.
         std::shared_ptr<Buffer> new_bitmap;
-        ARROW_ASSIGN_OR_RAISE(
-            new_bitmap,
-            AllocateEmptyBitmap(struct_array->length(), default_memory_pool()));
+        ARROW_ASSIGN_OR_RAISE(new_bitmap, AllocateEmptyBitmap(struct_array->length(),
+                                                              default_memory_pool()));
         internal::CopyBitmap(struct_array->null_bitmap_data(), struct_array->offset(),
                              struct_array->length(), new_bitmap->mutable_data(), 0);
-        return std::make_shared<StructArray>(struct_array->type(),
-                                             struct_array->length(), new_children,
-                                             std::move(new_bitmap),
+        return std::make_shared<StructArray>(struct_array->type(), struct_array->length(),
+                                             new_children, std::move(new_bitmap),
                                              struct_array->null_count());
       }
     }
