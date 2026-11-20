@@ -194,6 +194,21 @@ def test_element_wise_functions() -> None:
 
     check(assert_type(pc.random(3), pa.DoubleArray), pa.DoubleArray)
 
+    check(pc.abs([1, 2]), pa.Int64Array)
+    check(pc.abs((1.0, -2.0)), pa.DoubleArray)
+    check(pc.abs(1), pa.Int64Scalar)
+    check(pc.abs_checked(-2.0), pa.DoubleScalar)
+    check(pc.add(-2.0, 1.0), pa.DoubleScalar)
+    check(pc.add_checked([2.0, 3.0], 1), pa.DoubleArray)
+    check(pc.exp(2.0), pa.DoubleScalar)
+    check(pc.exp([1, 2]), pa.DoubleArray)
+    check(pc.divide([1, 2, 3], 1), pa.Int64Array)
+    check(pc.divide(arr, 2.0), pa.Array)
+    check(pc.hypot([1, 2, 3], 1), pa.DoubleArray)
+    check(pc.modulo([7, -7], [3, 3]), pa.Int64Array)
+    check(pc.power(arr, 2), pa.Array)
+    check(pc.sqrt(pa.chunked_array([[1], [2, 3]])), pa.ChunkedArray)
+
     # Python lists and other iterables are accepted where the stubs list them.
     check(pc.round((1.5, 2.5)), pa.Array)
     check(pc.round([1.5, 2.5]), pa.Array)
@@ -205,10 +220,6 @@ def test_element_wise_functions() -> None:
     check(assert_type(selected, pa.Scalar | pa.Array | pa.ChunkedArray | pc.Expression),
           pa.Array)
     check(pc.if_else(pc.field("a") > 1, 1, 2), pc.Expression)
-
-    # Python literals are accepted next to arrays.
-    check(pc.power(arr, 2), pa.Array)
-    check(pc.divide(arr, 2.0), pa.Array)
 
 
 def test_agg_functions() -> None:

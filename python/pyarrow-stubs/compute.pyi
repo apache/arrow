@@ -254,32 +254,23 @@ _NumericOrTemporalScalar: TypeAlias = _NumericScalar | _TemporalScalar
 # pyarrow.array() and most of the API return plain Array and ChunkedArray
 # instances, as these classes aren't generic. So the compute functions accept
 # any Array or ChunkedArray, and only the return types say which kind of array
-# the result is, e.g. a StringArray for a string input. The ChunkedArray of a
-# chunked input is the same for every kind.
+# the result is, e.g. a StringArray for a string input.
 _ArrayOrChunkedArray: TypeAlias = Array | ChunkedArray
 _ScalarOrArray: TypeAlias = Scalar | Array | ChunkedArray
 _ArrayLike: TypeAlias = (
     list[Any] | tuple[Any, ...] | NDArray[Any] | Array | ChunkedArray
 )
+_ComputeInput: TypeAlias = _ScalarOrArray | _ArrayLike | Expression
 _DecimalArray: TypeAlias = (
     Decimal32Array | Decimal64Array | Decimal128Array | Decimal256Array
 )
 # NumericArray includes the date, time, timestamp and duration arrays.
-_NumericArray: TypeAlias = NumericArray | _DecimalArray | ChunkedArray
+_NumericArray: TypeAlias = NumericArray | _DecimalArray
 _NumericOrDurationArray: TypeAlias = _NumericArray
 _NumericOrTemporalArray: TypeAlias = _NumericArray | MonthDayNanoIntervalArray
-_IntegerArray: TypeAlias = IntegerArray | ChunkedArray
-_FloatArray: TypeAlias = FloatingPointArray | ChunkedArray
-_BooleanArray: TypeAlias = BooleanArray | ChunkedArray
-_StringArray: TypeAlias = (
-    StringArray | LargeStringArray | StringViewArray | ChunkedArray
-)
+_StringArray: TypeAlias = StringArray | LargeStringArray | StringViewArray
 _BinaryArray: TypeAlias = (
-    BinaryArray
-    | LargeBinaryArray
-    | BinaryViewArray
-    | FixedSizeBinaryArray
-    | ChunkedArray
+    BinaryArray | LargeBinaryArray | BinaryViewArray | FixedSizeBinaryArray
 )
 _StringOrBinaryArray: TypeAlias = _StringArray | _BinaryArray
 _TemporalArray: TypeAlias = (
@@ -290,9 +281,7 @@ _TemporalArray: TypeAlias = (
     | TimestampArray
     | DurationArray
     | MonthDayNanoIntervalArray
-    | ChunkedArray
 )
-_ListArray: TypeAlias = BaseListArray | ChunkedArray
 
 # =============================== Aggregations ========================================
 def all(
@@ -481,95 +470,102 @@ def variance(
 
 # ========================= Arithmetic functions =========================
 def abs(
-    x: _ScalarOrArray | Expression | float,
+    x: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _NumericOrDurationScalar | _NumericOrDurationArray | Expression: ...
+) -> _NumericOrDurationScalar | _NumericOrDurationArray | ChunkedArray | Expression: ...
 
 abs_checked = _clone_signature(abs)
 
 def add(
-    x: _ScalarOrArray | _ArrayLike | int | Expression,
-    y: _ScalarOrArray | _ArrayLike | int | Expression,
+    x: _ComputeInput | float,
+    y: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _NumericOrTemporalScalar | _NumericOrTemporalArray | Expression: ...
+) -> _NumericOrTemporalScalar | _NumericOrTemporalArray | ChunkedArray | Expression: ...
 
 add_checked = _clone_signature(add)
 
 def divide(
-    x: _ScalarOrArray | Expression | float,
-    y: _ScalarOrArray | Expression | float,
+    x: _ComputeInput | float,
+    y: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _NumericOrTemporalScalar | _NumericOrTemporalArray | Expression: ...
+) -> _NumericOrTemporalScalar | _NumericOrTemporalArray | ChunkedArray | Expression: ...
 
 divide_checked = _clone_signature(divide)
 
 def exp(
-    exponent: _ScalarOrArray | Expression,
+    exponent: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _FloatArray | DoubleArray | _FloatScalar | DoubleScalar | Expression: ...
+) -> (
+    FloatingPointArray
+    | ChunkedArray
+    | DoubleArray
+    | _FloatScalar
+    | DoubleScalar
+    | Expression
+): ...
 
 expm1 = _clone_signature(exp)
 
 def hypot(
-    x: _ScalarOrArray | float | Expression,
-    y: _ScalarOrArray | float | Expression,
+    x: _ComputeInput | float,
+    y: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _FloatScalar | _FloatArray | Expression: ...
+) -> _FloatScalar | FloatingPointArray | ChunkedArray | Expression: ...
 def modulo(
-    dividend: _ScalarOrArray | float | Expression,
-    divisor: _ScalarOrArray | float | Expression,
+    dividend: _ComputeInput | float,
+    divisor: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _NumericScalar | _NumericArray | Expression: ...
+) -> _NumericScalar | _NumericArray | ChunkedArray | Expression: ...
 
 modulo_checked = _clone_signature(modulo)
 multiply = _clone_signature(add)
 multiply_checked = _clone_signature(add)
 
 def negate(
-    x: _ScalarOrArray | Expression | float,
+    x: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _NumericOrDurationScalar | _NumericOrDurationArray | Expression: ...
+) -> _NumericOrDurationScalar | _NumericOrDurationArray | ChunkedArray | Expression: ...
 
 negate_checked = _clone_signature(negate)
 
 def power(
-    base: _ScalarOrArray | Expression | float,
-    exponent: _ScalarOrArray | Expression | float,
+    base: _ComputeInput | float,
+    exponent: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _NumericScalar | _NumericArray | Expression: ...
+) -> _NumericScalar | _NumericArray | ChunkedArray | Expression: ...
 
 power_checked = _clone_signature(power)
 remainder = _clone_signature(modulo)
 remainder_checked = _clone_signature(modulo)
 
 def sign(
-    x: _ScalarOrArray | Expression | float,
+    x: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> Int8Scalar | _FloatScalar | NumericArray | ChunkedArray | Expression: ...
 def sqrt(
-    x: _ScalarOrArray | Expression | float,
+    x: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _FloatArray | _FloatScalar | Expression: ...
+) -> FloatingPointArray | _FloatScalar | ChunkedArray | Expression: ...
 
 sqrt_checked = _clone_signature(sqrt)
 subtract = _clone_signature(add)
@@ -582,13 +578,13 @@ def bit_wise_and(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _NumericScalar | _NumericArray | Expression: ...
+) -> _NumericScalar | _NumericArray | ChunkedArray | Expression: ...
 def bit_wise_not(
     x: _ScalarOrArray | Expression | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _NumericScalar | _NumericArray | Expression: ...
+) -> _NumericScalar | _NumericArray | ChunkedArray | Expression: ...
 
 bit_wise_or = _clone_signature(bit_wise_and)
 bit_wise_xor = _clone_signature(bit_wise_and)
@@ -603,7 +599,7 @@ def ceil(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _FloatScalar | _FloatArray | Expression: ...
+) -> _FloatScalar | FloatingPointArray | ChunkedArray | Expression: ...
 
 floor = _clone_signature(ceil)
 
@@ -615,7 +611,7 @@ def round(
     *,
     options: RoundOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericScalar | _NumericArray | Expression: ...
+) -> _NumericScalar | _NumericArray | ChunkedArray | Expression: ...
 def round_to_multiple(
     x: _ScalarOrArray | Iterable[Any] | Expression | float,
     /,
@@ -624,7 +620,7 @@ def round_to_multiple(
     *,
     options: RoundToMultipleOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericScalar | _NumericArray | Expression: ...
+) -> _NumericScalar | _NumericArray | ChunkedArray | Expression: ...
 def round_binary(
     x: _ScalarOrArray | Iterable[Any] | float | Expression,
     s: _ScalarOrArray | int | Expression,
@@ -633,7 +629,7 @@ def round_binary(
     *,
     options: RoundBinaryOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericScalar | _NumericArray | Expression: ...
+) -> _NumericScalar | _NumericArray | ChunkedArray | Expression: ...
 
 trunc = _clone_signature(ceil)
 
@@ -643,7 +639,7 @@ def ln(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _FloatScalar | _FloatArray | Expression: ...
+) -> _FloatScalar | FloatingPointArray | ChunkedArray | Expression: ...
 
 ln_checked = _clone_signature(ln)
 log10 = _clone_signature(ln)
@@ -659,7 +655,7 @@ def logb(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _FloatScalar | _FloatArray | Expression: ...
+) -> _FloatScalar | FloatingPointArray | ChunkedArray | Expression: ...
 
 logb_checked = _clone_signature(logb)
 
@@ -676,7 +672,7 @@ def atan2(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _FloatScalar | _FloatArray | Expression: ...
+) -> _FloatScalar | FloatingPointArray | ChunkedArray | Expression: ...
 
 cos = _clone_signature(ln)
 cos_checked = _clone_signature(ln)
@@ -702,7 +698,7 @@ def equal(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 
 greater = _clone_signature(equal)
 greater_equal = _clone_signature(equal)
@@ -726,7 +722,7 @@ def and_(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 
 and_kleene = _clone_signature(and_)
 and_not = _clone_signature(and_)
@@ -737,7 +733,7 @@ def invert(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 
 or_ = _clone_signature(and_)
 or_kleene = _clone_signature(and_)
@@ -749,7 +745,7 @@ def ascii_is_alnum(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 
 ascii_is_alpha = _clone_signature(ascii_is_alnum)
 ascii_is_decimal = _clone_signature(ascii_is_alnum)
@@ -776,7 +772,7 @@ def ascii_capitalize(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
+) -> _StringScalar | _StringArray | ChunkedArray | Expression: ...
 
 ascii_lower = _clone_signature(ascii_capitalize)
 ascii_reverse = _clone_signature(ascii_capitalize)
@@ -798,7 +794,7 @@ def binary_repeat(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _StringOrBinaryScalar | _StringOrBinaryArray | Expression: ...
+) -> _StringOrBinaryScalar | _StringOrBinaryArray | ChunkedArray | Expression: ...
 def binary_replace_slice(
     strings: _ScalarOrArray | Expression,
     /,
@@ -808,13 +804,13 @@ def binary_replace_slice(
     *,
     options: ReplaceSliceOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _StringOrBinaryScalar | _StringOrBinaryArray | Expression: ...
+) -> _StringOrBinaryScalar | _StringOrBinaryArray | ChunkedArray | Expression: ...
 def binary_reverse(
     strings: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _BinaryScalar | _BinaryArray | Expression: ...
+) -> _BinaryScalar | _BinaryArray | ChunkedArray | Expression: ...
 def replace_substring(
     strings: _ScalarOrArray | Expression,
     /,
@@ -824,7 +820,7 @@ def replace_substring(
     max_replacements: int | None = None,
     options: ReplaceSubstringOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
+) -> _StringScalar | _StringArray | ChunkedArray | Expression: ...
 
 replace_substring_regex = _clone_signature(replace_substring)
 
@@ -833,7 +829,7 @@ def utf8_capitalize(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
+) -> _StringScalar | _StringArray | ChunkedArray | Expression: ...
 def utf8_length(
     strings: _ScalarOrArray | Expression,
     /,
@@ -854,7 +850,7 @@ def utf8_replace_slice(
     *,
     options: ReplaceSliceOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
+) -> _StringScalar | _StringArray | ChunkedArray | Expression: ...
 
 utf8_reverse = _clone_signature(utf8_capitalize)
 utf8_swapcase = _clone_signature(utf8_capitalize)
@@ -868,7 +864,7 @@ def utf8_normalize(
     *,
     options: Utf8NormalizeOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
+) -> _StringScalar | _StringArray | ChunkedArray | Expression: ...
 
 # ========================= String padding =========================
 def ascii_center(
@@ -880,7 +876,7 @@ def ascii_center(
     *,
     options: PadOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
+) -> _StringScalar | _StringArray | ChunkedArray | Expression: ...
 
 ascii_lpad = _clone_signature(ascii_center)
 ascii_rpad = _clone_signature(ascii_center)
@@ -896,7 +892,7 @@ def utf8_zero_fill(
     *,
     options: ZeroFillOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
+) -> _StringScalar | _StringArray | ChunkedArray | Expression: ...
 
 utf8_zfill = utf8_zero_fill
 
@@ -908,13 +904,13 @@ def ascii_ltrim(
     *,
     options: TrimOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
+) -> _StringScalar | _StringArray | ChunkedArray | Expression: ...
 def ascii_ltrim_whitespace(
     strings: _ScalarOrArray | Expression,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
+) -> _StringScalar | _StringArray | ChunkedArray | Expression: ...
 
 ascii_rtrim = _clone_signature(ascii_ltrim)
 ascii_rtrim_whitespace = _clone_signature(ascii_ltrim_whitespace)
@@ -936,7 +932,7 @@ def ascii_split_whitespace(
     reverse: bool = False,
     options: SplitOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _ListScalar | _ListArray | Expression: ...
+) -> _ListScalar | BaseListArray | ChunkedArray | Expression: ...
 def split_pattern(
     strings: _ScalarOrArray | Expression,
     /,
@@ -946,7 +942,7 @@ def split_pattern(
     reverse: bool = False,
     options: SplitOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _ListScalar | _ListArray | Expression: ...
+) -> _ListScalar | BaseListArray | ChunkedArray | Expression: ...
 
 split_pattern_regex = _clone_signature(split_pattern)
 utf8_split_whitespace = _clone_signature(ascii_split_whitespace)
@@ -970,14 +966,14 @@ def binary_join(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _StringOrBinaryScalar | _StringOrBinaryArray | Expression: ...
+) -> _StringOrBinaryScalar | _StringOrBinaryArray | ChunkedArray | Expression: ...
 def binary_join_element_wise(
     *strings: str | bytes | _ScalarOrArray | Iterable[Any] | Expression,
     null_handling: _NullHandling = "emit_null",
     null_replacement: str = "",
     options: JoinOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _StringOrBinaryScalar | _StringOrBinaryArray | Expression: ...
+) -> _StringOrBinaryScalar | _StringOrBinaryArray | ChunkedArray | Expression: ...
 
 # ========================= String Slicing =========================
 def binary_slice(
@@ -989,7 +985,7 @@ def binary_slice(
     *,
     options: SliceOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _BinaryScalar | _BinaryArray | Expression: ...
+) -> _BinaryScalar | _BinaryArray | ChunkedArray | Expression: ...
 def utf8_slice_codeunits(
     strings: _ScalarOrArray | Expression,
     /,
@@ -999,7 +995,7 @@ def utf8_slice_codeunits(
     *,
     options: SliceOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _StringScalar | _StringArray | Expression: ...
+) -> _StringScalar | _StringArray | ChunkedArray | Expression: ...
 
 # ========================= Containment tests =========================
 def count_substring(
@@ -1024,7 +1020,7 @@ def ends_with(
     ignore_case: bool = False,
     options: MatchSubstringOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 
 find_substring = _clone_signature(count_substring)
 find_substring_regex = _clone_signature(count_substring)
@@ -1046,7 +1042,7 @@ def is_in(
     skip_nulls: bool = False,
     options: SetLookupOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 
 match_like = _clone_signature(ends_with)
 match_substring = _clone_signature(ends_with)
@@ -1069,7 +1065,7 @@ def is_finite(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 
 is_inf = _clone_signature(is_finite)
 is_nan = _clone_signature(is_finite)
@@ -1081,13 +1077,13 @@ def is_null(
     nan_is_null: bool = False,
     options: NullOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 def is_valid(
     values: _ScalarOrArray | Expression | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 
 true_unless_null = _clone_signature(is_valid)
 
@@ -1149,7 +1145,7 @@ def ceil_temporal(
     calendar_based_origin: bool = False,
     options: RoundTemporalOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _TemporalScalar | _TemporalArray | Expression: ...
+) -> _TemporalScalar | _TemporalArray | ChunkedArray | Expression: ...
 
 floor_temporal = _clone_signature(ceil_temporal)
 round_temporal = _clone_signature(ceil_temporal)
@@ -1225,7 +1221,7 @@ def is_dst(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 def iso_week(
     values: _ScalarOrArray | Expression,
     /,
@@ -1240,7 +1236,7 @@ def is_leap_year(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | _BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 
 microsecond = _clone_signature(iso_week)
 millisecond = _clone_signature(iso_week)
@@ -1368,7 +1364,7 @@ def cumulative_sum(
     skip_nulls: bool = False,
     options: CumulativeOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericArray | Expression: ...
+) -> _NumericArray | ChunkedArray | Expression: ...
 
 cumulative_sum_checked = _clone_signature(cumulative_sum)
 cumulative_prod = _clone_signature(cumulative_sum)
@@ -1386,7 +1382,7 @@ def winsorize(
     *,
     options: WinsorizeOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericArray | Expression: ...
+) -> _NumericArray | ChunkedArray | Expression: ...
 
 # ========================= Associative transforms =========================
 def dictionary_encode(
@@ -1458,7 +1454,7 @@ def inverse_permutation(
     *,
     options: InversePermutationOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _IntegerArray | Expression: ...
+) -> IntegerArray | ChunkedArray | Expression: ...
 def scatter(
     values: _ArrayOrChunkedArray | Expression,
     indices: _ArrayOrChunkedArray | Expression,
@@ -1607,7 +1603,7 @@ def list_slice(
     *,
     options: ListSliceOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _ListArray | Expression: ...
+) -> BaseListArray | ChunkedArray | Expression: ...
 def map_lookup(
     container: _ScalarOrArray | Expression,
     /,
@@ -1656,6 +1652,6 @@ def pairwise_diff(
     *,
     options: PairwiseOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericOrTemporalArray | Expression: ...
+) -> _NumericOrTemporalArray | ChunkedArray | Expression: ...
 
 pairwise_diff_checked = _clone_signature(pairwise_diff)
