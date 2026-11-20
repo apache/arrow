@@ -55,10 +55,20 @@
 // On non-Windows, we use the vendored date library due to a GCC libstdc++ bug
 // where DST state is incorrectly reset during timezone rule transitions.
 // See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
-#if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
-#  define ARROW_USE_STD_CHRONO 1
-#else
-#  define ARROW_USE_STD_CHRONO 0
+//
+// Define ARROW_USE_STD_CHRONO (e.g. via ARROW_CXXFLAGS) to override this.
+// The R package's Windows build sets it to 0 because std::chrono ignores the
+// time zone database that the R package supplies.
+#ifndef ARROW_USE_STD_CHRONO
+#  if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
+#    define ARROW_USE_STD_CHRONO 1
+#  else
+#    define ARROW_USE_STD_CHRONO 0
+#  endif
+#endif
+
+#if ARROW_USE_STD_CHRONO && !(defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L)
+#  error "ARROW_USE_STD_CHRONO=1 requires C++20 chrono time zone support"
 #endif
 
 #if ARROW_USE_STD_CHRONO

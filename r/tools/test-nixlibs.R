@@ -487,3 +487,12 @@ test_that("turn_off_unvendored_features()", {
     "-DARROW_SIMD_LEVEL=NONE"
   )
 })
+
+test_that("identify_binary() picks the Windows binary by R version", {
+  local_binding("on_windows", TRUE)
+  local_binding("VERSION_22_OR_LATER", TRUE)
+
+  expect_identical(identify_binary(r_version = "4.3.3"), "windows-x86_64-rtools40")
+  expect_identical(identify_binary(r_version = "4.4.0"), "windows-x86_64-rtools45")
+  expect_identical(identify_binary(r_version = "4.6.0"), "windows-x86_64-rtools45")
+})
