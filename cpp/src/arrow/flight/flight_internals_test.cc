@@ -38,6 +38,7 @@
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/async_grpc_compat.h"
+#include "arrow/array.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/reader.h"
@@ -825,32 +826,35 @@ namespace {
   return internal::DeserializeFlightData(buffer);
 }
 
-// Captures the events AsyncFlightMessageDecoder fires, in order.
+// Captures the events AsyncFlightMessageDecoder fires, in order, plus the
+// per-callback results a test can configure: a rejecting schema, descriptor or
+// OnNext, and an OnNext the test resolves by hand (the backpressure case).
 class DecoderTestListener : public AsyncFlightDataListener {
  public:
-  explicit DecoderTestListener(Status next_status = Status::OK(),
-                               Status descriptor_status = Status::OK())
-      : next_status_(std::move(next_status)),
-        descriptor_status_(std::move(descriptor_status)) {}
-
   Future<> OnDescriptor(const FlightDescriptor& descriptor) override {
     events.emplace_back("OnDescriptor");
     descriptors.push_back(descriptor);
-    return Future<>::MakeFinished(descriptor_status_);
+    return descriptor_result_;
   }
 
   Future<> OnNext(FlightStreamChunk chunk) override {
     events.emplace_back("OnNext");
     chunks.push_back(std::move(chunk));
-    return Future<>::MakeFinished(next_status_);
+    return next_result_;
   }
 
   // The decoder calls the single-argument overload.
   Status OnSchemaDecoded(std::shared_ptr<Schema> schema) override {
     events.emplace_back("OnSchemaDecoded");
     schemas.push_back(std::move(schema));
-    return Status::OK();
+    return schema_status_;
   }
+
+  void set_schema_status(Status status) { schema_status_ = std::move(status); }
+  void set_next_status(Status status) { next_result_ = std::move(status); }
+  void set_descriptor_status(Status status) { descriptor_result_ = std::move(status); }
+  /// Park OnNext(): complete `gate` to release the decoder's continuation.
+  void park_next(Future<> gate) { next_result_ = std::move(gate); }
 
   std::vector<std::string> events;
   std::vector<std::shared_ptr<Schema>> schemas;
@@ -858,340 +862,754 @@ class DecoderTestListener : public AsyncFlightDataListener {
   std::vector<FlightDescriptor> descriptors;
 
  private:
-  Status next_status_;
-  Status descriptor_status_;
+  Status schema_status_;
+  Future<> next_result_ = Future<>::MakeFinished();
+  Future<> descriptor_result_ = Future<>::MakeFinished();
 };
+
+/// The decoder under test, with the wiring every case needs: one wire message
+/// per FlightPayload, and the listener the callbacks were recorded on.
+class TestAsyncFlightMessageDecoder : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    listener_ = std::make_shared<DecoderTestListener>();
+    decoder_ = std::make_unique<AsyncFlightMessageDecoder>(listener_);
+  }
+
+  /// Feed one payload as the transport would, and return the real Consume
+  /// future: a backpressure case must be able to see it unfinished.
+  Future<> ConsumePayload(const FlightPayload& payload) {
+    auto wire = DecoderTestWireBuffer(payload);
+    if (!wire.ok()) {
+      return wire.status();
+    }
+    return decoder_->Consume(std::move(*wire));
+  }
+
+  Future<> ConsumeData(internal::FlightData data) {
+    return decoder_->Consume(std::move(data));
+  }
+
+  std::shared_ptr<DecoderTestListener> listener_;
+  std::unique_ptr<AsyncFlightMessageDecoder> decoder_;
+};
+
+// A RecordBatchReader whose payloads the test pulls one at a time, in order.
+class DecoderStream {
+ public:
+  explicit DecoderStream(std::shared_ptr<Schema> schema,
+                         std::vector<std::shared_ptr<RecordBatch>> batches,
+                         ipc::IpcWriteOptions options = ipc::IpcWriteOptions::Defaults())
+      : stream_(arrow::RecordBatchReader::Make(std::move(batches), std::move(schema))
+                    .ValueOrDie(),
+                options) {}
+
+  FlightPayload SchemaMessage() { return Get(stream_.GetSchemaPayload()); }
+  /// The next payload, with a null ipc_message.metadata at end of stream.
+  FlightPayload Next() { return Get(stream_.Next()); }
+
+ private:
+  static FlightPayload Get(::arrow::Result<FlightPayload> payload) {
+    ARROW_EXPECT_OK(payload);
+    return std::move(payload).ValueOrDie();
+  }
+  RecordBatchStream stream_;
+};
+
+bool IsEndOfStream(const FlightPayload& payload) {
+  return payload.ipc_message.metadata == nullptr;
+}
+
+std::shared_ptr<Schema> DecoderTestSchema() {
+  return arrow::schema({arrow::field("a", arrow::int32()), arrow::field("b", arrow::int32())});
+}
+
+std::shared_ptr<RecordBatch> IntBatch(const std::shared_ptr<Schema>& schema,
+                                      const std::string& a, const std::string& b) {
+  return RecordBatch::Make(schema, 2, {ArrayFromJSON(arrow::int32(), a),
+                                       ArrayFromJSON(arrow::int32(), b)});
+}
 
 }  // namespace
 
-TEST(AsyncFlightMessageDecoder, SchemaAndBatches) {
-  auto schema = arrow::schema(
-      {arrow::field("a", arrow::int32()), arrow::field("b", arrow::int32())});
-  auto batch1 = RecordBatch::Make(
-      schema, 2,
-      {ArrayFromJSON(arrow::int32(), "[1, 2]"), ArrayFromJSON(arrow::int32(), "[3, 4]")});
-  auto batch2 = RecordBatch::Make(
-      schema, 2,
-      {ArrayFromJSON(arrow::int32(), "[5, 6]"), ArrayFromJSON(arrow::int32(), "[7, 8]")});
-  auto reader = RecordBatchReader::Make({batch1, batch2}).ValueOrDie();
-  RecordBatchStream stream(std::move(reader));
+TEST_F(TestAsyncFlightMessageDecoder, SchemaThenBatchesInOrder) {
+  // One payload per wire message: schema, then one per record batch. Only the
+  // schema event precedes the data, and the batches arrive in order with no
+  // metadata invented for them.
+  auto schema = DecoderTestSchema();
+  auto batch1 = IntBatch(schema, "[1, 2]", "[3, 4]");
+  auto batch2 = IntBatch(schema, "[5, 6]", "[7, 8]");
+  DecoderStream stream(schema, {batch1, batch2});
 
-  auto listener = std::make_shared<DecoderTestListener>();
-  AsyncFlightMessageDecoder decoder(listener);
+  ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded"));
+  ASSERT_EQ(listener_->schemas.size(), 1);
+  EXPECT_TRUE(listener_->schemas[0]->Equals(*schema));
 
-  // One wire message per payload: schema first, then one per record batch.
-  ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
-  ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
+  ASSERT_OK(ConsumePayload(stream.Next()).status());
+  ASSERT_OK(ConsumePayload(stream.Next()).status());
+  // The stream's end carries no message at all, so the decoder saw exactly the
+  // schema and the two batches.
+  EXPECT_TRUE(IsEndOfStream(stream.Next()));
 
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded"));
-  ASSERT_EQ(listener->schemas.size(), 1);
-  EXPECT_TRUE(listener->schemas[0]->Equals(*schema));
-
-  ASSERT_OK_AND_ASSIGN(auto payload1, stream.Next());
-  ASSERT_OK_AND_ASSIGN(auto payload2, stream.Next());
-  ASSERT_OK_AND_ASSIGN(auto wire1, DecoderTestWireBuffer(payload1));
-  ASSERT_OK_AND_ASSIGN(auto wire2, DecoderTestWireBuffer(payload2));
-  ASSERT_OK(decoder.Consume(std::move(wire1)).status());
-  ASSERT_OK(decoder.Consume(std::move(wire2)).status());
-
-  EXPECT_THAT(listener->events,
+  EXPECT_THAT(listener_->events,
               ::testing::ElementsAre("OnSchemaDecoded", "OnNext", "OnNext"));
-  ASSERT_EQ(listener->chunks.size(), 2);
-  ASSERT_NE(listener->chunks[0].data, nullptr);
-  EXPECT_TRUE(listener->chunks[0].data->Equals(*batch1));
-  EXPECT_EQ(listener->chunks[0].app_metadata, nullptr);
-  ASSERT_NE(listener->chunks[1].data, nullptr);
-  EXPECT_TRUE(listener->chunks[1].data->Equals(*batch2));
-  EXPECT_EQ(listener->chunks[1].app_metadata, nullptr);
+  ASSERT_EQ(listener_->chunks.size(), 2);
+  ASSERT_NE(listener_->chunks[0].data, nullptr);
+  EXPECT_TRUE(listener_->chunks[0].data->Equals(*batch1));
+  EXPECT_EQ(listener_->chunks[0].app_metadata, nullptr);
+  ASSERT_NE(listener_->chunks[1].data, nullptr);
+  EXPECT_TRUE(listener_->chunks[1].data->Equals(*batch2));
+  EXPECT_EQ(listener_->chunks[1].app_metadata, nullptr);
 }
 
-TEST(AsyncFlightMessageDecoder, MetadataOnlyChunkIsAValue) {
-  // A message with app_metadata but no IPC body is a value, not an issue .
-  FlightPayload payload;
-  payload.app_metadata = Buffer::FromString("only-app-metadata");
-  ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-
-  auto listener = std::make_shared<DecoderTestListener>();
-  AsyncFlightMessageDecoder decoder(listener);
-  ASSERT_OK(decoder.Consume(std::move(wire)).status());
-
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnNext"));
-  ASSERT_EQ(listener->chunks.size(), 1);
-  EXPECT_EQ(listener->chunks[0].data, nullptr);
-  ASSERT_NE(listener->chunks[0].app_metadata, nullptr);
-  EXPECT_EQ(listener->chunks[0].app_metadata->ToString(), "only-app-metadata");
+TEST_F(TestAsyncFlightMessageDecoder, SchemaOnlyPrefix) {
+  // A schema message alone is a complete stream prefix: the schema event and
+  // nothing else, no end-of-stream chunk invented for it.
+  auto schema = DecoderTestSchema();
+  DecoderStream stream(schema, {});
+  ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded"));
+  EXPECT_TRUE(listener_->chunks.empty());
+  ASSERT_EQ(listener_->schemas.size(), 1);
+  EXPECT_TRUE(listener_->schemas[0]->Equals(*schema));
 }
 
-TEST(AsyncFlightMessageDecoder, AppMetadataOnBatch) {
-  auto schema = arrow::schema({arrow::field("a", arrow::int32())});
-  auto batch = RecordBatch::Make(schema, 3, {ArrayFromJSON(arrow::int32(), "[1, 2, 3]")});
-  auto reader = RecordBatchReader::Make({batch}).ValueOrDie();
-  RecordBatchStream stream(std::move(reader));
+TEST_F(TestAsyncFlightMessageDecoder, MetadataPositions) {
+  // App metadata travels with its own wire message and reaches the listener
+  // exactly once for it: on the standalone message, on the schema message and on
+  // the batch message, without leaking into the next batch.
+  auto schema = DecoderTestSchema();
+  auto batch1 = IntBatch(schema, "[1, 2]", "[3, 4]");
+  auto batch2 = IntBatch(schema, "[5, 6]", "[7, 8]");
+  DecoderStream stream(schema, {batch1, batch2});
 
-  auto listener = std::make_shared<DecoderTestListener>();
-  AsyncFlightMessageDecoder decoder(listener);
+  FlightPayload standalone;
+  standalone.app_metadata = Buffer::FromString("standalone");
+  ASSERT_OK(ConsumePayload(standalone).status());
+  ASSERT_EQ(listener_->chunks.size(), 1u);
+  EXPECT_EQ(listener_->chunks[0].data, nullptr);
+  ASSERT_NE(listener_->chunks[0].app_metadata, nullptr);
+  EXPECT_EQ("standalone", listener_->chunks[0].app_metadata->ToString());
 
-  ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
-  ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
+  auto schema_payload = stream.SchemaMessage();
+  schema_payload.app_metadata = Buffer::FromString("on-schema");
+  ASSERT_OK(ConsumePayload(schema_payload).status());
+  ASSERT_EQ(listener_->chunks.size(), 2u);
+  EXPECT_EQ(listener_->chunks[1].data, nullptr);
+  ASSERT_NE(listener_->chunks[1].app_metadata, nullptr);
+  EXPECT_EQ("on-schema", listener_->chunks[1].app_metadata->ToString());
 
-  ASSERT_OK_AND_ASSIGN(auto payload, stream.Next());
-  payload.app_metadata = Buffer::FromString("batch-app-metadata");
-  ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-  ASSERT_OK(decoder.Consume(std::move(wire)).status());
+  auto first = stream.Next();
+  first.app_metadata = Buffer::FromString("on-batch");
+  ASSERT_OK(ConsumePayload(first).status());
+  ASSERT_EQ(listener_->chunks.size(), 3u);
+  ASSERT_NE(listener_->chunks[2].data, nullptr);
+  EXPECT_TRUE(listener_->chunks[2].data->Equals(*batch1));
+  ASSERT_NE(listener_->chunks[2].app_metadata, nullptr);
+  EXPECT_EQ("on-batch", listener_->chunks[2].app_metadata->ToString());
 
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
-  ASSERT_EQ(listener->chunks.size(), 1);
-  ASSERT_NE(listener->chunks[0].data, nullptr);
-  EXPECT_TRUE(listener->chunks[0].data->Equals(*batch));
-  ASSERT_NE(listener->chunks[0].app_metadata, nullptr);
-  EXPECT_EQ(listener->chunks[0].app_metadata->ToString(), "batch-app-metadata");
+  // The next batch carries no metadata: nothing leaks from the previous one.
+  ASSERT_OK(ConsumePayload(stream.Next()).status());
+  ASSERT_EQ(listener_->chunks.size(), 4u);
+  EXPECT_TRUE(listener_->chunks[3].data->Equals(*batch2));
+  EXPECT_EQ(nullptr, listener_->chunks[3].app_metadata);
 }
 
-TEST(AsyncFlightMessageDecoder, SchemaOnlyStream) {
-  auto schema = arrow::schema({arrow::field("a", arrow::int32())});
-  auto batch = RecordBatch::Make(schema, 1, {ArrayFromJSON(arrow::int32(), "[42]")});
-  auto reader = RecordBatchReader::Make({batch}).ValueOrDie();
-  RecordBatchStream stream(std::move(reader));
-
-  auto listener = std::make_shared<DecoderTestListener>();
-  AsyncFlightMessageDecoder decoder(listener);
-
-  ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
-  ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(std::move(wire)).status());
-
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded"));
-  EXPECT_TRUE(listener->chunks.empty());
-  ASSERT_EQ(listener->schemas.size(), 1);
-  EXPECT_TRUE(listener->schemas[0]->Equals(*schema));
-}
-
-TEST(AsyncFlightMessageDecoder, ListenerErrorIsPropagated) {
-  auto schema = arrow::schema({arrow::field("a", arrow::int32())});
-  auto batch = RecordBatch::Make(schema, 1, {ArrayFromJSON(arrow::int32(), "[1]")});
-  auto reader = RecordBatchReader::Make({batch}).ValueOrDie();
-  RecordBatchStream stream(std::move(reader));
-
-  auto listener =
-      std::make_shared<DecoderTestListener>(Status::Invalid("listener failed"));
-  AsyncFlightMessageDecoder decoder(listener);
-
-  ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
-  ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
-
-  // A listener error on a record batch must reach the caller of Consume.
-  ASSERT_OK_AND_ASSIGN(auto payload, stream.Next());
-  ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-  auto status = decoder.Consume(std::move(wire)).status();
-  EXPECT_FALSE(status.ok());
-  EXPECT_EQ(status.code(), StatusCode::Invalid);
-  EXPECT_THAT(status.ToString(), ::testing::HasSubstr("listener failed"));
-
-  // and so must one on a metadata-only message.
-  FlightPayload metadata_only;
-  metadata_only.app_metadata = Buffer::FromString("meta");
-  ASSERT_OK_AND_ASSIGN(auto meta_wire, DecoderTestWireBuffer(metadata_only));
-  auto meta_status = decoder.Consume(std::move(meta_wire)).status();
-  EXPECT_FALSE(meta_status.ok());
-  EXPECT_EQ(meta_status.code(), StatusCode::Invalid);
-}
-
-TEST(AsyncFlightMessageDecoder, FailedOpenLeavesTheDecoderUsable) {
-  // A first IPC message that is not a schema makes RecordBatchStreamReader::Open
-  // fail. The decoder must survive that: it owns its message reader, rather
-  // than handing it over to Open, which destroys it on failure and would leave
-  // the decoder's cached pointer dangling for the next Consume().
-  auto schema = arrow::schema({arrow::field("a", arrow::int32())});
-  auto batch = RecordBatch::Make(schema, 1, {ArrayFromJSON(arrow::int32(), "[1]")});
-  auto reader = RecordBatchReader::Make({batch}).ValueOrDie();
-  RecordBatchStream stream(std::move(reader));
-
-  auto listener = std::make_shared<DecoderTestListener>();
-  AsyncFlightMessageDecoder decoder(listener);
-
-  // A record batch as the first message: not a schema, so Open() fails.
-  ASSERT_OK_AND_ASSIGN(auto batch_payload, stream.Next());
-  ASSERT_OK_AND_ASSIGN(auto batch_wire, DecoderTestWireBuffer(batch_payload));
-  auto failed = decoder.Consume(std::move(batch_wire)).status();
-  EXPECT_FALSE(failed.ok()) << "a first message that is not a schema must be rejected";
-  EXPECT_TRUE(listener->events.empty())
-      << "nothing may be surfaced for a rejected stream";
-
-  // The decoder must still work: consume a well-formed stream and watch the
-  // schema and the batch come through.
-  auto good_reader = RecordBatchReader::Make({batch}).ValueOrDie();
-  RecordBatchStream good_stream(std::move(good_reader));
-  ASSERT_OK_AND_ASSIGN(auto schema_payload, good_stream.GetSchemaPayload());
-  ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
-  ASSERT_OK_AND_ASSIGN(auto good_batch, good_stream.Next());
-  ASSERT_OK_AND_ASSIGN(auto good_wire, DecoderTestWireBuffer(good_batch));
-  ASSERT_OK(decoder.Consume(std::move(good_wire)).status());
-
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
-  ASSERT_EQ(listener->chunks.size(), 1);
-  ASSERT_NE(listener->chunks[0].data, nullptr);
-  EXPECT_TRUE(listener->chunks[0].data->Equals(*batch));
-}
-
-TEST(AsyncFlightMessageDecoder, DictionaryStream) {
-  // A dictionary-encoded stream arrives as: schema -> dictionary message -> batch.
-  // Tthe IPC reader reads through the dictionary message while
-  // looking for a record batch, so a pushed message must only be handed out once
-  // (returning it twice re-reads it forever).
-  const auto dict_type = dictionary(arrow::int32(), utf8());
-  const auto schema = arrow::schema({arrow::field("d", dict_type)});
-  const auto batch =
-      RecordBatch::Make(schema, 3, {ArrayFromJSON(dict_type, R"(["a", "b", "a"])")});
-  auto reader = RecordBatchReader::Make({batch}, schema).ValueOrDie();
-  RecordBatchStream stream(std::move(reader));
-
-  auto listener = std::make_shared<DecoderTestListener>();
-  AsyncFlightMessageDecoder decoder(listener);
-
-  ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
-  ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
-
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded"));
-  ASSERT_EQ(listener->schemas.size(), 1);
-  EXPECT_TRUE(listener->schemas[0]->Equals(*schema));
-
-  // The dictionary message is consumed without surfacing as a chunk of its own.
-  int payloads = 0;
-  while (true) {
-    ASSERT_OK_AND_ASSIGN(auto payload, stream.Next());
-    if (payload.ipc_message.metadata == nullptr) {
-      break;  // end of stream
-    }
-    ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-    ASSERT_OK(decoder.Consume(std::move(wire)).status());
-    ++payloads;
+TEST_F(TestAsyncFlightMessageDecoder, EmptyValues) {
+  // Empty app metadata is no event at all, while a zero-row record batch is a
+  // real batch and not the end of the stream.
+  {
+    FlightPayload empty;
+    empty.app_metadata = Buffer ::FromString("");
+    ASSERT_OK(ConsumePayload(empty).status());
+    EXPECT_TRUE(listener_->events.empty()) << "empty metadata must produce no event";
+    EXPECT_TRUE(listener_->chunks.empty());
   }
-  EXPECT_EQ(payloads, 2);  // dictionary message + record batch
-
-  // and the batch arrives exactly once, decoded against the dictionary.
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
-  ASSERT_EQ(listener->chunks.size(), 1);
-  ASSERT_NE(listener->chunks[0].data, nullptr);
-  EXPECT_TRUE(listener->chunks[0].data->Equals(*batch));
-  EXPECT_EQ(listener->chunks[0].app_metadata, nullptr);
+  {
+    // Directly: wire serialization omits empty metadata, so this needs the
+    // in-memory message.
+    internal::FlightData data;
+    data.app_metadata = Buffer::FromString("");
+    ASSERT_OK(ConsumeData(std::move(data)).status());
+    EXPECT_TRUE(listener_->events.empty());
+    EXPECT_TRUE(listener_->chunks.empty());
+  }
+  {
+    auto schema = DecoderTestSchema();
+    auto empty_batch = RecordBatch::Make(
+        schema, 0,
+        {ArrayFromJSON(arrow::int32(), "[]"), ArrayFromJSON(arrow::int32(), "[]")});
+    DecoderStream stream(schema, {empty_batch});
+    ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+    auto payload = stream.Next();
+    ASSERT_FALSE(IsEndOfStream(payload)) << "a zero-row batch is still a batch";
+    ASSERT_OK(ConsumePayload(payload).status());
+    EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
+    ASSERT_EQ(listener_->chunks.size(), 1u);
+    ASSERT_NE(listener_->chunks[0].data, nullptr);
+    EXPECT_EQ(0, listener_->chunks[0].data->num_rows());
+  }
 }
 
-TEST(AsyncFlightMessageDecoder, DictionaryAfterSchemaMessage) {
-  // A dictionary-encoded schema needs a dictionary message before the first
-  // batch. Init() reads through the schema message alone, so the dictionary
-  // arrives on the next Consume() with no batch queued behind it: the decoder
-  // must consume it there, not retain it waiting for a record batch.
-  const auto dict_type = dictionary(arrow::int32(), utf8());
-  const auto schema = arrow::schema({arrow::field("d", dict_type)});
-  const auto batch =
-      RecordBatch::Make(schema, 3, {ArrayFromJSON(dict_type, R"(["a", "b", "a"])")});
-  auto reader = RecordBatchReader::Make({batch}, schema).ValueOrDie();
-  RecordBatchStream stream(std::move(reader));
+TEST_F(TestAsyncFlightMessageDecoder, DescriptorReportedOnce) {
+  // The first message carries the upload's descriptor. A later message carrying
+  // a different one must not replace it, and must still deliver its data.
+  auto schema = DecoderTestSchema();
+  auto batch = IntBatch(schema, "[1, 2]", "[3, 4]");
+  DecoderStream stream(schema, {batch});
 
-  auto listener = std::make_shared<DecoderTestListener>();
-  AsyncFlightMessageDecoder decoder(listener);
-
-  ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
-  ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded"));
-
-  // The dictionary message alone: no record batch is queued behind it.
-  ASSERT_OK_AND_ASSIGN(auto dict_payload, stream.Next());
-  ASSERT_OK_AND_ASSIGN(auto dict_wire, DecoderTestWireBuffer(dict_payload));
-  ASSERT_OK(decoder.Consume(std::move(dict_wire)).status());
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded"))
-      << "a dictionary message must not surface as a chunk";
-
-  // The batch decodes against that dictionary.
-  ASSERT_OK_AND_ASSIGN(auto batch_payload, stream.Next());
-  ASSERT_OK_AND_ASSIGN(auto batch_wire, DecoderTestWireBuffer(batch_payload));
-  ASSERT_OK(decoder.Consume(std::move(batch_wire)).status());
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
-  ASSERT_EQ(listener->chunks.size(), 1);
-  ASSERT_NE(listener->chunks[0].data, nullptr);
-  EXPECT_TRUE(listener->chunks[0].data->Equals(*batch));
-}
-
-TEST(AsyncFlightMessageDecoder, SchemaMessageAppMetadataIsNotLost) {
-  // A client may attach app_metadata to the message that carries the schema.
-  // The decoder reports the schema through OnSchemaDecoded(), which has no
-  // place for metadata, so it must still surface it rather than drop it: the
-  // synchronous path hands it to the reader's app_metadata.
-  const auto schema = arrow::schema({arrow::field("a", arrow::int32())});
-  const auto batch =
-      RecordBatch::Make(schema, 1, {ArrayFromJSON(arrow::int32(), "[42]")});
-  auto reader = RecordBatchReader::Make({batch}).ValueOrDie();
-  RecordBatchStream stream(std::move(reader));
-
-  auto listener = std::make_shared<DecoderTestListener>();
-  AsyncFlightMessageDecoder decoder(listener);
-
-  ASSERT_OK_AND_ASSIGN(auto schema_payload, stream.GetSchemaPayload());
-  schema_payload.app_metadata = Buffer::FromString("schema-meta");
-  ASSERT_OK_AND_ASSIGN(auto schema_wire, DecoderTestWireBuffer(schema_payload));
-  ASSERT_OK(decoder.Consume(std::move(schema_wire)).status());
-
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"))
-      << "the schema message's app_metadata must reach the listener as a chunk";
-  ASSERT_EQ(listener->chunks.size(), 1);
-  ASSERT_NE(listener->chunks[0].app_metadata, nullptr)
-      << "the schema message's app_metadata was dropped";
-  EXPECT_EQ("schema-meta", listener->chunks[0].app_metadata->ToString());
-}
-
-TEST(AsyncFlightMessageDecoder, DescriptorReachesListener) {
-  // An upload message carries the descriptor of the DoPut command, the
-  // listener sees it before anything else from that message is decoded.
-  const auto schema = arrow::schema({arrow::field("a", arrow::int32())});
-  const auto batch =
-      RecordBatch::Make(schema, 1, {ArrayFromJSON(arrow::int32(), "[42]")});
-  auto reader = RecordBatchReader::Make({batch}).ValueOrDie();
-  RecordBatchStream stream(std::move(reader));
-
-  auto listener = std::make_shared<DecoderTestListener>();
-  AsyncFlightMessageDecoder decoder(listener);
-
-  auto descriptor = FlightDescriptor::Path({"wave", "h1"});
-  ASSERT_OK_AND_ASSIGN(auto payload, stream.GetSchemaPayload());
-  ASSERT_OK(internal::ToPayload(descriptor, &payload.descriptor));
-  ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-  ASSERT_OK(decoder.Consume(std::move(wire)).status());
-
-  EXPECT_THAT(listener->events,
+  const auto original = FlightDescriptor::Path({"wave", "h1"});
+  auto schema_payload = stream.SchemaMessage();
+  ASSERT_OK(internal::ToPayload(original, &schema_payload.descriptor));
+  ASSERT_OK(ConsumePayload(schema_payload).status());
+  EXPECT_THAT(listener_->events,
               ::testing::ElementsAre("OnDescriptor", "OnSchemaDecoded"));
-  ASSERT_EQ(listener->descriptors.size(), 1);
-  EXPECT_EQ(listener->descriptors[0], descriptor);
+  ASSERT_EQ(listener_->descriptors.size(), 1u);
+  EXPECT_EQ(original, listener_->descriptors[0]);
+
+  auto batch_payload = stream.Next();
+  ASSERT_OK(
+      internal::ToPayload(FlightDescriptor::Path({"other"}), &batch_payload.descriptor));
+  ASSERT_OK(ConsumePayload(batch_payload).status());
+  ASSERT_EQ(listener_->descriptors.size(), 1u)
+      << "a later descriptor must be ignored like the sync transport does";
+  EXPECT_EQ(original, listener_->descriptors[0]);
+  EXPECT_THAT(listener_->events,
+              ::testing::ElementsAre("OnDescriptor", "OnSchemaDecoded", "OnNext"));
+  ASSERT_EQ(listener_->chunks.size(), 1u);
+  EXPECT_TRUE(listener_->chunks[0].data->Equals(*batch));
 }
 
-TEST(AsyncFlightMessageDecoder, DescriptorErrorRejectsUpload) {
-  const auto schema = arrow::schema({arrow::field("a", arrow::int32())});
+TEST_F(TestAsyncFlightMessageDecoder, DescriptorDeferral) {
+  // A pending OnDescriptor() holds everything from its own message: success
+  // delivers the rest in order, a failure suppresses all of it.
+  for (const bool accepted : {true, false}) {
+    SCOPED_TRACE(accepted ? "descriptor accepted" : "descriptor rejected");
+    SetUp();
+    auto schema = DecoderTestSchema();
+    DecoderStream stream(schema, {});
+    listener_->set_descriptor_status(
+        accepted ? Status::OK() : Status::Invalid("descriptor rejected"));
+    auto payload = stream.SchemaMessage();
+    payload.app_metadata = Buffer::FromString("after-descriptor");
+    ASSERT_OK(internal::ToPayload(FlightDescriptor::Path({"p"}), &payload.descriptor));
+    const auto consumed = ConsumePayload(payload);
+    if (accepted) {
+      ASSERT_OK(consumed.status());
+      // In order, and the schema's metadata arrives after the schema event.
+      EXPECT_THAT(listener_->events,
+                  ::testing::ElementsAre("OnDescriptor", "OnSchemaDecoded", "OnNext"));
+    } else {
+      ASSERT_FALSE(consumed.status().ok());
+      EXPECT_THAT(consumed.status().ToString(),
+                  ::testing::HasSubstr("descriptor rejected"));
+      EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnDescriptor"))
+          << "a rejected descriptor must suppress the rest of its message";
+    }
+  }
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, DescriptorDeferralHoldsConsume) {
+  // The same deferral with a genuinely pending future: Consume() stays
+  // unfinished, and nothing of the message is delivered before it resolves.
+  class ParkingDescriptorListener final : public DecoderTestListener {
+   public:
+    Future<> OnDescriptor(const FlightDescriptor& descriptor) override {
+      events.emplace_back("OnDescriptor");
+      descriptors.push_back(descriptor);
+      return gate;
+    }
+    Future<> gate = Future<>::Make();
+  };
+  listener_ = std::make_shared<ParkingDescriptorListener>();
+  decoder_ = std::make_unique<AsyncFlightMessageDecoder>(listener_);
+  auto* parking = static_cast<ParkingDescriptorListener*>(listener_.get());
+
+  auto schema = DecoderTestSchema();
+  DecoderStream stream(schema, {});
+  auto payload = stream.SchemaMessage();
+  ASSERT_OK(internal::ToPayload(FlightDescriptor::Path({"p"}), &payload.descriptor));
+  auto wire = DecoderTestWireBuffer(payload).ValueOrDie();
+  const auto consumed = ConsumeData(std::move(wire));
+  EXPECT_FALSE(consumed.is_finished()) << "the descriptor future is still pending";
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnDescriptor"));
+  EXPECT_TRUE(listener_->schemas.empty());
+  EXPECT_TRUE(listener_->chunks.empty());
+
+  parking->gate.MarkFinished(Status::OK());
+  ASSERT_OK(consumed.status());
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnDescriptor", "OnSchemaDecoded"));
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, ListenerFailures) {
+  // A rejecting callback stops its own message there: the same status comes back
+  // to Consume(), and no later callback of that message runs.
+  auto schema_with_batch = [] {
+    auto schema = DecoderTestSchema();
+    return std::make_pair(schema, IntBatch(schema, "[1, 2]", "[3, 4]"));
+  };
+
+  {
+    SCOPED_TRACE("schema rejected");
+    SetUp();
+    listener_->set_schema_status(Status::Invalid("schema rejected"));
+    auto [schema, batch] = schema_with_batch();
+    DecoderStream stream(schema, {batch});
+    const auto status = ConsumePayload(stream.SchemaMessage()).status();
+    ASSERT_FALSE(status.ok());
+    EXPECT_THAT(status.ToString(), ::testing::HasSubstr("schema rejected"));
+    EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded"))
+        << "no data may follow a rejected schema";
+  }
+  {
+    SCOPED_TRACE("batch rejected");
+    SetUp();
+    listener_->set_next_status(Status::Invalid("batch rejected"));
+    auto [schema, batch] = schema_with_batch();
+    DecoderStream stream(schema, {batch});
+    ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+    const auto status = ConsumePayload(stream.Next()).status();
+    ASSERT_FALSE(status.ok());
+    EXPECT_THAT(status.ToString(), ::testing::HasSubstr("batch rejected"));
+    EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
+  }
+  {
+    SCOPED_TRACE("metadata rejected");
+    SetUp();
+    listener_->set_next_status(Status::Invalid("metadata rejected"));
+    FlightPayload metadata;
+    metadata.app_metadata = Buffer::FromString("meta");
+    const auto status = ConsumePayload(metadata).status();
+    ASSERT_FALSE(status.ok());
+    EXPECT_THAT(status.ToString(), ::testing::HasSubstr("metadata rejected"));
+  }
+  {
+    SCOPED_TRACE("schema metadata rejected");
+    SetUp();
+    listener_->set_next_status(Status::Invalid("schema metadata rejected"));
+    auto [schema, batch] = schema_with_batch();
+    DecoderStream stream(schema, {batch});
+    auto payload = stream.SchemaMessage();
+    payload.app_metadata = Buffer::FromString("schema-meta");
+    const auto status = ConsumePayload(payload).status();
+    ASSERT_FALSE(status.ok());
+    EXPECT_THAT(status.ToString(), ::testing::HasSubstr("schema metadata rejected"));
+    EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
+  }
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, BackpressureHoldsConsume) {
+  // A pending OnNext() future keeps Consume() unfinished: that is how the
+  // transport stops reading while the application works.
+  auto schema = DecoderTestSchema();
+  auto batch = IntBatch(schema, "[1, 2]", "[3, 4]");
+  DecoderStream stream(schema, {batch});
+  ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+
+  auto gate = Future<>::Make();
+  listener_->park_next(gate);
+  const auto consumed = ConsumePayload(stream.Next());
+  EXPECT_FALSE(consumed.is_finished()) << "Consume() must wait for OnNext()'s future";
+
+  gate.MarkFinished(Status::OK());
+  ASSERT_OK(consumed.status());
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
+  ASSERT_EQ(listener_->chunks.size(), 1u);
+  EXPECT_TRUE(listener_->chunks[0].data->Equals(*batch));
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, StopDropsEverything) {
+  // Once stopped no listener callback runs, and Consume() succeeds on the message
+  // it had already accepted: the upload ended, the message did not fail.
+  for (const bool before_schema : {true, false}) {
+    SCOPED_TRACE(before_schema ? "stopped before the schema" : "stopped before metadata");
+    SetUp();
+    auto schema = DecoderTestSchema();
+    DecoderStream stream(schema, {});
+    decoder_->Stop();
+    if (before_schema) {
+      ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+    } else {
+      FlightPayload metadata;
+      metadata.app_metadata = Buffer::FromString("meta");
+      ASSERT_OK(ConsumePayload(metadata).status());
+    }
+    EXPECT_TRUE(listener_->events.empty());
+    EXPECT_TRUE(listener_->chunks.empty());
+  }
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, StopWithDescriptorPending) {
+  // A descriptor pending when Stop() arrives: its continuation finds the decoder
+  // stopped, delivers nothing, and Consume() resolves without waiting for the
+  // abandoned message.
+  class ParkingDescriptorListener final : public DecoderTestListener {
+   public:
+    Future<> OnDescriptor(const FlightDescriptor& descriptor) override {
+      events.emplace_back("OnDescriptor");
+      descriptors.push_back(descriptor);
+      return gate;
+    }
+    Future<> gate = Future<>::Make();
+  };
+  listener_ = std::make_shared<ParkingDescriptorListener>();
+  decoder_ = std::make_unique<AsyncFlightMessageDecoder>(listener_);
+  auto* parking = static_cast<ParkingDescriptorListener*>(listener_.get());
+
+  auto schema = DecoderTestSchema();
+  DecoderStream stream(schema, {});
+  auto payload = stream.SchemaMessage();
+  ASSERT_OK(internal::ToPayload(FlightDescriptor::Path({"p"}), &payload.descriptor));
+  auto wire = DecoderTestWireBuffer(payload).ValueOrDie();
+  const auto consumed = ConsumeData(std::move(wire));
+  EXPECT_FALSE(consumed.is_finished()) << "the descriptor future is still pending";
+
+  decoder_->Stop();
+  parking->gate.MarkFinished(Status::OK());
+  ASSERT_OK(consumed.status());
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnDescriptor"))
+      << "nothing of the abandoned message may be delivered after Stop()";
+  EXPECT_TRUE(listener_->schemas.empty());
+  EXPECT_TRUE(listener_->chunks.empty());
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, SchemaMetadataAfterStop) {
+  // The same case driven through the public Stop(): a schema message whose
+  // metadata was already accepted is dropped once the decoder stopped, with no
+  // follow-up chunk.
+  auto schema = DecoderTestSchema();
+  DecoderStream stream(schema, {});
+  auto payload = stream.SchemaMessage();
+  payload.app_metadata = Buffer::FromString("schema-meta");
+  auto wire = DecoderTestWireBuffer(payload).ValueOrDie();
+  // Deliver the schema callback synchronously, then stop, then complete.
+  class StoppingListener final : public DecoderTestListener {
+   public:
+    Status OnSchemaDecoded(std::shared_ptr<Schema> schema) override {
+      auto status = DecoderTestListener::OnSchemaDecoded(std::move(schema));
+      decoder->Stop();
+      return status;
+    }
+    AsyncFlightMessageDecoder* decoder = nullptr;
+  };
+  auto stopping = std::make_shared<StoppingListener>();
+  auto decoder = std::make_unique<AsyncFlightMessageDecoder>(stopping);
+  stopping->decoder = decoder.get();
+  ASSERT_OK(decoder->Consume(std::move(wire)).status());
+  EXPECT_THAT(stopping->events, ::testing::ElementsAre("OnSchemaDecoded"));
+  EXPECT_TRUE(stopping->chunks.empty()) << "no metadata chunk may follow Stop()";
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, BadIpcHeaderIsRejected) {
+  // FlightData whose metadata is not an IPC message: a non-OK Consume() with no
+  // decoded callback, and the decoder stays usable for a good stream.
+  auto schema = DecoderTestSchema();
+  auto batch = IntBatch(schema, "[1, 2]", "[3, 4]");
+  DecoderStream stream(schema, {batch});
+
+  internal::FlightData bad;
+  bad.metadata = Buffer::FromString("truncated");
+  const auto failed = ConsumeData(std::move(bad)).status();
+  ASSERT_FALSE(failed.ok()) << "a truncated IPC header must be rejected";
+  EXPECT_TRUE(listener_->events.empty());
+
+  ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+  ASSERT_OK(ConsumePayload(stream.Next()).status());
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
+  ASSERT_EQ(listener_->chunks.size(), 1u);
+  EXPECT_TRUE(listener_->chunks[0].data->Equals(*batch));
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, RecordBatchBeforeSchemaIsRejected) {
+  // A first IPC message that is not a schema: rejected, nothing surfaced, and the
+  // decoder survives to open a good stream (the ownership regression: Open() must
+  // not free the decoder's reader).
+  auto schema = DecoderTestSchema();
+  auto batch = IntBatch(schema, "[1, 2]", "[3, 4]");
+  DecoderStream bad_stream(schema, {batch});
+  auto first = bad_stream.Next();
+  ASSERT_FALSE(IsEndOfStream(first));
+  const auto failed = ConsumePayload(first).status();
+  ASSERT_FALSE(failed.ok()) << "a record batch as the first message must be rejected";
+  EXPECT_TRUE(listener_->events.empty()) << "nothing may be surfaced for a rejected stream";
+
+  DecoderStream good_stream(schema, {batch});
+  ASSERT_OK(ConsumePayload(good_stream.SchemaMessage()).status());
+  ASSERT_OK(ConsumePayload(good_stream.Next()).status());
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
+  ASSERT_EQ(listener_->chunks.size(), 1u);
+  EXPECT_TRUE(listener_->chunks[0].data->Equals(*batch));
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, BadLaterIpcIsRejected) {
+  // After a valid schema: a second schema message, and separately a valid batch
+  // header with a truncated body. Both must be errors, not a silent end.
+  auto schema = DecoderTestSchema();
+  auto batch = IntBatch(schema, "[1, 2]", "[3, 4]");
+  {
+    SCOPED_TRACE("second schema message");
+    DecoderStream stream(schema, {batch});
+    ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+    // A stream has exactly one schema message; build a second one directly, since
+    // a RecordBatchStream only ever produces it once.
+    const auto options = ipc::IpcWriteOptions::Defaults();
+    ipc::DictionaryFieldMapper mapper;
+    FlightPayload another;
+    ASSERT_OK(ipc::GetSchemaPayload(*schema, options, mapper, &another.ipc_message));
+    const auto status = ConsumePayload(another).status();
+    EXPECT_FALSE(status.ok()) << "a second schema message must be rejected";
+    EXPECT_TRUE(listener_->chunks.empty()) << "no batch may be decoded after it";
+  }
+  {
+    SCOPED_TRACE("truncated batch body");
+    SetUp();
+    DecoderStream stream(schema, {batch});
+    ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+    auto payload = stream.Next();
+    ASSERT_FALSE(IsEndOfStream(payload));
+    internal::FlightData truncated;
+    truncated.metadata = payload.ipc_message.metadata;
+    const auto status = ConsumeData(std::move(truncated)).status();
+    EXPECT_FALSE(status.ok()) << "a truncated batch body must be rejected";
+    EXPECT_TRUE(listener_->chunks.empty()) << "no invalid batch may be delivered";
+    EXPECT_TRUE(decoder_->Finish().ok()) << decoder_->Finish();
+  }
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, TwoIndependentDictionaries) {
+  // Regression: a schema with two independent dictionary fields, each dictionary
+  // delivered alone before the batch. The pull reader treated the missing second
+  // dictionary as end of stream and rejected valid incremental input.
+  const auto t0 = dictionary(arrow::int32(), utf8());
+  const auto t1 = dictionary(arrow::int32(), utf8());
+  const auto schema = arrow::schema({arrow::field("d0", t0), arrow::field("d1", t1)});
+  const auto batch = RecordBatch::Make(
+      schema, 3,
+      {ArrayFromJSON(t0, R"(["a", "b", "a"])"), ArrayFromJSON(t1, R"(["x", "y", "x"])")});
+  DecoderStream stream(schema, {batch});
+
+  ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded"));
+
+  auto dict0 = stream.Next();
+  ASSERT_FALSE(IsEndOfStream(dict0));
+  ASSERT_OK(ConsumePayload(dict0).status())
+      << "the first initial dictionary must not be reported as end of stream";
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded"));
+
+  auto dict1 = stream.Next();
+  ASSERT_FALSE(IsEndOfStream(dict1));
+  ASSERT_OK(ConsumePayload(dict1).status());
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded"));
+
+  ASSERT_OK(ConsumePayload(stream.Next()).status());
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
+  ASSERT_EQ(listener_->chunks.size(), 1u);
+  ASSERT_NE(listener_->chunks[0].data, nullptr);
+  EXPECT_TRUE(listener_->chunks[0].data->Equals(*batch));
+  EXPECT_TRUE(decoder_->Finish().ok()) << decoder_->Finish();
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, DictionaryUpdates) {
+  // Replacement and delta dictionaries: every batch decodes to its original, and
+  // no dictionary surfaces as a chunk of its own.
+  const auto type = dictionary(arrow::int32(), utf8());
+  const auto schema = arrow::schema({arrow::field("d", type)});
+  const auto first =
+      RecordBatch::Make(schema, 3, {ArrayFromJSON(type, R"(["a", "b", "a"])")});
+  const auto second =
+      RecordBatch::Make(schema, 3, {ArrayFromJSON(type, R"(["c", "d", "c"])")});
+  const auto options = ipc::IpcWriteOptions::Defaults();
+  DecoderStream stream(schema, {first, second});
+
+  ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+  bool saw_first = false;
+  while (!saw_first) {
+    auto payload = stream.Next();
+    ASSERT_FALSE(IsEndOfStream(payload));
+    ASSERT_OK(ConsumePayload(payload).status());
+    for (const auto& chunk : listener_->chunks) {
+      ASSERT_NE(nullptr, chunk.data) << "a dictionary surfaced as a chunk";
+    }
+    if (!listener_->chunks.empty()) saw_first = true;
+  }
+  EXPECT_TRUE(listener_->chunks.back().data->Equals(*first))
+      << "the first batch must decode against its dictionary";
+  ARROW_UNUSED(options);
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, FinishValidatesTheStreamEnd) {
+  // Finish() separates a stream that ended where it could from one that stopped
+  // in the middle of its initial dictionaries, and invokes no callback.
+  EXPECT_TRUE(decoder_->Finish().ok()) << decoder_->Finish();  // no IPC content at all
+
+  {
+    SCOPED_TRACE("metadata-only stream");
+    SetUp();
+    FlightPayload metadata;
+    metadata.app_metadata = Buffer::FromString("meta");
+    ASSERT_OK(ConsumePayload(metadata).status());
+    EXPECT_TRUE(decoder_->Finish().ok()) << decoder_->Finish();
+  }
+  {
+    SCOPED_TRACE("schema-only stream");
+    SetUp();
+    DecoderStream stream(DecoderTestSchema(), {});
+    ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+    EXPECT_TRUE(decoder_->Finish().ok()) << decoder_->Finish();
+    EXPECT_TRUE(decoder_->Finish().ok()) << decoder_->Finish();
+  }
+  {
+    SCOPED_TRACE("partial initial dictionaries");
+    SetUp();
+    const auto t0 = dictionary(arrow::int32(), utf8());
+    const auto t1 = dictionary(arrow::int32(), utf8());
+    const auto dict_schema =
+        arrow::schema({arrow::field("d0", t0), arrow::field("d1", t1)});
+    const auto batch = RecordBatch::Make(
+        dict_schema, 1,
+        {ArrayFromJSON(t0, R"(["a"])"), ArrayFromJSON(t1, R"(["x"])")});
+    DecoderStream stream(dict_schema, {batch});
+    ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+    ASSERT_OK(ConsumePayload(stream.Next()).status());  // dictionary #1 alone
+    const auto status = decoder_->Finish();
+    ASSERT_FALSE(status.ok()) << "a partial initial-dictionary set must be rejected";
+    EXPECT_THAT(status.ToString(), ::testing::HasSubstr("expected number (2)"));
+    EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded"))
+        << "Finish() must invoke no application callback";
+    ASSERT_OK(ConsumePayload(stream.Next()).status());  // the complete set
+    EXPECT_TRUE(decoder_->Finish().ok()) << decoder_->Finish();
+  }
+  {
+    SCOPED_TRACE("stopped decoder");
+    SetUp();
+    decoder_->Stop();
+    EXPECT_TRUE(decoder_->Finish().ok()) << decoder_->Finish();
+  }
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, IncludedFieldsProjection) {
+  // IpcReadOptions.included_fields projects the decoded batch and the schema the
+  // listener sees, without losing the schema event or the excluded fields'
+  // dictionaries.
+  const auto t0 = dictionary(arrow::int32(), utf8());
+  const auto t1 = dictionary(arrow::int32(), utf8());
+  const auto schema = arrow::schema({arrow::field("keep", t0), arrow::field("drop", t1)});
+  const auto batch = RecordBatch::Make(
+      schema, 2,
+      {ArrayFromJSON(t0, R"(["a", "b"])"), ArrayFromJSON(t1, R"(["x", "y"])")});
+
+  ipc::IpcReadOptions options = ipc::IpcReadOptions::Defaults();
+  options.included_fields = {0};
+  listener_ = std::make_shared<DecoderTestListener>();
+  decoder_ = std::make_unique<AsyncFlightMessageDecoder>(listener_, options);
+
+  DecoderStream stream(schema, {batch});
+  ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+  ASSERT_EQ(listener_->schemas.size(), 1u);
+  EXPECT_EQ(1, listener_->schemas[0]->num_fields())
+      << "the reported schema must be the projected one";
+  EXPECT_EQ("keep", listener_->schemas[0]->field(0)->name());
+
+  while (true) {
+    auto payload = stream.Next();
+    if (IsEndOfStream(payload)) break;
+    ASSERT_OK(ConsumePayload(payload).status());
+  }
+  ASSERT_EQ(listener_->chunks.size(), 1u);
+  ASSERT_NE(listener_->chunks[0].data, nullptr);
+  EXPECT_EQ(1, listener_->chunks[0].data->num_columns());
+  ASSERT_OK_AND_ASSIGN(auto expected, batch->SelectColumns({0}));
+  EXPECT_TRUE(listener_->chunks[0].data->Equals(*expected));
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, NestedDictionaryIds) {
+  // A dictionary nested inside a struct field is one initial dictionary with its
+  // own path; the batch must still decode, and the dictionary must not surface as
+  // a chunk.
+  const auto type = dictionary(arrow::int32(), utf8());
+  const auto struct_type = struct_({arrow::field("inner", type)});
+  const auto schema = arrow::schema({arrow::field("s", struct_type)});
+  auto values = ArrayFromJSON(type, R"(["a", "b"])");
+  ASSERT_OK_AND_ASSIGN(auto nested,
+                       StructArray::Make({values}, {arrow::field("inner", type)}));
+  auto batch = RecordBatch::Make(schema, 2, {nested});
+
+  DecoderStream stream(schema, {batch});
+  ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+  while (listener_->chunks.empty()) {
+    auto payload = stream.Next();
+    ASSERT_FALSE(IsEndOfStream(payload)) << "the nested dictionary stream ended early";
+    ASSERT_OK(ConsumePayload(payload).status());
+  }
+  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnSchemaDecoded", "OnNext"));
+  ASSERT_EQ(listener_->chunks.size(), 1u);
+  EXPECT_TRUE(listener_->chunks[0].data->Equals(*batch));
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, SharedDictionaryIds) {
+  // Two fields sharing one dictionary id: a single dictionary message supplies
+  // both, and the batch decodes against it.
+  const auto type = dictionary(arrow::int32(), utf8());
+  const auto schema =
+      arrow::schema({arrow::field("a", type), arrow::field("b", type)});
+  auto values = ArrayFromJSON(type, R"(["x", "y"])");
+  auto batch = RecordBatch::Make(schema, 2, {values, values});
+
+  DecoderStream stream(schema, {batch});
+  ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
+  int dictionary_messages = 0;
+  while (listener_->chunks.empty()) {
+    auto payload = stream.Next();
+    ASSERT_FALSE(IsEndOfStream(payload)) << "the shared-dictionary stream ended early";
+    if (payload.ipc_message.type == ipc::MessageType::DICTIONARY_BATCH) {
+      ++dictionary_messages;
+    }
+    ASSERT_OK(ConsumePayload(payload).status());
+  }
+  // The stream carries one dictionary message per field path (both for the same
+  // id), and neither may surface as a chunk; the batch decodes against them.
+  EXPECT_GE(dictionary_messages, 1);
+  ASSERT_EQ(listener_->chunks.size(), 1u);
+  ASSERT_NE(listener_->chunks[0].data, nullptr);
+  EXPECT_TRUE(listener_->chunks[0].data->Equals(*batch));
+}
+
+TEST_F(TestAsyncFlightMessageDecoder, DictionaryBeforeAnySchemaIsRejected) {
+  // A dictionary as the very first IPC message: a stream must start with a
+  // schema, and the decoder says so instead of treating it as data.
+  const auto type = dictionary(arrow::int32(), utf8());
+  const auto schema = arrow::schema({arrow::field("d", type)});
   const auto batch =
-      RecordBatch::Make(schema, 1, {ArrayFromJSON(arrow::int32(), "[42]")});
-  auto reader = RecordBatchReader::Make({batch}).ValueOrDie();
-  RecordBatchStream stream(std::move(reader));
+      RecordBatch::Make(schema, 1, {ArrayFromJSON(type, R"(["a"])")});
+  DecoderStream stream(schema, {batch});
+  auto dictionary_payload = stream.Next();
+  ASSERT_FALSE(IsEndOfStream(dictionary_payload));
+  const auto status = ConsumePayload(dictionary_payload).status();
+  ASSERT_FALSE(status.ok()) << "a dictionary before the schema must be rejected";
+  EXPECT_TRUE(listener_->events.empty());
+}
 
-  auto listener = std::make_shared<DecoderTestListener>(
-      Status::OK(), Status::Invalid("descriptor rejected"));
-  AsyncFlightMessageDecoder decoder(listener);
+TEST_F(TestAsyncFlightMessageDecoder, UnknownDictionaryIdIsRejected) {
+  // A dictionary for an id the schema never declared. It is read with the batch
+  // that follows it, or at the end of the stream when none does.
+  const auto type = dictionary(arrow::int32(), utf8());
+  const auto schema = arrow::schema({arrow::field("d", type)});
+  const auto options = ipc::IpcWriteOptions::Defaults();
 
-  auto descriptor = FlightDescriptor::Path({"wave", "h1"});
-  ASSERT_OK_AND_ASSIGN(auto payload, stream.GetSchemaPayload());
-  ASSERT_OK(internal::ToPayload(descriptor, &payload.descriptor));
-  ASSERT_OK_AND_ASSIGN(auto wire, DecoderTestWireBuffer(payload));
-  auto status = decoder.Consume(std::move(wire)).status();
+  FlightPayload schema_payload;
+  ipc::DictionaryFieldMapper mapper;
+  ASSERT_OK(mapper.AddField(0, {0}));
+  ASSERT_OK(ipc::GetSchemaPayload(*schema, options, mapper, &schema_payload.ipc_message));
+  ASSERT_OK(ConsumePayload(schema_payload).status());
 
-  EXPECT_FALSE(status.ok());
-  EXPECT_EQ(status.code(), StatusCode::Invalid);
-  EXPECT_THAT(status.ToString(), ::testing::HasSubstr("descriptor rejected"));
-
-  // The upload is rejected before the schema is decoded.
-  EXPECT_THAT(listener->events, ::testing::ElementsAre("OnDescriptor"));
+  FlightPayload unknown;
+  ASSERT_OK(ipc::GetDictionaryPayload(
+      99, ArrayFromJSON(utf8(), R"(["a"])"), options, &unknown.ipc_message));
+  ASSERT_OK(ConsumePayload(unknown).status());
+  EXPECT_FALSE(decoder_->Finish().ok()) << "an undeclared dictionary id must be rejected";
+  EXPECT_TRUE(listener_->chunks.empty());
 }
 
 // ----------------------------------------------------------------------
@@ -1254,9 +1672,38 @@ TEST(TransportErrorHandling, ReconstructStatus) {
 
 #if !defined(_WIN32) && defined(ARROW_ENABLE_THREADING)
 
-// Serve() must not leave the process signal handlers overridden when it fails
-TEST(TestServerSignalState, ServeBeforeInitRestoresSignalHandlers) {
-  FlightServerBase server;
+namespace {
+
+/// Wait, bounded, for Serve() to replace the SIGUSR1 handler.
+bool WaitForSignalHandlerChange(
+    const ::arrow::internal::SignalHandler& original) {
+  for (int i = 0; i < 2000; i++) {
+    auto current = ::arrow::internal::GetSignalHandler(SIGUSR1);
+    if (!current.ok()) {
+      return false;
+    }
+    if (current->callback() != original.callback()) {
+      return true;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return false;
+}
+
+}  // namespace
+
+// The process-wide signal handling lives in the shared server lifecycle, so both
+// server classes must behave the same way: run the same body over each instead of
+// duplicating the regressions.
+template <typename Server>
+class TestServerSignalState : public ::testing::Test {};
+
+using ServerTypes = ::testing::Types<FlightServerBase, AsyncGenericFlightServerBase>;
+TYPED_TEST_SUITE(TestServerSignalState, ServerTypes);
+
+// Serve() must not leave the process signal handlers overridden when it fails.
+TYPED_TEST(TestServerSignalState, ServeBeforeInitRestoresSignalHandlers) {
+  TypeParam server;
   ASSERT_OK(server.SetShutdownOnSignals({SIGUSR1}));
   ASSERT_OK_AND_ASSIGN(auto before, ::arrow::internal::GetSignalHandler(SIGUSR1));
 
@@ -1267,43 +1714,47 @@ TEST(TestServerSignalState, ServeBeforeInitRestoresSignalHandlers) {
 }
 
 // Shutdown() on a server that was never initialized must not clear the
-// process-wide signal target of another, serving instance
-TEST(TestServerSignalState, ShutdownUninitializedKeepsOtherServerSignalable) {
-  FlightServerBase serving_server;
+// process-wide signal target of another, serving instance.
+TYPED_TEST(TestServerSignalState, ShutdownUninitializedKeepsOtherServerSignalable) {
+  TypeParam serving_server;
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
   FlightServerOptions options(location);
   ASSERT_OK(serving_server.Init(options));
   ASSERT_OK(serving_server.SetShutdownOnSignals({SIGUSR1}));
 
   std::atomic<bool> returned{false};
+  std::atomic<bool> handler_installed{false};
+  ASSERT_OK_AND_ASSIGN(auto original, ::arrow::internal::GetSignalHandler(SIGUSR1));
   std::thread serving_thread([&] {
-    auto status = serving_server.Serve();
-    ARROW_UNUSED(status);
-    returned = true;
+    ARROW_UNUSED(serving_server.Serve());
+    returned.store(true);
   });
 
-  // Wait for Serve() to install the process signal handler.
-  ASSERT_OK_AND_ASSIGN(auto original, ::arrow::internal::GetSignalHandler(SIGUSR1));
-  for (int i = 0; i < 1000 && !returned.load(); ++i) {
-    ASSERT_OK_AND_ASSIGN(auto current, ::arrow::internal::GetSignalHandler(SIGUSR1));
-    if (current.callback() != original.callback()) {
-      break;
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
+  // Wait, bounded, for Serve() to install the process signal handler: the signal
+  // may only be raised once it has.
+  handler_installed.store(WaitForSignalHandlerChange(original));
+  ASSERT_TRUE(handler_installed.load())
+      << "Serve() never installed its signal handler";
 
-  FlightServerBase uninitialized;
+  TypeParam uninitialized;
   ASSERT_RAISES(Invalid, uninitialized.Shutdown());
 
   ::raise(SIGUSR1);
   for (int i = 0; i < 500 && !returned.load(); ++i) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  EXPECT_TRUE(returned.load());
+  EXPECT_TRUE(returned.load()) << "the signal never stopped Serve()";
   if (!returned.load()) {
-    ASSERT_OK(serving_server.Shutdown());
+    ARROW_UNUSED(serving_server.Shutdown());
   }
   serving_thread.join();
+
+  // The lifecycle also reports its own misuse by naming the server class.
+  ASSERT_RAISES(Invalid, uninitialized.Shutdown());
+  EXPECT_THAT(uninitialized.Shutdown().ToString(),
+              ::testing::HasSubstr("Shutdown() on uninitialized "));
+  EXPECT_THAT(uninitialized.Wait().ToString(),
+              ::testing::HasSubstr("Wait() on uninitialized "));
 }
 
 #endif

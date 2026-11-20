@@ -150,51 +150,305 @@ TEST(AsyncGrpcTest, UnaryReactorPropagatesServerError) {
 }
 
 TEST(AsyncGrpcTest, GetFlightInfoAsyncCompletesOnAnotherThread) {
-  // The handler completes its future from a helper thread after the dispatch
-  // has returned: the answer must arrive on the client anyway, which is the
-  // whole point of the async handler.
-  class DeferredInfoServer : public AsyncGenericFlightServerBase {
+  // The handler completes its future after the dispatch has returned, from a
+  // thread the test joins: the answer must arrive on the client after the
+  // dispatch, which is the whole point of the async handler.
+  class DeferredInfoServer final : public AsyncGenericFlightServerBase {
    public:
-    ~DeferredInfoServer() override {
-      if (worker_.joinable()) {
-        worker_.join();
-      }
-    }
-
     arrow::Future<std::shared_ptr<FlightInfo>> GetFlightInfoAsync(
         const ServerCallContext&, const FlightDescriptor& request) override {
-      auto out = arrow::Future<std::shared_ptr<FlightInfo>>::Make();
-      worker_ = std::thread([out, request]() mutable {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        auto info =
-            FlightInfo::Make(*arrow::schema({arrow::field("value", arrow::int64())}),
-                             request, std::vector<FlightEndpoint>{}, -1, -1);
-        if (!info.ok()) {
-          out.MarkFinished(info.status());
-          return;
-        }
-        out.MarkFinished(std::make_shared<FlightInfo>(std::move(*info)));
+      reply = arrow::Future<std::shared_ptr<FlightInfo>>::Make();
+      auto info =
+          FlightInfo::Make(*arrow::schema({arrow::field("value", arrow::int64())}),
+                           request, std::vector<FlightEndpoint>{}, -1, -1);
+      // Bounded on both sides: the client's deadline fails its call if the test
+      // thread never gets here, and the test fails if the handler is never
+      // entered.
+      worker = std::thread([this, info = std::move(info)]() mutable {
+        ARROW_UNUSED(entered.Wait(10));
+        reply.MarkFinished(std::make_shared<FlightInfo>(std::move(info).ValueOrDie()));
       });
-      return out;
+      entered.MarkFinished();
+      return reply;
     }
 
+    void Join() {
+      if (worker.joinable()) worker.join();
+    }
+
+    Future<> entered = Future<>::Make();
+    Future<std::shared_ptr<FlightInfo>> reply;
+
    private:
-    std::thread worker_;
+    std::thread worker;
   };
 
   DeferredInfoServer flight_server;
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
-
-  ASSERT_OK_AND_ASSIGN(auto info,
-                       client->GetFlightInfo(FlightDescriptor::Command("deferred")));
+  ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+  FlightCallOptions bounded;
+  bounded.timeout = std::chrono::seconds(10);
+  auto info = client->GetFlightInfo(bounded, FlightDescriptor::Command("deferred"));
+  flight_server.Join();
+  ASSERT_OK(info) << info.status();
   ipc::DictionaryMemo dict_memo;
-  ASSERT_OK_AND_ASSIGN(auto schema, info->GetSchema(&dict_memo));
+  ASSERT_OK_AND_ASSIGN(auto schema, (*info)->GetSchema(&dict_memo));
   ASSERT_EQ(1, schema->num_fields());
-  ASSERT_EQ("value", schema->field(0)->name());
+  EXPECT_EQ("value", schema->field(0)->name());
+  EXPECT_EQ("deferred", (*info)->descriptor().cmd);
 
   ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+}
+
+TEST(AsyncGrpcTest, LateHandlerCompletion) {
+  // A handler that completes its future after the RPC is over must neither
+  // overwrite the cancellation nor start new I/O. The three unary RPCs have
+  // different result types and handlers, so each gets its own row.
+  struct Case {
+    std::string name;
+    std::string method;
+    std::function<void(AsyncGenericFlightServerBase*, Future<>&)> park;
+    std::function<void(const Future<>&, bool)> resolve;
+  };
+
+  // A small server per row: the handler parks the future the test holds.
+  class LateUnaryServer final : public AsyncGenericFlightServerBase {
+   public:
+    explicit LateUnaryServer(std::function<void(LateUnaryServer*)> on_call)
+        : on_call_(std::move(on_call)) {}
+
+    /// A fresh latch for the call the test is about to make.
+    void reset_entered() { entered = Future<>::Make(); }
+
+    arrow::Future<std::shared_ptr<FlightInfo>> GetFlightInfoAsync(
+        const ServerCallContext&, const FlightDescriptor&) override {
+      info = Future<std::shared_ptr<FlightInfo>>::Make();
+      on_call_(this);
+      return info;
+    }
+    arrow::Future<std::shared_ptr<SchemaResult>> GetSchemaAsync(
+        const ServerCallContext&, const FlightDescriptor&) override {
+      schema = Future<std::shared_ptr<SchemaResult>>::Make();
+      on_call_(this);
+      return schema;
+    }
+    arrow::Future<std::shared_ptr<PollInfo>> PollFlightInfoAsync(
+        const ServerCallContext&, const FlightDescriptor&) override {
+      poll = Future<std::shared_ptr<PollInfo>>::Make();
+      on_call_(this);
+      return poll;
+    }
+
+    // Recreated per call: each row parks the future its own handler returned.
+    Future<std::shared_ptr<FlightInfo>> info;
+    Future<std::shared_ptr<SchemaResult>> schema;
+    Future<std::shared_ptr<PollInfo>> poll;
+
+    Future<> entered = Future<>::Make();
+
+   private:
+    std::function<void(LateUnaryServer*)> on_call_;
+  };
+
+  for (const bool succeeds : {true, false}) {
+    SCOPED_TRACE(succeeds ? "late success" : "late error");
+    const int64_t before = detail::AsyncReactorBase::live_reactors();
+    LateUnaryServer flight_server([](LateUnaryServer* server) {
+      server->entered.MarkFinished();
+    });
+
+    ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+    FlightCallOptions impatient;
+    impatient.timeout = std::chrono::milliseconds(500);
+    // All three RPCs against the same server: each parks, each is cancelled by its
+    // deadline, then each completes late.
+    struct Row {
+      std::string name;
+      std::function<Status(FlightClient*, const FlightCallOptions&)> call;
+      std::function<void(LateUnaryServer*, bool)> finish;
+    };
+    const std::vector<Row> rows = {
+        {"GetFlightInfo",
+         [](FlightClient* c, const FlightCallOptions& o) {
+           return c->GetFlightInfo(o, FlightDescriptor::Command("late")).status();
+         },
+         [](LateUnaryServer* s, bool ok) {
+           if (ok) {
+             s->info.MarkFinished(std::make_shared<FlightInfo>(
+                 MakeTestFlightInfo(FlightDescriptor::Command("late"))));
+           } else {
+             s->info.MarkFinished(Status::Invalid("late failure"));
+           }
+         }},
+        {"GetSchema",
+         [](FlightClient* c, const FlightCallOptions& o) {
+           return c->GetSchema(o, FlightDescriptor::Command("late")).status();
+         },
+         [](LateUnaryServer* s, bool ok) {
+           if (ok) {
+             s->schema.MarkFinished(std::shared_ptr<SchemaResult>(
+                 SchemaResult::Make(*OneColumnSchema()).ValueOrDie().release()));
+           } else {
+             s->schema.MarkFinished(Status::Invalid("late failure"));
+           }
+         }},
+        {"PollFlightInfo",
+         [](FlightClient* c, const FlightCallOptions& o) {
+           return c->PollFlightInfo(o, FlightDescriptor::Command("late")).status();
+         },
+         [](LateUnaryServer* s, bool ok) {
+           if (ok) {
+             auto poll = std::make_shared<PollInfo>();
+             poll->descriptor = FlightDescriptor::Command("poll");
+             s->poll.MarkFinished(std::move(poll));
+           } else {
+             s->poll.MarkFinished(Status::Invalid("late failure"));
+           }
+         }},
+    };
+
+    for (const auto& row : rows) {
+      SCOPED_TRACE(row.name);
+      flight_server.reset_entered();
+      const auto status = row.call(client.get(), impatient);
+      ASSERT_FALSE(status.ok()) << "the deadline must end the call";
+      ASSERT_TRUE(flight_server.entered.Wait(10)) << "the handler never ran";
+      row.finish(&flight_server, succeeds);
+      // The late completion must not change what the client saw, and must release
+      // its reference to the reactor.
+      EXPECT_FALSE(status.ok());
+    }
+
+    ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+    ExpectNoReactorLeak(before);
+  }
+}
+
+TEST(AsyncGrpcTest, UnaryReplyOutcomes) {
+  // A unary handler answers with an error, a null reply, or a reply whose write then
+  // fails: each must reach the client as that failure, with no invented response.
+  struct Case {
+    std::string name;
+    std::function<Status(FlightClient*)> call;
+    std::function<void(const Status&)> check;
+  };
+  const std::vector<Case> cases = {
+      {"GetSchema error",
+       [](FlightClient* c) {
+         return c->GetSchema(FlightDescriptor::Command("fail")).status();
+       },
+       [](const Status& status) {
+         EXPECT_EQ(StatusCode::KeyError, status.code()) << status;
+         EXPECT_THAT(status.ToString(), ::testing::HasSubstr("no such schema"));
+       }},
+      {"GetSchema null reply",
+       [](FlightClient* c) {
+         return c->GetSchema(FlightDescriptor::Command("null-schema")).status();
+       },
+       [](const Status& status) {
+         EXPECT_EQ(StatusCode::KeyError, status.code()) << status;
+         EXPECT_THAT(status.ToString(), ::testing::HasSubstr("Flight not found"));
+       }},
+      {"PollFlightInfo error",
+       [](FlightClient* c) {
+         return c->PollFlightInfo(FlightDescriptor::Command("fail")).status();
+       },
+       [](const Status& status) {
+         EXPECT_EQ(StatusCode::KeyError, status.code()) << status;
+         EXPECT_THAT(status.ToString(), ::testing::HasSubstr("no such poll"));
+       }},
+      {"PollFlightInfo null reply",
+       [](FlightClient* c) {
+         return c->PollFlightInfo(FlightDescriptor::Command("null-poll")).status();
+       },
+       [](const Status& status) {
+         EXPECT_EQ(StatusCode::KeyError, status.code()) << status;
+         EXPECT_THAT(status.ToString(), ::testing::HasSubstr("Flight not found"));
+       }},
+      {"GetFlightInfo error",
+       [](FlightClient* c) {
+         return c->GetFlightInfo(FlightDescriptor::Command("fail")).status();
+       },
+       [](const Status& status) {
+         EXPECT_EQ(StatusCode::KeyError, status.code()) << status;
+         EXPECT_THAT(status.ToString(), ::testing::HasSubstr("no such flight"));
+       }},
+  };
+
+  const int64_t before = detail::AsyncReactorBase::live_reactors();
+  for (const auto& test : cases) {
+    SCOPED_TRACE(test.name);
+    TestFlightServer flight_server;
+    ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+    const auto status = test.call(client.get());
+    ASSERT_FALSE(status.ok());
+    test.check(status);
+    ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+  }
+  ExpectNoReactorLeak(before);
+}
+
+TEST(AsyncGrpcTest, UnaryReplyWriteFailureFailsTheRpc) {
+  // A reply gRPC could not write: the RPC ends with the transport's own write
+  // error, not a success. The reactor is driven by hand so the failure is exact
+  // rather than a network race, and the same check runs for each unary method.
+  struct Case {
+    std::string name;
+    FlightMethod method;
+    std::function<::grpc::ServerGenericBidiReactor*(
+        detail::AsyncCallContext, TestFlightServer*)>
+        make;
+  };
+  const std::vector<Case> cases = {
+      {"GetFlightInfo", FlightMethod::GetFlightInfo,
+       [](detail::AsyncCallContext context, TestFlightServer* server) {
+         return new detail::UnaryReactor<FlightInfo, pb::FlightInfo>(
+             std::move(context), server,
+             &AsyncGenericFlightServerBase::GetFlightInfoAsync);
+       }},
+      {"GetSchema", FlightMethod::GetSchema,
+       [](detail::AsyncCallContext context, TestFlightServer* server) {
+         return new detail::UnaryReactor<SchemaResult, pb::SchemaResult>(
+             std::move(context), server, &AsyncGenericFlightServerBase::GetSchemaAsync);
+       }},
+      {"PollFlightInfo", FlightMethod::PollFlightInfo,
+       [](detail::AsyncCallContext context, TestFlightServer* server) {
+         return new detail::UnaryReactor<PollInfo, pb::PollInfo>(
+             std::move(context), server,
+             &AsyncGenericFlightServerBase::PollFlightInfoAsync);
+       }},
+  };
+
+  for (const auto& test : cases) {
+    SCOPED_TRACE(test.name);
+    TestFlightServer server;
+    ManualServerStream stream;
+    auto helper =
+        std::make_shared<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>(
+            /*auth_handler=*/nullptr, MiddlewareFactoryList{});
+    detail::AsyncCallContext context(&stream.context());
+    helper->MakeCallContext(test.method, &stream.context(), &context);
+    auto* reactor = test.make(std::move(context), &server);
+    stream.Bind(reactor);
+
+    pb::FlightDescriptor descriptor;
+    descriptor.set_type(pb::FlightDescriptor::PATH);
+    descriptor.add_path("x");
+    ::grpc::Slice slice(descriptor.SerializeAsString());
+    stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
+    // The handler answers at once; its reply is on the wire.
+    ASSERT_TRUE(stream.write_pending()) << "the reply was never written";
+    stream.CompleteWrite(false);
+    ASSERT_TRUE(stream.finish_observed().Wait(10));
+    EXPECT_EQ(::grpc::StatusCode::INTERNAL, stream.finish_status()->error_code())
+        << stream.finish_status()->error_message();
+    EXPECT_THAT(stream.finish_status()->error_message(),
+                ::testing::HasSubstr("Failed to write response"));
+    // No second write and no pending callback after the failure.
+    EXPECT_FALSE(stream.write_pending());
+    if (stream.read_pending()) stream.CloseRead();
+    stream.DrainWrites();
+    if (!stream.done()) stream.Done();
+  }
 }
 
 }  // namespace arrow::flight::transport::grpc

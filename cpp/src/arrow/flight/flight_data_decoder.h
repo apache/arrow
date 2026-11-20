@@ -61,7 +61,7 @@ class ARROW_FLIGHT_EXPORT FlightDataListenerTransport {
 
   /// \brief Pin this transport's lifetime, from any thread.
   ///
-  /// SetTransport() publishes and retires the transport through the listener's
+  /// SetTransport() publishes and retires the transport through the writer's
   /// mutex, but a caller that reads the pointer and then releases the mutex
   /// before calling in (as Cancel() must, so OnFinish() can re-enter) still
   /// races with SetTransport(listener, nullptr) and the reactor's deletion. Hold
@@ -74,21 +74,11 @@ class ARROW_FLIGHT_EXPORT FlightDataListenerTransport {
 
   /// \brief Set the transport of `listener`: the RPC's at its start, nullptr at
   /// its end.
-  /// \param listener The listener to set the transport on.
+  /// \param listener The listener to set the transport on, never null: the
+  ///   transport only serves an upload once the server handed out a listener.
   /// \param transport The transport, or nullptr to clear it.
   static void SetTransport(const std::shared_ptr<AsyncFlightDataListener>& listener,
                            FlightDataListenerTransport* transport);
-
-  /// \brief Report the upload's terminal status to the listener, once.
-  /// \param listener The listener to report the status to.
-  /// \param status The terminal status of the upload.
-  /// \return the listener's OnFinish() future. The caller must not block on it
-  ///   (this runs on a gRPC callback thread) but should chain the RPC's
-  ///   completion on it, so an asynchronous failure to commit is reported to the
-  ///   client instead of a success. Returns a finished future when the status
-  ///   was already reported.
-  static Future<> ReportFinish(const std::shared_ptr<AsyncFlightDataListener>& listener,
-                               Status status);
 };
 
 }  // namespace internal
@@ -121,13 +111,14 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataWriter {
 
  private:
   friend class internal::FlightDataListenerTransport;
+  /// AsyncFlightDataListener::Cancel() reaches the transport through here too.
+  friend class AsyncFlightDataListener;
 
   /// The transport's RPC state, set through
-  /// FlightDataListenerTransport::SetTransport, like
-  /// AsyncFlightDataListener::transport_.
+  /// FlightDataListenerTransport::SetTransport.
   internal::FlightDataListenerTransport* transport_ = nullptr;
-  /// Guards transport_, since WriteMetadataAsync may be called from any thread while
-  /// the transport sets or clears the pointer.
+  /// Guards transport_: WriteMetadataAsync() and AsyncFlightDataListener::Cancel()
+  /// may run on any thread while the transport sets or clears the pointer.
   mutable std::mutex writer_mutex_;
 };
 
@@ -189,20 +180,14 @@ class ARROW_FLIGHT_EXPORT AsyncFlightDataListener : public ipc::Listener {
   Status Cancel(Status status);
 
  private:
-  /// The transport sets and clears the state through
-  /// FlightDataListenerTransport::SetTransport, under this lock.
+  /// The transport sets and clears its state through
+  /// FlightDataListenerTransport::SetTransport.
   friend class internal::FlightDataListenerTransport;
 
-  /// Whether OnFinish was already reported.
-  std::atomic<bool> finished_{false};
-
-  /// Never null: the listener may use it without waiting for OnDescriptor.
+  /// Never null: the listener may use it without waiting for OnDescriptor. It
+  /// also holds the transport, which Cancel() reaches through it.
   std::shared_ptr<AsyncFlightDataWriter> writer_ =
       std::make_shared<AsyncFlightDataWriter>();
-
-  mutable std::mutex transport_mutex_;
-  /// Not owned: the transport's own RPC state, valid until it is cleared.
-  internal::FlightDataListenerTransport* transport_ = nullptr;
 };
 
 /// \brief Push style stream decoder that turns FlightData messages into
@@ -240,6 +225,21 @@ class ARROW_FLIGHT_EXPORT AsyncFlightMessageDecoder {
   /// delivered: the listener may have released everything it owns in OnFinish().
   /// \internal This method is intended for internal use within the Arrow library.
   void Stop();
+
+  /// \brief Check that the IPC stream ended cleanly, once the upload's input is over.
+  ///
+  /// A push decoder is never told that the input ended on its own, so this is
+  /// what separates a stream that stops early from one that simply had no
+  /// record batch. Call it only after every Consume() future returned OK: a
+  /// failed Consume() already reported its own error, and this validation does
+  /// not replace it. It invokes no listener callback.
+  ///
+  /// \return OK for a stream that ended where it could end: no IPC message at
+  ///   all, a schema, or every initial dictionary of its schema and any batches.
+  ///   Invalid when a dictionary-encoded schema started arriving but its
+  ///   initial dictionaries did not all come before the input ended.
+  /// \internal This method is intended for internal use within the Arrow library.
+  Status Finish();
 
  private:
   class AsyncFlightMessageDecoderImpl;

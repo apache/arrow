@@ -18,6 +18,7 @@
 #include "arrow/flight/transport/grpc/async_grpc_service_internal.h"
 
 #include <memory>
+#include <mutex>
 #include <utility>
 #include <vector>
 
@@ -70,8 +71,10 @@ class StreamingReactor : public AsyncReactorBase {
   ///
   /// An iterator that keeps its own pending NextAsync() future holds a
   /// continuation on this reactor, which holds the iterator: without this, that
-  /// cycle survives the cancellation and neither is ever freed. Called under no
-  /// lock, after the RPC has finished, so nothing else touches the iterator.
+  /// cycle survives the cancellation and neither is ever freed. It runs on the
+  /// cancellation thread while NextMessage() may be inside the iterator on a
+  /// callback thread, so both take stream_mutex_ and NextMessage() calls
+  /// through a copy: the iterator outlives the call made on it.
   virtual void ForgetStream() {}
 
   void TearDownOnCancel() override {
@@ -96,6 +99,8 @@ class StreamingReactor : public AsyncReactorBase {
   }
 
   AsyncGenericFlightServerBase* base_;
+  /// Guards the application's iterator, see ForgetStream().
+  std::mutex stream_mutex_;
 };
 
 class ListActionsReactor final : public StreamingReactor {
@@ -139,13 +144,23 @@ class DoActionReactor final : public StreamingReactor {
           if (stream == nullptr) {
             return arrow::Status::Cancelled();
           }
+          std::lock_guard<std::mutex> lock(stream_mutex_);
           stream_ = stream;
           return arrow::Status::OK();
         });
   }
 
   arrow::Future<bool> NextMessage() override {
-    return stream_->NextAsync().Then(
+    std::shared_ptr<AsyncResultStream> stream;
+    {
+      std::lock_guard<std::mutex> lock(stream_mutex_);
+      stream = stream_;
+    }
+    if (stream == nullptr) {
+      // Forgotten: the RPC was cancelled.
+      return false;
+    }
+    return stream->NextAsync().Then(
         [this](const std::shared_ptr<Result>& result) -> arrow::Result<bool> {
           if (result == nullptr) {
             return false;
@@ -157,7 +172,10 @@ class DoActionReactor final : public StreamingReactor {
         });
   }
 
-  void ForgetStream() override { stream_.reset(); }
+  void ForgetStream() override {
+    std::lock_guard<std::mutex> lock(stream_mutex_);
+    stream_.reset();
+  }
 
  private:
   std::shared_ptr<AsyncResultStream> stream_;
@@ -174,16 +192,22 @@ class ListFlightsReactor final : public StreamingReactor {
     return base_->ListFlightsAsync(flight_context(), &criteria_)
         .Then(
             [this](const std::shared_ptr<AsyncFlightListing>& listing) -> arrow::Status {
+              std::lock_guard<std::mutex> lock(stream_mutex_);
               listing_ = listing;
               return arrow::Status::OK();
             });
   }
 
   arrow::Future<bool> NextMessage() override {
-    if (listing_ == nullptr) {
+    std::shared_ptr<AsyncFlightListing> listing;
+    {
+      std::lock_guard<std::mutex> lock(stream_mutex_);
+      listing = listing_;
+    }
+    if (listing == nullptr) {
       return false;
     }
-    return listing_->NextAsync().Then(
+    return listing->NextAsync().Then(
         [this](const std::shared_ptr<FlightInfo>& info) -> arrow::Result<bool> {
           if (info == nullptr) {
             return false;
@@ -195,7 +219,10 @@ class ListFlightsReactor final : public StreamingReactor {
         });
   }
 
-  void ForgetStream() override { listing_.reset(); }
+  void ForgetStream() override {
+    std::lock_guard<std::mutex> lock(stream_mutex_);
+    listing_.reset();
+  }
 
  private:
   Criteria criteria_;

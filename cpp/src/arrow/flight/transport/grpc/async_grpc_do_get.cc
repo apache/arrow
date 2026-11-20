@@ -71,12 +71,10 @@ class DoGetReactor : public AsyncReactorBase {
             // stream to close, so this one is closed here.
             ARROW_WARN_NOT_OK(stream->Close(),
                               "DoGet: closing a cancelled call's stream failed");
-          } else if (finished()) {
-            // Cancelled, but the teardown's CloseStreamOnce() has not run yet:
-            // whichever CloseStreamOnce() runs first closes the stream.
-            ARROW_WARN_NOT_OK(CloseStreamOnce(),
-                              "DoGet: closing a finished call's stream failed");
           } else {
+            // If the call was cancelled meanwhile, WriteNextPayload() asks
+            // nothing of the stream: the teardown's CloseStreamOnce(), which has
+            // not claimed it yet, closes it.
             WriteNextPayload();
           }
         });

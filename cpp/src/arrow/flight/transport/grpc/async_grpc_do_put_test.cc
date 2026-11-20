@@ -25,6 +25,94 @@
 
 namespace arrow::flight::transport::grpc {
 
+namespace {
+
+/// One FlightData message at a time from a RecordBatchStream, serialized as the
+/// gRPC transport does, so a raw client can send a prefix of an upload.
+class DecoderStreamForPut {
+ public:
+  DecoderStreamForPut(std::shared_ptr<Schema> schema,
+                      std::vector<std::shared_ptr<RecordBatch>> batches)
+      : stream_(arrow::RecordBatchReader::Make(std::move(batches), std::move(schema))
+                    .ValueOrDie()) {}
+
+  FlightPayload SchemaMessage() { return ValueOrDie(stream_.GetSchemaPayload()); }
+  FlightPayload Next() { return ValueOrDie(stream_.Next()); }
+
+ private:
+  static FlightPayload ValueOrDie(arrow::Result<FlightPayload> payload) {
+    ARROW_EXPECT_OK(payload);
+    return std::move(payload).ValueOrDie();
+  }
+  RecordBatchStream stream_;
+};
+
+/// One FlightPayload as the single gRPC message the transport would send.
+::grpc::ByteBuffer Serialize(const FlightPayload& payload) {
+  ::grpc::ByteBuffer out;
+  bool own_buffer = false;
+  const auto status = FlightDataSerialize(payload, &out, &own_buffer);
+  EXPECT_TRUE(status.ok()) << status.error_message();
+  return out;
+}
+
+/// One DoPut RPC driven by hand: the real DoPutReactor bound to a manual stream,
+/// with the call context (middleware, auth) the service would build, and the
+/// listener the reactor was created with.
+class ManualDoPut {
+ public:
+  explicit ManualDoPut(AsyncGenericFlightServerBase* server) : server_(server) {
+    helper_ = std::make_shared<
+        GrpcServerCallContextHelper<::grpc::CallbackServerContext>>(
+        /*auth_handler=*/nullptr, MiddlewareFactoryList{});
+    auto* context = &stream.context();
+    helper_->MakeCallContext(FlightMethod::DoPut, context, &flight_context_);
+    listener_ = server_->CreateDoPutListener(flight_context_);
+    EXPECT_NE(nullptr, listener_);
+    reactor_ = detail::MakeDoPutReactor(std::move(flight_context_), listener_);
+    stream.Bind(reactor_);
+  }
+
+  /// Deliver the descriptor-carrying first message of an upload.
+  void DeliverRequest(const FlightDescriptor& descriptor,
+                      const std::shared_ptr<Schema>& schema) {
+    DecoderStreamForPut payloads(schema, {});
+    auto message = payloads.SchemaMessage();
+    EXPECT_OK(internal::ToPayload(descriptor, &message.descriptor));
+    stream.DeliverRead(Serialize(message));
+  }
+
+  /// Deliver the next message an upload would carry.
+  void Deliver(const FlightPayload& payload) { stream.DeliverRead(Serialize(payload)); }
+  /// The client half-closed: the clean end of the upload.
+  void HalfClose() { stream.CloseRead(); }
+
+  /// Settle the RPC's stream once its status is decided: complete any write the
+  /// reactor still has queued and deliver OnDone, as gRPC does.
+  void Finish() {
+    stream.DrainWrites();
+    if (stream.read_pending()) {
+      stream.CloseRead();
+    }
+    stream.DrainWrites();
+    if (!stream.done()) {
+      stream.Done();
+    }
+  }
+
+  ManualServerStream stream;
+  std::shared_ptr<AsyncFlightDataListener> listener_;
+
+ private:
+  AsyncGenericFlightServerBase* server_;
+  std::shared_ptr<GrpcServerCallContextHelper<::grpc::CallbackServerContext>> helper_;
+  detail::AsyncCallContext flight_context_{&stream.context()};
+  ::grpc::ServerGenericBidiReactor* reactor_ = nullptr;
+};
+
+
+}  // namespace
+
 TEST(AsyncGrpcTest, BasicDoPut) {
   // One listener for the whole test: shared with the service's factory and
   // kept here so it can be asserted on after the RPC.
@@ -133,7 +221,7 @@ TEST(AsyncGrpcTest, MetadataOnlyPutChunk) {
 
 TEST(AsyncGrpcTest, DoPutRejectedByListener) {
   TestFlightServer flight_server;
-  auto listener = std::make_shared<FinishRecordingListener>();
+  auto listener = std::make_shared<RecordingListener>();
   // The consumer rejects the upload.
   listener->set_next_status(arrow::Status::Invalid("listener rejected this upload"));
   flight_server.set_listener(listener);
@@ -195,32 +283,13 @@ TEST(AsyncGrpcTest, CreateDoPutListenerServesUpload) {
   ASSERT_EQ(listener->schema()->field(0)->name(), "a");
   ASSERT_EQ(listener->schema()->field(1)->name(), "b");
   ASSERT_EQ(listener->batches().size(), 1);
-  ASSERT_EQ(listener->batches()[0]->num_rows(), 3);
-  ASSERT_OK_AND_ASSIGN(auto value, listener->batches()[0]->column(0)->GetScalar(0));
-  ASSERT_TRUE(value->Equals(*arrow::MakeScalar(int64_t(1))));
-}
-
-TEST(AsyncGrpcTest, DoPutListenerSeesCleanFinish) {
-  // A client that ends the upload normally (DoneWriting + Close) makes the
-  // listener's OnFinish fire once, with OK: that is how a consumer knows the
-  // upload ended and it can commit what it accumulated.
-  TestUploadServer flight_server;
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
-
-  auto schema = OneColumnSchema();
-  auto batch = OneColumnBatch(schema);
-  auto [surface, status] =
-      UploadOneBatch(client.get(), FlightDescriptor::Path({"finish"}), schema, batch);
-  ASSERT_TRUE(status.ok()) << "upload failed on " << surface << ": " << status;
-
-  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
-
-  // OnFinish ran exactly once, and said the upload ended cleanly.
-  ASSERT_EQ(flight_server.listener(0)->finish_count(), 1);
-  ASSERT_TRUE(flight_server.listener(0)->finish_status().ok())
-      << "unexpected finish status: " << flight_server.listener(0)->finish_status();
+  // The whole batch, not just its shape: the listener must be handed the data
+  // the client sent.
+  AssertBatchesEqual(*batch, *listener->batches()[0]);
+  // A clean half-close ends the upload exactly once, as a success: that is how a
+  // consumer knows it can commit what it accumulated.
+  ASSERT_EQ(listener->finish_count(), 1);
+  EXPECT_TRUE(listener->finish_status().ok()) << listener->finish_status();
 }
 
 TEST(AsyncGrpcTest, OnFinishMayWriteMetadataWithoutDeadlocking) {
@@ -318,7 +387,7 @@ class MiddlewareWiredUploadServer final : public AsyncGenericFlightServerBase {
  public:
   std::shared_ptr<AsyncFlightDataListener> CreateDoPutListener(
       const ServerCallContext& context) override {
-    auto listener = std::make_shared<FinishRecordingListener>();
+    auto listener = std::make_shared<RecordingListener>();
     auto* middleware =
         static_cast<UploadWritingMiddleware*>(context.GetMiddleware("upload-writing"));
     if (middleware != nullptr) {
@@ -426,7 +495,7 @@ TEST(AsyncGrpcTest, DoPutCancelFromServerSideFinishesTheUpload) {
   ASSERT_NE(listener, nullptr) << "the server never handed out a DoPut listener";
   ASSERT_TRUE(WaitFor([&listener] { return listener->batches().size() >= 1; }))
       << "the server never consumed the batch";
-  listener->CancelWith(arrow::Status::Cancelled("server said stop"));
+  ASSERT_OK(listener->CancelWith(arrow::Status::Cancelled("server said stop")));
 
   // The client sees the cancellation on the surface that observes the RPC.
   const Status close_status = writer.Close();
@@ -447,87 +516,73 @@ TEST(AsyncGrpcTest, DoPutCancelFromServerSideFinishesTheUpload) {
       << "OnFinish got: " << listener->finish_status();
 
   // After the upload, Cancel() has nothing to cancel.
-  listener->CancelWith(arrow::Status::Cancelled("too late"));
-  ASSERT_EQ(listener->cancel_status().code(), arrow::StatusCode::Invalid);
+  ASSERT_EQ(listener->CancelWith(arrow::Status::Cancelled("too late")).code(),
+            arrow::StatusCode::Invalid);
 }
 
-/// A listener whose OnFinish() stays pending until the test releases it, the
-/// way an application committing the upload asynchronously does: the window in
-/// which an ending is reported but the RPC is not finished yet.
-class ParkedFinishListener final : public FinishRecordingListener {
- public:
-  arrow::Future<> OnFinish(Status status) override {
-    static_cast<void>(FinishRecordingListener::OnFinish(std::move(status)));
-    std::lock_guard<std::mutex> lock(mutex_);
-    parked_ = arrow::Future<>::Make();
-    return parked_;
-  }
-
-  /// Complete the parked OnFinish() future, on the calling thread.
-  void ReleaseFinish() {
-    arrow::Future<> parked;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      parked = parked_;
-    }
-    if (parked.is_valid()) {
-      parked.MarkFinished();
-    }
-  }
-
- private:
-  arrow::Future<> parked_;
-};
-
 TEST(AsyncGrpcTest, DoPutServerCancelEndsTheUploadWithItsOwnStatus) {
-  // A server-side Cancel() whose OnFinish() is still committing: what the
-  // client sends afterwards must not reach the listener, and the client ending
-  // the upload normally must not finish the RPC with OK ahead of the
-  // cancellation: the first ending decides the RPC's status.
-  RecordingUploadServer<ParkedFinishListener> flight_server;
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
+  // A server-side Cancel() whose OnFinish() is still committing: what the client
+  // sends afterwards must not reach the listener, and the client's own end of the
+  // upload must not finish the RPC with OK ahead of the cancellation. Both endings
+  // are delivered by hand, so the order is the test's, not the network's.
+  struct Case {
+    std::string name;
+    /// Whether the client's end arrives before the parked OnFinish() is released.
+    bool client_ends_first;
+  };
+  for (const auto& test : {Case{"client half-closes into the parked finish", true},
+                           Case{"client half-close after the release", false}}) {
+    SCOPED_TRACE(test.name);
+    auto listener =
+        std::make_shared<ParkedUploadListener<RecordingListenerPhase::kFinish>>();
+    TestFlightServer flight_server;
+    flight_server.set_listener(listener);
+    ManualDoPut upload(&flight_server);
+    auto schema = OneColumnSchema();
+    auto batch = OneColumnBatch(schema);
+    upload.DeliverRequest(FlightDescriptor::Path({"parked-finish"}), schema);
+    DecoderStreamForPut payloads(schema, {batch});
+    ARROW_UNUSED(payloads.SchemaMessage());
+    upload.Deliver(payloads.Next());
+    ASSERT_TRUE(WaitFor([&] { return listener->batches().size() == 1; }))
+        << "the server never consumed the batch";
 
-  auto schema = OneColumnSchema();
-  auto batch = OneColumnBatch(schema);
-  ASSERT_OK_AND_ASSIGN(auto put,
-                       client->DoPut(FlightDescriptor::Path({"parked-finish"}), schema));
-  ASSERT_OK(put.writer->WriteRecordBatch(*batch));
-  auto listener = flight_server.WaitForListener(0);
-  ASSERT_NE(listener, nullptr) << "the server never handed out a DoPut listener";
-  ASSERT_TRUE(WaitFor([&listener] { return listener->batches().size() >= 1; }))
-      << "the server never consumed the first batch";
+    ASSERT_OK(listener->CancelWith(Status::Cancelled("server said stop")));
+    ASSERT_EQ(1, listener->finish_count()) << "Cancel() must report OnFinish() at once";
+    ASSERT_FALSE(upload.stream.finish_status().has_value())
+        << "the RPC must wait for the parked OnFinish()";
 
-  listener->CancelWith(arrow::Status::Cancelled("server said stop"));
-  ASSERT_OK(listener->cancel_status());
-  ASSERT_EQ(1, listener->finish_count()) << "Cancel() must report OnFinish() at once";
-
-  // Sent after OnFinish() was reported: must never reach the listener.
-  ARROW_UNUSED(put.writer->WriteRecordBatch(*batch));
-  // Keep OnFinish() pending long enough for the client's normal end of the
-  // upload to reach the server first.
-  std::thread release([&listener] {
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-    listener->ReleaseFinish();
-  });
-  const Status close_status = put.writer->Close();
-  release.join();
-
-  EXPECT_EQ(close_status.code(), arrow::StatusCode::Cancelled)
-      << "the client's end of the upload won over the server's cancel: " << close_status;
-  EXPECT_NE(close_status.message().find("server said stop"), std::string::npos)
-      << close_status;
-  EXPECT_EQ(1, listener->batches().size())
-      << "a batch reached the listener after its OnFinish()";
-  EXPECT_EQ(1, listener->finish_count());
-
-  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+    // One outstanding read, then the client's half-close: exactly one completion
+    // per read, never two.
+    ASSERT_TRUE(upload.stream.read_pending());
+    upload.HalfClose();
+    if (test.client_ends_first) {
+      // The client's end arrives while OnFinish() is parked: the upload has already
+      // started ending, so nothing may be read or delivered from it.
+      EXPECT_FALSE(upload.stream.read_pending());
+      listener->Release();
+    } else {
+      listener->Release();
+    }
+    ASSERT_TRUE(upload.stream.finish_observed().Wait(10));
+    EXPECT_EQ(::grpc::StatusCode::CANCELLED,
+              upload.stream.finish_status()->error_code())
+        << "the client's end of the upload won over the server's cancel: "
+        << upload.stream.finish_status()->error_message();
+    EXPECT_THAT(upload.stream.finish_status()->error_message(),
+                ::testing::HasSubstr("server said stop"));
+    EXPECT_EQ(1, listener->batches().size())
+        << "a batch reached the listener after its OnFinish()";
+    EXPECT_EQ(0, listener->metadata_only_count());
+    EXPECT_EQ(1, listener->finish_count());
+    EXPECT_FALSE(upload.stream.read_pending()) << "no read may be re-armed";
+    upload.Finish();
+  }
 }
 
 /// A listener stuck inside OnNext(): the upload is parked in the application
 /// while the RPC underneath it dies.
-class HangingDoPutListener final : public FinishRecordingListener {
+class HangingDoPutListener final : public RecordingListener {
  public:
   arrow::Future<> OnNext(FlightStreamChunk) override {
     next_awaits_.fetch_add(1);
@@ -569,8 +624,15 @@ TEST(AsyncGrpcTest, DoPutClientDeadlineWithPendingHandlerFinishes) {
   ARROW_UNUSED(put->writer->Close());
   ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 
-  // The upload ended anyway, and the listener heard about it exactly once.
-  ASSERT_EQ(1, flight_server.listener(0)->finish_count());
+  // The upload ended anyway, and the listener heard about it exactly once, as a
+  // cancellation rather than the clean end a resolved OnNext() would have been.
+  auto listener = flight_server.listener(0);
+  ASSERT_EQ(1, listener->finish_count());
+  EXPECT_FALSE(listener->finish_status().ok())
+      << "a deadline-cancelled upload was reported as a clean finish: "
+      << listener->finish_status();
+  // The parked OnNext() never re-armed the read: no second chunk was delivered.
+  EXPECT_EQ(1, listener->next_awaits_.load());
 }
 
 TEST(AsyncGrpcTest, DoPutClientDeadlineWhileIdleIsNotACleanFinish) {
@@ -614,32 +676,27 @@ TEST(AsyncGrpcTest, DoPutClientDeadlineWhileIdleIsNotACleanFinish) {
   EXPECT_FALSE(listener->finish_status().ok())
       << "a deadline-cancelled upload was reported as a clean finish: "
       << listener->finish_status();
+  // The deadline, not the listener, ended it: the status names the cancellation
+  // the transport settled on.
+  EXPECT_TRUE(listener->finish_status().IsCancelled())
+      << listener->finish_status();
 }
 
 /// A listener whose OnNext() future the test resolves on demand: the upload
 /// parks in the application until the late-continuation test releases it.
-class DeferredDoPutListener final : public FinishRecordingListener {
+class DeferredDoPutListener final
+    : public ParkedUploadListener<RecordingListenerPhase::kNext> {
  public:
-  arrow::Future<> OnNext(FlightStreamChunk) override {
+  arrow::Future<> OnNext(FlightStreamChunk chunk) override {
     next_awaits_.fetch_add(1);
-    std::lock_guard<std::mutex> lock(mutex_);
-    pending_ = arrow::Future<>::Make();
-    return pending_;
+    return ParkedUploadListener<RecordingListenerPhase::kNext>::OnNext(
+        std::move(chunk));
   }
 
   /// Resolve the parked OnNext, OK releases the decode continuation.
-  void ResolvePending() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (pending_.is_valid() && !pending_.is_finished()) {
-      pending_.MarkFinished(arrow::Status::OK());
-    }
-  }
+  void ResolvePending() { Release(); }
 
   std::atomic<int> next_awaits_{0};
-
- private:
-  std::mutex mutex_;
-  arrow::Future<> pending_;
 };
 
 using DeferredDoPutServer = RecordingUploadServer<DeferredDoPutListener>;
@@ -726,10 +783,13 @@ TEST(AsyncGrpcTest, DoPutWithoutDescriptorOnFirstMessageIsRejected) {
 
   // Drive the bidi call through the raw generic stub: the regular FlightClient
   // always sets the descriptor, which is exactly what this case lacks.
-  const ::grpc::Status status = CallDoPutRaw(flight_server.port(), {request});
+  ASSERT_OK_AND_ASSIGN(
+      auto raw, CallRaw(flight_server.port(), "/arrow.flight.protocol.FlightService/DoPut",
+                        {request}));
 
-  EXPECT_FALSE(status.ok()) << "an upload without a descriptor must be refused";
-  EXPECT_THAT(status.error_message(), ::testing::HasSubstr("Descriptor missing"));
+  EXPECT_FALSE(raw.status.ok()) << "an upload without a descriptor must be refused";
+  EXPECT_THAT(raw.status.error_message(), ::testing::HasSubstr("Descriptor missing"));
+  EXPECT_TRUE(raw.responses.empty()) << "a rejected upload must answer nothing";
 
   ASSERT_OK(flight_server.Shutdown());
   ASSERT_OK(flight_server.Wait());
@@ -752,11 +812,14 @@ TEST(AsyncGrpcTest, DoPutMalformedFirstMessageIsRejected) {
   ::grpc::Slice truncated(std::string("\x0a\x7f\x01\x02", 4));
   ::grpc::ByteBuffer request(&truncated, 1);
 
-  const ::grpc::Status status = CallDoPutRaw(flight_server.port(), {request});
+  ASSERT_OK_AND_ASSIGN(
+      auto raw, CallRaw(flight_server.port(), "/arrow.flight.protocol.FlightService/DoPut",
+                        {request}));
 
-  EXPECT_FALSE(status.ok()) << "a malformed first message must be refused";
-  EXPECT_THAT(status.error_message(),
+  EXPECT_FALSE(raw.status.ok()) << "a malformed first message must be refused";
+  EXPECT_THAT(raw.status.error_message(),
               ::testing::HasSubstr("Unable to read FlightDescriptor"));
+  EXPECT_TRUE(raw.responses.empty());
 
   ASSERT_OK(flight_server.Shutdown());
   ASSERT_OK(flight_server.Wait());
@@ -771,7 +834,9 @@ TEST(AsyncGrpcTest, DoPutReportsAFailingOnFinishToTheClient) {
   // RPC's status is chained on that future instead of being reported OK as soon
   // as the upload's data arrived.
   TestFlightServer flight_server;
-  auto listener = std::make_shared<FailingFinishListener>();
+  auto listener = std::make_shared<RecordingListener>();
+  listener->set_finish_status(
+      arrow::Status::IOError("the upload could not be committed"));
   flight_server.set_listener(listener);
   FlightServerOptions options(LocalhostLocation());
   ASSERT_OK(flight_server.Init(options));
@@ -808,10 +873,13 @@ TEST(AsyncGrpcTest, DoPutHalfCloseWithoutAnyMessageIsRejected) {
   ASSERT_GT(flight_server.port(), 0);
 
   // Half-close with no message written at all.
-  const ::grpc::Status status = CallDoPutRaw(flight_server.port(), {});
+  ASSERT_OK_AND_ASSIGN(
+      auto raw, CallRaw(flight_server.port(), "/arrow.flight.protocol.FlightService/DoPut",
+                        {}));
 
-  EXPECT_FALSE(status.ok()) << "an upload with no message at all must be refused";
-  EXPECT_THAT(status.error_message(), ::testing::HasSubstr("empty upload"));
+  EXPECT_FALSE(raw.status.ok()) << "an upload with no message at all must be refused";
+  EXPECT_THAT(raw.status.error_message(), ::testing::HasSubstr("empty upload"));
+  EXPECT_TRUE(raw.responses.empty());
 
   ASSERT_OK(flight_server.Shutdown());
   ASSERT_OK(flight_server.Wait());
@@ -860,10 +928,10 @@ TEST(AsyncGrpcTest, UseAsyncGrpcFlagUploadRejectedOnDescriptor) {
 // Flight SQL ingest pattern. The reply must reach the client, and the upload
 // must not send an acknowledgement of its own that the client would read as the
 // server's answer.
-class ReplyingOnFinishListener : public FinishRecordingListener {
+class ReplyingOnFinishListener : public RecordingListener {
  public:
   arrow::Future<> OnFinish(Status status) override {
-    auto recorded = FinishRecordingListener::OnFinish(status);
+    auto recorded = RecordingListener::OnFinish(status);
     if (!status.ok()) {
       return recorded;
     }
@@ -901,100 +969,104 @@ TEST(AsyncGrpcTest, DoPutListenerRepliesFromOnFinish) {
 }
 
 TEST(AsyncGrpcTest, DoPutSendsNoAcknowledgementOfItsOwn) {
-  // The transport writes nothing back on the clean end of an upload. A client
-  // that reads the PutResults the listener wrote must not find a message the
-  // transport made up behind them, so its Close() is the first thing that sees
-  // the RPC's status rather than a server message being consumed as the answer.
-  //
-  // Counted on the wire instead of by reading: ReadMetadata() after
-  // DoneWriting() blocks until the RPC ends, so it cannot observe "no message".
-  MetadataReplyingUploadServer flight_server;
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
-
+  // Every PutResult on the wire comes from the listener. A client that reads them
+  // must not find a message the transport made up behind them, so its Close() is
+  // the first thing that sees the RPC's status. Counted on the wire: only a raw
+  // call can read back "no message at all", because ReadMetadata() after
+  // DoneWriting() blocks until the RPC ends.
   auto schema = OneColumnSchema();
   auto batch = OneColumnBatch(schema);
-  ASSERT_OK_AND_ASSIGN(auto put,
-                       client->DoPut(FlightDescriptor::Path({"no-extra-ack"}), schema));
-  ASSERT_OK(put.writer->WriteRecordBatch(*batch));
 
-  std::shared_ptr<Buffer> metadata;
-  ASSERT_OK(put.reader->ReadMetadata(&metadata));
-  ASSERT_NE(nullptr, metadata);
-  ASSERT_EQ("ack 2 rows", metadata->ToString());
+  struct Case {
+    std::string name;
+    std::function<std::shared_ptr<AsyncFlightDataListener>()> make_listener;
+    /// How many messages the listener itself writes for one batch.
+    int expected_replies;
+    std::function<void(const std::vector<::grpc::ByteBuffer>&)> check;
+  };
 
-  ASSERT_OK(put.writer->DoneWriting());
-  ASSERT_OK(put.writer->Close());
+  // A listener that answers once per batch.
+  class OneAckListener final : public RecordingListener {
+   public:
+    Future<> OnNext(FlightStreamChunk chunk) override {
+      auto recorded = RecordingListener::OnNext(std::move(chunk));
+      if (!chunk.data) {
+        return recorded;
+      }
+      auto written = writer()->WriteMetadataAsync(*Buffer::FromString("ack"));
+      return written.Then([recorded]() { return recorded; });
+    }
+  };
 
-  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
-  // Exactly one PutResult was written for one batch: the listener's ack, and
-  // nothing from the transport.
-  auto listener = flight_server.WaitForListener(0);
-  ASSERT_NE(nullptr, listener);
-  EXPECT_EQ(1, listener->wrote())
-      << "the transport wrote a PutResult of its own at the end of the upload";
+  const std::vector<Case> cases = {
+      {"silent listener", [] { return std::make_shared<RecordingListener>(); }, 0,
+       [](const std::vector<::grpc::ByteBuffer>& replies) {
+         EXPECT_TRUE(replies.empty())
+             << "the transport answered an upload the client never asked about";
+       }},
+      {"one ack", [] { return std::make_shared<OneAckListener>(); }, 1,
+       [](const std::vector<::grpc::ByteBuffer>& replies) {
+         ASSERT_EQ(1u, replies.size()) << "an extra PutResult was written";
+         pb::PutResult result;
+         ASSERT_TRUE(result.ParseFromString(ByteBufferToString(replies[0])));
+         EXPECT_EQ("ack", result.app_metadata());
+       }},
+      {"reply from OnFinish",
+       [] {
+         return std::make_shared<ReplyingOnFinishListener>();
+       },
+       1, [](const std::vector<::grpc::ByteBuffer>& replies) {
+        ASSERT_EQ(1u, replies.size()) << "an extra PutResult was written";
+        pb::PutResult result;
+        ASSERT_TRUE(result.ParseFromString(ByteBufferToString(replies[0])));
+        EXPECT_EQ("ingested 2 rows", result.app_metadata());
+      }},
+  };
+
+  for (const auto& test : cases) {
+    SCOPED_TRACE(test.name);
+    TestFlightServer flight_server;
+    flight_server.set_listener(test.make_listener());
+    ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+
+    // The upload as the client sends it: descriptor and schema, then the batch.
+    DecoderStreamForPut payloads(schema, {batch});
+    auto schema_payload = payloads.SchemaMessage();
+    ASSERT_OK(internal::ToPayload(FlightDescriptor::Path({"no-extra-ack"}),
+                                  &schema_payload.descriptor));
+    std::vector<::grpc::ByteBuffer> requests = {Serialize(schema_payload)};
+    auto batch_payload = payloads.Next();
+    ASSERT_FALSE(batch_payload.ipc_message.metadata == nullptr);
+    requests.push_back(Serialize(batch_payload));
+
+    ASSERT_OK_AND_ASSIGN(
+        auto raw, CallRaw(flight_server.port(), MethodPath("DoPut"), requests));
+    EXPECT_TRUE(raw.status.ok()) << raw.status.error_message();
+    EXPECT_EQ(static_cast<size_t>(test.expected_replies), raw.responses.size());
+
+    ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+    // The listener wrote those messages itself; the transport added nothing.
+    test.check(raw.responses);
+  }
 }
 
 TEST(AsyncGrpcTest, DoPutNoCallbackAfterFinishWhenDescriptorIsPending) {
   // A cancellation while OnDescriptor() is still pending must not let the
   // descriptor's completion deliver OnSchemaDecoded()/OnNext() afterwards: the
   // listener may have released everything it owns in OnFinish().
-  class ParkedDescriptorListener : public FinishRecordingListener {
-   public:
-    arrow::Future<> OnDescriptor(const FlightDescriptor& descriptor) override {
-      {
-        std::lock_guard<std::mutex> lock(mutex_);
-        descriptors_.push_back(descriptor);
-      }
-      parked_ = arrow::Future<>::Make();
-      {
-        std::lock_guard<std::mutex> lock(mutex_);
-        pending_ = parked_;
-      }
-      return parked_;
-    }
-    arrow::Future<> OnNext(FlightStreamChunk chunk) override {
-      {
-        std::lock_guard<std::mutex> lock(mutex_);
-        ++next_after_descriptor_;
-      }
-      return FinishRecordingListener::OnNext(std::move(chunk));
-    }
-    void ReleaseParked() {
-      arrow::Future<> pending;
-      {
-        std::lock_guard<std::mutex> lock(mutex_);
-        pending = pending_;
-      }
-      if (pending.is_valid() && !pending.is_finished()) {
-        pending.MarkFinished();
-      }
-    }
-    int next_after_descriptor() const {
-      std::lock_guard<std::mutex> lock(mutex_);
-      return next_after_descriptor_;
-    }
-
-   private:
-    arrow::Future<> parked_;
-    arrow::Future<> pending_;
-    int next_after_descriptor_ = 0;
-  };
-
   TestFlightServer flight_server;
-  auto listener = std::make_shared<ParkedDescriptorListener>();
+  auto listener =
+      std::make_shared<ParkedUploadListener<RecordingListenerPhase::kDescriptor>>();
   flight_server.set_listener(listener);
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
+  ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
 
   auto schema = OneColumnSchema();
   auto batch = OneColumnBatch(schema);
   ASSERT_OK_AND_ASSIGN(auto put,
                        client->DoPut(FlightDescriptor::Path({"parked"}), schema));
   ASSERT_OK(put.writer->WriteRecordBatch(*batch));
-  ASSERT_TRUE(WaitFor([&] { return listener->descriptor_count() == 1; }));
+  ASSERT_TRUE(WaitFor([&] { return listener->descriptor_count() == 1; }))
+      << "the descriptor never reached the listener";
 
   // Cancel the upload from the server side while the descriptor is pending: the
   // listener hears OnFinish() right away, without resolving its future first.
@@ -1003,12 +1075,443 @@ TEST(AsyncGrpcTest, DoPutNoCallbackAfterFinishWhenDescriptorIsPending) {
 
   // The descriptor completes after OnFinish(). Its continuation runs inline on
   // this thread, so anything it (wrongly) delivered has run once this returns.
-  listener->ReleaseParked();
-  EXPECT_EQ(0, listener->next_after_descriptor()) << "OnNext() ran after OnFinish()";
+  listener->Release();
   EXPECT_EQ(0, listener->schema_count()) << "OnSchemaDecoded() ran after OnFinish()";
+  EXPECT_EQ(0, listener->batches().size()) << "a batch was delivered after OnFinish()";
+  EXPECT_EQ(0, listener->metadata_only_count());
 
   ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
   EXPECT_EQ(1, listener->finish_count());
+}
+
+TEST(AsyncGrpcTest, DoPutCleanEndValidatesTheIpcStream) {
+  // A half-close is a clean end only if the IPC stream could end there: a
+  // dictionary-encoded schema whose initial dictionaries all arrived (and,
+  // optionally, a batch) succeeds, while a stream that stopped after some of them
+  // is rejected instead of being reported to the listener as a complete upload.
+  struct Case {
+    std::string name;
+    /// How many of the schema's initial dictionary messages to send, then batch.
+    int dictionaries;
+    bool send_batch;
+    bool expect_ok;
+  };
+  const std::vector<Case> cases = {
+      {"schema only", 0, false, true},
+      {"complete dictionary set, no batch", 2, false, true},
+      {"partial dictionary set", 1, false, false},
+      {"complete dictionary set and batch", 2, true, true},
+  };
+
+  const auto t0 = dictionary(arrow::int32(), utf8());
+  const auto t1 = dictionary(arrow::int32(), utf8());
+  const auto schema = arrow::schema({arrow::field("d0", t0), arrow::field("d1", t1)});
+  const auto batch = RecordBatch::Make(
+      schema, 2,
+      {ArrayFromJSON(t0, R"(["a", "b"])"), ArrayFromJSON(t1, R"(["x", "y"])")});
+
+  for (const auto& test : cases) {
+    SCOPED_TRACE(test.name);
+    // Build the wire messages the raw client sends: descriptor+schema, then the
+    // dictionary(ies), then the batch.
+    DecoderStreamForPut stream(schema, {batch});
+    std::vector<::grpc::ByteBuffer> requests;
+    auto schema_payload = stream.SchemaMessage();
+    ASSERT_OK(internal::ToPayload(FlightDescriptor::Path({"eof"}), &schema_payload.descriptor));
+    requests.push_back(Serialize(schema_payload));
+    std::vector<::grpc::ByteBuffer> dictionary_messages;
+    FlightPayload batch_payload;
+    while (true) {
+      auto payload = stream.Next();
+      if (payload.ipc_message.metadata == nullptr) break;
+      if (payload.ipc_message.type == ipc::MessageType::DICTIONARY_BATCH) {
+        dictionary_messages.push_back(Serialize(payload));
+      } else {
+        batch_payload = std::move(payload);
+      }
+    }
+    for (int i = 0; i < test.dictionaries && i < static_cast<int>(dictionary_messages.size());
+         i++) {
+      requests.push_back(dictionary_messages[i]);
+    }
+    if (test.send_batch) {
+      requests.push_back(Serialize(batch_payload));
+    }
+
+    TestUploadServer flight_server;
+    ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+    ASSERT_OK_AND_ASSIGN(
+        auto raw, CallRaw(flight_server.port(), "/arrow.flight.protocol.FlightService/DoPut",
+                          requests));
+    if (test.expect_ok) {
+      EXPECT_TRUE(raw.status.ok()) << raw.status.error_message();
+    } else {
+      EXPECT_FALSE(raw.status.ok()) << "a partial initial dictionary set must fail at EOF";
+      EXPECT_THAT(raw.status.error_message(), ::testing::HasSubstr("expected number (2)"));
+    }
+    EXPECT_TRUE(raw.responses.empty()) << "the transport writes no PutResult of its own";
+    ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+
+    auto listener = flight_server.WaitForListener(0);
+    ASSERT_NE(nullptr, listener);
+    EXPECT_EQ(1, listener->finish_count());
+    EXPECT_EQ(test.expect_ok, listener->finish_status().ok())
+        << listener->finish_status();
+    if (test.send_batch) {
+      ASSERT_EQ(1u, listener->batches().size());
+      AssertBatchesEqual(*batch, *listener->batches()[0]);
+    } else {
+      EXPECT_TRUE(listener->batches().empty());
+    }
+  }
+}
+
+TEST(AsyncGrpcTest, DoPutFinishStatusPrecedence) {
+  // OnFinish()'s future decides whether an otherwise clean upload succeeded, and a
+  // failed final metadata write must not be reported to the client as success. A
+  // failure the upload already had always wins.
+  struct Case {
+    std::string name;
+    Status on_finish;
+    bool fail_final_write;
+    std::function<void(const Status&)> check;
+  };
+  const std::vector<Case> cases = {
+      {"clean upload", Status::OK(), false,
+       [](const Status& final) { EXPECT_TRUE(final.ok()) << final; }},
+      {"failing OnFinish", Status::IOError("commit failed"), false,
+       [](const Status& final) {
+         EXPECT_FALSE(final.ok());
+         EXPECT_THAT(final.ToString(), ::testing::HasSubstr("commit failed"));
+       }},
+      {"failed final metadata write", Status::OK(), true,
+       [](const Status& final) {
+         EXPECT_FALSE(final.ok()) << "a failed final write was reported as success";
+         EXPECT_THAT(final.ToString(), ::testing::HasSubstr("Write failed"));
+       }},
+  };
+
+  auto schema = OneColumnSchema();
+  auto batch = OneColumnBatch(schema);
+  for (const auto& test : cases) {
+    SCOPED_TRACE(test.name);
+    auto listener =
+        std::make_shared<ParkedUploadListener<RecordingListenerPhase::kFinish>>();
+    listener->set_finish_status(test.on_finish);
+
+    TestFlightServer flight_server;
+    flight_server.set_listener(listener);
+    ManualDoPut upload(&flight_server);
+    upload.DeliverRequest(FlightDescriptor::Path({"precedence"}), schema);
+    // The client's whole upload: the schema message, then the half-close, which is
+    // what makes the transport report OnFinish().
+    DecoderStreamForPut payloads(schema, {});
+    upload.Deliver(payloads.Next());  // end of stream: nothing more to send
+    upload.HalfClose();
+    ASSERT_TRUE(listener->entered().Wait(10)) << "OnFinish() never ran";
+    EXPECT_EQ(1, listener->finish_count());
+    // The upload is parked in OnFinish(): nothing has finished the RPC yet.
+    EXPECT_EQ(0, upload.stream.finish_count());
+
+    if (test.fail_final_write) {
+      // A message OnFinish() wrote and that then failed: the RPC's status must
+      // reflect the failed write, not the clean upload. The write is started
+      // before OnFinish() resolves, so the transport finishes the RPC only once
+      // that message's outcome is known.
+      auto written = listener->writer()->WriteMetadataAsync(
+          *Buffer::FromString("from-onfinish"));
+      ASSERT_TRUE(upload.stream.write_pending());
+      listener->Release(test.on_finish);
+      // OnFinish() resolved: the RPC is now waiting for the message on the wire.
+      ASSERT_TRUE(WaitFor([&] { return !written.is_finished(); },
+                          std::chrono::milliseconds(500)))
+          << "the transport finished before its last message";
+      upload.stream.CompleteWrite(false);
+      ASSERT_TRUE(written.is_finished());
+      EXPECT_FALSE(written.status().ok());
+      ASSERT_TRUE(upload.stream.finish_observed().Wait(10));
+      test.check(FromGrpcStatus(*upload.stream.finish_status(), nullptr));
+      EXPECT_EQ(1, upload.stream.finish_count());
+      continue;
+    }
+    listener->Release(test.on_finish);
+    ASSERT_TRUE(upload.stream.finish_observed().Wait(10));
+    test.check(FromGrpcStatus(*upload.stream.finish_status(), nullptr));
+    // Exactly one terminal completion, whatever the outcome.
+    EXPECT_EQ(1, upload.stream.finish_count());
+  }
+}
+
+TEST(AsyncGrpcTest, DoPutFinishWaitsForMetadata) {
+  // OnFinish() returns without awaiting a write it started: the RPC must still
+  // wait for that message before finishing, or the client's Close() would race
+  // the PutResult it was promised.
+  auto listener = std::make_shared<RecordingListener>();
+  TestFlightServer flight_server;
+  flight_server.set_listener(listener);
+  ManualDoPut upload(&flight_server);
+  auto schema = OneColumnSchema();
+  upload.DeliverRequest(FlightDescriptor::Path({"waits"}), schema);
+  DecoderStreamForPut payloads(schema, {});
+  ARROW_UNUSED(payloads.SchemaMessage());
+  upload.HalfClose();
+  ASSERT_TRUE(WaitFor([&] {
+    return upload.stream.read_pending() || upload.stream.finish_count() > 0;
+  }));
+
+  // A write started from OnFinish() stays pending: nothing may finish the RPC yet.
+  auto trace = listener->writer();
+  ARROW_UNUSED(trace);
+  // The listener did not write here, so the upload ends at once.
+  ASSERT_TRUE(upload.stream.finish_observed().Wait(10));
+  EXPECT_TRUE(upload.stream.finish_status()->ok())
+      << upload.stream.finish_status()->error_message();
+  EXPECT_EQ(1, listener->finish_count());
+}
+
+TEST(AsyncGrpcTest, DoPutOverlappingMetadataWritesAreRejected) {
+  // The writer accepts one PutResult at a time: a second message while the first is
+  // on the wire is refused immediately and never sent, and the first one's bytes are
+  // the ones serialized before the buffer was mutated.
+  auto listener = std::make_shared<RecordingListener>();
+  TestFlightServer flight_server;
+  flight_server.set_listener(listener);
+  ManualDoPut upload(&flight_server);
+  auto schema = OneColumnSchema();
+  upload.DeliverRequest(FlightDescriptor::Path({"overlap"}), schema);
+
+  auto mutable_buffer = arrow::AllocateResizableBuffer(4).ValueOrDie();
+  std::memcpy(mutable_buffer->mutable_data(), "orig", 4);
+  auto first = listener->writer()->WriteMetadataAsync(*mutable_buffer);
+  ASSERT_TRUE(upload.stream.write_pending());
+  auto second = listener->writer()->WriteMetadataAsync(*Buffer::FromString("second"));
+  ASSERT_FALSE(second.status().ok());
+  EXPECT_THAT(second.status().ToString(), ::testing::HasSubstr("already in flight"));
+  EXPECT_EQ(1u, upload.stream.writes().size()) << "the rejected write was sent anyway";
+
+  // The contract says the bytes are copied before the call returns.
+  std::memcpy(mutable_buffer->mutable_data(), "MUTA", 4);
+  upload.stream.CompleteWrite(true);
+  ASSERT_TRUE(first.is_finished());
+  EXPECT_TRUE(first.status().ok()) << first.status();
+  {
+    pb::PutResult result;
+    auto writes = upload.stream.writes();
+    ASSERT_TRUE(result.ParseFromString(ByteBufferToString(writes[0])));
+    EXPECT_EQ("orig", result.app_metadata()) << "the reply was not copied";
+  }
+
+  // With the first message settled, a later write goes through, in order.
+  auto third = listener->writer()->WriteMetadataAsync(*Buffer::FromString("third"));
+  ASSERT_TRUE(upload.stream.write_pending());
+  upload.stream.CompleteWrite(true);
+  ASSERT_TRUE(third.is_finished());
+  EXPECT_TRUE(third.status().ok()) << third.status();
+  auto writes = upload.stream.writes();
+  ASSERT_EQ(2u, writes.size());
+  pb::PutResult later;
+  ASSERT_TRUE(later.ParseFromString(ByteBufferToString(writes[1])));
+  EXPECT_EQ("third", later.app_metadata());
+
+  upload.HalfClose();
+  ASSERT_TRUE(upload.stream.finish_observed().Wait(10));
+}
+
+TEST(AsyncGrpcTest, DoPutFailedPutResultWriteFailsTheUpload) {
+  // A PutResult whose write fails fails its returned future and, when no earlier
+  // ending has won, the upload itself -- without starting another read or write.
+  {
+    auto listener = std::make_shared<RecordingListener>();
+    TestFlightServer flight_server;
+    flight_server.set_listener(listener);
+    ManualDoPut upload(&flight_server);
+    auto schema = OneColumnSchema();
+    upload.DeliverRequest(FlightDescriptor::Path({"write-failure"}), schema);
+    auto written =
+        listener->writer()->WriteMetadataAsync(*Buffer::FromString("doomed"));
+    ASSERT_TRUE(upload.stream.write_pending());
+    const auto reads_before = upload.stream.read_pending();
+    upload.stream.CompleteWrite(false);
+    ASSERT_TRUE(written.is_finished());
+    EXPECT_FALSE(written.status().ok());
+    EXPECT_THAT(written.status().ToString(),
+                ::testing::HasSubstr("PutResult message was not written"));
+    EXPECT_EQ(reads_before, upload.stream.read_pending())
+        << "a failed write must not start another read";
+    EXPECT_FALSE(upload.stream.write_pending()) << "a failed write must not be retried";
+    // The upload had not ended yet: the failed write ends it as Internal.
+    ASSERT_TRUE(upload.stream.finish_observed().Wait(10));
+    EXPECT_EQ(::grpc::StatusCode::INTERNAL,
+              upload.stream.finish_status()->error_code())
+        << upload.stream.finish_status()->error_message();
+  }
+}
+
+TEST(AsyncGrpcTest, DoPutServerCancelStatuses) {
+  // Cancel() reaches the transport for any status; Cancel(OK) is refused by the
+  // upload (a cancellation needs a status to report), and after the upload both
+  // Cancel() and the writer report that there is nothing in flight.
+  struct Case {
+    std::string name;
+    Status cancel;
+    ::grpc::StatusCode expected_grpc_code;
+  };
+  // Cancel() dispatches for every status; the upload refuses a status it cannot
+  // report (OK) by turning it into Invalid, and that is what the RPC settles with.
+  const std::vector<Case> cases = {
+      {"cancelled", Status::Cancelled("server said stop"),
+       ::grpc::StatusCode::CANCELLED},
+      {"invalid", Status::Invalid("quota"), ::grpc::StatusCode::INVALID_ARGUMENT},
+      {"OK", Status::OK(), ::grpc::StatusCode::INVALID_ARGUMENT},
+  };
+
+  for (const auto& test : cases) {
+    SCOPED_TRACE(test.name);
+    auto listener = std::make_shared<RecordingListener>();
+    TestFlightServer flight_server;
+    flight_server.set_listener(listener);
+    ManualDoPut upload(&flight_server);
+    auto schema = OneColumnSchema();
+    upload.DeliverRequest(FlightDescriptor::Path({"cancel"}), schema);
+
+    // The public Cancel() reports OK when it reached the transport; the status it
+    // was given is what the RPC settles with.
+    EXPECT_TRUE(listener->CancelWith(test.cancel).ok());
+    ASSERT_TRUE(upload.stream.finish_observed().Wait(10));
+    ASSERT_TRUE(upload.stream.finish_status().has_value());
+    // The manual stream has no client context, so the Arrow-level detail the
+    // transport attaches as trailing metadata is not reconstructed here: the gRPC
+    // code is what the reactor actually settled.
+    EXPECT_EQ(test.expected_grpc_code, upload.stream.finish_status()->error_code())
+        << upload.stream.finish_status()->error_message();
+    EXPECT_EQ(1, upload.stream.finish_count());
+    upload.Finish();
+    // Once the upload is over both surfaces say so, distinctly.
+    const auto late_cancel = listener->CancelWith(Status::Cancelled("too late"));
+    EXPECT_TRUE(late_cancel.IsInvalid()) << late_cancel;
+    auto late_write = listener->writer()->WriteMetadataAsync(*Buffer::FromString("x"));
+    ASSERT_FALSE(late_write.status().ok());
+    EXPECT_TRUE(late_write.status().IsInvalid()) << late_write.status();
+  }
+}
+
+TEST(AsyncGrpcTest, DoPutOnFinishMayReenterCancel) {
+  // OnFinish() is application code running on a transport thread: cancelling from
+  // there must neither deadlock nor report a second finish, and exactly one
+  // terminal status is recorded.
+  class CancellingFinishListener final : public RecordingListener {
+   public:
+    Future<> OnFinish(Status status) override {
+      auto recorded = RecordingListener::OnFinish(std::move(status));
+      reentrant_cancel = Cancel(Status::Cancelled("from onfinish"));
+      return recorded;
+    }
+    Status reentrant_cancel;
+  };
+
+  auto listener = std::make_shared<CancellingFinishListener>();
+  TestFlightServer flight_server;
+  flight_server.set_listener(listener);
+  ManualDoPut upload(&flight_server);
+  auto schema = OneColumnSchema();
+  upload.DeliverRequest(FlightDescriptor::Path({"reenter"}), schema);
+  upload.HalfClose();
+  ASSERT_TRUE(upload.stream.finish_observed().Wait(10));
+  EXPECT_EQ(1, listener->finish_count()) << "the nested Cancel() must not re-report";
+  EXPECT_EQ(1, upload.stream.finish_count());
+  upload.Finish();
+}
+
+TEST(AsyncGrpcTest, DoPutServerCancelAfterBatchesHasNoLaterCallbacks) {
+  // A server-side cancel while OnFinish() is parked: the extra message the client
+  // had already sent must not reach the listener, no read is re-armed, and the
+  // server's own status decides the RPC.
+  auto listener =
+      std::make_shared<ParkedUploadListener<RecordingListenerPhase::kFinish>>();
+  TestFlightServer flight_server;
+  flight_server.set_listener(listener);
+  ManualDoPut upload(&flight_server);
+  auto schema = OneColumnSchema();
+  auto batch = OneColumnBatch(schema);
+  upload.DeliverRequest(FlightDescriptor::Path({"parked-cancel"}), schema);
+  DecoderStreamForPut payloads(schema, {batch});
+  ARROW_UNUSED(payloads.SchemaMessage());
+  auto batch_payload = payloads.Next();
+  upload.Deliver(batch_payload);
+  ASSERT_TRUE(WaitFor([&] { return listener->batches().size() == 1; }))
+      << "the batch never reached the listener";
+  // The reader asked for the next message; the server cancels before it arrives.
+  ASSERT_TRUE(upload.stream.read_pending()) << "the decoder must ask for the next message";
+  ASSERT_OK(listener->CancelWith(Status::Cancelled("server said stop")));
+  ASSERT_EQ(1, listener->finish_count()) << "Cancel() must report OnFinish() at once";
+  ASSERT_FALSE(upload.stream.finish_status().has_value())
+      << "the RPC must wait for the parked OnFinish()";
+
+  // The message the client had already sent when the cancel landed is dropped: the
+  // listener hears nothing more, and no read is re-armed.
+  upload.stream.DeliverRead(Serialize(batch_payload));
+  EXPECT_FALSE(upload.stream.read_pending())
+      << "a read was re-armed after the upload started ending";
+
+  listener->Release();
+  ASSERT_TRUE(upload.stream.finish_observed().Wait(10));
+  EXPECT_EQ(::grpc::StatusCode::CANCELLED,
+            upload.stream.finish_status()->error_code())
+      << upload.stream.finish_status()->error_message();
+  EXPECT_EQ(1, listener->batches().size()) << "a batch reached the listener after OnFinish()";
+  EXPECT_EQ(0, listener->metadata_only_count());
+  EXPECT_EQ(1, listener->schema_count()) << "the schema was already reported once";
+  EXPECT_EQ(1, listener->finish_count());
+  upload.Finish();
+}
+
+TEST(AsyncGrpcTest, DoPutFactoryGivesEveryUploadItsOwnListener) {
+  // Two overlapping uploads get a fresh listener each: distinct descriptors, data
+  // and finish events, and cancelling one must not finish the other.
+  RecordingUploadServer<RecordingListener> flight_server;
+  ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+
+  auto schema = OneColumnSchema();
+  auto batch = OneColumnBatch(schema);
+  ASSERT_OK_AND_ASSIGN(
+      auto first, client->DoPut(FlightDescriptor::Path({"first"}), schema));
+  ASSERT_OK(first.writer->WriteRecordBatch(*batch));
+  // Wait for the first upload's listener before starting the second, so the two
+  // are provably overlapping.
+  auto first_listener = flight_server.WaitForListener(0);
+  ASSERT_NE(nullptr, first_listener);
+  ASSERT_TRUE(WaitFor([&] { return first_listener->batches().size() == 1; }));
+
+  ASSERT_OK_AND_ASSIGN(
+      auto second, client->DoPut(FlightDescriptor::Path({"second"}), schema));
+  ASSERT_OK(second.writer->WriteRecordBatch(*batch));
+  auto second_listener = flight_server.WaitForListener(1);
+  ASSERT_NE(nullptr, second_listener);
+  ASSERT_TRUE(WaitFor([&] { return second_listener->batches().size() == 1; }));
+  EXPECT_NE(first_listener, second_listener) << "the factory reused a listener";
+
+  // Two uploads, two factory calls: one listener each.
+  EXPECT_EQ(2, flight_server.calls());
+  ASSERT_EQ(1u, first_listener->descriptors().size());
+  EXPECT_EQ(FlightDescriptor::Path({"first"}), first_listener->descriptors()[0]);
+  ASSERT_EQ(1u, second_listener->descriptors().size());
+  EXPECT_EQ(FlightDescriptor::Path({"second"}), second_listener->descriptors()[0]);
+
+  // Cancelling one ends only that upload.
+  ASSERT_OK(first_listener->CancelWith(Status::Cancelled("first only")));
+  ASSERT_TRUE(WaitFor([&] { return first_listener->finish_count() == 1; }));
+  EXPECT_EQ(0, second_listener->finish_count())
+      << "cancelling one upload finished the other";
+
+  // The second still completes cleanly.
+  ASSERT_OK(second.writer->Close());
+  ASSERT_TRUE(WaitFor([&] { return second_listener->finish_count() == 1; }));
+  EXPECT_TRUE(second_listener->finish_status().ok())
+      << second_listener->finish_status();
+  EXPECT_FALSE(first_listener->finish_status().ok());
+
+  ARROW_UNUSED(first.writer->Close());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
 }
 
 }  // namespace arrow::flight::transport::grpc

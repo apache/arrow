@@ -19,6 +19,7 @@
 
 #include <atomic>
 #include <deque>
+#include <memory>
 
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/transport.h"
@@ -32,65 +33,42 @@ namespace arrow::flight {
 
 namespace {
 
-// FlightDataMessageReader is an ipc::MessageReader that accepts one at a time
-// FlightData messages. Analogous to MessageReader::Open(InputStream*) but for
-// individual FlightData messages directly read from the received buffers.
-class FlightDataMessageReader : public ipc::MessageReader {
+// The IPC messages handed to the decoder and not read yet, as an
+// ipc::MessageReader: an empty queue reads as the end of the stream.
+//
+// Owned by the decoder, not by the RecordBatchStreamReader reading through it:
+// Open() adopts the unique_ptr it is given and frees it on failure (a malformed
+// first message, a first message that is not a schema), which would leave the
+// decoder with a dangling pointer. The reader is handed a forwarding Ref instead.
+class FlightDataMessageQueue final : public ipc::MessageReader {
  public:
-  /// \brief Queue one message, with the app metadata it arrived with.
-  /// \param message The message to queue.
-  /// \param app_metadata The application metadata associated with the message.
-  void Push(std::unique_ptr<ipc::Message> message, std::shared_ptr<Buffer> app_metadata) {
-    queue_.push_back({std::move(message), std::move(app_metadata)});
+  void Push(std::unique_ptr<ipc::Message> message) {
+    queue_.push_back(std::move(message));
   }
+  bool empty() const { return queue_.empty(); }
 
-  /// Take the next queued message, if any, and return it. The app metadata of
-  /// the message taken is stored internally and can be retrieved with
-  /// ReadAppMetadata().
-  /// \return The next queued message, or nullptr if no messages are queued.
-  ::arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
+  arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
     if (queue_.empty()) {
       return nullptr;
     }
-    QueuedMessage queued = std::move(queue_.front());
+    auto message = std::move(queue_.front());
     queue_.pop_front();
-    app_metadata_ = std::move(queued.app_metadata);
-    return std::move(queued.message);
+    return message;
   }
 
-  /// \brief Read the application metadata of the last message taken by ReadNextMessage().
-  /// \return The application metadata of the last message taken, or nullptr if no
-  /// messages have been taken.
-  std::shared_ptr<Buffer> ReadAppMetadata() { return app_metadata_; }
+  class Ref final : public ipc::MessageReader {
+   public:
+    explicit Ref(FlightDataMessageQueue* queue) : queue_(queue) {}
+    arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
+      return queue_->ReadNextMessage();
+    }
 
- private:
-  /// \brief Queue of messages that have been pushed but not yet read.
-  struct QueuedMessage {
-    std::unique_ptr<ipc::Message> message;
-    std::shared_ptr<Buffer> app_metadata;
+   private:
+    FlightDataMessageQueue* queue_;
   };
 
-  std::deque<QueuedMessage> queue_;
-  std::shared_ptr<Buffer> app_metadata_;
-};
-
-// FlightDataMessageReader is owned by the decoder, not by the
-// RecordBatchStreamReader that reads through it: Open() takes a unique_ptr and
-// adopts it, so handing over the decoder's reader would free it on any failure
-// path (a malformed first message, a first message that is not a schema),
-// leaving the decoder with a dangling pointer.  This forwards to the decoder's
-// reader and stays owned by it.
-class FlightDataMessageReaderRef final : public ipc::MessageReader {
- public:
-  explicit FlightDataMessageReaderRef(FlightDataMessageReader* reader)
-      : reader_(reader) {}
-
-  arrow::Result<std::unique_ptr<ipc::Message>> ReadNextMessage() override {
-    return reader_->ReadNextMessage();
-  }
-
  private:
-  FlightDataMessageReader* reader_;
+  std::deque<std::unique_ptr<ipc::Message>> queue_;
 };
 
 }  // namespace
@@ -99,12 +77,23 @@ class AsyncFlightMessageDecoder::AsyncFlightMessageDecoderImpl {
  public:
   AsyncFlightMessageDecoderImpl(std::shared_ptr<AsyncFlightDataListener> listener,
                                 ipc::IpcReadOptions options)
-      : listener_(std::move(listener)),
-        options_(std::move(options)),
-        message_reader_(std::make_unique<FlightDataMessageReader>()) {}
+      : listener_(std::move(listener)), options_(std::move(options)) {}
 
   /// Stop delivering to the listener: the upload it decodes for has ended.
   void Stop() { stopped_ = true; }
+
+  /// \brief Check that the IPC stream ended where it could end.
+  ///
+  /// Dictionaries still queued were never read: reading them now with nothing
+  /// after them lets the IPC reader report an incomplete initial dictionary set,
+  /// or a bad dictionary, exactly as it would on a synchronous stream.
+  Status Finish() {
+    if (stopped_ || messages_.empty()) {
+      return Status::OK();
+    }
+    std::shared_ptr<RecordBatch> batch;
+    return batch_reader_->ReadNext(&batch);
+  }
 
   /// \brief Consume a chunk of Flight data.
   /// \param data The Flight data to consume.
@@ -135,9 +124,6 @@ class AsyncFlightMessageDecoder::AsyncFlightMessageDecoderImpl {
   /// \brief Hand a message's app metadata to the listener as a metadata-only
   /// chunk, unless it is empty.
   Future<> DeliverMetadata(std::shared_ptr<Buffer> app_metadata) {
-    if (stopped_) {
-      return Status::OK();
-    }
     if (app_metadata == nullptr || app_metadata->size() == 0) {
       return Status::OK();
     }
@@ -148,46 +134,40 @@ class AsyncFlightMessageDecoder::AsyncFlightMessageDecoderImpl {
 
   /// \brief Decode a FlightData message whose descriptor (if any) was already
   /// reported to the listener.
-  /// \param data The Flight data to consume after the descriptor has been reported.
-  /// \return A future carrying the listener's status for this message: a non-OK result
-  /// rejects the upload.
-  /// \note The descriptor of an upload is assumed to have been reported
-  /// before calling this method.
-  ///
   Future<> ConsumeDataAfterDescriptor(internal::FlightData data) {
     if (!data.metadata) {
       // Metadata-only message: no IPC content, just Flight app_metadata.
       return DeliverMetadata(std::move(data.app_metadata));
     }
-
     ARROW_ASSIGN_OR_RAISE(auto message, data.OpenMessage());
 
     if (!batch_reader_) {
-      // Initialize RecordBatchStreamReader and read the first IPC message.
-      // It must be a schema.
-      message_reader_->Push(std::move(message), std::move(data.app_metadata));
+      // The first IPC message opens the stream, and must be its schema.
+      messages_.Push(std::move(message));
       ARROW_ASSIGN_OR_RAISE(
           batch_reader_,
           ipc::RecordBatchStreamReader::Open(
-              std::make_unique<FlightDataMessageReaderRef>(message_reader_.get()),
-              options_));
-      // Open() read the schema message through the reader above, so its
-      // app_metadata is now in the reader. OnSchemaDecoded() has no place for it:
-      // deliver it as a metadata-only chunk, or it is lost.
+              std::make_unique<FlightDataMessageQueue::Ref>(&messages_), options_));
       RETURN_NOT_OK(listener_->OnSchemaDecoded(batch_reader_->schema()));
-      return DeliverMetadata(message_reader_->ReadAppMetadata());
+      if (stopped_) {
+        return Status::OK();
+      }
+      // OnSchemaDecoded() has no place for the schema message's app_metadata.
+      return DeliverMetadata(std::move(data.app_metadata));
     }
 
-    message_reader_->Push(std::move(message), std::move(data.app_metadata));
-
-    std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(batch_reader_->ReadNext(&batch));
-    if (!batch) {
-      return DeliverMetadata(message_reader_->ReadAppMetadata());
+    const bool is_dictionary = message->type() == ipc::MessageType::DICTIONARY_BATCH;
+    messages_.Push(std::move(message));
+    if (is_dictionary) {
+      // Read with the batch that needs it. Reading a dictionary on its own makes
+      // the pull reader ask for the next message from an empty queue, which it
+      // takes for the end of the stream while initial dictionaries are still due.
+      return DeliverMetadata(std::move(data.app_metadata));
     }
+    // Reads the queued dictionaries, then this batch.
     FlightStreamChunk chunk;
-    chunk.data = std::move(batch);
-    chunk.app_metadata = message_reader_->ReadAppMetadata();
+    RETURN_NOT_OK(batch_reader_->ReadNext(&chunk.data));
+    chunk.app_metadata = std::move(data.app_metadata);
     return listener_->OnNext(std::move(chunk));
   }
 
@@ -196,7 +176,7 @@ class AsyncFlightMessageDecoder::AsyncFlightMessageDecoderImpl {
 
   std::shared_ptr<AsyncFlightDataListener> listener_;
   ipc::IpcReadOptions options_;
-  std::unique_ptr<FlightDataMessageReader> message_reader_;
+  FlightDataMessageQueue messages_;
   std::shared_ptr<ipc::RecordBatchStreamReader> batch_reader_;
   /// Whether OnDescriptor() was already reported: only the first message of an
   /// upload carries one, later ones are ignored like the sync transport does.
@@ -216,11 +196,16 @@ Future<> AsyncFlightMessageDecoder::Consume(internal::FlightData data) {
 
 void AsyncFlightMessageDecoder::Stop() { impl_->Stop(); }
 
+Status AsyncFlightMessageDecoder::Finish() { return impl_->Finish(); }
+
 // --- AsyncFlightDataListener: transport state and the terminal callbacks ---
 
 AsyncFlightDataListener::AsyncFlightDataListener() = default;
-AsyncFlightDataListener::~AsyncFlightDataListener() = default;
-AsyncFlightDataWriter::~AsyncFlightDataWriter() = default;
+// The deleting-destructor variants of these never run: the listener and the
+// transport are abstract, and writers are only owned through shared_ptr. Their
+// base variants are what the tests execute.
+AsyncFlightDataListener::~AsyncFlightDataListener() = default;  // LCOV_EXCL_LINE
+AsyncFlightDataWriter::~AsyncFlightDataWriter() = default;      // LCOV_EXCL_LINE
 
 Future<> AsyncFlightDataWriter::WriteMetadataAsync(const Buffer& app_metadata) {
   // SetTransport() swaps transport_ under writer_mutex_, so both the read and
@@ -239,31 +224,13 @@ Future<> AsyncFlightDataWriter::WriteMetadataAsync(const Buffer& app_metadata) {
 
 namespace internal {
 
-FlightDataListenerTransport::~FlightDataListenerTransport() = default;
+FlightDataListenerTransport::~FlightDataListenerTransport() = default;  // LCOV_EXCL_LINE
 
 void FlightDataListenerTransport::SetTransport(
     const std::shared_ptr<AsyncFlightDataListener>& listener,
     FlightDataListenerTransport* transport) {
-  if (listener == nullptr) {
-    return;
-  }
-  std::lock_guard<std::mutex> lock(listener->transport_mutex_);
-  listener->transport_ = transport;
-  std::lock_guard<std::mutex> writer_lock(listener->writer_->writer_mutex_);
+  std::lock_guard<std::mutex> lock(listener->writer_->writer_mutex_);
   listener->writer_->transport_ = transport;
-}
-
-Future<> FlightDataListenerTransport::ReportFinish(
-    const std::shared_ptr<AsyncFlightDataListener>& listener, Status status) {
-  if (listener == nullptr) {
-    return Status::OK();
-  }
-  // Report exactly once: the first ending wins.
-  bool expected = false;
-  if (!listener->finished_.compare_exchange_strong(expected, true)) {
-    return Status::OK();
-  }
-  return listener->OnFinish(std::move(status));
 }
 
 }  // namespace internal
@@ -271,8 +238,8 @@ Future<> FlightDataListenerTransport::ReportFinish(
 Status AsyncFlightDataListener::Cancel(Status status) {
   internal::FlightDataListenerTransport* transport;
   {
-    std::lock_guard<std::mutex> lock(transport_mutex_);
-    transport = transport_;
+    std::lock_guard<std::mutex> lock(writer_->writer_mutex_);
+    transport = writer_->transport_;
     if (transport == nullptr) {
       return Status::Invalid(
           "no upload in flight to cancel: Cancel() must be called while the "

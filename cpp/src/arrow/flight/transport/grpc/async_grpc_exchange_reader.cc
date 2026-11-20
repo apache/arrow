@@ -54,6 +54,7 @@ const FlightDescriptor& ExchangeReader::descriptor() const { return descriptor_;
 
 arrow::Future<FlightStreamChunk> ExchangeReader::NextAsync() {
   arrow::Future<FlightStreamChunk> returned;
+  std::optional<internal::FlightData> first_read;
   {
     std::lock_guard<std::mutex> lock(mutex_);
     if (pending_.is_valid() && !pending_.is_finished()) {
@@ -77,17 +78,12 @@ arrow::Future<FlightStreamChunk> ExchangeReader::NextAsync() {
 
     pending_ = arrow::Future<FlightStreamChunk>::Make();
     returned = pending_;
+    first_read = std::exchange(first_read_, std::nullopt);
   }
   // Consume()/RequestRead() take the lock themselves and may resolve pending_
   // from a callback, so they must run unlocked.
-  if (first_read_.has_value()) {
-    internal::FlightData data;
-    {
-      std::lock_guard<std::mutex> lock(mutex_);
-      data = std::move(*first_read_);
-      first_read_.reset();
-    }
-    Consume(std::move(data));
+  if (first_read.has_value()) {
+    Consume(std::move(*first_read));
   } else {
     RequestRead();
   }
@@ -112,17 +108,25 @@ void ExchangeReader::OfferFirstRead(internal::FlightData data) {
 void ExchangeReader::OnMessage(internal::FlightData data) { Consume(std::move(data)); }
 
 void ExchangeReader::OnReadClosed() {
-  bool had_error = false;
+  // A clean end of input still has to be a stream that could end: validate the
+  // decoder before settling the reader, but never in place of an error the read
+  // already reported.
+  const Status eof = decoder_.Finish();
+  Status error;
   {
     std::lock_guard<std::mutex> lock(mutex_);
     read_in_flight_ = false;
     read_closed_ = true;
-    had_error = !read_error_.ok();
+    if (!read_error_.ok()) {
+      return;  // the saved error wins, and already reached the handler
+    }
+    if (!eof.ok()) {
+      read_error_ = eof;
+      error = eof;
+    }
   }
-  if (had_error) {
-    return;
-  }
-  ResolvePending(FlightStreamChunk{});
+  ResolvePending(error.ok() ? arrow::Result<FlightStreamChunk>(FlightStreamChunk{})
+                            : arrow::Result<FlightStreamChunk>(error));
 }
 
 void ExchangeReader::OnReadFailed(Status status) {

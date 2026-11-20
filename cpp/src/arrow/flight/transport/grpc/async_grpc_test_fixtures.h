@@ -26,11 +26,14 @@
 
 #include <atomic>
 #include <chrono>
+#include <deque>
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -144,6 +147,26 @@ class FailAfterFirstAsyncIterator final : public Base {
   bool served_ = false;
 };
 
+/// An iterator whose very first NextAsync() fails: the RPC must end with that error
+/// before anything is written.
+template <typename T, typename Base>
+class FailFirstAsyncIterator final : public Base {
+ public:
+  explicit FailFirstAsyncIterator(std::string error_message)
+      : error_message_(std::move(error_message)) {}
+
+  arrow::Future<std::shared_ptr<T>> NextAsync() override {
+    return arrow::Future<std::shared_ptr<T>>::MakeFinished(
+        arrow::Status::IOError(error_message_));
+  }
+
+ private:
+  std::string error_message_;
+};
+
+using FailFirstAsyncResultStream = FailFirstAsyncIterator<Result, AsyncResultStream>;
+using FailFirstAsyncListing = FailFirstAsyncIterator<FlightInfo, AsyncFlightListing>;
+
 using MidStreamErrorAsyncResultStream =
     FailAfterFirstAsyncIterator<Result, AsyncResultStream>;
 using MidStreamErrorAsyncListing =
@@ -160,6 +183,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
   // uploads, which is the base class behavior.
   std::shared_ptr<AsyncFlightDataListener> CreateDoPutListener(
       const ServerCallContext&) override {
+    handler_calls_.fetch_add(1);
     return listener_;
   }
 
@@ -169,6 +193,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
 
   arrow::Future<std::shared_ptr<AsyncFlightDataStream>> DoGetAsync(
       const ServerCallContext&, const Ticket& request) override {
+    handler_calls_.fetch_add(1);
     ticket_ = request.ticket;
     auto schema = arrow::schema(
         {arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64())});
@@ -194,6 +219,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
   // drives the error-path test.
   arrow::Future<std::shared_ptr<FlightInfo>> GetFlightInfoAsync(
       const ServerCallContext&, const FlightDescriptor& request) override {
+    handler_calls_.fetch_add(1);
     last_descriptor_ = request;
     if (request == FlightDescriptor::Command("fail")) {
       return arrow::Future<std::shared_ptr<FlightInfo>>::MakeFinished(
@@ -214,7 +240,16 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
 
   arrow::Future<std::shared_ptr<SchemaResult>> GetSchemaAsync(
       const ServerCallContext&, const FlightDescriptor& request) override {
+    handler_calls_.fetch_add(1);
     last_descriptor_ = request;
+    if (request == FlightDescriptor::Command("fail")) {
+      return arrow::Future<std::shared_ptr<SchemaResult>>::MakeFinished(
+          arrow::Status::KeyError("no such schema"));
+    }
+    if (request == FlightDescriptor::Command("null-schema")) {
+      return arrow::Future<std::shared_ptr<SchemaResult>>::MakeFinished(
+          std::shared_ptr<SchemaResult>{});
+    }
     return arrow::Future<std::shared_ptr<SchemaResult>>::MakeFinished(
         std::shared_ptr<SchemaResult>(
             SchemaResult::Make(*arrow::schema({arrow::field("value", arrow::int64())}))
@@ -223,7 +258,16 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
 
   arrow::Future<std::shared_ptr<PollInfo>> PollFlightInfoAsync(
       const ServerCallContext&, const FlightDescriptor& request) override {
+    handler_calls_.fetch_add(1);
     last_descriptor_ = request;
+    if (request == FlightDescriptor::Command("fail")) {
+      return arrow::Future<std::shared_ptr<PollInfo>>::MakeFinished(
+          arrow::Status::KeyError("no such poll"));
+    }
+    if (request == FlightDescriptor::Command("null-poll")) {
+      return arrow::Future<std::shared_ptr<PollInfo>>::MakeFinished(
+          std::shared_ptr<PollInfo>{});
+    }
     auto poll_info = std::make_shared<PollInfo>();
     poll_info->descriptor = FlightDescriptor::Command("poll-next");
     poll_info->progress = 0.5;
@@ -236,8 +280,13 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
   // "fail-mid-stream" sentinels drive the error-path tests.
   arrow::Future<std::vector<ActionType>> ListActionsAsync(
       const ServerCallContext&) override {
+    handler_calls_.fetch_add(1);
     std::vector<ActionType> actions = {ActionType("echo", "echo back"),
                                        ActionType("fail", "always fails")};
+    if (fail_actions_) {
+      return arrow::Future<std::vector<ActionType>>::MakeFinished(
+          arrow::Status::KeyError("no such actions"));
+    }
     if (empty_actions_) {
       actions.clear();
     }
@@ -246,12 +295,21 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
 
   arrow::Future<std::shared_ptr<AsyncResultStream>> DoActionAsync(
       const ServerCallContext&, const Action& action) override {
+    handler_calls_.fetch_add(1);
     last_action_type_ = action.type;
     if (action.type == "fail-mid-stream") {
       return arrow::Future<std::shared_ptr<AsyncResultStream>>::MakeFinished(
           std::make_shared<MidStreamErrorAsyncResultStream>(
               [] { return Result{arrow::Buffer::FromString("first")}; },
               "mid-stream action failure"));
+    }
+    if (action.type == "fail-first-next") {
+      return arrow::Future<std::shared_ptr<AsyncResultStream>>::MakeFinished(
+          std::make_shared<FailFirstAsyncResultStream>("first demand failed"));
+    }
+    if (action.type == "empty-result-stream") {
+      return arrow::Future<std::shared_ptr<AsyncResultStream>>::MakeFinished(
+          std::make_shared<VectorAsyncResultStream>(std::vector<Result>{}));
     }
     if (action.type == "null-result-stream") {
       // Answered with a null stream: the transport answers CANCELLED for this
@@ -271,6 +329,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
 
   arrow::Future<std::shared_ptr<AsyncFlightListing>> ListFlightsAsync(
       const ServerCallContext&, const Criteria* criteria) override {
+    handler_calls_.fetch_add(1);
     criteria_was_null_ = criteria == nullptr;
     if (criteria != nullptr) {
       last_criteria_ = *criteria;
@@ -283,6 +342,14 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
                 return MakeTestFlightInfo(FlightDescriptor::Path({"first-listing"}));
               },
               "mid-stream listing failure"));
+    }
+    if (expression == "fail-first-next") {
+      return arrow::Future<std::shared_ptr<AsyncFlightListing>>::MakeFinished(
+          std::make_shared<FailFirstAsyncListing>("first demand failed"));
+    }
+    if (expression == "null-listing") {
+      return arrow::Future<std::shared_ptr<AsyncFlightListing>>::MakeFinished(
+          std::shared_ptr<AsyncFlightListing>{});
     }
     if (expression.empty()) {
       // No criteria: the sync handler passes an empty (never null) Criteria
@@ -299,7 +366,30 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
         std::make_shared<SimpleListingAdapter>(std::move(flights)));
   }
 
+  /// \brief Handshake and DoExchange delegate to the base class.
+  ///
+  /// Declared so the call is counted like every other handler: a malformed
+  /// request must never reach one, whichever RPC it names.
+  Status Handshake(const ServerCallContext& context, const std::string& password,
+                   std::string* response) override {
+    handler_calls_.fetch_add(1);
+    return AsyncGenericFlightServerBase::Handshake(context, password, response);
+  }
+
+  arrow::Future<> DoExchangeAsync(const ServerCallContext& context,
+                                  std::shared_ptr<AsyncFlightMessageReader> reader,
+                                  std::shared_ptr<AsyncFlightMessageWriter> writer) override {
+    handler_calls_.fetch_add(1);
+    return AsyncGenericFlightServerBase::DoExchangeAsync(context, std::move(reader),
+                                                         std::move(writer));
+  }
+
   void set_empty_actions() { empty_actions_ = true; }
+  void set_failing_actions() { fail_actions_ = true; }
+
+  /// How many handler overrides have run: zero proves a request was rejected
+  /// before dispatch.
+  int handler_calls() const { return handler_calls_.load(); }
 
   const std::string& ticket() const { return ticket_; }
   const FlightDescriptor& last_descriptor() const { return last_descriptor_; }
@@ -308,6 +398,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
   bool criteria_was_null() const { return criteria_was_null_; }
 
  private:
+  std::atomic<int> handler_calls_{0};
   std::shared_ptr<AsyncFlightDataListener> listener_;
   std::string ticket_;
   FlightDescriptor last_descriptor_;
@@ -315,6 +406,7 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
   Criteria last_criteria_;
   bool criteria_was_null_ = false;
   bool empty_actions_ = false;
+  bool fail_actions_ = false;
 };
 
 // Echoes every chunk of a DoExchange back, in order, on the async API: the
@@ -385,15 +477,18 @@ class EchoExchangeTestServer : public AsyncGenericFlightServerBase {
 };
 
 // Records what the decoder hands to the application: the schema, every chunk,
-// and whether the consumer accepted it. OnNext returns whatever status the
-// test configured, so the upload's error path is reachable from here.
+// the descriptor, which status the test configured for each callback, and the
+// terminal events (OnFinish and what Cancel() reported), so the upload's error
+// path and its ending are both reachable from here. The callbacks run on gRPC
+// threads while the test thread reads the accessors, so everything they share
+// goes through mutex_.
 class RecordingListener : public AsyncFlightDataListener {
  public:
   arrow::Status OnSchemaDecoded(std::shared_ptr<arrow::Schema> schema) override {
     std::lock_guard<std::mutex> lock(mutex_);
     ++schema_count_;
     schema_ = std::move(schema);
-    return arrow::Status::OK();
+    return schema_status_;
   }
 
   arrow::Future<> OnNext(FlightStreamChunk chunk) override {
@@ -415,6 +510,21 @@ class RecordingListener : public AsyncFlightDataListener {
     return descriptor_status_;
   }
 
+  arrow::Future<> OnFinish(Status status) override {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ++finish_count_;
+    finish_status_ = std::move(status);
+    return finish_result_;
+  }
+
+  /// \brief Cancel from whatever thread the test drives, recording what Cancel() said.
+  Status CancelWith(Status status) {
+    const Status cancel_status = Cancel(std::move(status));
+    std::lock_guard<std::mutex> lock(mutex_);
+    cancel_status_ = cancel_status;
+    return cancel_status_;
+  }
+
   // Consumer-side rejection of the upload, as the decoder tests do.
   void set_next_status(arrow::Status status) {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -424,6 +534,21 @@ class RecordingListener : public AsyncFlightDataListener {
   void set_descriptor_status(arrow::Status status) {
     std::lock_guard<std::mutex> lock(mutex_);
     descriptor_status_ = std::move(status);
+  }
+  // Rejection of the schema.
+  void set_schema_status(arrow::Status status) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    schema_status_ = std::move(status);
+  }
+  // The result OnFinish() returns: a failing one overrides a successful upload.
+  void set_finish_status(arrow::Status status) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    finish_result_ = std::move(status);
+  }
+  /// The status OnFinish() returns, for a test that completes it late.
+  void set_finish_result(Future<> result) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    finish_result_ = std::move(result);
   }
 
   int schema_count() const {
@@ -437,6 +562,10 @@ class RecordingListener : public AsyncFlightDataListener {
   int metadata_only_count() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return metadata_only_count_;
+  }
+  int finish_count() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return finish_count_;
   }
   std::shared_ptr<arrow::Schema> schema() const {
     std::lock_guard<std::mutex> lock(mutex_);
@@ -454,49 +583,6 @@ class RecordingListener : public AsyncFlightDataListener {
     std::lock_guard<std::mutex> lock(mutex_);
     return metadata_chunks_;
   }
-
- protected:
-  /// The callbacks run on gRPC threads while the test thread reads the
-  /// accessors, so everything they share goes through this.
-  mutable std::mutex mutex_;
-  int schema_count_ = 0;
-  int metadata_only_count_ = 0;
-  std::shared_ptr<arrow::Schema> schema_;
-  std::vector<FlightDescriptor> descriptors_;
-  std::vector<std::shared_ptr<arrow::RecordBatch>> batches_;
-  std::vector<std::shared_ptr<arrow::Buffer>> metadata_chunks_;
-  arrow::Status descriptor_status_;
-  arrow::Status next_status_;
-};
-
-// A listener that records the terminal events on top of RecordingListener:
-// OnFinish (the upload ended, whichever way) and what Cancel() reported, so
-// the tests can assert on an upload cancelled from the server side.
-class FinishRecordingListener : public RecordingListener {
- public:
-  arrow::Future<> OnFinish(Status status) override {
-    std::lock_guard<std::mutex> lock(mutex_);
-    finish_count_++;
-    finish_status_ = std::move(status);
-    return arrow::Status::OK();
-  }
-
-  /// Cancel from whatever thread the test drives, records what Cancel() said.
-  void CancelWith(Status status) {
-    const arrow::Status cancel_status = Cancel(std::move(status));
-    std::lock_guard<std::mutex> lock(mutex_);
-    cancel_status_ = cancel_status;
-    ++cancel_count_;
-  }
-
-  int finish_count() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return finish_count_;
-  }
-  int cancel_count() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return cancel_count_;
-  }
   Status finish_status() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return finish_status_;
@@ -506,11 +592,93 @@ class FinishRecordingListener : public RecordingListener {
     return cancel_status_;
   }
 
- private:
+ protected:
+  /// The callbacks run on gRPC threads while the test thread reads the
+  /// accessors, so everything they share goes through this.
+  mutable std::mutex mutex_;
+  int schema_count_ = 0;
+  int metadata_only_count_ = 0;
   int finish_count_ = 0;
-  int cancel_count_ = 0;
-  Status finish_status_;
-  Status cancel_status_;
+  std::shared_ptr<arrow::Schema> schema_;
+  std::vector<FlightDescriptor> descriptors_;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches_;
+  std::vector<std::shared_ptr<arrow::Buffer>> metadata_chunks_;
+  arrow::Status schema_status_;
+  arrow::Status descriptor_status_;
+  arrow::Status next_status_;
+  arrow::Status finish_status_;
+  arrow::Status cancel_status_;
+  Future<> finish_result_ = Future<>::MakeFinished();
+};
+
+/// Which RecordingListener callback ParkedUploadListener() parks.
+enum class RecordingListenerPhase { kDescriptor, kNext, kFinish };
+
+/// \brief A RecordingListener whose selected callback parks until the test
+/// releases it, the way an application that must do asynchronous work before
+/// accepting a message does. The base records the callback first; subsequent
+/// callbacks of the same kind use the base result.
+template <RecordingListenerPhase kPhase>
+class ParkedUploadListener : public RecordingListener {
+ public:
+  Future<> OnDescriptor(const FlightDescriptor& descriptor) override {
+    auto recorded = RecordingListener::OnDescriptor(descriptor);
+    if constexpr (kPhase == RecordingListenerPhase::kDescriptor) {
+      return Park(recorded);
+    }
+    return recorded;
+  }
+
+  Future<> OnNext(FlightStreamChunk chunk) override {
+    auto recorded = RecordingListener::OnNext(std::move(chunk));
+    if constexpr (kPhase == RecordingListenerPhase::kNext) {
+      return Park(recorded);
+    }
+    return recorded;
+  }
+
+  Future<> OnFinish(Status status) override {
+    auto recorded = RecordingListener::OnFinish(std::move(status));
+    if constexpr (kPhase == RecordingListenerPhase::kFinish) {
+      return Park(recorded);
+    }
+    return recorded;
+  }
+
+  /// A future completed once the parked callback has been entered.
+  Future<> entered() const { return entered_; }
+
+  /// Release the parked callback, once, with `status`; later calls are no-ops.
+  void Release(Status status = Status::OK()) {
+    Future<> pending;
+    {
+      std::lock_guard<std::mutex> lock(park_mutex_);
+      if (!pending_.is_valid() || pending_.is_finished()) {
+        return;
+      }
+      pending = std::move(pending_);
+    }
+    pending.MarkFinished(std::move(status));
+  }
+
+ private:
+  Future<> Park(Future<> recorded) {
+    {
+      std::lock_guard<std::mutex> lock(park_mutex_);
+      if (parked_) {
+        return recorded;  // only the first callback of this kind parks
+      }
+      parked_ = true;
+      pending_ = Future<>::Make();
+    }
+    entered_.MarkFinished();
+    return pending_;
+  }
+
+  mutable std::mutex park_mutex_;
+  bool parked_ = false;
+  Future<> pending_;
+  Future<> entered_ = Future<>::Make();
 };
 
 // A server that accepts uploads: the transport asks the server for the per-RPC
@@ -560,7 +728,7 @@ class RecordingUploadServer : public AsyncGenericFlightServerBase {
   std::vector<std::shared_ptr<Listener>> listeners_;
 };
 
-using TestUploadServer = RecordingUploadServer<FinishRecordingListener>;
+using TestUploadServer = RecordingUploadServer<RecordingListener>;
 
 /// A listener that acknowledges every batch it is handed with one application
 /// metadata message, the way an application reports per-chunk progress, and
@@ -593,27 +761,15 @@ class MetadataReplyingListener final : public RecordingListener {
   int wrote_ = 0;
 };
 
-/// A listener whose OnFinish fails asynchronously: the commit it performs is
-/// what decides whether the upload succeeded, so the client must not be told
-/// the upload is OK.
-class FailingFinishListener final : public FinishRecordingListener {
- public:
-  arrow::Future<> OnFinish(Status status) override {
-    static_cast<void>(FinishRecordingListener::OnFinish(std::move(status)));
-    return arrow::Future<>::MakeFinished(
-        arrow::Status::IOError("the upload could not be committed"));
-  }
-};
-
 /// A listener that calls back into the writer from OnFinish: OnFinish is
 /// application code running on a transport thread, so the transport must not
 /// hold its own write lock across it.
-class FinishingAckListener final : public FinishRecordingListener {
+class FinishingAckListener final : public RecordingListener {
  public:
   arrow::Future<> OnFinish(Status status) override {
     finish_write =
         writer()->WriteMetadataAsync(*arrow::Buffer::FromString("from-onfinish"));
-    return FinishRecordingListener::OnFinish(std::move(status));
+    return RecordingListener::OnFinish(std::move(status));
   }
 
   arrow::Future<> finish_write;
@@ -628,7 +784,9 @@ struct MiddlewareTrace {
   std::mutex mutex;
   int start_call = 0;
   int sending_headers = 0;
-  int call_completed = 0;
+  /// The status of every CallCompleted(): the Arrow-level oracle for a call
+  /// that never reached a handler, or reached one that rejected it.
+  std::vector<Status> completed_statuses;
 };
 
 // Records middleware execution so a test can assert StartCall/CallCompleted
@@ -643,9 +801,9 @@ class RecordingServerMiddleware : public ServerMiddleware {
     std::lock_guard<std::mutex> guard(trace_->mutex);
     trace_->sending_headers++;
   }
-  void CallCompleted(const Status& /*status*/) override {
+  void CallCompleted(const Status& status) override {
     std::lock_guard<std::mutex> guard(trace_->mutex);
-    trace_->call_completed++;
+    trace_->completed_statuses.push_back(status);
   }
 
  private:
@@ -696,36 +854,47 @@ static const char kServerUri[] = "grpc://127.0.0.1:0";
 constexpr const char* kUnknownMethod =
     "/arrow.flight.protocol.FlightService/NoSuchMethod";
 
-// Call `kUnknownMethod` on the server listening on `port` with the sync-style
-// generic stub API, and return the server's status.
-inline ::grpc::Status CallUnknownMethod(int port) {
-  std::shared_ptr<::grpc::Channel> channel =
-      ::grpc::CreateChannel(std::string(kLoopbackHost) + ":" + std::to_string(port),
-                            ::grpc::InsecureChannelCredentials());
-  ::grpc::GenericStub stub(channel);
-  ::grpc::ClientContext context;
-  context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(10));
-  ::grpc::ByteBuffer request;
-  ::grpc::ByteBuffer response;
-  ::grpc::CompletionQueue cq;
-  std::unique_ptr<::grpc::ClientAsyncResponseReader<::grpc::ByteBuffer>> call =
-      stub.PrepareUnaryCall(&context, kUnknownMethod, request, &cq);
-  call->StartCall();
-  ::grpc::Status status;
-  call->Finish(&response, &status, reinterpret_cast<void*>(1));
-  void* tag = nullptr;
-  bool ok = false;
-  cq.Next(&tag, &ok);
-  return status;
+/// The bytes of a gRPC message, for parsing a reply back from the wire.
+inline std::string ByteBufferToString(::grpc::ByteBuffer message) {
+  std::vector<::grpc::Slice> slices;
+  std::string out;
+  if (!message.Dump(&slices).ok()) {
+    return out;
+  }
+  for (const auto& slice : slices) {
+    out.append(reinterpret_cast<const char*>(slice.begin()), slice.size());
+  }
+  return out;
 }
 
-// Upload `messages` over a raw generic DoPut call to the server listening on
-// `port`, half-close, and return the server's status. Only a raw call can send
-// FlightData the FlightClient would refuse to build. The 10 s deadline bounds
-// the call: were a bad upload ever accepted, the client would wait forever for
-// an acknowledgement, turning a logic error into a hung suite.
-inline ::grpc::Status CallDoPutRaw(int port,
-                                   const std::vector<::grpc::ByteBuffer>& messages) {
+/// The full method path of one FlightService RPC, for a raw generic call.
+inline std::string MethodPath(std::string_view method) {
+  return std::string("/arrow.flight.protocol.FlightService/") + std::string(method);
+}
+
+// What one raw generic call to the service produced.
+struct RawCallResult {
+  ::grpc::Status status;
+  /// The status the transport settled, with the Arrow details a FlightClient
+  /// would reconstruct (category, flight code). Computed before the context
+  /// dies, because the details live in its trailing metadata.
+  arrow::Status arrow_status;
+  /// Every response message, in the order the server wrote them.
+  std::vector<::grpc::ByteBuffer> responses;
+};
+
+/// Call one method of the async generic service over a raw bidi generic stub:
+/// the only way to send a request the FlightClient would refuse to build, or to
+/// name a method the service does not have. The 10 s deadline bounds the call:
+/// a server that accepted a bad request instead of rejecting it would otherwise
+/// hang the suite.
+///
+/// An empty `requests` sends no message at all (the client writes and
+/// half-closes at once); a ByteBuffer built from an empty Slice sends one valid
+/// zero-byte protobuf message. The two are different requests.
+inline arrow::Result<RawCallResult> CallRaw(
+    int port, std::string_view method_path,
+    const std::vector<::grpc::ByteBuffer>& requests) {
   std::shared_ptr<::grpc::Channel> channel =
       ::grpc::CreateChannel(std::string(kLoopbackHost) + ":" + std::to_string(port),
                             ::grpc::InsecureChannelCredentials());
@@ -734,22 +903,298 @@ inline ::grpc::Status CallDoPutRaw(int port,
   context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(10));
   ::grpc::CompletionQueue cq;
   std::unique_ptr<::grpc::GenericClientAsyncReaderWriter> call =
-      stub.PrepareCall(&context, "/arrow.flight.protocol.FlightService/DoPut", &cq);
-  void* tag = nullptr;
-  bool ok = false;
-  call->StartCall(reinterpret_cast<void*>(1));
-  EXPECT_TRUE(cq.Next(&tag, &ok)) << "the call never started";
-  for (const auto& message : messages) {
-    call->Write(message, reinterpret_cast<void*>(2));
-    EXPECT_TRUE(cq.Next(&tag, &ok)) << "the message was never written";
+      stub.PrepareCall(&context, std::string(method_path), &cq);
+  RawCallResult out;
+  auto tag = [](int id) {
+    return reinterpret_cast<void*>(static_cast<intptr_t>(id));
+  };
+  auto await = [&cq, &tag](int id) -> bool {
+    void* done = nullptr;
+    bool ok = false;
+    if (!cq.Next(&done, &ok)) {
+      return false;
+    }
+    return done == tag(id);
+  };
+
+  call->StartCall(tag(1));
+  if (!await(1)) {
+    return arrow::Status::IOError("raw call ", method_path, " never started");
   }
-  call->WritesDone(reinterpret_cast<void*>(3));
-  EXPECT_TRUE(cq.Next(&tag, &ok)) << "WritesDone never completed";
-  ::grpc::Status status;
-  call->Finish(&status, reinterpret_cast<void*>(4));
-  EXPECT_TRUE(cq.Next(&tag, &ok)) << "the call never finished";
-  return status;
+  // A write completing with ok=false means the server already refused the
+  // request; stop sending and collect the RPC's final status.
+  for (size_t i = 0; i < requests.size(); i++) {
+    call->Write(requests[i], tag(2));
+    if (!await(2)) {
+      break;
+    }
+  }
+  call->WritesDone(tag(3));
+  static_cast<void>(await(3));
+  // Read to EOF before finishing: the server may write several replies, and the
+  // final status is only delivered once the response stream is drained.
+  while (true) {
+    ::grpc::ByteBuffer response;
+    call->Read(&response, tag(4));
+    void* done = nullptr;
+    bool ok = false;
+    if (!cq.Next(&done, &ok) || done != tag(4) || !ok) {
+      break;
+    }
+    out.responses.push_back(std::move(response));
+  }
+  call->Finish(&out.status, tag(5));
+  static_cast<void>(await(5));
+  out.arrow_status = FromGrpcStatus(out.status, &context);
+  cq.Shutdown();
+  while (true) {
+    void* done = nullptr;
+    bool ok = false;
+    if (!cq.Next(&done, &ok)) {
+      break;
+    }
+  }
+  return out;
 }
+
+/// \brief A gRPC server stream a test drives by hand, with a real reactor bound.
+///
+/// gRPC's ServerCallbackReaderWriter is the "API only to support mocking"
+/// interface (see server_callback.h): binding a real reactor to an instance of
+/// this class exercises that reactor's callback state machine deterministically,
+/// with no network, no deadline and no race: the test says when a read or a write
+/// completes and with what. The reactor's algorithm is never copied here.
+///
+/// Rules that keep a test honest: no callback runs under the fixture's lock, a
+/// second outstanding operation in the same direction is a test failure (the
+/// reactors never do that), reads and writes may coexist, and Finish() only
+/// records the status: Done() delivers OnDone once the outstanding callbacks
+/// have drained, the way gRPC orders them.
+class ManualServerStream final
+    : public ::grpc::ServerCallbackReaderWriter<::grpc::ByteBuffer, ::grpc::ByteBuffer> {
+ public:
+  ManualServerStream() = default;
+  ~ManualServerStream() override {
+    // A test that fails before draining its call must not leave the reactor
+    // holding a callback this stream will never deliver.
+    if (reactor_ == nullptr) {
+      return;
+    }
+    if (finish_count_ == 0) {
+      // The RPC was never settled (a test that cancelled or failed mid-call):
+      // cancel it, so the reactor's reference is dropped instead of leaving a
+      // live reactor behind for the next test.
+      reactor_->OnCancel();
+    }
+    if (!done_) {
+      reactor_->OnDone();
+    }
+  }
+
+  // --- gRPC's ServerCallbackReaderWriter ------------------------------------
+
+  void Finish(::grpc::Status status) override {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (finish_count_ != 0) {
+        ADD_FAILURE() << "Finish() was called twice";
+      }
+      finish_status_ = std::move(status);
+      ++finish_count_;
+    }
+    // Unlocked: a continuation on this gate may inspect the fixture.
+    finish_observed_.MarkFinished();
+  }
+
+  void SendInitialMetadata() override { initial_metadata_ = true; }
+
+  void Read(::grpc::ByteBuffer* message) override {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (read_buffer_ != nullptr) {
+      ADD_FAILURE() << "a second read was armed while one was outstanding";
+      return;
+    }
+    if (finish_count_ != 0) {
+      ADD_FAILURE() << "a read was armed after Finish()";
+      return;
+    }
+    read_buffer_ = message;
+  }
+
+  void Write(const ::grpc::ByteBuffer* message, ::grpc::WriteOptions) override {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (write_pending_) {
+      ADD_FAILURE() << "a second write was armed while one was outstanding";
+      return;
+    }
+    if (finish_count_ != 0) {
+      ADD_FAILURE() << "a write was armed after Finish()";
+      return;
+    }
+    writes_.push_back(*message);
+    write_pending_ = true;
+  }
+
+  void WriteAndFinish(const ::grpc::ByteBuffer*, ::grpc::WriteOptions,
+                      ::grpc::Status) override {
+    ADD_FAILURE() << "unexpected WriteAndFinish";
+  }
+
+  // --- what the test drives -------------------------------------------------
+
+  /// Bind the reactor under test. Any operation the reactor requested before
+  /// the bind is replayed by gRPC's own bind path.
+  void Bind(::grpc::ServerGenericBidiReactor* reactor) {
+    reactor_ = reactor;
+    BindReactor(reactor);
+  }
+
+  /// Complete the outstanding read with `request`, then run the reactor's
+  /// callback, unlocked.
+  void DeliverRead(::grpc::ByteBuffer request) {
+    ::grpc::ByteBuffer* buffer = nullptr;
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      buffer = read_buffer_;
+      read_buffer_ = nullptr;
+    }
+    if (buffer == nullptr) {
+      ADD_FAILURE() << "no read was outstanding";
+      return;
+    }
+    // Into an owned copy: a gRPC ByteBuffer references slices by pointer, so the
+    // caller's message must not be able to go out of scope under the reactor.
+    *buffer = OwnedCopy(request);
+    reactor_->OnReadDone(true);
+  }
+
+  /// A deep copy of `message` whose slices this fixture owns.
+  ::grpc::ByteBuffer OwnedCopy(::grpc::ByteBuffer& message) {
+    std::vector<::grpc::Slice> slices;
+    const auto status = message.Dump(&slices);
+    EXPECT_TRUE(status.ok());
+    ::grpc::Slice owned;
+    if (slices.size() == 1) {
+      owned = ::grpc::Slice(slices[0]);
+    } else {
+      std::string bytes;
+      for (const auto& slice : slices) {
+        bytes.append(reinterpret_cast<const char*>(slice.begin()), slice.size());
+      }
+      owned = ::grpc::Slice(bytes);
+    }
+    owned_slices_.push_back(std::move(owned));
+    return ::grpc::ByteBuffer(&owned_slices_.back(), 1);
+  }
+
+  /// Complete the outstanding read with ok=false: the client half-closed.
+  void CloseRead() {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (read_buffer_ == nullptr) {
+        ADD_FAILURE() << "no read was outstanding";
+        return;
+      }
+      read_buffer_ = nullptr;
+    }
+    reactor_->OnReadDone(false);
+  }
+
+  /// Complete the outstanding write with `ok`.
+  void CompleteWrite(bool ok) {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (!write_pending_) {
+        ADD_FAILURE() << "no write was outstanding";
+        return;
+      }
+      write_pending_ = false;
+    }
+    reactor_->OnWriteDone(ok);
+  }
+
+  /// Complete every outstanding write successfully.
+  void DrainWrites() {
+    while (WritePending()) {
+      CompleteWrite(true);
+    }
+  }
+
+  /// Cancel the RPC, as gRPC does when the client goes away.
+  void Cancel() { reactor_->OnCancel(); }
+
+  /// Deliver OnDone, which gRPC does once the call is over and drained.
+  void Done() {
+    if (DoneDelivered()) {
+      ADD_FAILURE() << "OnDone was delivered twice";
+      return;
+    }
+    if (FinishCount() == 0) {
+      ADD_FAILURE() << "OnDone was delivered before Finish()";
+    }
+    if (ReadPending() || WritePending()) {
+      ADD_FAILURE() << "OnDone was delivered with a callback still outstanding";
+    }
+    done_ = true;
+    reactor_->OnDone();
+  }
+
+  ::grpc::CallbackServerContext& context() { return context_; }
+  std::vector<::grpc::ByteBuffer> writes() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return writes_;
+  }
+  bool read_pending() const { return ReadPending(); }
+  bool write_pending() const { return WritePending(); }
+  int finish_count() const { return FinishCount(); }
+  bool done() const { return DoneDelivered(); }
+  std::optional<::grpc::Status> finish_status() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return finish_status_;
+  }
+  /// A future completed when the reactor finishes the call: a wait-only gate.
+  Future<> finish_observed() const { return finish_observed_; }
+
+ private:
+  // gRPC's ServerCallbackReaderWriter internals. This fixture is the mock, so
+  // gRPC's internal MaybeDone/refcount scheduler is deliberately not used: the
+  // test drives Finish/OnDone itself.
+  ::grpc::internal::ServerReactor* reactor() override { return reactor_; }
+  ::grpc_call* call() override { return nullptr; }
+  void CallOnDone() override {}
+
+  bool ReadPending() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return read_buffer_ != nullptr;
+  }
+  bool WritePending() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return write_pending_;
+  }
+  int FinishCount() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return finish_count_;
+  }
+  bool DoneDelivered() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return done_;
+  }
+
+  mutable std::mutex mutex_;
+  ::grpc::CallbackServerContext context_;
+  ::grpc::ServerGenericBidiReactor* reactor_ = nullptr;
+  ::grpc::ByteBuffer* read_buffer_ = nullptr;
+  bool write_pending_ = false;
+  bool initial_metadata_ = false;
+  bool done_ = false;
+  std::vector<::grpc::ByteBuffer> writes_;
+  /// Backing storage for the deep copies DeliverRead() hands the reactor. Bounded
+  /// by the number of messages one test delivers; a deque never invalidates them.
+  std::deque<::grpc::Slice> owned_slices_;
+  int finish_count_ = 0;
+  std::optional<::grpc::Status> finish_status_;
+  Future<> finish_observed_ = Future<>::Make();
+};
 
 // The generic service and the server a test registered it on by hand, with the
 // port the server bound. `service` is declared first so it outlives `server`.
@@ -799,6 +1244,16 @@ inline const Location& LocalhostLocation() {
 inline arrow::Result<std::unique_ptr<FlightClient>> ConnectTo(int port) {
   ARROW_ASSIGN_OR_RAISE(auto location, Location::ForScheme("grpc", kLoopbackHost, port));
   return FlightClient::Connect(location);
+}
+
+// Start `server` on `options`' location and connect a client to it: the setup
+// every test that drives a real client repeats. Startup failures are tested
+// with a bare Init(), not through here.
+inline arrow::Result<std::unique_ptr<FlightClient>> StartAndConnect(
+    AsyncGenericFlightServerBase* server,
+    const FlightServerOptions& options = FlightServerOptions(LocalhostLocation())) {
+  ARROW_RETURN_NOT_OK(server->Init(options));
+  return ConnectTo(server->port());
 }
 
 inline arrow::Result<std::unique_ptr<FlightClient>> ConnectToWarmed(int port) {

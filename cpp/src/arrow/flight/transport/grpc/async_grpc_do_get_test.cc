@@ -192,7 +192,9 @@ TEST(AsyncGrpcTest, DoGetClientCancelWithPendingPayloadFinishes) {
   ExpectNoReactorLeak(before);
   // And the call reported completion exactly once (the CAS in FinishOnce).
   std::lock_guard<std::mutex> guard(trace->mutex);
-  EXPECT_EQ(1, trace->call_completed);
+  ASSERT_EQ(1, trace->completed_statuses.size());
+  EXPECT_TRUE(trace->completed_statuses[0].IsCancelled())
+      << trace->completed_statuses[0];
 }
 
 TEST(AsyncGrpcTest, DoGetClientDeadlineWhilePreparingFinishes) {
@@ -218,7 +220,8 @@ TEST(AsyncGrpcTest, DoGetClientDeadlineWhilePreparingFinishes) {
   EXPECT_EQ(0, flight_server.stream_closes.load())
       << "no stream was ever prepared, so there is nothing to Close";
   std::lock_guard<std::mutex> guard(trace->mutex);
-  EXPECT_EQ(1, trace->call_completed);
+  ASSERT_EQ(1, trace->completed_statuses.size());
+  EXPECT_FALSE(trace->completed_statuses[0].ok());
 }
 
 /// A DoGet server whose DoGetAsync() registers a cancel callback and parks its
@@ -407,74 +410,446 @@ TEST(AsyncGrpcTest, DoGetNeverClosesAStreamItIsAskingForAPayload) {
   ExpectNoReactorLeak(before);
 }
 
-/// A DoGet stream whose first payload is an error: the transport must fail the
-/// RPC and still tell the producer the RPC is over through Close().
-class ErrorPayloadDoGetStream final : public AsyncFlightDataStream {
+/// A DoGet producer with one selectable failure, recording what the transport asked
+/// of it. One stream type and one server cover the schema, payload and Close error
+/// paths, so the assertions differ only where the transport's behavior does.
+class CaseDoGetStream final : public AsyncFlightDataStream {
  public:
-  explicit ErrorPayloadDoGetStream(std::atomic<int>* close_count)
-      : close_count_(close_count) {}
+  enum class Case { kSchemaError, kNextError, kCloseError };
+
+  CaseDoGetStream(Case c, std::shared_ptr<ResolvedStream> resolved,
+                  std::atomic<int>* next_calls, std::atomic<int>* closes)
+      : case_(c),
+        resolved_(std::move(resolved)),
+        next_calls_(next_calls),
+        closes_(closes) {}
 
   arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
+    if (case_ == Case::kSchemaError) {
+      return arrow::Status::IOError("the schema failed");
+    }
     return resolved_->GetSchemaPayloadAsync();
   }
 
   arrow::Future<std::optional<FlightPayload>> NextAsync() override {
-    return arrow::Future<std::optional<FlightPayload>>::MakeFinished(
-        arrow::Status::IOError("the producer failed"));
+    next_calls_->fetch_add(1);
+    if (case_ == Case::kNextError) {
+      return arrow::Status::IOError("the payload failed");
+    }
+    return resolved_->NextAsync();
   }
 
   Status Close() override {
-    close_count_->fetch_add(1);
-    return Status::OK();
+    closes_->fetch_add(1);
+    const auto status = resolved_->Close();
+    if (case_ == Case::kCloseError) {
+      return Status::IOError("the close failed");
+    }
+    return status;
   }
-
-  std::shared_ptr<ResolvedStream> resolved_ = std::make_shared<ResolvedStream>(
-      arrow::RecordBatchReader::Make(
-          {}, arrow::schema({arrow::field("value", arrow::int64())}))
-          .ValueOrDie());
 
  private:
-  std::atomic<int>* close_count_;
+  Case case_;
+  std::shared_ptr<ResolvedStream> resolved_;
+  std::atomic<int>* next_calls_;
+  std::atomic<int>* closes_;
 };
 
-/// Serves ErrorPayloadDoGetStream and counts the Close() it was handed.
-class ErrorPayloadDoGetServer final : public AsyncGenericFlightServerBase {
+class CaseDoGetServer final : public AsyncGenericFlightServerBase {
  public:
+  explicit CaseDoGetServer(CaseDoGetStream::Case c) : case_(c) {}
+
   arrow::Future<std::shared_ptr<AsyncFlightDataStream>> DoGetAsync(
       const ServerCallContext&, const Ticket&) override {
+    auto reader = arrow::RecordBatchReader::Make(
+                      {}, arrow::schema({arrow::field("value", arrow::int64())}))
+                      .ValueOrDie();
     return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
-        std::make_shared<ErrorPayloadDoGetStream>(&stream_closes));
+        std::make_shared<CaseDoGetStream>(
+            case_, std::make_shared<ResolvedStream>(std::move(reader)), &next_calls,
+            &closes));
   }
 
-  std::atomic<int> stream_closes{0};
+  std::atomic<int> next_calls{0};
+  std::atomic<int> closes{0};
+
+ private:
+  CaseDoGetStream::Case case_;
 };
 
-TEST(AsyncGrpcTest, DoGetPumpErrorStillClosesTheStream) {
-  // The producer's first NextAsync() fails: the RPC ends with that status, and
-  // the producer must still be told the RPC is over through Close(), like the
-  // write-failure and cancel paths already do.
-  ErrorPayloadDoGetServer flight_server;
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
+TEST(AsyncGrpcTest, DoGetSchemaErrorClosesTheStream) {
+  // The schema payload fails: the RPC ends with that error, no data message is sent,
+  // and the producer is told the RPC is over exactly once.
+  CaseDoGetServer flight_server(CaseDoGetStream::Case::kSchemaError);
+  ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+  const auto reader = client->DoGet(Ticket{"schema-error"});
+  ASSERT_FALSE(reader.ok());
+  EXPECT_THAT(reader.status().ToString(), ::testing::HasSubstr("the schema failed"));
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+  EXPECT_EQ(1, flight_server.closes.load());
+  EXPECT_EQ(0, flight_server.next_calls.load())
+      << "a stream whose schema failed must not be asked for data";
+}
 
-  // DoGet returns once the schema payload is written, the error payload follows.
-  ASSERT_OK_AND_ASSIGN(auto reader, client->DoGet(Ticket{"error-payload"}));
-  while (true) {
-    auto chunk = reader->Next();
-    if (!chunk.ok()) {
-      EXPECT_EQ(chunk.status().code(), arrow::StatusCode::IOError) << chunk.status();
-      break;
-    }
-    if (!chunk->data) {
-      break;
-    }
+TEST(AsyncGrpcTest, DoGetNextErrorStillClosesTheStream) {
+  // The producer's first NextAsync() fails: the RPC ends with that IOError, the
+  // schema arrived first, and Close() is delivered exactly once.
+  CaseDoGetServer flight_server(CaseDoGetStream::Case::kNextError);
+  ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+  ASSERT_OK_AND_ASSIGN(auto reader, client->DoGet(Ticket{"next-error"}));
+  ASSERT_OK_AND_ASSIGN(auto schema, reader->GetSchema());
+  EXPECT_EQ(1, schema->num_fields());
+
+  // The reader must end with the producer's error, not a clean end of stream.
+  const auto chunk = reader->Next();
+  ASSERT_FALSE(chunk.ok()) << "the producer error must reach the client";
+  EXPECT_EQ(StatusCode::IOError, chunk.status().code()) << chunk.status();
+  EXPECT_THAT(chunk.status().ToString(), ::testing::HasSubstr("the payload failed"));
+  reader.reset();
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+  EXPECT_EQ(1, flight_server.closes.load());
+  EXPECT_EQ(1, flight_server.next_calls.load());
+}
+
+TEST(AsyncGrpcTest, DoGetCloseErrorIsTheTerminalStatus) {
+  // A clean end of stream with a failing Close(): the RPC's status is that error, so
+  // the client's last read may carry it instead of a silent end of stream. Close()
+  // runs once either way.
+  CaseDoGetServer flight_server(CaseDoGetStream::Case::kCloseError);
+  ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+  ASSERT_OK_AND_ASSIGN(auto reader, client->DoGet(Ticket{"close-error"}));
+  ASSERT_OK_AND_ASSIGN(auto schema, reader->GetSchema());
+  EXPECT_EQ(1, schema->num_fields());
+
+  // The reader is empty, so the first read is the end of the stream: either the
+  // clean end, or the Close() error the RPC settled with. Never data.
+  const auto chunk = reader->Next();
+  if (chunk.ok()) {
+    EXPECT_EQ(nullptr, chunk->data);
+  } else {
+    EXPECT_THAT(chunk.status().ToString(), ::testing::HasSubstr("the close failed"))
+        << chunk.status();
   }
   reader.reset();
   ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+  EXPECT_EQ(1, flight_server.closes.load());
+  EXPECT_EQ(1, flight_server.next_calls.load());
+}
 
-  EXPECT_EQ(1, flight_server.stream_closes.load())
-      << "the producer was never told the RPC is over";
+TEST(AsyncGrpcTest, DoGetLatePayloadCompletionStartsNoIo) {
+  // A payload Future the producer completes after the RPC is over: the continuation
+  // must not write, re-demand, or Close() a second time, and the terminal status
+  // stays the cancellation.
+  const int64_t before = detail::AsyncReactorBase::live_reactors();
+
+  class LatePayloadServer final : public AsyncGenericFlightServerBase {
+   public:
+    /// A stream that serves its schema, then parks its first payload until the
+    /// test resolves it.
+    class ParkedPayloadStream final : public AsyncFlightDataStream {
+     public:
+      ParkedPayloadStream(std::shared_ptr<RecordBatchReader> reader,
+                          std::shared_ptr<Future<std::optional<FlightPayload>>> payload)
+          : resolved_(std::move(reader)), payload_(std::move(payload)) {}
+
+      arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
+        return resolved_.GetSchemaPayloadAsync();
+      }
+      arrow::Future<std::optional<FlightPayload>> NextAsync() override {
+        next_calls.fetch_add(1);
+        *payload_ = Future<std::optional<FlightPayload>>::Make();
+        return *payload_;
+      }
+      Status Close() override {
+        closes.fetch_add(1);
+        return Status::OK();
+      }
+      std::atomic<int> next_calls{0};
+      std::atomic<int> closes{0};
+
+     private:
+      ResolvedStream resolved_;
+      std::shared_ptr<Future<std::optional<FlightPayload>>> payload_;
+    };
+
+    arrow::Future<std::shared_ptr<AsyncFlightDataStream>> DoGetAsync(
+        const ServerCallContext& context, const Ticket&) override {
+      // The cancellation only signals the test: the test owns the parked demand and
+      // completes it, so it can observe what the late completion does (and does not).
+      ARROW_RETURN_NOT_OK(
+          AddCancelCallback(context, [this] { cancelled.MarkFinished(); }));
+      auto reader = arrow::RecordBatchReader::Make(
+                        {}, arrow::schema({arrow::field("value", arrow::int64())}))
+                        .ValueOrDie();
+      stream = std::make_shared<ParkedPayloadStream>(std::move(reader), payload);
+      entered.MarkFinished();
+      return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
+          stream);
+    }
+
+    Future<> entered = Future<>::Make();
+    Future<> cancelled = Future<>::Make();
+    std::shared_ptr<Future<std::optional<FlightPayload>>> payload =
+        std::make_shared<Future<std::optional<FlightPayload>>>();
+    std::shared_ptr<ParkedPayloadStream> stream;
+  };
+
+  LatePayloadServer flight_server;
+  ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+  ASSERT_OK_AND_ASSIGN(auto reader, client->DoGet(Ticket{"late-payload"}));
+  ASSERT_OK_AND_ASSIGN(auto schema, reader->GetSchema());
+  EXPECT_EQ(1, schema->num_fields());
+  ASSERT_TRUE(flight_server.entered.Wait(10)) << "the handler never ran";
+  reader->Cancel();
+  reader.reset();
+  ASSERT_TRUE(flight_server.cancelled.Wait(10)) << "the cancellation never ran";
+
+  const auto stream = flight_server.stream;
+  ASSERT_NE(nullptr, stream);
+  ASSERT_TRUE(WaitFor([&] { return stream->closes.load() == 1; }))
+      << "the producer was not told the RPC is over";
+  const int next_before = stream->next_calls.load();
+
+  // Complete the abandoned demand late: nothing may be written, demanded or closed.
+  flight_server.payload->MarkFinished(std::make_optional(FlightPayload{}));
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+  EXPECT_EQ(1, stream->closes.load()) << "Close() must not run twice";
+  EXPECT_EQ(next_before, stream->next_calls.load())
+      << "a late payload must not make the transport demand more";
+  ExpectNoReactorLeak(before);
+}
+
+TEST(AsyncGrpcTest, DoGetNullStreamIsNotFound) {
+  // A handler that answers OK without a stream: the sync transport answers NOT_FOUND
+  // with "No data in this flight", and the async reactor must answer the same.
+  class NullStreamServer final : public AsyncGenericFlightServerBase {
+   public:
+    arrow::Future<std::shared_ptr<AsyncFlightDataStream>> DoGetAsync(
+        const ServerCallContext&, const Ticket&) override {
+      return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
+          std::shared_ptr<AsyncFlightDataStream>{});
+    }
+  };
+  NullStreamServer flight_server;
+  ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+  const auto status = client->DoGet(Ticket{"null"}).status();
+  ASSERT_FALSE(status.ok());
+  EXPECT_EQ(StatusCode::KeyError, status.code()) << status;
+  EXPECT_THAT(status.ToString(), ::testing::HasSubstr("No data in this flight"));
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+}
+
+TEST(AsyncGrpcTest, DoGetReadFailureEndsTheRpc) {
+  // The client half-closes before sending its ticket: the reactor finishes with the
+  // "Failed to read request" error rather than dispatching an empty ticket.
+  TestFlightServer flight_server;
+  ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
+  ASSERT_OK_AND_ASSIGN(auto raw, CallRaw(flight_server.port(), MethodPath("DoGet"), {}));
+  EXPECT_EQ(::grpc::StatusCode::INTERNAL, raw.status.error_code());
+  EXPECT_THAT(raw.status.error_message(), ::testing::HasSubstr("Failed to read request"));
+  EXPECT_EQ(0, flight_server.handler_calls());
+  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
+}
+
+TEST(AsyncGrpcTest, DoGetPayloadWriteFailureClosesTheStream) {
+  // A payload the reactor could not write ends the RPC with the write error and still
+  // delivers Close() to the producer exactly once. Driven by hand so the failed write
+  // is exact instead of a network race.
+  class CountingStream final : public AsyncFlightDataStream {
+   public:
+    CountingStream(std::shared_ptr<RecordBatchReader> reader, std::atomic<int>* closes)
+        : resolved_(std::move(reader)), closes_(closes) {}
+    arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
+      return resolved_.GetSchemaPayloadAsync();
+    }
+    arrow::Future<std::optional<FlightPayload>> NextAsync() override {
+      return resolved_.NextAsync();
+    }
+    Status Close() override {
+      closes_->fetch_add(1);
+      return Status::OK();
+    }
+
+   private:
+    ResolvedStream resolved_;
+    std::atomic<int>* closes_;
+  };
+  class CountingServer final : public AsyncGenericFlightServerBase {
+   public:
+    arrow::Future<std::shared_ptr<AsyncFlightDataStream>> DoGetAsync(
+        const ServerCallContext&, const Ticket&) override {
+      auto reader = arrow::RecordBatchReader::Make(
+                        {}, arrow::schema({arrow::field("value", arrow::int64())}))
+                        .ValueOrDie();
+      return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
+          std::make_shared<CountingStream>(std::move(reader), &closes));
+    }
+    std::atomic<int> closes{0};
+  };
+
+  CountingServer server;
+  ManualServerStream stream;
+  auto helper =
+      std::make_shared<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>(
+          /*auth_handler=*/nullptr, MiddlewareFactoryList{});
+  detail::AsyncCallContext context(&stream.context());
+  helper->MakeCallContext(FlightMethod::DoGet, &stream.context(), &context);
+  stream.Bind(detail::MakeDoGetReactor(std::move(context), &server));
+
+  pb::Ticket ticket;
+  ticket.set_ticket("write-failure");
+  ::grpc::Slice slice(ticket.SerializeAsString());
+  stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
+  // The schema payload is written first; fail that write.
+  ASSERT_TRUE(WaitFor([&] { return stream.write_pending(); }))
+      << "the schema payload was never written";
+  stream.CompleteWrite(false);
+  ASSERT_TRUE(stream.finish_observed().Wait(10));
+  EXPECT_EQ(::grpc::StatusCode::INTERNAL, stream.finish_status()->error_code())
+      << stream.finish_status()->error_message();
+  EXPECT_THAT(stream.finish_status()->error_message(),
+              ::testing::HasSubstr("Write failed"));
+  EXPECT_EQ(1, server.closes.load())
+      << "a failed write must still Close() the producer, exactly once";
+  EXPECT_FALSE(stream.write_pending()) << "a failed write must not be retried";
+  if (stream.read_pending()) stream.CloseRead();
+  stream.DrainWrites();
+  if (!stream.done()) stream.Done();
+}
+
+TEST(AsyncGrpcTest, DoGetLateWriteCallbackAfterFinishStartsNothing) {
+  // A write completing after the RPC is already finished must not write again, demand
+  // a payload, or Close() a second time: OnWriteDone() returns before doing any of it.
+  // Driven by hand: the write is completed only after the cancellation settled the RPC.
+  class CountingStream final : public AsyncFlightDataStream {
+   public:
+    CountingStream(std::shared_ptr<RecordBatchReader> reader, std::atomic<int>* closes,
+                   std::atomic<int>* next_calls)
+        : resolved_(std::move(reader)), closes_(closes), next_calls_(next_calls) {}
+    arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
+      return resolved_.GetSchemaPayloadAsync();
+    }
+    arrow::Future<std::optional<FlightPayload>> NextAsync() override {
+      next_calls_->fetch_add(1);
+      return resolved_.NextAsync();
+    }
+    Status Close() override {
+      closes_->fetch_add(1);
+      return Status::OK();
+    }
+
+   private:
+    ResolvedStream resolved_;
+    std::atomic<int>* closes_;
+    std::atomic<int>* next_calls_;
+  };
+  class CountingServer final : public AsyncGenericFlightServerBase {
+   public:
+    arrow::Future<std::shared_ptr<AsyncFlightDataStream>> DoGetAsync(
+        const ServerCallContext&, const Ticket&) override {
+      auto reader = arrow::RecordBatchReader::Make(
+                        {}, arrow::schema({arrow::field("value", arrow::int64())}))
+                        .ValueOrDie();
+      stream = std::make_shared<CountingStream>(std::move(reader), &closes, &next_calls);
+      return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
+          stream);
+    }
+    std::atomic<int> closes{0};
+    std::atomic<int> next_calls{0};
+    std::shared_ptr<CountingStream> stream;
+  };
+
+  CountingServer server;
+  ManualServerStream stream;
+  auto helper =
+      std::make_shared<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>(
+          /*auth_handler=*/nullptr, MiddlewareFactoryList{});
+  detail::AsyncCallContext context(&stream.context());
+  helper->MakeCallContext(FlightMethod::DoGet, &stream.context(), &context);
+  stream.Bind(detail::MakeDoGetReactor(std::move(context), &server));
+
+  pb::Ticket ticket;
+  ticket.set_ticket("late-write");
+  ::grpc::Slice slice(ticket.SerializeAsString());
+  stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
+  ASSERT_TRUE(WaitFor([&] { return stream.write_pending(); }))
+      << "the schema payload was never written";
+  // Cancel while the write is outstanding: the RPC finishes and the teardown closes
+  // the stream. The write callback then arrives on a finished call.
+  stream.Cancel();
+  ASSERT_TRUE(stream.finish_observed().Wait(10));
+  const int closes_after_cancel = server.closes.load();
+  const int next_after_cancel = server.next_calls.load();
+  ASSERT_EQ(1, closes_after_cancel) << "the teardown must close the producer";
+
+  stream.CompleteWrite(true);
+  EXPECT_EQ(closes_after_cancel, server.closes.load()) << "Close() must not run twice";
+  EXPECT_EQ(next_after_cancel, server.next_calls.load())
+      << "a late write callback must not demand another payload";
+  EXPECT_FALSE(stream.write_pending()) << "a finished RPC must not write again";
+  if (stream.read_pending()) stream.CloseRead();
+  if (!stream.done()) stream.Done();
+}
+
+TEST(AsyncGrpcTest, DoGetSecondCloseIsANoOp) {
+  // CloseStreamOnce() is reached from the write-failure path and again from the
+  // cancellation: the second call must report OK without touching the stream twice.
+  class CountingStream final : public AsyncFlightDataStream {
+   public:
+    CountingStream(std::shared_ptr<RecordBatchReader> reader, std::atomic<int>* closes)
+        : resolved_(std::move(reader)), closes_(closes) {}
+    arrow::Future<FlightPayload> GetSchemaPayloadAsync() override {
+      return resolved_.GetSchemaPayloadAsync();
+    }
+    arrow::Future<std::optional<FlightPayload>> NextAsync() override {
+      return resolved_.NextAsync();
+    }
+    Status Close() override {
+      closes_->fetch_add(1);
+      return Status::OK();
+    }
+
+   private:
+    ResolvedStream resolved_;
+    std::atomic<int>* closes_;
+  };
+  class CountingServer final : public AsyncGenericFlightServerBase {
+   public:
+    arrow::Future<std::shared_ptr<AsyncFlightDataStream>> DoGetAsync(
+        const ServerCallContext&, const Ticket&) override {
+      auto reader = arrow::RecordBatchReader::Make(
+                        {}, arrow::schema({arrow::field("value", arrow::int64())}))
+                        .ValueOrDie();
+      return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
+          std::make_shared<CountingStream>(std::move(reader), &closes));
+    }
+    std::atomic<int> closes{0};
+  };
+
+  CountingServer server;
+  ManualServerStream stream;
+  auto helper =
+      std::make_shared<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>(
+          /*auth_handler=*/nullptr, MiddlewareFactoryList{});
+  detail::AsyncCallContext context(&stream.context());
+  helper->MakeCallContext(FlightMethod::DoGet, &stream.context(), &context);
+  stream.Bind(detail::MakeDoGetReactor(std::move(context), &server));
+
+  pb::Ticket ticket;
+  ticket.set_ticket("double-close");
+  ::grpc::Slice slice(ticket.SerializeAsString());
+  stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
+  ASSERT_TRUE(WaitFor([&] { return stream.write_pending(); }));
+  // The write fails: that path finishes the RPC and closes the stream.
+  stream.CompleteWrite(false);
+  ASSERT_TRUE(stream.finish_observed().Wait(10));
+  ASSERT_EQ(1, server.closes.load());
+  // A cancellation after the failure reaches CloseStreamOnce() a second time.
+  stream.Cancel();
+  EXPECT_EQ(1, server.closes.load()) << "Close() must not run twice";
+  if (stream.read_pending()) stream.CloseRead();
+  stream.DrainWrites();
+  if (!stream.done()) stream.Done();
 }
 
 }  // namespace arrow::flight::transport::grpc

@@ -127,54 +127,6 @@ struct AuthenticatedHarness {
   }
 };
 
-// A minimal server that mixes in the async hooks: the server class alone
-// selects the async generic transport.
-class AsyncGenericTestServer : public AsyncGenericFlightServerBase {};
-
-TEST(AsyncGrpcTest, HandshakeWithoutHookIsUnimplemented) {
-  // A bare async server: Handshake is answered by the class's default virtual
-  // with UNIMPLEMENTED, and the client's Authenticate() surfaces it.
-  AsyncGenericTestServer flight_server;
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
-
-  auto status = client->Authenticate(
-      {}, std::make_unique<TestClientAuthHandler>("user", "p4ssw0rd"));
-  ASSERT_FALSE(status.ok()) << "handshake must not succeed without a hook";
-  EXPECT_THAT(status.ToString(), ::testing::HasSubstr("authentication mechanism"));
-
-  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
-}
-
-TEST(AsyncGrpcTest, AsyncGenericFlightServerBaseImpliesAsyncTransport) {
-  // Deriving from the async class is enough: no hooks and no option to set,
-  // yet the RPC is served by the generic callback service. DoPut is the
-  // discriminator: an async server with no listener factory answers with its own
-  // message rather than "NYI".
-  AsyncGenericTestServer flight_server;
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(flight_server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(flight_server.port()));
-
-  // DoPut is the discriminator: an async server with no listener factory
-  // answers with its own message rather than "NYI". The refusal can surface on
-  // either call: FlightClient::DoPut
-  // writes the schema payload eagerly, so when the server's UNIMPLEMENTED
-  // arrives first the DoPut call itself fails, otherwise the writer's Close()
-  // reports it.
-  auto put = client->DoPut(FlightDescriptor::Path({"x"}), arrow::schema({}));
-  auto status = put.status();
-  if (status.ok()) {
-    status = put->writer->Close();
-  }
-  EXPECT_FALSE(status.ok());
-  EXPECT_THAT(status.ToString(), ::testing::HasSubstr("no listener available"))
-      << "the async generic service must have served this call, not the sync path";
-
-  ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
-}
-
 TEST(AsyncGrpcTest, HandshakeAuthenticatesAndTokenIsRequired) {
   AuthenticatedHarness harness;
   ASSERT_OK(harness.status);
@@ -209,10 +161,13 @@ TEST(AsyncGrpcTest, HandshakeAuthenticatesAndTokenIsRequired) {
 TEST(AsyncGrpcTest, BadPasswordIsRejectedAtHandshake) {
   AuthenticatedHarness harness;
   ASSERT_OK(harness.status);
-  auto status = harness.client->Authenticate(
+  const auto status = harness.client->Authenticate(
       {}, std::make_unique<TestClientAuthHandler>("user", "wrong"));
   ASSERT_FALSE(status.ok());
   EXPECT_THAT(status.ToString(), ::testing::HasSubstr("Invalid token"));
+  auto detail = FlightStatusDetail::UnwrapStatus(status);
+  ASSERT_NE(nullptr, detail) << "the rejection must carry its Flight status code";
+  EXPECT_EQ(FlightStatusCode::Unauthenticated, detail->code());
 }
 
 TEST(AsyncGrpcTest, UnauthenticatedUnknownMethodIsRejectedBeforeUnimplemented) {
@@ -221,11 +176,12 @@ TEST(AsyncGrpcTest, UnauthenticatedUnknownMethodIsRejectedBeforeUnimplemented) {
   // A method the service does not have: it goes through the CheckAuth path and
   // the UNIMPLEMENTED fallback reactor, and auth runs first, so the client must
   // see the auth failure rather than UNIMPLEMENTED.
-  const ::grpc::Status status = CallUnknownMethod(harness.server.port());
-  ASSERT_FALSE(status.ok());
+  ASSERT_OK_AND_ASSIGN(
+      auto raw, CallRaw(harness.server.port(), kUnknownMethod, {}));
+  ASSERT_FALSE(raw.status.ok());
   // UNAUTHENTICATED, not UNIMPLEMENTED: the auth check ran before dispatch.
-  EXPECT_EQ(::grpc::StatusCode::UNAUTHENTICATED, status.error_code())
-      << "expected the auth failure, got: " << status.error_message();
+  EXPECT_EQ(::grpc::StatusCode::UNAUTHENTICATED, raw.status.error_code())
+      << "expected the auth failure, got: " << raw.status.error_message();
 }
 
 // ---------------------------------------------------------------------------
@@ -263,32 +219,84 @@ class EchoClientAuthHandler : public ClientAuthHandler {
   std::string response_;
 };
 
-TEST(AsyncGrpcTest, HandshakePayloadIsBinarySafe) {
-  // The hook's request is a std::string taken from the protobuf and its
-  // response is echoed back through the client's reader: an embedded NUL and
-  // non-ASCII bytes must survive both directions unchanged.
+TEST(AsyncGrpcTest, HandshakePayloadTable) {
+  // The hook's request is a std::string taken from the protobuf and its response
+  // is echoed back through the client's reader: every byte must survive both
+  // directions, including an embedded NUL and non-ASCII bytes, and an empty
+  // request or response must be *a* message rather than a hang. A rejection on
+  // either side must reach the client as an Unauthenticated Flight status.
+  struct Case {
+    std::string name;
+    std::string server_password;
+    std::string server_response;
+    std::string request;
+    std::string expect;
+    /// Empty when the handshake succeeds; otherwise the expected message.
+    std::string expected_error;
+  };
   const std::string binary("p4ss\0w0rd\xC3\xA9", 11);
-  AsyncAuthTestServer server(binary, binary, "bin-ticket");
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(server.port()));
+  const std::vector<Case> cases = {
+      {"ASCII", "p4ssw0rd", "user", "p4ssw0rd", "user", ""},
+      {"binary-safe request", binary, "user", binary, "user", ""},
+      {"binary-safe response", "p4ssw0rd", binary, "p4ssw0rd", binary, ""},
+      {"empty request", "", "user", "", "user", ""},
+      {"empty response", "p4ssw0rd", "", "p4ssw0rd", "", ""},
+      {"wrong password", "p4ssw0rd", "user", "nope", "user", "Invalid token"},
+      {"unexpected response", "p4ssw0rd", "user", "p4ssw0rd", "other",
+       "unexpected handshake response"},
+  };
 
-  auto handler = std::make_unique<EchoClientAuthHandler>(binary, binary);
+  for (const auto& test : cases) {
+    SCOPED_TRACE(test.name);
+    AsyncAuthTestServer server(test.server_response, test.server_password,
+                               "table-ticket");
+    ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&server));
+
+    auto handler = std::make_unique<EchoClientAuthHandler>(test.request, test.expect);
+    const auto* observed = handler.get();
+    const auto status = client->Authenticate({}, std::move(handler));
+    if (!test.expected_error.empty()) {
+      ASSERT_FALSE(status.ok()) << "the handshake must be rejected";
+      EXPECT_THAT(status.ToString(), ::testing::HasSubstr(test.expected_error));
+      auto detail = FlightStatusDetail::UnwrapStatus(status);
+      ASSERT_NE(nullptr, detail) << "the rejection must carry its Flight status code";
+      EXPECT_EQ(FlightStatusCode::Unauthenticated, detail->code());
+      ASSERT_OK(StopClientAndServer(client.get(), &server));
+      continue;
+    }
+    ASSERT_OK(status) << status;
+    EXPECT_EQ(test.expect, observed->response());
+
+    // An accepted handshake produces a usable token: the data call works.
+    ASSERT_OK_AND_ASSIGN(const auto reader, client->DoGet(Ticket{"table-ticket"}));
+    ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
+    EXPECT_NE(nullptr, chunk.data);
+    std::lock_guard<std::mutex> guard(server.state()->mutex);
+    EXPECT_EQ(1, server.state()->handshakes);
+    ASSERT_OK(StopClientAndServer(client.get(), &server));
+  }
+}
+
+TEST(AsyncGrpcTest, EmptyHandshakeResponseIsDelivered) {
+  // An empty response is a message, not a missing one: the client's Read returns
+  // an empty string rather than hanging.
+  AsyncAuthTestServer server(/*username=*/"", /*password=*/"", "empty-response-ticket");
+  ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&server));
+
+  auto handler = std::make_unique<EchoClientAuthHandler>("", std::string());
   const auto* observed = handler.get();
   ASSERT_OK(client->Authenticate({}, std::move(handler)));
-  EXPECT_EQ(binary, observed->response());
+  EXPECT_EQ(std::string(), observed->response());
 
-  // The token is the password, so an authenticated call must also work.
-  ASSERT_OK_AND_ASSIGN(auto reader, client->DoGet(Ticket{"bin-ticket"}));
-  ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
-  EXPECT_NE(nullptr, chunk.data);
-
+  std::lock_guard<std::mutex> guard(server.state()->mutex);
+  EXPECT_EQ(1, server.state()->handshakes);
   ASSERT_OK(StopClientAndServer(client.get(), &server));
 }
 
 TEST(AsyncGrpcTest, EmptyHandshakeRequestIsRejectedNotHung) {
   // An empty HandshakeRequest is a valid protobuf message: the read succeeds,
-  // the hook sees an empty string, and its rejection must reach the client.
+  // the hook sees an empty string, and its rejection must reach the client with
+  // the Flight status detail intact.
   class SilentClientAuthHandler : public ClientAuthHandler {
    public:
     Status Authenticate(ClientAuthSender* outgoing, ClientAuthReader*) override {
@@ -299,10 +307,12 @@ TEST(AsyncGrpcTest, EmptyHandshakeRequestIsRejectedNotHung) {
 
   AuthenticatedHarness harness;
   ASSERT_OK(harness.status);
-  auto status =
+  const auto status =
       harness.client->Authenticate({}, std::make_unique<SilentClientAuthHandler>());
   ASSERT_FALSE(status.ok());
   EXPECT_THAT(status.ToString(), ::testing::HasSubstr("Invalid token"));
+  EXPECT_EQ(FlightStatusCode::Unauthenticated,
+            FlightStatusDetail::UnwrapStatus(status)->code());
   std::lock_guard<std::mutex> guard(harness.server.state()->mutex);
   EXPECT_EQ(1, harness.server.state()->handshakes)
       << "the hook must run on an empty request, not fail the read";
@@ -368,6 +378,10 @@ TEST(AsyncGrpcTest, ConcurrentHandshakesAllComplete) {
         statuses[i] = chunk.status();
         return;
       }
+      if (chunk->data == nullptr || chunk->data->num_rows() != 2) {
+        statuses[i] = Status::Invalid("client ", i, " read no batch for its ticket");
+        return;
+      }
       statuses[i] = (*client)->Close();
     });
   }
@@ -409,9 +423,10 @@ TEST(AsyncGrpcTest, LateHandshakeResponseLeavesServerUsable) {
       handshakes.fetch_add(1);
       // Only the first call parks; the second one (on a fresh client, after the
       // deadline) must answer. A shared_future can be waited on repeatedly,
-      // unlike a future, which may only be consumed once.
+      // unlike a future, which may only be consumed once. The wait is bounded so
+      // a test that fails before releasing cannot wedge a gRPC thread.
       if (handshakes.load() == 1) {
-        release.wait();
+        release.wait_for(std::chrono::seconds(10));
       }
       *response = "user";
       return Status::OK();
@@ -445,30 +460,6 @@ TEST(AsyncGrpcTest, LateHandshakeResponseLeavesServerUsable) {
       {}, std::make_unique<TestClientAuthHandler>("user", "p4ssw0rd")));
 
   ASSERT_OK(second_client->Close());
-  ASSERT_OK(StopClientAndServer(client.get(), &server));
-}
-
-TEST(AsyncGrpcTest, EmptyHandshakeResponseIsDelivered) {
-  // A hook that answers nothing still produces exactly one (empty) response
-  // message: the client's Read must return an empty string rather than hang.
-  class NoResponseServer : public AsyncGenericFlightServerBase {
-   public:
-    Status Handshake(const ServerCallContext&, const std::string&,
-                     std::string*) override {
-      return Status::OK();
-    }
-  };
-
-  NoResponseServer server;
-  FlightServerOptions options(LocalhostLocation());
-  ASSERT_OK(server.Init(options));
-  ASSERT_OK_AND_ASSIGN(auto client, ConnectTo(server.port()));
-
-  auto handler = std::make_unique<EchoClientAuthHandler>("anything", std::string());
-  const auto* observed = handler.get();
-  ASSERT_OK(client->Authenticate({}, std::move(handler)));
-  EXPECT_EQ(std::string(), observed->response());
-
   ASSERT_OK(StopClientAndServer(client.get(), &server));
 }
 

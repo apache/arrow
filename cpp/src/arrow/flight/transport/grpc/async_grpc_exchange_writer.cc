@@ -55,10 +55,7 @@ void ExchangeWriter::DetachReactor() {
 arrow::Future<> ExchangeWriter::BeginAsync(std::shared_ptr<Schema> schema) {
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (reactor_ == nullptr) {
-      return arrow::Status::Cancelled(
-          "the exchange is over: the client disconnected or cancelled");
-    }
+    ARROW_RETURN_NOT_OK(CheckWritable());
   }
   if (batch_writer_ != nullptr) {
     return arrow::Status::Invalid("This writer has already been started.");
@@ -79,12 +76,20 @@ arrow::Future<> ExchangeWriter::WriteWithMetadataAsync(
     return arrow::Status::Invalid(
         "This writer is not started. Call BeginAsync() with a schema");
   }
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ARROW_RETURN_NOT_OK(CheckWritable());
+  }
   pending_app_metadata_ = std::move(app_metadata);
   ARROW_RETURN_NOT_OK(batch_writer_->WriteRecordBatch(batch));
   return Flush();
 }
 
 arrow::Future<> ExchangeWriter::WriteMetadataAsync(std::shared_ptr<Buffer> app_metadata) {
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ARROW_RETURN_NOT_OK(CheckWritable());
+  }
   FlightPayload payload;
   payload.app_metadata = std::move(app_metadata);
   queue_.push_back(std::move(payload));
@@ -125,21 +130,28 @@ arrow::Future<> ExchangeWriter::Flush() {
   arrow::Future<> flush;
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (reactor_ == nullptr) {
-      // The exchange is over: report it rather than pumping into a dead reactor.
-      return arrow::Status::Cancelled(
-          "the exchange is over: the client disconnected or cancelled");
-    }
-    if (flush_.is_valid() && !flush_.is_finished()) {
-      return arrow::Status::Invalid(
-          "a write is already in flight: await the previous write's future");
-    }
+    // Re-checked under the lock that claims flush_: the exchange may have
+    // ended since the caller checked.
+    ARROW_RETURN_NOT_OK(CheckWritable());
     flush_ = arrow::Future<>::Make();
     flush = flush_;
   }
   // Pump() takes the lock itself and may complete flush_ from a callback.
   Pump();
   return flush;
+}
+
+Status ExchangeWriter::CheckWritable() const {
+  if (reactor_ == nullptr) {
+    // The exchange is over: report it rather than pumping into a dead reactor.
+    return arrow::Status::Cancelled(
+        "the exchange is over: the client disconnected or cancelled");
+  }
+  if (flush_.is_valid() && !flush_.is_finished()) {
+    return arrow::Status::Invalid(
+        "a write is already in flight: await the previous write's future");
+  }
+  return arrow::Status::OK();
 }
 
 void ExchangeWriter::Pump() {

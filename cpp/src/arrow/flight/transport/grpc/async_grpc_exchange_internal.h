@@ -41,7 +41,14 @@ namespace arrow::flight::transport::grpc::detail {
 class ExchangeReactor;
 
 /// \brief The AsyncFlightMessageReader of one DoExchange RPC.
-class ExchangeReader final : public AsyncFlightMessageReader,
+// Exported for the async transport's unit tests, see MakeExchangeReactor().
+// Silence warning "non dll-interface class AsyncFlightMessageReader used as
+// base for dll-interface class ExchangeReader".
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable : 4275)
+#endif
+class ARROW_FLIGHT_EXPORT ExchangeReader final : public AsyncFlightMessageReader,
                              public std::enable_shared_from_this<ExchangeReader> {
  public:
   explicit ExchangeReader(ExchangeReactor* reactor);
@@ -97,6 +104,9 @@ class ExchangeReader final : public AsyncFlightMessageReader,
   bool read_closed_ = false;
   std::mutex mutex_;
 };
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 
 /// \brief The AsyncFlightMessageWriter of one DoExchange RPC.
 ///
@@ -140,6 +150,11 @@ class ExchangeWriter final : public AsyncFlightMessageWriter {
   void Pump();
 
   void FailFlush(Status status);
+
+  /// \brief Fail when the exchange is over or the previous write's future has
+  /// not completed. Requires mutex_. Every write checks it before queueing, so a
+  /// rejected write never reaches the wire.
+  Status CheckWritable() const;
 
   /// Set by the constructor, cleared by DetachReactor(); read under mutex_.
   ExchangeReactor* reactor_;

@@ -94,7 +94,10 @@ class DoPutReactor : public AsyncReactorBase,
                             "Client sent an empty upload: the first message must carry "
                             "the descriptor"));
       } else {
-        FinishUpload(Status::OK());
+        // A clean half-close still has to have ended where an IPC stream can
+        // end: a dictionary stream that stopped mid-way must not be reported to
+        // the listener as a complete upload.
+        FinishUpload(decoder_.Finish());
       }
       return;
     }
@@ -151,7 +154,12 @@ class DoPutReactor : public AsyncReactorBase,
     }
     // Finish before completing the future: its continuation may write again.
     if (finish_pending) {
-      // OnFinish() already reported; the RPC waited for its last message.
+      // OnFinish() already reported; the RPC waited for its last message. A write
+      // that failed still decides the RPC's status, but only when the upload was
+      // otherwise clean: an earlier rejection or cancellation keeps its own.
+      if (!ok && finish_status.ok()) {
+        finish_status = MakeFlightError(FlightStatusCode::Internal, "Write failed");
+      }
       FinishOnce(std::move(finish_status));
     } else if (!ok) {
       FinishUpload(MakeFlightError(FlightStatusCode::Internal, "Write failed"));
@@ -166,15 +174,17 @@ class DoPutReactor : public AsyncReactorBase,
 
   void TearDownOnCancel() override {
     // The RPC is cancelled: settle the status the client sees first, then tell
-    // the listener unless another ending already did. OnFinish()'s future is
-    // ignored: a failing OnFinish must not replace the cancellation, but the
-    // callback keeps the listener alive while the application's work runs.
-    upload_ending_ = true;
+    // the listener unless another ending already did (upload_ending_ makes
+    // OnFinish() run exactly once). OnFinish()'s future is ignored: a failing
+    // OnFinish must not replace the cancellation, but the callback keeps the
+    // listener alive while the application's work runs.
+    const bool already_ending = upload_ending_.exchange(true);
     decoder_.Stop();
     const auto status = Status::Cancelled("the client cancelled the upload");
     FinishOnce(status);
-    arrow::flight::internal::FlightDataListenerTransport::ReportFinish(listener_, status)
-        .AddCallback([listener = listener_](const Status&) {});
+    if (!already_ending) {
+      listener_->OnFinish(status).AddCallback([listener = listener_](const Status&) {});
+    }
   }
 
   void OnDone() override {
@@ -201,8 +211,7 @@ class DoPutReactor : public AsyncReactorBase,
     // asynchronously must not make the client see success. Keep the reactor
     // alive across the wait.
     Status reported = status;
-    arrow::flight::internal::FlightDataListenerTransport::ReportFinish(listener_,
-                                                                       std::move(status))
+    listener_->OnFinish(std::move(status))
         .AddCallback([this, token = hold(),
                       reported = std::move(reported)](const Status& finish_status) {
           // A failing OnFinish overrides a successful upload, but must not mask

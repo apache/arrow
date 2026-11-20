@@ -132,7 +132,14 @@ arrow::Status SerializeOrNotFound(const std::shared_ptr<T>& value, PbT* out) {
 /// reference (released in OnDone(), after which gRPC never touches the reactor),
 /// and every callback that may outlive its StartRead()/StartWrite() takes
 /// another one. The last ReleaseHold() deletes the reactor.
-class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
+// Silence warning "non dll-interface class ServerGenericBidiReactor used as
+// base for dll-interface class AsyncReactorBase": the gRPC interface is the
+// vendor's, not ours to export.
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable : 4275)
+#endif
+class ARROW_FLIGHT_EXPORT AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
  public:
   explicit AsyncReactorBase(AsyncCallContext flight_context)
       : flight_context_(std::move(flight_context)) {
@@ -254,10 +261,17 @@ class AsyncReactorBase : public ::grpc::ServerGenericBidiReactor {
   std::atomic<int> refs_{1};
   inline static std::atomic<int64_t> live_reactors_{0};
 };
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 
 /// \brief A unary RPC: read one FlightDescriptor, write the handler's response.
 ///
 /// T is the type of the response object, and PbT is the corresponding protobuf type.
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable : 4275)
+#endif
 template <typename T, typename PbT>
 class UnaryReactor final : public AsyncReactorBase {
  public:
@@ -311,20 +325,23 @@ class UnaryReactor final : public AsyncReactorBase {
   AsyncGenericFlightServerBase* base_;
   Handler handler_;
 };
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif
 
-::grpc::ServerGenericBidiReactor* MakeHandshakeReactor(
+ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeHandshakeReactor(
     AsyncCallContext flight_context, AsyncGenericFlightServerBase* base);
-::grpc::ServerGenericBidiReactor* MakeDoGetReactor(AsyncCallContext flight_context,
+ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeDoGetReactor(AsyncCallContext flight_context,
                                                    AsyncGenericFlightServerBase* base);
-::grpc::ServerGenericBidiReactor* MakeDoPutReactor(
+ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeDoPutReactor(
     AsyncCallContext flight_context, std::shared_ptr<AsyncFlightDataListener> listener);
-::grpc::ServerGenericBidiReactor* MakeListActionsReactor(
+ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeListActionsReactor(
     AsyncCallContext flight_context, AsyncGenericFlightServerBase* base);
-::grpc::ServerGenericBidiReactor* MakeDoActionReactor(AsyncCallContext flight_context,
+ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeDoActionReactor(AsyncCallContext flight_context,
                                                       AsyncGenericFlightServerBase* base);
-::grpc::ServerGenericBidiReactor* MakeListFlightsReactor(
+ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeListFlightsReactor(
     AsyncCallContext flight_context, AsyncGenericFlightServerBase* base);
-::grpc::ServerGenericBidiReactor* MakeExchangeReactor(AsyncCallContext flight_context,
+ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeExchangeReactor(AsyncCallContext flight_context,
                                                       AsyncGenericFlightServerBase* base);
 
 #endif  // ARROW_FLIGHT_HAS_ASYNC_SERVER
