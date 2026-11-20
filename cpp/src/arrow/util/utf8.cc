@@ -28,11 +28,6 @@
 #include "arrow/util/utf8_internal.h"
 #include "arrow/vendored/utfcpp/checked.h"
 
-// Can be defined by utfcpp
-#ifdef NOEXCEPT
-#  undef NOEXCEPT
-#endif
-
 namespace arrow {
 namespace util {
 namespace internal {
