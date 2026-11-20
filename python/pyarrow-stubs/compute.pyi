@@ -257,9 +257,9 @@ _NumericOrTemporalScalar: TypeAlias = _NumericScalar | _TemporalScalar
 # the result is, e.g. a StringArray for a string input.
 _ArrayOrChunkedArray: TypeAlias = Array | ChunkedArray
 _ScalarOrArray: TypeAlias = Scalar | Array | ChunkedArray
-_ArrayLike: TypeAlias = (
-    list[Any] | tuple[Any, ...] | NDArray[Any] | Array | ChunkedArray
-)
+# Python values that compute functions convert to arrays. Other values are
+# converted to scalars.
+_ArrayLike: TypeAlias = list[Any] | tuple[Any, ...] | NDArray[Any]
 _ComputeInput: TypeAlias = _ScalarOrArray | _ArrayLike | Expression
 _DecimalArray: TypeAlias = (
     Decimal32Array | Decimal64Array | Decimal128Array | Decimal256Array
@@ -1102,24 +1102,25 @@ def case_when(
     memory_pool: MemoryPool | None = None,
 ) -> _ScalarOrArray | Array | Expression: ...
 def choose(
-    indices: _ArrayLike | ScalarLike | Expression,
+    indices: _ComputeInput | ScalarLike,
     /,
-    *values: _ArrayLike | ScalarLike,
+    *values: _ScalarOrArray | _ArrayLike | ScalarLike,
     memory_pool: MemoryPool | None = None,
 ) -> _ScalarOrArray | Expression: ...
 def coalesce(
     *values: _ScalarOrArray | Expression, memory_pool: MemoryPool | None = None
 ) -> _ScalarOrArray | Expression: ...
 def if_else(
-    cond: _ArrayLike | ScalarLike | Expression,
-    left: _ArrayLike | ScalarLike,
-    right: _ArrayLike | ScalarLike,
+    cond: _ComputeInput | ScalarLike,
+    left: _ScalarOrArray | _ArrayLike | ScalarLike,
+    right: _ScalarOrArray | _ArrayLike | ScalarLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> _ScalarOrArray | Expression: ...
 def fill_null(
-    values: _ScalarOrArray | ScalarLike, fill_value: _ArrayLike | ScalarLike
+    values: _ScalarOrArray | ScalarLike,
+    fill_value: _ScalarOrArray | _ArrayLike | ScalarLike,
 ) -> _ScalarOrArray | ScalarLike: ...
 
 # ========================= Structural transforms =========================
@@ -1645,7 +1646,7 @@ def fill_null_forward(
 def replace_with_mask(
     values: _ScalarOrArray | Expression,
     mask: Mask,
-    replacements: _ArrayLike,
+    replacements: _ArrayOrChunkedArray | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,

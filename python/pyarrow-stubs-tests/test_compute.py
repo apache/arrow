@@ -198,6 +198,10 @@ def test_array_wise_functions() -> None:
     check(assert_type(taken, pa.Array | pa.ChunkedArray | pa.RecordBatch | pa.Table),
           pa.Array)
 
+    # Replacements as an array or a Python list
+    check(pc.replace_with_mask(arr, mask, pa.array([10, 30])), pa.Int64Array)
+    check(pc.replace_with_mask(arr, mask, [10, 30]), pa.Int64Array)
+
     if TYPE_CHECKING:
         pc.top_k_unstable(arr, "2")  # type: ignore[arg-type]
         pc.sort_indices(table, [("a", "up")])  # type: ignore[list-item]
