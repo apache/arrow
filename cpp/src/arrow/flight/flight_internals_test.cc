@@ -27,6 +27,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/client_middleware.h"
@@ -38,7 +39,6 @@
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/async_grpc_compat.h"
-#include "arrow/array.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/reader.h"
@@ -921,13 +921,14 @@ bool IsEndOfStream(const FlightPayload& payload) {
 }
 
 std::shared_ptr<Schema> DecoderTestSchema() {
-  return arrow::schema({arrow::field("a", arrow::int32()), arrow::field("b", arrow::int32())});
+  return arrow::schema(
+      {arrow::field("a", arrow::int32()), arrow::field("b", arrow::int32())});
 }
 
 std::shared_ptr<RecordBatch> IntBatch(const std::shared_ptr<Schema>& schema,
                                       const std::string& a, const std::string& b) {
-  return RecordBatch::Make(schema, 2, {ArrayFromJSON(arrow::int32(), a),
-                                       ArrayFromJSON(arrow::int32(), b)});
+  return RecordBatch::Make(
+      schema, 2, {ArrayFromJSON(arrow::int32(), a), ArrayFromJSON(arrow::int32(), b)});
 }
 
 }  // namespace
@@ -1089,8 +1090,8 @@ TEST_F(TestAsyncFlightMessageDecoder, DescriptorDeferral) {
     SetUp();
     auto schema = DecoderTestSchema();
     DecoderStream stream(schema, {});
-    listener_->set_descriptor_status(
-        accepted ? Status::OK() : Status::Invalid("descriptor rejected"));
+    listener_->set_descriptor_status(accepted ? Status::OK()
+                                              : Status::Invalid("descriptor rejected"));
     auto payload = stream.SchemaMessage();
     payload.app_metadata = Buffer::FromString("after-descriptor");
     ASSERT_OK(internal::ToPayload(FlightDescriptor::Path({"p"}), &payload.descriptor));
@@ -1139,7 +1140,8 @@ TEST_F(TestAsyncFlightMessageDecoder, DescriptorDeferralHoldsConsume) {
 
   parking->gate.MarkFinished(Status::OK());
   ASSERT_OK(consumed.status());
-  EXPECT_THAT(listener_->events, ::testing::ElementsAre("OnDescriptor", "OnSchemaDecoded"));
+  EXPECT_THAT(listener_->events,
+              ::testing::ElementsAre("OnDescriptor", "OnSchemaDecoded"));
 }
 
 TEST_F(TestAsyncFlightMessageDecoder, ListenerFailures) {
@@ -1332,7 +1334,8 @@ TEST_F(TestAsyncFlightMessageDecoder, RecordBatchBeforeSchemaIsRejected) {
   ASSERT_FALSE(IsEndOfStream(first));
   const auto failed = ConsumePayload(first).status();
   ASSERT_FALSE(failed.ok()) << "a record batch as the first message must be rejected";
-  EXPECT_TRUE(listener_->events.empty()) << "nothing may be surfaced for a rejected stream";
+  EXPECT_TRUE(listener_->events.empty())
+      << "nothing may be surfaced for a rejected stream";
 
   DecoderStream good_stream(schema, {batch});
   ASSERT_OK(ConsumePayload(good_stream.SchemaMessage()).status());
@@ -1468,8 +1471,7 @@ TEST_F(TestAsyncFlightMessageDecoder, FinishValidatesTheStreamEnd) {
     const auto dict_schema =
         arrow::schema({arrow::field("d0", t0), arrow::field("d1", t1)});
     const auto batch = RecordBatch::Make(
-        dict_schema, 1,
-        {ArrayFromJSON(t0, R"(["a"])"), ArrayFromJSON(t1, R"(["x"])")});
+        dict_schema, 1, {ArrayFromJSON(t0, R"(["a"])"), ArrayFromJSON(t1, R"(["x"])")});
     DecoderStream stream(dict_schema, {batch});
     ASSERT_OK(ConsumePayload(stream.SchemaMessage()).status());
     ASSERT_OK(ConsumePayload(stream.Next()).status());  // dictionary #1 alone
@@ -1552,8 +1554,7 @@ TEST_F(TestAsyncFlightMessageDecoder, SharedDictionaryIds) {
   // Two fields sharing one dictionary id: a single dictionary message supplies
   // both, and the batch decodes against it.
   const auto type = dictionary(arrow::int32(), utf8());
-  const auto schema =
-      arrow::schema({arrow::field("a", type), arrow::field("b", type)});
+  const auto schema = arrow::schema({arrow::field("a", type), arrow::field("b", type)});
   auto values = ArrayFromJSON(type, R"(["x", "y"])");
   auto batch = RecordBatch::Make(schema, 2, {values, values});
 
@@ -1581,8 +1582,7 @@ TEST_F(TestAsyncFlightMessageDecoder, DictionaryBeforeAnySchemaIsRejected) {
   // schema, and the decoder says so instead of treating it as data.
   const auto type = dictionary(arrow::int32(), utf8());
   const auto schema = arrow::schema({arrow::field("d", type)});
-  const auto batch =
-      RecordBatch::Make(schema, 1, {ArrayFromJSON(type, R"(["a"])")});
+  const auto batch = RecordBatch::Make(schema, 1, {ArrayFromJSON(type, R"(["a"])")});
   DecoderStream stream(schema, {batch});
   auto dictionary_payload = stream.Next();
   ASSERT_FALSE(IsEndOfStream(dictionary_payload));
@@ -1605,8 +1605,8 @@ TEST_F(TestAsyncFlightMessageDecoder, UnknownDictionaryIdIsRejected) {
   ASSERT_OK(ConsumePayload(schema_payload).status());
 
   FlightPayload unknown;
-  ASSERT_OK(ipc::GetDictionaryPayload(
-      99, ArrayFromJSON(utf8(), R"(["a"])"), options, &unknown.ipc_message));
+  ASSERT_OK(ipc::GetDictionaryPayload(99, ArrayFromJSON(utf8(), R"(["a"])"), options,
+                                      &unknown.ipc_message));
   ASSERT_OK(ConsumePayload(unknown).status());
   EXPECT_FALSE(decoder_->Finish().ok()) << "an undeclared dictionary id must be rejected";
   EXPECT_TRUE(listener_->chunks.empty());
@@ -1675,8 +1675,7 @@ TEST(TransportErrorHandling, ReconstructStatus) {
 namespace {
 
 /// Wait, bounded, for Serve() to replace the SIGUSR1 handler.
-bool WaitForSignalHandlerChange(
-    const ::arrow::internal::SignalHandler& original) {
+bool WaitForSignalHandlerChange(const ::arrow::internal::SignalHandler& original) {
   for (int i = 0; i < 2000; i++) {
     auto current = ::arrow::internal::GetSignalHandler(SIGUSR1);
     if (!current.ok()) {
@@ -1701,11 +1700,11 @@ class TestServerSignalState : public ::testing::Test {};
 // Both server classes share one lifecycle, but the async server only exists
 // against gRPC >= 1.65: below that its Init() answers NotImplemented, so it
 // cannot serve and the lifecycle has nothing to compare.
-#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+#  if ARROW_FLIGHT_HAS_ASYNC_SERVER
 using ServerTypes = ::testing::Types<FlightServerBase, AsyncGenericFlightServerBase>;
-#else
+#  else
 using ServerTypes = ::testing::Types<FlightServerBase>;
-#endif
+#  endif
 TYPED_TEST_SUITE(TestServerSignalState, ServerTypes);
 
 // Serve() must not leave the process signal handlers overridden when it fails.
@@ -1740,8 +1739,7 @@ TYPED_TEST(TestServerSignalState, ShutdownUninitializedKeepsOtherServerSignalabl
   // Wait, bounded, for Serve() to install the process signal handler: the signal
   // may only be raised once it has.
   handler_installed.store(WaitForSignalHandlerChange(original));
-  ASSERT_TRUE(handler_installed.load())
-      << "Serve() never installed its signal handler";
+  ASSERT_TRUE(handler_installed.load()) << "Serve() never installed its signal handler";
 
   TypeParam uninitialized;
   ASSERT_RAISES(Invalid, uninitialized.Shutdown());

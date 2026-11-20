@@ -459,9 +459,8 @@ TEST(AsyncGrpcTest, StreamingEmptyStreamIsASuccess) {
     SCOPED_TRACE("empty DoAction stream");
     TestFlightServer flight_server;
     ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
-    ASSERT_OK_AND_ASSIGN(
-        auto results,
-        client->DoAction(Action{"empty-result-stream", Buffer::FromString("")}));
+    ASSERT_OK_AND_ASSIGN(auto results, client->DoAction(Action{"empty-result-stream",
+                                                               Buffer::FromString("")}));
     ASSERT_OK_AND_ASSIGN(auto end, results->Next());
     EXPECT_EQ(nullptr, end);
     ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
@@ -483,8 +482,8 @@ TEST(AsyncGrpcTest, StreamingWriteFailureFailsTheRpc) {
   struct Case {
     std::string name;
     FlightMethod method;
-    std::function<::grpc::ServerGenericBidiReactor*(
-        detail::AsyncCallContext, TestFlightServer*)>
+    std::function<::grpc::ServerGenericBidiReactor*(detail::AsyncCallContext,
+                                                    TestFlightServer*)>
         make;
     std::function<void(::grpc::Slice*)> request;
   };

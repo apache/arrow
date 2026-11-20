@@ -376,9 +376,9 @@ class TestFlightServer final : public AsyncGenericFlightServerBase {
     return AsyncGenericFlightServerBase::Handshake(context, password, response);
   }
 
-  arrow::Future<> DoExchangeAsync(const ServerCallContext& context,
-                                  std::shared_ptr<AsyncFlightMessageReader> reader,
-                                  std::shared_ptr<AsyncFlightMessageWriter> writer) override {
+  arrow::Future<> DoExchangeAsync(
+      const ServerCallContext& context, std::shared_ptr<AsyncFlightMessageReader> reader,
+      std::shared_ptr<AsyncFlightMessageWriter> writer) override {
     handler_calls_.fetch_add(1);
     return AsyncGenericFlightServerBase::DoExchangeAsync(context, std::move(reader),
                                                          std::move(writer));
@@ -921,9 +921,7 @@ inline arrow::Result<RawCallResult> CallRaw(
   std::unique_ptr<::grpc::GenericClientAsyncReaderWriter> call =
       stub.PrepareCall(&context, std::string(method_path), &cq);
   RawCallResult out;
-  auto tag = [](int id) {
-    return reinterpret_cast<void*>(static_cast<intptr_t>(id));
-  };
+  auto tag = [](int id) { return reinterpret_cast<void*>(static_cast<intptr_t>(id)); };
   auto await = [&cq, &tag](int id) -> bool {
     void* done = nullptr;
     bool ok = false;

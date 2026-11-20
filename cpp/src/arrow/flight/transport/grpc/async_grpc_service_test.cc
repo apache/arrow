@@ -216,52 +216,62 @@ TEST(AsyncGrpcTest, RawRequestFailures) {
   };
 
   const std::vector<std::string> no_message_methods = {
-      "Handshake", "GetFlightInfo", "GetSchema",       "PollFlightInfo", "ListActions",
-      "DoAction",  "ListFlights",   "DoExchange",     "DoGet"};
+      "Handshake", "GetFlightInfo", "GetSchema",  "PollFlightInfo", "ListActions",
+      "DoAction",  "ListFlights",   "DoExchange", "DoGet"};
   const std::vector<std::string> unary_methods = {"Handshake", "GetFlightInfo",
                                                   "GetSchema", "PollFlightInfo"};
   const std::vector<std::string> parse_methods = {
-      "Handshake", "GetFlightInfo", "GetSchema", "PollFlightInfo", "DoGet",
-      "DoAction",  "ListFlights"};
+      "Handshake", "GetFlightInfo", "GetSchema",  "PollFlightInfo",
+      "DoGet",     "DoAction",      "ListFlights"};
   const std::vector<std::pair<std::string, std::string>> parse_names = {
-      {"Handshake", "HandshakeRequest"}, {"GetFlightInfo", "FlightDescriptor"},
-      {"GetSchema", "FlightDescriptor"}, {"PollFlightInfo", "FlightDescriptor"},
-      {"DoGet", "Ticket"},               {"DoAction", "Action"},
+      {"Handshake", "HandshakeRequest"},
+      {"GetFlightInfo", "FlightDescriptor"},
+      {"GetSchema", "FlightDescriptor"},
+      {"PollFlightInfo", "FlightDescriptor"},
+      {"DoGet", "Ticket"},
+      {"DoAction", "Action"},
       {"ListFlights", "Criteria"}};
   ARROW_UNUSED(unary_methods);
 
   std::vector<Case> cases;
   // No message at all, then a half-close: nothing to parse.
   for (const auto& method : no_message_methods) {
-    cases.push_back({method + " with no message", method, {}, ::grpc::StatusCode::INTERNAL,
-                     "Failed to read request", false});
+    cases.push_back({method + " with no message",
+                     method,
+                     {},
+                     ::grpc::StatusCode::INTERNAL,
+                     "Failed to read request",
+                     false});
   }
   // One truncated length-delimited protobuf.
   for (const auto& [method, what] : parse_names) {
-    cases.push_back({method + " with a truncated request", method,
+    cases.push_back({method + " with a truncated request",
+                     method,
                      {RawMessage(std::string(kTruncatedDescriptor, 4))},
                      ::grpc::StatusCode::INVALID_ARGUMENT,
-                     std::string("Failed to parse ") + what, false});
+                     std::string("Failed to parse ") + what,
+                     false});
   }
   // A valid protobuf whose descriptor type is UNKNOWN: every field at its
   // default, and DescriptorType.UNKNOWN is 0, so an empty message is exactly
   // that. A path alongside it is not needed: the type is checked first.
   for (const auto& method : {"GetFlightInfo", "GetSchema", "PollFlightInfo"}) {
-    cases.push_back({std::string(method) + " with an UNKNOWN descriptor", method,
-                     {RawMessage("")}, ::grpc::StatusCode::INVALID_ARGUMENT,
-                     "UNKNOWN descriptor type", false});
+    cases.push_back({std::string(method) + " with an UNKNOWN descriptor",
+                     method,
+                     {RawMessage("")},
+                     ::grpc::StatusCode::INVALID_ARGUMENT,
+                     "UNKNOWN descriptor type",
+                     false});
   }
 
   for (const auto& test : cases) {
     SCOPED_TRACE(test.name);
     TestFlightServer flight_server;
     ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
-    ASSERT_OK_AND_ASSIGN(auto raw,
-                         CallRaw(flight_server.port(), MethodPath(test.method),
-                                 test.request));
+    ASSERT_OK_AND_ASSIGN(
+        auto raw, CallRaw(flight_server.port(), MethodPath(test.method), test.request));
     EXPECT_EQ(test.code, raw.status.error_code()) << raw.status.error_message();
-    EXPECT_THAT(raw.status.error_message(),
-                ::testing::HasSubstr(test.message));
+    EXPECT_THAT(raw.status.error_message(), ::testing::HasSubstr(test.message));
     EXPECT_TRUE(raw.responses.empty()) << "a rejected request must answer nothing";
     // DoPut asks the server for its listener before reading any message, so its
     // factory call is expected; no other handler override may run.
@@ -331,10 +341,9 @@ TEST(AsyncGrpcTest, DoExchangeRawRequestFailures) {
   {
     TestFlightServer flight_server;
     ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
-    ASSERT_OK_AND_ASSIGN(auto raw, CallRaw(flight_server.port(),
-                                           MethodPath("DoExchange"),
-                                           {RawMessage(std::string(
-                                               kTruncatedDescriptor, 4))}));
+    ASSERT_OK_AND_ASSIGN(auto raw,
+                         CallRaw(flight_server.port(), MethodPath("DoExchange"),
+                                 {RawMessage(std::string(kTruncatedDescriptor, 4))}));
     // FlightDataDeserialize() reports gRPC's own reason, wrapped by the reactor.
     EXPECT_EQ(::grpc::StatusCode::INTERNAL, raw.status.error_code());
     EXPECT_THAT(raw.status.error_message(),
@@ -352,8 +361,8 @@ TEST(AsyncGrpcTest, DoExchangeRawRequestFailures) {
     ASSERT_TRUE(FlightDataSerialize(payload, &message, &own_buffer).ok());
     TestFlightServer flight_server;
     ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
-    ASSERT_OK_AND_ASSIGN(auto raw,
-                         CallRaw(flight_server.port(), MethodPath("DoExchange"), {message}));
+    ASSERT_OK_AND_ASSIGN(
+        auto raw, CallRaw(flight_server.port(), MethodPath("DoExchange"), {message}));
     EXPECT_EQ(::grpc::StatusCode::INTERNAL, raw.status.error_code());
     EXPECT_THAT(raw.status.error_message(), ::testing::HasSubstr("Descriptor missing"));
     EXPECT_TRUE(raw.responses.empty());
@@ -367,9 +376,9 @@ TEST(AsyncGrpcTest, DoExchangeRawRequestFailures) {
     // into a truncated success.
     class BadIpcExchangeServer final : public AsyncGenericFlightServerBase {
      public:
-      arrow::Future<> DoExchangeAsync(const ServerCallContext&,
-                                      std::shared_ptr<AsyncFlightMessageReader> reader,
-                                      std::shared_ptr<AsyncFlightMessageWriter>) override {
+      arrow::Future<> DoExchangeAsync(
+          const ServerCallContext&, std::shared_ptr<AsyncFlightMessageReader> reader,
+          std::shared_ptr<AsyncFlightMessageWriter>) override {
         handler_entered_.MarkFinished();
         auto out = Future<>::Make();
         reader->NextAsync().AddCallback(
@@ -405,16 +414,16 @@ TEST(AsyncGrpcTest, DoExchangeRawRequestFailures) {
     BadIpcExchangeServer flight_server;
     ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
     FlightPayload malformed;
-    ASSERT_OK(internal::ToPayload(FlightDescriptor::Command("bad-ipc"),
-                                  &malformed.descriptor));
+    ASSERT_OK(
+        internal::ToPayload(FlightDescriptor::Command("bad-ipc"), &malformed.descriptor));
     malformed.ipc_message.type = ipc::MessageType::RECORD_BATCH;
     malformed.ipc_message.metadata = Buffer::FromString("not-an-ipc-message");
     ::grpc::ByteBuffer message;
     bool own_buffer = false;
     ASSERT_TRUE(FlightDataSerialize(malformed, &message, &own_buffer).ok());
 
-    ASSERT_OK_AND_ASSIGN(auto raw,
-                         CallRaw(flight_server.port(), MethodPath("DoExchange"), {message}));
+    ASSERT_OK_AND_ASSIGN(
+        auto raw, CallRaw(flight_server.port(), MethodPath("DoExchange"), {message}));
     ASSERT_TRUE(flight_server.handler_entered().Wait(10));
     EXPECT_FALSE(raw.status.ok()) << "a bad IPC message must fail the exchange";
     // The native IPC decoder's flatbuffer validation is what rejected it, and
@@ -443,10 +452,14 @@ TEST(AsyncGrpcTest, DefaultHandlersAreUnimplemented) {
     std::string message;
   };
   const std::vector<Case> cases = {
-      {"ListFlights", "NYI"},          {"GetFlightInfo", "NYI"},
-      {"PollFlightInfo", "NYI"},       {"GetSchema", "NYI"},
-      {"DoAction", "NYI"},             {"ListActions", "NYI"},
-      {"DoExchange", "NYI"},           {"DoGet", "DoGetAsync is not implemented"},
+      {"ListFlights", "NYI"},
+      {"GetFlightInfo", "NYI"},
+      {"PollFlightInfo", "NYI"},
+      {"GetSchema", "NYI"},
+      {"DoAction", "NYI"},
+      {"ListActions", "NYI"},
+      {"DoExchange", "NYI"},
+      {"DoGet", "DoGetAsync is not implemented"},
       {"DoPut", "no listener available"},
       {"Handshake", "authentication mechanism"},
   };
@@ -513,8 +526,7 @@ TEST(AsyncGrpcTest, MiddlewareCompletesOncePerCall) {
          ASSERT_OK_AND_ASSIGN(auto chunk, reader->Next());
          EXPECT_EQ(nullptr, chunk.data);
        },
-       true,
-       [](const Status& status) { EXPECT_TRUE(status.ok()) << status; }},
+       true, [](const Status& status) { EXPECT_TRUE(status.ok()) << status; }},
       {"handler error",
        [](FlightClient* client, const std::string&) {
          auto status = client->GetFlightInfo(FlightDescriptor::Command("fail")).status();
@@ -524,7 +536,9 @@ TEST(AsyncGrpcTest, MiddlewareCompletesOncePerCall) {
        true,
        [](const Status& status) { EXPECT_EQ(StatusCode::KeyError, status.code()); }},
       {"unknown method", nullptr, false,
-       [](const Status& status) { EXPECT_EQ(StatusCode::NotImplemented, status.code()); }},
+       [](const Status& status) {
+         EXPECT_EQ(StatusCode::NotImplemented, status.code());
+       }},
   };
 
   for (const auto& test : cases) {
@@ -619,8 +633,7 @@ struct CancelRegistry {
 
   /// Register a callback that counts itself; returns what AddCancelCallback said.
   Status Add() {
-    return AsyncGenericFlightServerBase::AddCancelCallback(
-        context, [this] { ++*runs; });
+    return AsyncGenericFlightServerBase::AddCancelCallback(context, [this] { ++*runs; });
   }
 
   ::grpc::CallbackServerContext grpc_context;
@@ -743,8 +756,7 @@ TEST(AsyncGrpcTest, AsyncServerInitFailsWhenThePortIsTaken) {
   second_options.builder_hook = allow_reuseport_off;
   // The second server must try the first one's port, which a fixed location cannot
   // express: bind it explicitly.
-  ASSERT_OK_AND_ASSIGN(auto location,
-                       Location::ForGrpcTcp("127.0.0.1", first.port()));
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("127.0.0.1", first.port()));
   second_options.location = location;
   const auto status = second.Init(second_options);
   ASSERT_FALSE(status.ok()) << "two servers must not share a fixed port";

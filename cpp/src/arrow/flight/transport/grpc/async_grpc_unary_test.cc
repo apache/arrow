@@ -252,9 +252,8 @@ TEST(AsyncGrpcTest, LateHandlerCompletion) {
   for (const bool succeeds : {true, false}) {
     SCOPED_TRACE(succeeds ? "late success" : "late error");
     const int64_t before = detail::AsyncReactorBase::live_reactors();
-    LateUnaryServer flight_server([](LateUnaryServer* server) {
-      server->entered.MarkFinished();
-    });
+    LateUnaryServer flight_server(
+        [](LateUnaryServer* server) { server->entered.MarkFinished(); });
 
     ASSERT_OK_AND_ASSIGN(auto client, StartAndConnect(&flight_server));
     FlightCallOptions impatient;
@@ -394,15 +393,15 @@ TEST(AsyncGrpcTest, UnaryReplyWriteFailureFailsTheRpc) {
   struct Case {
     std::string name;
     FlightMethod method;
-    std::function<::grpc::ServerGenericBidiReactor*(
-        detail::AsyncCallContext, TestFlightServer*)>
+    std::function<::grpc::ServerGenericBidiReactor*(detail::AsyncCallContext,
+                                                    TestFlightServer*)>
         make;
   };
   const std::vector<Case> cases = {
       {"GetFlightInfo", FlightMethod::GetFlightInfo,
        [](detail::AsyncCallContext context, TestFlightServer* server) {
-         return detail::MakeUnaryReactor(FlightMethod::GetFlightInfo,
-                                         std::move(context), server);
+         return detail::MakeUnaryReactor(FlightMethod::GetFlightInfo, std::move(context),
+                                         server);
        }},
       {"GetSchema", FlightMethod::GetSchema,
        [](detail::AsyncCallContext context, TestFlightServer* server) {
@@ -411,8 +410,8 @@ TEST(AsyncGrpcTest, UnaryReplyWriteFailureFailsTheRpc) {
        }},
       {"PollFlightInfo", FlightMethod::PollFlightInfo,
        [](detail::AsyncCallContext context, TestFlightServer* server) {
-         return detail::MakeUnaryReactor(FlightMethod::PollFlightInfo,
-                                         std::move(context), server);
+         return detail::MakeUnaryReactor(FlightMethod::PollFlightInfo, std::move(context),
+                                         server);
        }},
   };
 

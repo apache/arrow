@@ -193,8 +193,7 @@ TEST(AsyncGrpcTest, DoGetClientCancelWithPendingPayloadFinishes) {
   // And the call reported completion exactly once (the CAS in FinishOnce).
   std::lock_guard<std::mutex> guard(trace->mutex);
   ASSERT_EQ(1, trace->completed_statuses.size());
-  EXPECT_TRUE(trace->completed_statuses[0].IsCancelled())
-      << trace->completed_statuses[0];
+  EXPECT_TRUE(trace->completed_statuses[0].IsCancelled()) << trace->completed_statuses[0];
 }
 
 TEST(AsyncGrpcTest, DoGetClientDeadlineWhilePreparingFinishes) {
@@ -583,8 +582,7 @@ TEST(AsyncGrpcTest, DoGetLatePayloadCompletionStartsNoIo) {
                         .ValueOrDie();
       stream = std::make_shared<ParkedPayloadStream>(std::move(reader), payload);
       entered.MarkFinished();
-      return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
-          stream);
+      return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(stream);
     }
 
     Future<> entered = Future<>::Make();
@@ -749,8 +747,7 @@ TEST(AsyncGrpcTest, DoGetLateWriteCallbackAfterFinishStartsNothing) {
                         {}, arrow::schema({arrow::field("value", arrow::int64())}))
                         .ValueOrDie();
       stream = std::make_shared<CountingStream>(std::move(reader), &closes, &next_calls);
-      return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(
-          stream);
+      return arrow::Future<std::shared_ptr<AsyncFlightDataStream>>::MakeFinished(stream);
     }
     std::atomic<int> closes{0};
     std::atomic<int> next_calls{0};

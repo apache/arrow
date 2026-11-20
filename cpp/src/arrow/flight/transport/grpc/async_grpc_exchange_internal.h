@@ -48,8 +48,9 @@ class ExchangeReactor;
 #  pragma warning(push)
 #  pragma warning(disable : 4275)
 #endif
-class ARROW_FLIGHT_EXPORT ExchangeReader final : public AsyncFlightMessageReader,
-                             public std::enable_shared_from_this<ExchangeReader> {
+class ARROW_FLIGHT_EXPORT ExchangeReader final
+    : public AsyncFlightMessageReader,
+      public std::enable_shared_from_this<ExchangeReader> {
  public:
   explicit ExchangeReader(ExchangeReactor* reactor);
 

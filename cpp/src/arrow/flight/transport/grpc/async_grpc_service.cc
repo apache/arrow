@@ -133,9 +133,9 @@ AsyncGenericFlightService::AsyncGenericFlightService(
 
 namespace detail {
 
-::grpc::ServerGenericBidiReactor* MakeUnaryReactor(
-    FlightMethod method, AsyncCallContext flight_context,
-    AsyncGenericFlightServerBase* base) {
+::grpc::ServerGenericBidiReactor* MakeUnaryReactor(FlightMethod method,
+                                                   AsyncCallContext flight_context,
+                                                   AsyncGenericFlightServerBase* base) {
   // The response type decides the reactor's protobuf type, so the mapping stays
   // here, next to the reactor types themselves: instantiating them in a test
   // would name protobuf types the DLL does not export.
@@ -146,8 +146,7 @@ namespace detail {
           &AsyncGenericFlightServerBase::GetFlightInfoAsync);
     case FlightMethod::GetSchema:
       return new UnaryReactor<SchemaResult, pb::SchemaResult>(
-          std::move(flight_context), base,
-          &AsyncGenericFlightServerBase::GetSchemaAsync);
+          std::move(flight_context), base, &AsyncGenericFlightServerBase::GetSchemaAsync);
     case FlightMethod::PollFlightInfo:
       return new UnaryReactor<PollInfo, pb::PollInfo>(
           std::move(flight_context), base,

@@ -176,8 +176,7 @@ TEST(AsyncGrpcTest, UnauthenticatedUnknownMethodIsRejectedBeforeUnimplemented) {
   // A method the service does not have: it goes through the CheckAuth path and
   // the UNIMPLEMENTED fallback reactor, and auth runs first, so the client must
   // see the auth failure rather than UNIMPLEMENTED.
-  ASSERT_OK_AND_ASSIGN(
-      auto raw, CallRaw(harness.server.port(), kUnknownMethod, {}));
+  ASSERT_OK_AND_ASSIGN(auto raw, CallRaw(harness.server.port(), kUnknownMethod, {}));
   ASSERT_FALSE(raw.status.ok());
   // UNAUTHENTICATED, not UNIMPLEMENTED: the auth check ran before dispatch.
   EXPECT_EQ(::grpc::StatusCode::UNAUTHENTICATED, raw.status.error_code())

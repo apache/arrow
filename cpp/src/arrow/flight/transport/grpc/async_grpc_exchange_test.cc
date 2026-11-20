@@ -476,9 +476,9 @@ class DecoderStreamForExchange {
 /// ManualServerStream.
 class CapturingExchangeServer final : public AsyncGenericFlightServerBase {
  public:
-  arrow::Future<> DoExchangeAsync(const ServerCallContext&,
-                                  std::shared_ptr<AsyncFlightMessageReader> reader,
-                                  std::shared_ptr<AsyncFlightMessageWriter> writer) override {
+  arrow::Future<> DoExchangeAsync(
+      const ServerCallContext&, std::shared_ptr<AsyncFlightMessageReader> reader,
+      std::shared_ptr<AsyncFlightMessageWriter> writer) override {
     this->reader = std::move(reader);
     this->writer = std::move(writer);
     descriptor = this->reader->descriptor();
@@ -498,9 +498,9 @@ class CapturingExchangeServer final : public AsyncGenericFlightServerBase {
 class ManualExchange {
  public:
   ManualExchange() {
-    helper_ = std::make_shared<
-        GrpcServerCallContextHelper<::grpc::CallbackServerContext>>(
-        /*auth_handler=*/nullptr, MiddlewareFactoryList{});
+    helper_ =
+        std::make_shared<GrpcServerCallContextHelper<::grpc::CallbackServerContext>>(
+            /*auth_handler=*/nullptr, MiddlewareFactoryList{});
     auto* context = &stream_.context();
     helper_->MakeCallContext(FlightMethod::DoExchange, context, &flight_context_);
     reactor_ = detail::MakeExchangeReactor(std::move(flight_context_), &server_);
@@ -698,13 +698,12 @@ TEST(AsyncGrpcTest, ExchangeWriterContract) {
   // Begin twice, once the first has completed.
   auto again = exchange.server_.writer->BeginAsync(schema);
   ASSERT_FALSE(again.status().ok());
-  EXPECT_THAT(again.status().ToString(),
-              ::testing::HasSubstr("already been started"));
+  EXPECT_THAT(again.status().ToString(), ::testing::HasSubstr("already been started"));
   EXPECT_EQ(1u, exchange.stream_.writes().size());
 
   // A batch whose schema does not match is refused before it is serialized.
-  auto mismatched = exchange.server_.writer->WriteRecordBatchAsync(
-      *OneColumnBatch(OneColumnSchema()));
+  auto mismatched =
+      exchange.server_.writer->WriteRecordBatchAsync(*OneColumnBatch(OneColumnSchema()));
   exchange.stream_.DrainWrites();
   EXPECT_FALSE(mismatched.status().ok()) << mismatched.status();
   EXPECT_EQ(1u, exchange.stream_.writes().size())
@@ -723,8 +722,7 @@ TEST(AsyncGrpcTest, ExchangeWriterContract) {
   EXPECT_TRUE(closed.status().ok()) << closed.status();
   auto after_close = exchange.server_.writer->WriteRecordBatchAsync(*batch);
   ASSERT_FALSE(after_close.status().ok());
-  EXPECT_THAT(after_close.status().ToString(),
-              ::testing::HasSubstr("not started"));
+  EXPECT_THAT(after_close.status().ToString(), ::testing::HasSubstr("not started"));
   EXPECT_EQ(2u, exchange.stream_.writes().size())
       << "a write after Close must not reach the wire";
 
@@ -749,15 +747,16 @@ TEST(AsyncGrpcTest, DoExchangeOverlappingWritesAreRejected) {
   auto batch = TwoColumnBatch(schema);
   const std::vector<Case> cases = {
       {"record batch",
-       [&](AsyncFlightMessageWriter* writer, const RecordBatch& b, std::shared_ptr<Schema>) {
-         return writer->WriteRecordBatchAsync(b);
-       }},
+       [&](AsyncFlightMessageWriter* writer, const RecordBatch& b,
+           std::shared_ptr<Schema>) { return writer->WriteRecordBatchAsync(b); }},
       {"batch with metadata",
-       [&](AsyncFlightMessageWriter* writer, const RecordBatch& b, std::shared_ptr<Schema>) {
+       [&](AsyncFlightMessageWriter* writer, const RecordBatch& b,
+           std::shared_ptr<Schema>) {
          return writer->WriteWithMetadataAsync(b, Buffer::FromString("overlap"));
        }},
       {"metadata",
-       [&](AsyncFlightMessageWriter* writer, const RecordBatch&, std::shared_ptr<Schema>) {
+       [&](AsyncFlightMessageWriter* writer, const RecordBatch&,
+           std::shared_ptr<Schema>) {
          return writer->WriteMetadataAsync(Buffer::FromString("overlap"));
        }},
   };
@@ -779,8 +778,7 @@ TEST(AsyncGrpcTest, DoExchangeOverlappingWritesAreRejected) {
     auto rejected = test.rejected(exchange.server_.writer.get(), *batch, schema);
     ASSERT_FALSE(rejected.status().ok())
         << "the overlapping write must be refused immediately";
-    EXPECT_THAT(rejected.status().ToString(),
-                ::testing::HasSubstr("already in flight"));
+    EXPECT_THAT(rejected.status().ToString(), ::testing::HasSubstr("already in flight"));
     EXPECT_EQ(writes_before + 1, exchange.stream_.writes().size())
         << "the rejected write must not reach the wire";
 
@@ -821,7 +819,8 @@ TEST(AsyncGrpcTest, ExchangeWriterWriteOutcomes) {
     exchange.stream_.CompleteWrite(false);
     ASSERT_TRUE(write.is_finished());
     EXPECT_FALSE(write.status().ok()) << write.status();
-    EXPECT_THAT(write.status().ToString(), ::testing::HasSubstr("Failed to write response"));
+    EXPECT_THAT(write.status().ToString(),
+                ::testing::HasSubstr("Failed to write response"));
   }
   {
     SCOPED_TRACE("cancelled while pending");
@@ -859,8 +858,7 @@ TEST(AsyncGrpcTest, ExchangeWriterWriteOutcomes) {
         return;
       }
       auto chained = writer->WriteMetadataAsync(Buffer::FromString("two"));
-      chained.AddCallback(
-          [second](const Status& s) mutable { second.MarkFinished(s); });
+      chained.AddCallback([second](const Status& s) mutable { second.MarkFinished(s); });
     });
     // Both flushes complete in order: the first write's continuation starts the
     // second, which is then completed on this thread.
