@@ -135,6 +135,42 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
   return Status::OK();
 }
 
+// Check that all chunks contain supported fixed-size lists with no missing values
+bool CanWriteFixedSizeLists(const std::vector<std::shared_ptr<Array>>& arrays) {
+  if (arrays.empty() || arrays.front()->type_id() != ::arrow::Type::FIXED_SIZE_LIST) {
+    return false;
+  }
+  const auto& type =
+      checked_cast<const ::arrow::FixedSizeListType&>(*arrays.front()->type());
+  if (type.list_size() <= 0) {
+    return false;
+  }
+  switch (type.value_type()->id()) {
+    case ::arrow::Type::INT32:
+    case ::arrow::Type::INT64:
+    case ::arrow::Type::FLOAT:
+    case ::arrow::Type::DOUBLE:
+      break;
+    default:
+      return false;
+  }
+  for (const auto& array : arrays) {
+    if (!array->type()->Equals(arrays.front()->type())) {
+      return false;
+    }
+    const auto& lists = checked_cast<const ::arrow::FixedSizeListArray&>(*array);
+    if (lists.null_count() != 0) {
+      return false;
+    }
+    auto values =
+        lists.values()->Slice(lists.value_offset(0), lists.length() * type.list_size());
+    if (values->null_count() != 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 // Manages writing nested parquet columns with support for all nested types
 // supported by parquet.
 class ArrowColumnWriterV2 {
@@ -164,6 +200,30 @@ class ArrowColumnWriterV2 {
         PARQUET_CATCH_NOT_OK(column_writer = row_group_writer_->column(column_index));
       } else {
         PARQUET_CATCH_NOT_OK(column_writer = row_group_writer_->NextColumn());
+      }
+      if (!fixed_size_lists_.empty()) {
+        if (column_writer->properties()->content_defined_chunking_enabled()) {
+          for (const auto& array : fixed_size_lists_) {
+            ARROW_ASSIGN_OR_RAISE(auto builder,
+                                  MultipathLevelBuilder::Make(*array, is_nullable_));
+            level_builders_.emplace_back(std::move(builder));
+          }
+          fixed_size_lists_.clear();
+        } else {
+          const auto& type = checked_cast<const ::arrow::FixedSizeListType&>(
+              *fixed_size_lists_.front()->type());
+          auto fast_ctx = *ctx;
+          fast_ctx.fixed_size_list_size = type.list_size();
+          for (const auto& array : fixed_size_lists_) {
+            const auto& lists = checked_cast<const ::arrow::FixedSizeListArray&>(*array);
+            // Take only the numbers belonging to this slice of lists
+            auto values = lists.values()->Slice(lists.value_offset(0),
+                                                lists.length() * type.list_size());
+            RETURN_NOT_OK(column_writer->WriteArrow(nullptr, nullptr, values->length(),
+                                                    *values, &fast_ctx,
+                                                    type.value_field()->nullable()));
+          }
+        }
       }
       for (auto& level_builder : level_builders_) {
         RETURN_NOT_OK(level_builder->Write(
@@ -241,6 +301,7 @@ class ArrowColumnWriterV2 {
 
     int64_t values_written = 0;
     std::vector<std::unique_ptr<MultipathLevelBuilder>> builders;
+    std::vector<std::shared_ptr<Array>> arrays;
     const int leaf_count = CalculateLeafCount(data.type().get());
     bool is_nullable = false;
 
@@ -283,13 +344,7 @@ class ArrowColumnWriterV2 {
       std::shared_ptr<Array> array_to_write = chunk.Slice(chunk_offset, chunk_write_size);
 
       if (array_to_write->length() > 0) {
-        ARROW_ASSIGN_OR_RAISE(std::unique_ptr<MultipathLevelBuilder> builder,
-                              MultipathLevelBuilder::Make(*array_to_write, is_nullable));
-        if (leaf_count != builder->GetLeafCount()) {
-          return Status::UnknownError("data type leaf_count != builder_leaf_count",
-                                      leaf_count, " ", builder->GetLeafCount());
-        }
-        builders.emplace_back(std::move(builder));
+        arrays.emplace_back(std::move(array_to_write));
       }
 
       if (chunk_write_size == available_values) {
@@ -298,8 +353,24 @@ class ArrowColumnWriterV2 {
       }
       values_written += chunk_write_size;
     }
-    return std::make_unique<ArrowColumnWriterV2>(std::move(builders), column_index,
-                                                 leaf_count, row_group_writer);
+    // Check every chunk before choosing one writing path for the column
+    if (row_group_writer->buffered() || !CanWriteFixedSizeLists(arrays)) {
+      for (const auto& array : arrays) {
+        ARROW_ASSIGN_OR_RAISE(auto builder,
+                              MultipathLevelBuilder::Make(*array, is_nullable));
+        if (leaf_count != builder->GetLeafCount()) {
+          return Status::UnknownError("data type leaf_count != builder_leaf_count",
+                                      leaf_count, " ", builder->GetLeafCount());
+        }
+        builders.emplace_back(std::move(builder));
+      }
+      arrays.clear();
+    }
+    auto writer = std::make_unique<ArrowColumnWriterV2>(std::move(builders), column_index,
+                                                        leaf_count, row_group_writer);
+    writer->fixed_size_lists_ = std::move(arrays);
+    writer->is_nullable_ = is_nullable;
+    return writer;
   }
 
   int leaf_count() const { return leaf_count_; }
@@ -307,6 +378,8 @@ class ArrowColumnWriterV2 {
  private:
   // One builder per column-chunk.
   std::vector<std::unique_ptr<MultipathLevelBuilder>> level_builders_;
+  std::vector<std::shared_ptr<Array>> fixed_size_lists_;
+  bool is_nullable_ = false;
   int start_leaf_column_index_;
   int leaf_count_;
   RowGroupWriter* row_group_writer_;
