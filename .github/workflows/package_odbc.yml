@@ -332,6 +332,10 @@ jobs:
       # Upload to GitHub Release
       contents: write
     steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Download ARM64 base PKG and signed universal ODBC DYLIB
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -359,7 +363,6 @@ jobs:
           # (@rpath/libarrow_flight_sql_odbc.<SOVERSION>.dylib) resolves to.
           # Replace the real file so the symlinks stay intact.
           symlink_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
-          lib_dir="$(dirname "${symlink_path}")"
           dylib_path="$(realpath "${symlink_path}")"
           signed_dylib="$(ls libarrow_flight_sql_odbc.*.dylib)"
           if [ "${signed_dylib}" != "$(basename "${dylib_path}")" ]; then
@@ -370,34 +373,7 @@ jobs:
           # cp onto an existing file keeps its owner and mode.
           sudo cp "${signed_dylib}" "${dylib_path}"
 
-          # Verify every dylib (including the symlinks) is universal before re-packaging.
-          for lib in "${lib_dir}"/libarrow_flight_sql_odbc*.dylib; do
-            dylib_archs="$(lipo -archs "${lib}")"
-            echo "${lib}: ${dylib_archs}"
-            for arch in arm64 x86_64; do
-              if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
-                echo "${lib} is missing '${arch}' (got: ${dylib_archs})"
-                exit 1
-              fi
-            done
-          done
-
-          # --flatten-full regenerates each component's Bom and PackageInfo
-          # installKBytes, but leaves Distribution with the ARM64 base PKG's
-          # sizes. Copy the regenerated sizes into Distribution, then
-          # re-flatten without -full so the payloads are reused as-is.
-          sudo pkgutil --flatten-full expanded flattened.pkg
-          sudo pkgutil --expand flattened.pkg shallow
-          for component in shallow/*.pkg; do
-            component_name="$(basename "${component}")"
-            kbytes="$(sudo sed -n 's/.*installKBytes="\([0-9]*\)".*/\1/p' "${component}/PackageInfo")"
-            sudo sed -i '' \
-              "/>#${component_name}<\/pkg-ref>/ s/installKBytes=\"[0-9]*\"/installKBytes=\"${kbytes}\"/" \
-              shallow/Distribution
-          done
-          mkdir universal
-          sudo pkgutil --flatten shallow "universal/${pkg_name}.pkg"
-          sudo chown "$(id -u):$(id -g)" "universal/${pkg_name}.pkg"
+          ci/scripts/odbc_macos_flatten_universal_pkg.sh expanded "universal/${pkg_name}.pkg"
       - name: Verify universal macOS installer
         run: |
           set -euo pipefail

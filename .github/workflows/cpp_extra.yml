@@ -36,6 +36,7 @@ on:
       - 'ci/scripts/install_gcs_testbench.sh'
       - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
+      - 'ci/scripts/odbc_macos_flatten_universal_pkg.sh'
       - 'ci/scripts/util_*'
       - 'cpp/**'
       - 'compose.yaml'
@@ -638,6 +639,10 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 30
     steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Download ARM64 PKG
         uses: actions/download-artifact@v8
         with:
@@ -664,27 +669,12 @@ jobs:
           # install name (@rpath/libarrow_flight_sql_odbc.<SOVERSION>.dylib)
           # resolves to. Run lipo on the real file so the symlinks stay intact.
           symlink_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
-          lib_dir="$(dirname "${symlink_path}")"
           dylib_path="$(realpath "${symlink_path}")"
           echo "Merging into ${dylib_path} (via ${symlink_path})"
           lipo -create "${dylib_path}" amd64-dylib/libarrow_flight_sql_odbc.dylib \
             -output "${dylib_path}"
 
-          # Verify every dylib (including the symlinks) is universal before re-packaging.
-          # Check one architecture at a time with `lipo -archs`, 
-          # as macOS 27 support only one architecture search at a time.
-          for lib in "${lib_dir}"/libarrow_flight_sql_odbc*.dylib; do
-            dylib_archs="$(lipo -archs "${lib}")"
-            echo "${lib}: ${dylib_archs}"
-            for arch in arm64 x86_64; do
-              if ! grep -qw "${arch}" <<< "${dylib_archs}"; then
-                echo "${lib} is missing '${arch}' (got: ${dylib_archs})"
-                exit 1
-              fi
-            done
-          done
-
-          pkgutil --flatten-full expanded "${pkg_name}.pkg"
+          ci/scripts/odbc_macos_flatten_universal_pkg.sh expanded "${pkg_name}.pkg"
       - name: Upload universal ODBC PKG
         uses: actions/upload-artifact@v7
         with:
