@@ -1946,9 +1946,16 @@ def test_arithmetic_multiply_divide_duration_by_float():
     x = pa.array([0, 1, 2, 3, 4, 5], type=pa.duration("s"))
     half = pa.array([0, 0, 1, 1, 2, 2], type=pa.duration("s"))
     assert pc.multiply(x, 0.5).equals(half)
+    assert pc.multiply(0.5, x).equals(half)
+    assert pc.multiply(x, pa.scalar(0.5, pa.float32())).equals(half)
     assert pc.divide(x, 2.0).equals(half)
     assert pc.multiply(x, 1.5).equals(
         pa.array([0, 1, 3, 4, 6, 7], type=pa.duration("s")))
+
+    # Round trip through float64 from GH-48003
+    deltas = pa.array([1, 2, 3], type=pa.duration("s"))
+    unit = pa.scalar(1, type=pa.duration("s"))
+    assert pc.multiply(pc.divide(deltas, unit), unit).equals(deltas)
 
 
 def test_arithmetic_remainder_modulo():

@@ -1789,6 +1789,17 @@ TEST_F(ScalarTemporalTest, TestTemporalMultiplyDivideDurationByFloat) {
         Invalid, ::testing::HasSubstr("divide by zero"),
         CallFunction(op, {one, ArrayFromJSON(float64(), "[0]")}));
   }
+  // float32 and halffloat are cast to float64
+  auto s = duration(TimeUnit::SECOND);
+  for (auto ty : {float16(), float32()}) {
+    for (auto op : {"multiply", "multiply_checked", "divide", "divide_checked"}) {
+      CheckDispatchBest(op, {s, ty}, {s, float64()});
+    }
+    CheckDispatchBest("multiply", {ty, s}, {float64(), s});
+    CheckScalarBinaryCommutative("multiply", ArrayFromJSON(s, "[5, -3]"),
+                                 ArrayFromJSON(ty, "[1.5, 0.5]"),
+                                 ArrayFromJSON(s, "[7, -1]"));
+  }
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
