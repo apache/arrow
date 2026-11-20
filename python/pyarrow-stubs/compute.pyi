@@ -380,7 +380,7 @@ def mean(
     min_count: int = 1,
     options: ScalarAggregateOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> Scalar | Expression: ...
+) -> DoubleScalar | _DecimalScalar | Expression: ...
 
 min = _clone_signature(first)
 min_max = _clone_signature(first_last)
@@ -424,7 +424,7 @@ def quantile(
     min_count: int = 0,
     options: QuantileOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> DoubleArray | Expression: ...
+) -> NumericArray | _DecimalArray | Expression: ...
 def skew(
     array: _ScalarOrArray | _ArrayLike | Expression,
     /,

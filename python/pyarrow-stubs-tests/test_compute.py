@@ -29,6 +29,15 @@ _Filtered: TypeAlias = (
     pa.Array | pa.ChunkedArray | pa.RecordBatch | pa.Table | pc.Expression
 )
 
+_Quantile: TypeAlias = (
+    pa.NumericArray
+    | pa.Decimal32Array
+    | pa.Decimal64Array
+    | pa.Decimal128Array
+    | pa.Decimal256Array
+    | pc.Expression
+)
+
 
 def test_expression() -> None:
     field = pc.field("a")
@@ -214,11 +223,13 @@ def test_agg_functions() -> None:
     check(pc.last(scalar), pa.Int64Scalar)
     check(pc.first_last((1, 2)), pa.StructScalar)
     check(pc.first_last(scalar), pa.StructScalar)
-    check(assert_type(pc.quantile(arr, q=[0.25, 0.75]),
-                      pa.DoubleArray | pc.Expression),
-          pa.DoubleArray)
+    check(assert_type(pc.quantile(arr, q=[0.25, 0.75]), _Quantile), pa.DoubleArray)
+    check(assert_type(pc.quantile(arr, interpolation="lower"), _Quantile),
+          pa.Int64Array)
     check(assert_type(pc.mode(arr, n=2), pa.StructArray | pc.Expression),
           pa.StructArray)
     check(pc.variance([1, 2, 3]), pa.DoubleScalar)
     check(pc.variance((1, 2, 3)), pa.DoubleScalar)
     check(pc.variance(np.array([1.0, 2.0, 3.0])), pa.DoubleScalar)
+    check(pc.mean(arr), pa.DoubleScalar)
+    check(pc.mean(pc.field(0)), pc.Expression)
