@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable, Hashable, Iterable, Sequence
+from collections.abc import Callable, Hashable, Sequence
 from typing import Any, ParamSpec, TypeAlias, TypeVar
 
 from numpy.typing import NDArray
@@ -331,7 +331,7 @@ def first(
     memory_pool: MemoryPool | None = None,
 ) -> Scalar | Expression: ...
 def first_last(
-    array: _ScalarOrArray | Iterable[Any] | Expression,
+    array: _ComputeInput,
     /,
     *,
     skip_nulls: bool = True,
@@ -573,14 +573,14 @@ subtract_checked = _clone_signature(add)
 
 # ========================= Bit-wise functions =========================
 def bit_wise_and(
-    x: _ScalarOrArray | Expression | float,
-    y: _ScalarOrArray | Expression | float,
+    x: _ComputeInput | int,
+    y: _ComputeInput | int,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> _NumericScalar | _NumericArray | ChunkedArray | Expression: ...
 def bit_wise_not(
-    x: _ScalarOrArray | Expression | float,
+    x: _ComputeInput | int,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -595,16 +595,23 @@ shift_right_checked = _clone_signature(bit_wise_and)
 
 # ========================= Rounding functions =========================
 def ceil(
-    x: _ScalarOrArray | Expression | float,
+    x: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _FloatScalar | FloatingPointArray | ChunkedArray | Expression: ...
+) -> (
+    _FloatScalar
+    | _DecimalScalar
+    | FloatingPointArray
+    | _DecimalArray
+    | ChunkedArray
+    | Expression
+): ...
 
 floor = _clone_signature(ceil)
 
 def round(
-    x: _ScalarOrArray | Iterable[Any] | Expression | float,
+    x: _ComputeInput | float,
     /,
     ndigits: int = 0,
     round_mode: _RoundMode = "half_to_even",
@@ -613,7 +620,7 @@ def round(
     memory_pool: MemoryPool | None = None,
 ) -> _NumericScalar | _NumericArray | ChunkedArray | Expression: ...
 def round_to_multiple(
-    x: _ScalarOrArray | Iterable[Any] | Expression | float,
+    x: _ComputeInput | float,
     /,
     multiple: float | Scalar = 1.0,
     round_mode: _RoundMode = "half_to_even",
@@ -622,8 +629,8 @@ def round_to_multiple(
     memory_pool: MemoryPool | None = None,
 ) -> _NumericScalar | _NumericArray | ChunkedArray | Expression: ...
 def round_binary(
-    x: _ScalarOrArray | Iterable[Any] | float | Expression,
-    s: _ScalarOrArray | int | Expression,
+    x: _ComputeInput | float,
+    s: _ComputeInput | int,
     /,
     round_mode: _RoundMode = "half_to_even",
     *,
@@ -635,7 +642,7 @@ trunc = _clone_signature(ceil)
 
 # ========================= Logarithmic functions =========================
 def ln(
-    x: _ScalarOrArray | Expression | float,
+    x: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -650,8 +657,8 @@ log2 = _clone_signature(ln)
 log2_checked = _clone_signature(ln)
 
 def logb(
-    x: _ScalarOrArray | float | Expression,
-    b: _ScalarOrArray | float | Expression,
+    x: _ComputeInput | float,
+    b: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -667,8 +674,8 @@ asin_checked = _clone_signature(ln)
 atan = _clone_signature(ln)
 
 def atan2(
-    y: _ScalarOrArray | float | Expression,
-    x: _ScalarOrArray | float | Expression,
+    y: _ComputeInput | float,
+    x: _ComputeInput | float,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -790,7 +797,7 @@ def binary_length(
 ): ...
 def binary_repeat(
     strings: _ScalarOrArray | Expression,
-    num_repeats: int | _ArrayOrChunkedArray | Iterable[int | None] | Expression,
+    num_repeats: int | _ComputeInput,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -968,7 +975,7 @@ def binary_join(
     memory_pool: MemoryPool | None = None,
 ) -> _StringOrBinaryScalar | _StringOrBinaryArray | ChunkedArray | Expression: ...
 def binary_join_element_wise(
-    *strings: str | bytes | _ScalarOrArray | Iterable[Any] | Expression,
+    *strings: str | bytes | _ComputeInput,
     null_handling: _NullHandling = "emit_null",
     null_replacement: str = "",
     options: JoinOptions | None = None,
@@ -1491,7 +1498,7 @@ def array_sort_indices(
     memory_pool: MemoryPool | None = None,
 ) -> UInt64Array | Expression: ...
 def partition_nth_indices(
-    array: _ArrayOrChunkedArray | Iterable[Any] | Expression,
+    array: _ArrayOrChunkedArray | _ArrayLike | Expression,
     /,
     pivot: int,
     *,

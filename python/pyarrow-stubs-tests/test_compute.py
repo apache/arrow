@@ -16,6 +16,7 @@
 # under the License.
 
 from collections.abc import Hashable
+from decimal import Decimal
 from types import EllipsisType
 from typing import TYPE_CHECKING, TypeAlias
 
@@ -40,12 +41,14 @@ _Quantile: TypeAlias = (
 
 
 def test_expression() -> None:
+    # Field references and literals
     field = pc.field("a")
     check(assert_type(field, pc.Expression), pc.Expression)
     check(assert_type(pc.field("a", "b"), pc.Expression), pc.Expression)
     check(assert_type(pc.field(("a", 0)), pc.Expression), pc.Expression)
     check(assert_type(pc.scalar(1), pc.Expression), pc.Expression)
 
+    # Operators and methods build expressions
     check(assert_type(field > 1, pc.Expression), pc.Expression)
     check(assert_type(field == 1, pc.Expression), pc.Expression)
     check(assert_type(field != 1, pc.Expression), pc.Expression)
@@ -61,7 +64,7 @@ def test_expression() -> None:
           pc.Expression)
     check(assert_type(field.equals(pc.field("a")), bool), bool)
 
-    # Calling a compute function with an expression builds an expression.
+    # Compute functions on an expression build an expression
     check(pc.count(field), pc.Expression)
     check(pc.mean(field), pc.Expression)
 
@@ -106,18 +109,27 @@ def test_functions() -> None:
 
 
 def test_options() -> None:
+    # Cast options
     check(assert_type(pc.CastOptions.safe(pa.int64()), pc.CastOptions),
           pc.CastOptions)
     check(assert_type(pc.CastOptions.safe().is_safe(), bool), bool)
+
     check(assert_type(pc.ScalarAggregateOptions(skip_nulls=False),
                       pc.ScalarAggregateOptions),
           pc.ScalarAggregateOptions)
+
+    # Sort keys refer to a column by name or index
     check(assert_type(pc.SortOptions([("a", "ascending", "at_start")]),
                       pc.SortOptions),
           pc.SortOptions)
     check(assert_type(pc.SortOptions([(0, "ascending", "at_start")]),
                       pc.SortOptions),
           pc.SortOptions)
+    check(assert_type(pc.SelectKOptions(1, [("a", "ascending", "at_end")]),
+                      pc.SelectKOptions),
+          pc.SelectKOptions)
+
+    # Struct fields: metadata may be None, fields by name or index
     md = pa.KeyValueMetadata({"k": "v"})
     check(assert_type(pc.MakeStructOptions(["a", "b"], field_metadata=[None, md]),
                       pc.MakeStructOptions),
@@ -126,9 +138,8 @@ def test_options() -> None:
           pc.StructFieldOptions)
     check(assert_type(pc.StructFieldOptions(["a", "b"]), pc.StructFieldOptions),
           pc.StructFieldOptions)
-    check(assert_type(pc.SelectKOptions(1, [("a", "ascending", "at_end")]),
-                      pc.SelectKOptions),
-          pc.SelectKOptions)
+
+    # Other parameter types: ChunkedArray value set, hashable seed, Literals
     check(assert_type(pc.SetLookupOptions(pa.chunked_array([[1, 2]])),
                       pc.SetLookupOptions),
           pc.SetLookupOptions)
@@ -137,6 +148,8 @@ def test_options() -> None:
     check(assert_type(pc.SearchSortedOptions(side="right"),
                       pc.SearchSortedOptions),
           pc.SearchSortedOptions)
+
+    # Options can be serialized
     options = pc.RoundOptions(2, round_mode="half_up")
     check(assert_type(options.serialize(), Buffer), Buffer)
 
@@ -150,6 +163,7 @@ def test_array_wise_functions() -> None:
     arr = pa.array([3, 1, 2])
     table = pa.table({"a": [3, 1, 2]})
 
+    # Sorts and selections
     check(assert_type(pc.array_sort_indices(arr), pa.UInt64Array | pc.Expression),
           pa.UInt64Array)
     check(assert_type(pc.sort_indices(table, [("a", "descending")]),
@@ -167,6 +181,7 @@ def test_array_wise_functions() -> None:
     check(assert_type(pc.value_counts(arr), pa.StructArray | pc.Expression),
           pa.StructArray)
 
+    # Filters keep the input kind: table, array or expression
     mask = pa.array([True, False, True])
     check(assert_type(pc.filter(table, mask), _Filtered), pa.Table)
     check(assert_type(pc.drop_null(table), _Filtered), pa.Table)
@@ -174,7 +189,7 @@ def test_array_wise_functions() -> None:
                       _Filtered),
           pc.Expression)
 
-    # Python lists and other iterables are accepted where the stubs list them.
+    # Python lists and tuples accepted
     check(assert_type(pc.partition_nth_indices([3, 1, 2], pivot=1),
                       pa.UInt64Array | pc.Expression),
           pa.UInt64Array)
@@ -187,6 +202,8 @@ def test_array_wise_functions() -> None:
         pc.top_k_unstable(arr, "2")  # type: ignore[arg-type]
         pc.sort_indices(table, [("a", "up")])  # type: ignore[list-item]
         pc.cumulative_sum(range(3))  # type: ignore[arg-type]
+        # TODO: test invalid code once the scalar stubs are annotated
+        # pc.variance(range(3)), pc.round("abc")
 
 
 def test_element_wise_functions() -> None:
@@ -194,32 +211,59 @@ def test_element_wise_functions() -> None:
 
     check(assert_type(pc.random(3), pa.DoubleArray), pa.DoubleArray)
 
+    # Arithmetic: Python literals, lists and tuples accepted
     check(pc.abs([1, 2]), pa.Int64Array)
-    check(pc.abs((1.0, -2.0)), pa.DoubleArray)
+    check(pc.abs((1.5, -2.5)), pa.DoubleArray)
     check(pc.abs(1), pa.Int64Scalar)
-    check(pc.abs_checked(-2.0), pa.DoubleScalar)
-    check(pc.add(-2.0, 1.0), pa.DoubleScalar)
-    check(pc.add_checked([2.0, 3.0], 1), pa.DoubleArray)
-    check(pc.exp(2.0), pa.DoubleScalar)
+    check(pc.abs_checked(-2.5), pa.DoubleScalar)
+    check(pc.add(-2.5, 1.5), pa.DoubleScalar)
+    check(pc.add_checked([2.5, 3.5], 1), pa.DoubleArray)
+    check(pc.exp(2.5), pa.DoubleScalar)
     check(pc.exp([1, 2]), pa.DoubleArray)
     check(pc.divide([1, 2, 3], 1), pa.Int64Array)
-    check(pc.divide(arr, 2.0), pa.Array)
+    check(pc.divide(arr, 2.5), pa.Array)
     check(pc.hypot([1, 2, 3], 1), pa.DoubleArray)
     check(pc.modulo([7, -7], [3, 3]), pa.Int64Array)
     check(pc.power(arr, 2), pa.Array)
     check(pc.sqrt(pa.chunked_array([[1], [2, 3]])), pa.ChunkedArray)
 
-    # Python lists and other iterables are accepted where the stubs list them.
+    # Bit-wise functions
+    check(pc.bit_wise_and([1, 1], [1, 1]), pa.Int64Array)
+    check(pc.bit_wise_not([1, 1]), pa.Int64Array)
+
+    # Rounding returns floats, or decimals for decimal input
+    check(pc.ceil(1.5), pa.DoubleScalar)
+    check(pc.floor([1, 2]), pa.DoubleArray)
+    check(pc.trunc(pa.scalar(Decimal("1.5"))), pa.Decimal128Scalar)
+    check(pc.trunc(pa.array([Decimal("1.5")])), pa.Decimal128Array)
+
+    # Logarithms return floats
+    check(pc.ln(pa.array([Decimal("1.5")])), pa.DoubleArray)
+
+    # Trigonometric functions return floats, also for decimal input
+    # Python lists and tuples accepted
+    check(pc.sin([1, 2]), pa.DoubleArray)
+    check(pc.acos(0.5), pa.DoubleScalar)
+    check(pc.atan2(1.5, [1, 2]), pa.DoubleArray)
+    check(pc.cosh(pa.array([Decimal("1.5")])), pa.DoubleArray)
+
+    # Python lists and tuples accepted
     check(pc.round((1.5, 2.5)), pa.Array)
     check(pc.round([1.5, 2.5]), pa.Array)
     check(pc.binary_repeat(pa.array(["a"]), (2,)), pa.Array)
     check(pc.binary_join_element_wise(["a", "b"], ["c", "d"], "-"), pa.Array)
     check(pc.struct_field(pa.array([{"a": 1}]), ("a",)), pa.Array)
+    check(pc.acos([1.1, 1.1]), pa.DoubleArray)
+    check(pc.atan2([1.1, 1.1], [1.1, 1.1]), pa.DoubleArray)
 
+    # An Expression as the first argument gives an Expression
     selected = pc.if_else([True, False], [1, 2], [3, 4])
     check(assert_type(selected, pa.Scalar | pa.Array | pa.ChunkedArray | pc.Expression),
           pa.Array)
     check(pc.if_else(pc.field("a") > 1, 1, 2), pc.Expression)
+
+    # TODO: test invalid code once the scalar stubs are annotated
+    # pc.bit_wise_and(1.0, 1.0), pc.bit_wise_not(1.0)
 
 
 def test_agg_functions() -> None:
@@ -228,19 +272,26 @@ def test_agg_functions() -> None:
     arr = pa.array([3, 1, 2])
     scalar = pa.scalar(1)
 
+    # Scalar input accepted
     check(pc.count(scalar), pa.Int64Scalar)
     check(pc.count_distinct(scalar), pa.Int64Scalar)
     check(pc.first(scalar), pa.Int64Scalar)
     check(pc.last(scalar), pa.Int64Scalar)
     check(pc.first_last((1, 2)), pa.StructScalar)
     check(pc.first_last(scalar), pa.StructScalar)
+
+    # Quantile returns doubles, or the input type for "lower", "higher", "nearest"
     check(assert_type(pc.quantile(arr, q=[0.25, 0.75]), _Quantile), pa.DoubleArray)
     check(assert_type(pc.quantile(arr, interpolation="lower"), _Quantile),
           pa.Int64Array)
     check(assert_type(pc.mode(arr, n=2), pa.StructArray | pc.Expression),
           pa.StructArray)
+
+    # Python lists, tuples and NumPy arrays accepted
     check(pc.variance([1, 2, 3]), pa.DoubleScalar)
     check(pc.variance((1, 2, 3)), pa.DoubleScalar)
     check(pc.variance(np.array([1.0, 2.0, 3.0])), pa.DoubleScalar)
+
+    # An Expression as input gives an Expression
     check(pc.mean(arr), pa.DoubleScalar)
     check(pc.mean(pc.field(0)), pc.Expression)
