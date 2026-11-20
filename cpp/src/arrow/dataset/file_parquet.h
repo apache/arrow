@@ -120,6 +120,26 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       FileSource source, compute::Expression partition_expression,
       std::shared_ptr<Schema> physical_schema, std::vector<int> row_groups);
 
+  /// \brief Create a Fragment initialized with already loaded FileMetaData.
+  ///
+  /// No I/O is performed. The fragment uses `metadata` instead of reading the
+  /// footer of `source`, so row groups can be pruned using statistics and scanned
+  /// without a redundant footer read. `metadata` must describe the file referenced
+  /// by `source`, e.g. a per-file subset of a `_metadata` file obtained with
+  /// parquet::FileMetaData::Subset(). It is kept alive by the fragment.
+  ///
+  /// \param[in] source the file to scan
+  /// \param[in] partition_expression an expression guaranteed true for all rows
+  /// \param[in] physical_schema if null, inferred from `metadata`; otherwise it must
+  /// equal the schema inferred from `metadata`
+  /// \param[in] row_groups indices of the selected row groups, or std::nullopt to
+  /// select all row groups described by `metadata`
+  /// \param[in] metadata the FileMetaData of `source`, must not be null
+  Result<std::shared_ptr<ParquetFileFragment>> MakeFragment(
+      FileSource source, compute::Expression partition_expression,
+      std::shared_ptr<Schema> physical_schema, std::optional<std::vector<int>> row_groups,
+      std::shared_ptr<parquet::FileMetaData> metadata);
+
   /// \brief Return a FileReader on the given source.
   Result<std::shared_ptr<parquet::arrow::FileReader>> GetReader(
       const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;

@@ -433,6 +433,233 @@ TEST_F(TestParquetFileFormat, CachedMetadata) {
   ASSERT_NE(nullptr, pq_fragment->metadata());
 }
 
+namespace {
+
+// The last 8 bytes of a Parquet file hold the footer length and the magic
+// bytes, which are always read when the footer is parsed.
+bool ReadsFooter(const io::TrackedRandomAccessFile& file, int64_t file_size) {
+  for (const auto& range : file.get_read_ranges()) {
+    if (range.offset + range.length > file_size - 8) return true;
+  }
+  return false;
+}
+
+// A FileSource over an in-memory Parquet file counting opens and reads.
+struct TrackedParquetSource {
+  explicit TrackedParquetSource(std::shared_ptr<Buffer> buffer)
+      : buffer(std::move(buffer)),
+        buffer_reader(std::make_shared<io::BufferReader>(this->buffer)),
+        tracked(io::TrackedRandomAccessFile::Make(buffer_reader.get())) {}
+
+  FileSource source() {
+    return FileSource(
+        [this]() -> Result<std::shared_ptr<io::RandomAccessFile>> {
+          ++num_opens;
+          return tracked;
+        },
+        buffer->size());
+  }
+
+  std::shared_ptr<Buffer> buffer;
+  std::shared_ptr<io::BufferReader> buffer_reader;
+  std::shared_ptr<io::TrackedRandomAccessFile> tracked;
+  int num_opens = 0;
+};
+
+}  // namespace
+
+TEST_F(TestParquetFileFormat, MakeFragmentWithMetadata) {
+  constexpr int kNumRowGroups = 16;
+  constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
+
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
+  auto metadata = parquet::ReadMetaData(std::make_shared<io::BufferReader>(buffer));
+  ASSERT_EQ(metadata->num_row_groups(), kNumRowGroups);
+
+  TrackedParquetSource file(buffer);
+  ASSERT_OK_AND_ASSIGN(auto fragment,
+                       format_->MakeFragment(file.source(), literal(true),
+                                             /*physical_schema=*/nullptr,
+                                             /*row_groups=*/std::nullopt, metadata));
+
+  // Construction, schema and metadata access perform no I/O.
+  ASSERT_EQ(fragment->metadata(), metadata);
+  ASSERT_EQ(fragment->row_groups(), ::arrow::internal::Iota(kNumRowGroups));
+  ASSERT_OK_AND_ASSIGN(auto physical_schema, fragment->ReadPhysicalSchema());
+  ASSERT_OK(fragment->EnsureCompleteMetadata());
+  ASSERT_EQ(file.num_opens, 0);
+  ASSERT_EQ(file.tracked->num_reads(), 0);
+
+  // The schema matches the one read from the file by a regular fragment.
+  auto regular = MakeFragment(FileSource(buffer));
+  ASSERT_OK_AND_ASSIGN(auto expected_schema, regular->ReadPhysicalSchema());
+  AssertSchemaEqual(*expected_schema, *physical_schema);
+
+  // Scanning reads data pages but not the footer.
+  SetSchema(reader->schema()->fields());
+  SetFilter(literal(true));
+  CountRowsAndBatchesInScan(fragment, kTotalNumRows, kNumRowGroups);
+  ASSERT_EQ(file.num_opens, 1);
+  ASSERT_GT(file.tracked->num_reads(), 0);
+  ASSERT_FALSE(ReadsFooter(*file.tracked, buffer->size()));
+  ASSERT_EQ(fragment->metadata(), metadata);
+
+  // Contrast: a regular fragment over the same file reads the footer on scan.
+  TrackedParquetSource regular_file(buffer);
+  ASSERT_OK_AND_ASSIGN(auto regular_fragment,
+                       format_->MakeFragment(regular_file.source(), literal(true)));
+  CountRowsAndBatchesInScan(regular_fragment, kTotalNumRows, kNumRowGroups);
+  ASSERT_TRUE(ReadsFooter(*regular_file.tracked, buffer->size()));
+}
+
+TEST_F(TestParquetFileFormat, MakeFragmentWithMetadataRowGroups) {
+  constexpr int kNumRowGroups = 16;
+
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
+  auto metadata = parquet::ReadMetaData(std::make_shared<io::BufferReader>(buffer));
+  SetSchema(reader->schema()->fields());
+
+  // Row group i holds i + 1 rows.
+  ASSERT_OK_AND_ASSIGN(auto fragment,
+                       format_->MakeFragment(FileSource(buffer), literal(true),
+                                             /*physical_schema=*/nullptr,
+                                             std::vector<int>{1, 3, 10}, metadata));
+  ASSERT_EQ(fragment->row_groups(), std::vector<int>({1, 3, 10}));
+
+  SetFilter(literal(true));
+  CountRowsAndBatchesInScan(fragment, 2 + 4 + 11, 3);
+  // Pruning applies to the selected row groups only.
+  SetFilter(less(field_ref("i64"), literal<int64_t>(5)));
+  CountRowsAndBatchesInScan(fragment, 2 + 4, 2);
+  CountRowGroupsInFragment(fragment, {1, 3}, less(field_ref("i64"), literal(5)));
+  SetFilter(equal(field_ref("i64"), literal<int64_t>(1)));
+  CountRowsAndBatchesInScan(fragment, 0, 0);
+
+  ASSERT_OK_AND_ASSIGN(fragment, format_->MakeFragment(FileSource(buffer), literal(true),
+                                                       /*physical_schema=*/nullptr,
+                                                       std::vector<int>{}, metadata));
+  SetFilter(literal(true));
+  CountRowsAndBatchesInScan(fragment, 0, 0);
+}
+
+TEST_F(TestParquetFileFormat, MakeFragmentWithMetadataPredicatePushdown) {
+  constexpr int kNumRowGroups = 16;
+  constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
+
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
+  auto metadata = parquet::ReadMetaData(std::make_shared<io::BufferReader>(buffer));
+  SetSchema(reader->schema()->fields());
+
+  TrackedParquetSource file(buffer);
+  ASSERT_OK_AND_ASSIGN(auto fragment,
+                       format_->MakeFragment(file.source(), literal(true),
+                                             /*physical_schema=*/nullptr,
+                                             /*row_groups=*/std::nullopt, metadata));
+
+  // Filters matching no row group are resolved from the metadata alone.
+  SetFilter(literal(false));
+  CountRowsAndBatchesInScan(fragment, 0, 0);
+  SetFilter(equal(field_ref("i64"), literal<int64_t>(kNumRowGroups + 1)));
+  CountRowsAndBatchesInScan(fragment, 0, 0);
+  SetFilter(and_(equal(field_ref("i64"), literal<int64_t>(1)),
+                 equal(field_ref("u8"), literal<uint8_t>(2))));
+  CountRowsAndBatchesInScan(fragment, 0, 0);
+  ASSERT_EQ(file.num_opens, 0);
+
+  for (int64_t i = 1; i <= kNumRowGroups; i++) {
+    SetFilter(equal(field_ref("i64"), literal(i)));
+    CountRowsAndBatchesInScan(fragment, i, 1);
+  }
+  SetFilter(less(field_ref("i64"), literal<int64_t>(6)));
+  CountRowsAndBatchesInScan(fragment, 5 * (5 + 1) / 2, 5);
+  SetFilter(greater_equal(field_ref("i64"), literal<int64_t>(6)));
+  CountRowsAndBatchesInScan(fragment, kTotalNumRows - (5 * (5 + 1) / 2),
+                            kNumRowGroups - 5);
+  ASSERT_FALSE(ReadsFooter(*file.tracked, buffer->size()));
+
+  CountRowGroupsInFragment(fragment, {5, 6},
+                           and_(greater_equal(field_ref("i64"), literal(6)),
+                                less(field_ref("i64"), literal(8))));
+
+  auto options = std::make_shared<ScanOptions>();
+  ASSERT_OK_AND_ASSIGN(auto predicate,
+                       less_equal(field_ref("i64"), literal(4)).Bind(*reader->schema()));
+  ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4 * (4 + 1) / 2),
+                            fragment->CountRows(predicate, options));
+}
+
+TEST_F(TestParquetFileFormat, MakeFragmentWithMetadataInvalid) {
+  constexpr int kNumRowGroups = 4;
+
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
+  auto metadata = parquet::ReadMetaData(std::make_shared<io::BufferReader>(buffer));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("metadata must not be null"),
+                                  format_->MakeFragment(FileSource(buffer), literal(true),
+                                                        nullptr, std::nullopt, nullptr));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IndexError, ::testing::HasSubstr("references row group 4"),
+      format_->MakeFragment(FileSource(buffer), literal(true), nullptr,
+                            std::vector<int>{0, kNumRowGroups}, metadata));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      IndexError, ::testing::HasSubstr("references row group -1"),
+      format_->MakeFragment(FileSource(buffer), literal(true), nullptr,
+                            std::vector<int>{-1}, metadata));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Fragment initialized with physical schema"),
+      format_->MakeFragment(FileSource(buffer), literal(true),
+                            schema({field("x", int32())}), std::nullopt, metadata));
+}
+
+TEST_F(TestParquetFileFormat, MakeFragmentWithMetadataSubset) {
+  // Emulate a `_metadata` file: the row groups of two files concatenated in
+  // a single FileMetaData. Each file's fragment gets its own subset.
+  std::vector<std::shared_ptr<Buffer>> buffers;
+  std::shared_ptr<parquet::FileMetaData> combined;
+  std::vector<std::vector<int>> row_groups_per_file;
+  int offset = 0;
+  for (int num_row_groups : {3, 5}) {
+    auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(num_row_groups);
+    ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
+    auto metadata = parquet::ReadMetaData(std::make_shared<io::BufferReader>(buffer));
+    if (combined == nullptr) {
+      combined = metadata->Subset(::arrow::internal::Iota(metadata->num_row_groups()));
+    } else {
+      combined->AppendRowGroups(*metadata);
+    }
+    row_groups_per_file.push_back(
+        ::arrow::internal::Iota(offset, offset + num_row_groups));
+    offset += num_row_groups;
+    buffers.push_back(std::move(buffer));
+  }
+  ASSERT_EQ(combined->num_row_groups(), 8);
+  SetSchema(ArithmeticDatasetFixture::schema()->fields());
+
+  std::vector<std::shared_ptr<ParquetFileFragment>> fragments;
+  for (size_t i = 0; i < buffers.size(); i++) {
+    auto subset = combined->Subset(row_groups_per_file[i]);
+    ASSERT_EQ(subset->num_row_groups(), static_cast<int>(row_groups_per_file[i].size()));
+    ASSERT_OK_AND_ASSIGN(auto fragment,
+                         format_->MakeFragment(FileSource(buffers[i]), literal(true),
+                                               nullptr, std::nullopt, std::move(subset)));
+    fragments.push_back(std::move(fragment));
+  }
+  // The fragments own their metadata and schema descriptors.
+  combined.reset();
+
+  SetFilter(literal(true));
+  CountRowsAndBatchesInScan(fragments[0], 1 + 2 + 3, 3);
+  CountRowsAndBatchesInScan(fragments[1], 1 + 2 + 3 + 4 + 5, 5);
+  SetFilter(greater(field_ref("i64"), literal<int64_t>(3)));
+  CountRowsAndBatchesInScan(fragments[0], 0, 0);
+  CountRowsAndBatchesInScan(fragments[1], 4 + 5, 2);
+}
+
 TEST_F(TestParquetFileFormat, MultithreadedScan) {
   constexpr int64_t kNumRowGroups = 16;
 

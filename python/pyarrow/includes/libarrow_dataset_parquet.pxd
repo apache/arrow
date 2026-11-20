@@ -74,6 +74,12 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CExpression partition_expression,
             shared_ptr[CSchema] physical_schema,
             vector[int] row_groups)
+        CResult[shared_ptr[CParquetFileFragment]] MakeFragment(
+            CFileSource source,
+            CExpression partition_expression,
+            shared_ptr[CSchema] physical_schema,
+            optional[vector[int]] row_groups,
+            shared_ptr[CFileMetaData] metadata)
 
     cdef cppclass CParquetFragmentScanOptions \
             "arrow::dataset::ParquetFragmentScanOptions"(CFragmentScanOptions):

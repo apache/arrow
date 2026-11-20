@@ -275,6 +275,10 @@ TEST(Metadata, TestBuildAccess) {
   f_accessor_1 = f_accessor_2->Subset({0});
   f_accessor_1->AppendRowGroups(*f_accessor->Subset({0}));
   ASSERT_TRUE(f_accessor_1->Equals(*f_accessor->Subset({2, 0})));
+
+  // Subset rejects out-of-range row group indices
+  ASSERT_THROW(f_accessor->Subset({8}), ParquetException);
+  ASSERT_THROW(f_accessor->Subset({0, -1}), ParquetException);
 }
 
 namespace {
