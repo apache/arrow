@@ -3575,14 +3575,20 @@ TEST(TestIpcReadOptions, NegativeLimitsInvalid) {
   auto options = IpcReadOptions::Defaults();
   ASSERT_OK(options.Validate());
 
-  for (auto* opt : {&options.max_metadata_length, &options.max_body_length,
-                    &options.max_decompression_ratio}) {
+  for (int64_t* opt : {&options.max_metadata_length, &options.max_body_length}) {
     *opt = -2;
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid, ::testing::HasSubstr("must be -1 or non-negative, got -2"),
         options.Validate());
     *opt = -1;
   }
+
+  options.max_decompression_ratio = -2;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("max_decompression_ratio must be -1 or non-negative, got -2"),
+      options.Validate());
+  options.max_decompression_ratio = -1;
 
   options.max_recursion_depth = -1;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
