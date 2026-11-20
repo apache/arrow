@@ -258,7 +258,6 @@ static void CoalescedRead(benchmark::State& st, S3FileSystem* fs,
   int total_items = 0;
   for (auto _ : st) {
     std::shared_ptr<io::RandomAccessFile> file;
-    std::shared_ptr<Buffer> buf;
     int64_t size = 0;
     ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
     ASSERT_OK_AND_ASSIGN(size, file->GetSize());
@@ -281,8 +280,9 @@ static void CoalescedRead(benchmark::State& st, S3FileSystem* fs,
     offset = 0;
     while (offset < size) {
       const int64_t read = std::min(size, kChunkSize);
-      ASSERT_OK_AND_ASSIGN(buf, cache.Read({offset, read}));
-      total_bytes += buf->size();
+      ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({offset, read}));
+      ASSERT_TRUE(buf);
+      total_bytes += (*buf)->size();
       offset += read;
     }
   }
