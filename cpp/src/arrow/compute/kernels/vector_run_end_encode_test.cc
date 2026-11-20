@@ -22,6 +22,7 @@
 #include "arrow/builder.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging_internal.h"
@@ -626,6 +627,37 @@ TEST(TestRunEndEncodeDecodeNested, Struct) {
 
   AssertNestedRunEndEncodeDecode(ArrayFromJSON(value_type, "[]"), "[]",
                                  ArrayFromJSON(value_type, "[]"));
+}
+
+TEST(TestRunEndEncodeDecodeNested, NaN) {
+  auto value_type = struct_({field("a", int32()), field("b", float32())});
+  std::vector<uint8_t> valid_bytes(9, 1);
+  float s_nan = std::numeric_limits<float>::signaling_NaN();
+  float q_nan = std::numeric_limits<float>::quiet_NaN();
+
+  ASSERT_OK_AND_ASSIGN(auto raw_builder, MakeBuilder(value_type));
+  auto struct_builder =
+      arrow::internal::checked_pointer_cast<StructBuilder>(std::move(raw_builder));
+
+  auto int_builder = arrow::internal::checked_pointer_cast<Int32Builder>(
+      struct_builder->child_builder(0));
+
+  auto float_builder = arrow::internal::checked_pointer_cast<FloatBuilder>(
+      struct_builder->child_builder(1));
+
+  ASSERT_OK(int_builder->AppendValues({0, 0, 0, 1, 1, 1, 2, 2, 2}));
+  ASSERT_OK(float_builder->AppendValues(
+      {s_nan, s_nan, s_nan, 1.0, 1.0, 1.0, q_nan, q_nan, 1.0}));
+  ASSERT_OK(struct_builder->AppendValues(valid_bytes.size(), valid_bytes.data()));
+  ASSERT_OK_AND_ASSIGN(auto struct_array, struct_builder->Finish());
+
+  ASSERT_OK(struct_builder->AppendScalars(
+      {*struct_array->GetScalar(0), *struct_array->GetScalar(3),
+       *struct_array->GetScalar(6), *struct_array->GetScalar(8)}));
+
+  ASSERT_OK_AND_ASSIGN(auto expected_values, struct_builder->Finish());
+
+  AssertNestedRunEndEncodeDecode(struct_array, "[3, 6, 8, 9]", expected_values);
 }
 
 }  // namespace compute

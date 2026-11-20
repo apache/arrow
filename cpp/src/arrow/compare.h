@@ -108,6 +108,19 @@ class EqualOptions {
     return res;
   }
 
+  /// Whether to compare floating-point values by their physical representation.
+  bool physical_repr_equal() const { return physical_repr_equal_; }
+
+  /// Return a copy of this EqualOptions object with the "physical_repr_equal"
+  /// property set to the specified value.
+  /// If both "physical_repr_equal" and "nans_equal" are enabled, two values
+  /// are considered equal if either condition is satisfied.
+  EqualOptions physical_repr_equal(bool v) const {
+    auto res = EqualOptions(*this);
+    res.physical_repr_equal_ = v;
+    return res;
+  }
+
   /// Whether the \ref arrow::Schema property is used in the comparison.
   ///
   /// This option only affects the Equals methods
@@ -160,6 +173,7 @@ class EqualOptions {
   std::optional<int32_t> ulp_distance_ = std::nullopt;
   bool nans_equal_ = false;
   bool signed_zeros_equal_ = true;
+  bool physical_repr_equal_ = false;
   bool use_schema_ = true;
   bool use_metadata_ = false;
 
