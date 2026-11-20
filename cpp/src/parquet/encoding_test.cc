@@ -23,7 +23,9 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -2478,6 +2480,128 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
     CheckEncode(array, lengths);
     CheckDecode(encoded, array);
   }
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc, UsesProvidedMemoryPool) {
+  constexpr int kCount = 320;
+  ::arrow::StringBuilder dense_builder;
+  ::arrow::StringBuilder nullable_builder;
+  ::arrow::LargeStringBuilder large_builder;
+  ::arrow::StringViewBuilder view_builder;
+
+  int64_t full_bytes = 0;
+  int64_t nullable_bytes = 0;
+  int64_t sliced_bytes = 0;
+  std::vector<std::string> raw_strings;
+  raw_strings.reserve(kCount);
+  for (int i = 0; i < kCount; ++i) {
+    std::string val = (i % 2 == 0) ? ("short_" + std::to_string(i))
+                                   : ("long_out_of_line_payload_" + std::to_string(i));
+    const auto val_bytes = static_cast<int64_t>(val.size());
+    raw_strings.push_back(val);
+    full_bytes += val_bytes;
+    if (i >= 5 && i < kCount - 5) {
+      sliced_bytes += val_bytes;
+    }
+
+    ASSERT_OK(dense_builder.Append(val));
+    if (i % 7 == 0) {
+      ASSERT_OK(nullable_builder.AppendNull());
+    } else {
+      ASSERT_OK(nullable_builder.Append(val));
+      nullable_bytes += val_bytes;
+    }
+    ASSERT_OK(large_builder.Append(val));
+    ASSERT_OK(view_builder.Append(val));
+  }
+  ASSERT_OK_AND_ASSIGN(auto dense_arr, dense_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto nullable_arr, nullable_builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto large_arr, large_builder.Finish());
+  auto sliced_large = large_arr->Slice(5, kCount - 10);
+  ASSERT_OK_AND_ASSIGN(auto view_arr, view_builder.Finish());
+
+  std::vector<ByteArray> raw_ba;
+  raw_ba.reserve(raw_strings.size());
+  for (const auto& s : raw_strings) {
+    raw_ba.emplace_back(static_cast<uint32_t>(s.size()),
+                        reinterpret_cast<const uint8_t*>(s.data()));
+  }
+
+  constexpr int kSpacedCount = 8;
+  constexpr uint8_t kSpacedValidBits = 0b10110101;
+  int64_t spaced_bytes = 0;
+  for (int i = 0; i < kSpacedCount; ++i) {
+    if (bit_util::GetBit(&kSpacedValidBits, i)) {
+      spaced_bytes += raw_ba[i].len;
+    }
+  }
+  const int64_t expected_payload_bytes =
+      3 * full_bytes + nullable_bytes + sliced_bytes + spaced_bytes;
+  auto descr = ExampleDescr<ByteArrayType>();
+
+  for (auto encoding : {Encoding::DELTA_LENGTH_BYTE_ARRAY, Encoding::DELTA_BYTE_ARRAY}) {
+    ARROW_SCOPED_TRACE("encoding = ", EncodingToString(encoding));
+    std::unique_ptr<MemoryPool> tracking_pool = MemoryPool::CreateDefault();
+    int64_t flushed_bytes = 0;
+
+    const int64_t default_before = default_memory_pool()->total_bytes_allocated();
+    {
+      auto encoder = MakeTypedEncoder<ByteArrayType>(encoding, /*use_dictionary=*/false,
+                                                     descr.get(), tracking_pool.get());
+      EXPECT_EQ(tracking_pool.get(), encoder->memory_pool());
+
+      for (const auto& arr : {dense_arr, nullable_arr, sliced_large, view_arr}) {
+        encoder->Put(*arr);
+        flushed_bytes += encoder->FlushValues()->size();
+      }
+      encoder->Put(raw_ba.data(), static_cast<int>(raw_ba.size()));
+      flushed_bytes += encoder->FlushValues()->size();
+
+      encoder->PutSpaced(raw_ba.data(), kSpacedCount, &kSpacedValidBits,
+                         /*valid_bits_offset=*/0);
+      flushed_bytes += encoder->FlushValues()->size();
+    }
+    const int64_t default_after = default_memory_pool()->total_bytes_allocated();
+
+    EXPECT_EQ(default_before, default_after);
+    EXPECT_GT(flushed_bytes, 0);
+    EXPECT_GT(tracking_pool->num_allocations(), 0);
+    EXPECT_GE(tracking_pool->total_bytes_allocated(), flushed_bytes);
+    if (encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
+      EXPECT_GT(flushed_bytes, expected_payload_bytes);
+      EXPECT_GE(tracking_pool->total_bytes_allocated(), expected_payload_bytes);
+    }
+    EXPECT_EQ(0, tracking_pool->bytes_allocated());
+  }
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc, ZeroLengthNullPtr) {
+  auto descr = ExampleDescr<ByteArrayType>();
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                                 /*use_dictionary=*/false, descr.get());
+
+  const std::string abc = "abc";
+  std::vector<ByteArray> mixed = {
+      ByteArray(0, nullptr),
+      ByteArray(3, reinterpret_cast<const uint8_t*>(abc.data())),
+      ByteArray(0, nullptr),
+  };
+  encoder->Put(mixed.data(), static_cast<int>(mixed.size()));
+  EXPECT_EQ(3, encoder->ReportUnencodedDataBytes());
+  auto buf = encoder->FlushValues();
+  EXPECT_EQ(DeltaEncode({0, 3, 0})->ToString() + "abc", buf->ToString());
+
+  std::vector<ByteArray> all_zero_null(4, ByteArray(0, nullptr));
+  encoder->Put(all_zero_null.data(), static_cast<int>(all_zero_null.size()));
+  EXPECT_EQ(0, encoder->ReportUnencodedDataBytes());
+  auto zero_buf = encoder->FlushValues();
+  EXPECT_EQ(DeltaEncode({0, 0, 0, 0})->ToString(), zero_buf->ToString());
+
+  const uint8_t valid_bits = 0b00001010;  // indices 1 and 3 valid (both 0-len nullptr)
+  encoder->PutSpaced(all_zero_null.data(), 4, &valid_bits, /*valid_bits_offset=*/0);
+  EXPECT_EQ(0, encoder->ReportUnencodedDataBytes());
+  auto spaced_buf = encoder->FlushValues();
+  EXPECT_EQ(DeltaEncode(std::vector<int32_t>{0, 0})->ToString(), spaced_buf->ToString());
 }
 
 // ----------------------------------------------------------------------
