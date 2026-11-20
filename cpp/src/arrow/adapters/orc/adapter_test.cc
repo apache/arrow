@@ -551,6 +551,13 @@ TEST(TestAdapterRead, StripeBatchProjectionAndArguments) {
   ASSERT_EQ(10000, batch->num_rows());
   ASSERT_EQ(StripeBatchValue(16384, 2),
             checked_cast<const Int64Array&>(*batch->column(1)).Value(0));
+  ASSERT_OK_AND_ASSIGN(auto large_batch, reader->GetStripeReader(0, 65536));
+  ASSERT_OK(large_batch->ReadNext(&batch));
+  ASSERT_EQ(16384, batch->num_rows());
+  ASSERT_EQ(StripeBatchValue(0, 0),
+            checked_cast<const Int64Array&>(*batch->column(0)).Value(0));
+  ASSERT_OK(large_batch->ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
   ASSERT_OK_AND_ASSIGN(auto zero,
                        reader->GetStripeReader(2, 1000, std::vector<std::string>{}));
   int64_t rows = 0;

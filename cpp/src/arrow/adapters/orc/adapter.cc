@@ -518,6 +518,8 @@ class ORCFileReader::Impl {
       RETURN_NOT_OK(SelectNames(&opts, *include_names));
     }
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
+    batch_size = std::max<int64_t>(
+        1, std::min(batch_size, stripes_[static_cast<size_t>(stripe)].num_rows));
     std::unique_ptr<liborc::RowReader> row_reader;
     ORC_CATCH_NOT_OK(row_reader = reader_->createRowReader(opts));
     ARROW_ASSIGN_OR_RAISE(auto schema, GetArrowSchema(row_reader->getSelectedType()));

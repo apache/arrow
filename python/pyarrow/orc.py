@@ -184,7 +184,8 @@ class ORCFile:
             an empty sequence produces no batches.
         columns : list, optional
             Column names, nested field paths, or top-level integer indices,
-            as in read_stripe. Names and integer indices cannot be mixed.
+            using the same selection syntax as read_stripe. Names and integer
+            indices cannot be mixed.
             Output follows the file's column order. None
             reads all columns; an empty list reads no columns but preserves
             the number of rows.

@@ -239,7 +239,6 @@ cdef class ORCReader(_Weakrefable):
         object source
         CMemoryPool* allocator
         unique_ptr[ORCFileReader] reader
-        shared_ptr[CRandomAccessFile] source_handle
 
     def __cinit__(self, MemoryPool memory_pool=None):
         self.allocator = maybe_unbox_memory_pool(memory_pool)
@@ -251,7 +250,6 @@ cdef class ORCReader(_Weakrefable):
         self.source = source
 
         get_reader(source, use_memory_map, &rd_handle)
-        self.source_handle = rd_handle
         with nogil:
             self.reader = move(GetResultValue(
                 ORCFileReader.Open(rd_handle, self.allocator)
@@ -390,6 +388,7 @@ cdef class ORCReader(_Weakrefable):
         try:
             for index in stripe_indices:
                 if index is None:
+                    batch_size = max(1, min(batch_size, self.nrows()))
                     with nogil:
                         batch_reader = GetResultValue(
                             self.reader.get().GetRecordBatchReader(batch_size, names))
@@ -400,8 +399,6 @@ cdef class ORCReader(_Weakrefable):
                             self.reader.get().GetStripeReader(
                                 stripe, batch_size, selected_names))
                 while True:
-                    if self.source_handle.get().closed():
-                        raise ValueError("I/O operation on closed file")
                     with nogil:
                         check_status(batch_reader.get().ReadNext(&batch))
                     if batch.get() == NULL:

@@ -923,24 +923,11 @@ def test_iter_batches_errors_after_output(batch_file):
     assert list(iterator) == []
     assert pa.Table.from_batches([first]).equals(batch_file[1].slice(0, 16384))
     source.fail = False
+    iterator = reader.iter_batches(16384, [0, 2])
+    assert next(iterator).num_rows == 16384
     source.close()
-    with pytest.raises((OSError, ValueError, pa.ArrowException)):
-        next(reader.iter_batches(stripes=[2]))
-
-
-@pytest.mark.parametrize('columns', [None, []])
-def test_iter_batches_closed_source_with_buffered_rows(batch_file, columns):
-    from pyarrow import orc
-
-    source = BatchTrackingFile(batch_file[0].to_pybytes())
-    reader = orc.ORCFile(source)
-    iterator = reader.iter_batches(1, [0], columns)
-    first = next(iterator)
-    source.close()
-    with pytest.raises(ValueError, match='closed file'):
+    with pytest.raises((OSError, pa.ArrowException)):
         next(iterator)
-    assert first.num_rows == 1
-    assert list(iterator) == []
 
 
 def test_iter_batches_sources_and_empty(tmp_path, datadir):
@@ -954,10 +941,21 @@ def test_iter_batches_sources_and_empty(tmp_path, datadir):
                        pa.BufferReader(path.read_bytes())):
             batches = list(orc.ORCFile(source).iter_batches(2, [0]))
             assert pa.Table.from_batches(batches).equals(table)
+    reader = orc.ORCFile(path)
+    for stripes in (None, [0]):
+        batches = list(reader.iter_batches(65536, stripes))
+        assert [batch.num_rows for batch in batches] == [3]
+        assert pa.Table.from_batches(batches).equals(table)
+        empty_columns = list(reader.iter_batches(65536, stripes, []))
+        assert [batch.num_rows for batch in empty_columns] == [3]
+        assert empty_columns[0].num_columns == 0
     empty = orc.ORCFile(datadir / 'TestOrcFile.emptyFile.orc')
     assert list(empty.iter_batches()) == []
     assert list(empty.iter_batches(columns=[])) == []
     assert list(empty.iter_batches(stripes=[])) == []
+    with pytest.raises(IOError):
+        next(empty.iter_batches(columns=['missing']))
+    assert list(empty.iter_batches(stripes=[], columns=['missing'])) == []
     with pytest.raises(ValueError):
         empty.iter_batches(stripes=[0])
     with pytest.raises((OSError, pa.ArrowException)):
