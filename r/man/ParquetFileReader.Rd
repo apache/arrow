@@ -35,6 +35,12 @@ The optional \verb{column_indices=} argument is a 0-based integer vector indicat
 \item \verb{$GetSchema()}: get the \code{arrow::Schema} of the data in the file
 \item \verb{$ReadColumn(i)}: read the \code{i}th column (0-based) as a \link{ChunkedArray}.
 }
+
+\code{column_indices} refer to Parquet leaf columns, not to the fields of the
+schema returned by \verb{$GetSchema()}. The two differ when the file has nested
+columns, as each nested field is stored as one leaf column per child. Selecting
+only some of a nested field's leaves returns that field containing only the
+selected children.
 }
 
 \section{Active bindings}{

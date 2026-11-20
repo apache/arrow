@@ -60,7 +60,13 @@ read_parquet <- function(
   if (!quo_is_null(col_select)) {
     # infer which columns to keep from schema
     sim_df <- as.data.frame(reader$GetSchema())
-    indices <- eval_select(col_select, sim_df) - 1L
+    field_indices <- eval_select(col_select, sim_df) - 1L
+    # ReadTable() takes Parquet leaf column indices, which differ from the
+    # positions of the fields in the schema when there are nested columns
+    indices <- parquet___arrow___FileReader__FieldIndicesToColumnIndices(
+      reader,
+      field_indices
+    )
     tab <- tryCatch(
       reader$ReadTable(indices),
       error = read_compressed_error
@@ -488,6 +494,12 @@ ParquetFileWriter$create <- function(
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
 #' - `$ReadColumn(i)`: read the `i`th column (0-based) as a [ChunkedArray].
+#'
+#' `column_indices` refer to Parquet leaf columns, not to the fields of the
+#' schema returned by `$GetSchema()`. The two differ when the file has nested
+#' columns, as each nested field is stored as one leaf column per child. Selecting
+#' only some of a nested field's leaves returns that field containing only the
+#' selected children.
 #'
 #' @section Active bindings:
 #'
