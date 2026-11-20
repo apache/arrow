@@ -2057,6 +2057,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         c_bool newlines_in_values
         c_bool ignore_empty_lines
         function[CInvalidRowHandler] invalid_row_handler
+        c_bool pad_short_rows
 
         CCSVParseOptions()
         CCSVParseOptions(CCSVParseOptions)
