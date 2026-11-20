@@ -341,6 +341,9 @@ ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeDoActionReactor(AsyncC
                                                       AsyncGenericFlightServerBase* base);
 ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeListFlightsReactor(
     AsyncCallContext flight_context, AsyncGenericFlightServerBase* base);
+ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeUnaryReactor(
+    FlightMethod method, AsyncCallContext flight_context,
+    AsyncGenericFlightServerBase* base);
 ARROW_FLIGHT_EXPORT ::grpc::ServerGenericBidiReactor* MakeExchangeReactor(AsyncCallContext flight_context,
                                                       AsyncGenericFlightServerBase* base);
 

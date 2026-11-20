@@ -401,20 +401,18 @@ TEST(AsyncGrpcTest, UnaryReplyWriteFailureFailsTheRpc) {
   const std::vector<Case> cases = {
       {"GetFlightInfo", FlightMethod::GetFlightInfo,
        [](detail::AsyncCallContext context, TestFlightServer* server) {
-         return new detail::UnaryReactor<FlightInfo, pb::FlightInfo>(
-             std::move(context), server,
-             &AsyncGenericFlightServerBase::GetFlightInfoAsync);
+         return detail::MakeUnaryReactor(FlightMethod::GetFlightInfo,
+                                         std::move(context), server);
        }},
       {"GetSchema", FlightMethod::GetSchema,
        [](detail::AsyncCallContext context, TestFlightServer* server) {
-         return new detail::UnaryReactor<SchemaResult, pb::SchemaResult>(
-             std::move(context), server, &AsyncGenericFlightServerBase::GetSchemaAsync);
+         return detail::MakeUnaryReactor(FlightMethod::GetSchema, std::move(context),
+                                         server);
        }},
       {"PollFlightInfo", FlightMethod::PollFlightInfo,
        [](detail::AsyncCallContext context, TestFlightServer* server) {
-         return new detail::UnaryReactor<PollInfo, pb::PollInfo>(
-             std::move(context), server,
-             &AsyncGenericFlightServerBase::PollFlightInfoAsync);
+         return detail::MakeUnaryReactor(FlightMethod::PollFlightInfo,
+                                         std::move(context), server);
        }},
   };
 
@@ -430,10 +428,7 @@ TEST(AsyncGrpcTest, UnaryReplyWriteFailureFailsTheRpc) {
     auto* reactor = test.make(std::move(context), &server);
     stream.Bind(reactor);
 
-    pb::FlightDescriptor descriptor;
-    descriptor.set_type(pb::FlightDescriptor::PATH);
-    descriptor.add_path("x");
-    ::grpc::Slice slice(descriptor.SerializeAsString());
+    ::grpc::Slice slice(WireBytes(FlightDescriptor::Path({"x"})));
     stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
     // The handler answers at once; its reply is on the wire.
     ASSERT_TRUE(stream.write_pending()) << "the reply was never written";

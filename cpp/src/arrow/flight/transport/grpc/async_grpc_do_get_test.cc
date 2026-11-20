@@ -696,9 +696,7 @@ TEST(AsyncGrpcTest, DoGetPayloadWriteFailureClosesTheStream) {
   helper->MakeCallContext(FlightMethod::DoGet, &stream.context(), &context);
   stream.Bind(detail::MakeDoGetReactor(std::move(context), &server));
 
-  pb::Ticket ticket;
-  ticket.set_ticket("write-failure");
-  ::grpc::Slice slice(ticket.SerializeAsString());
+  ::grpc::Slice slice(WireBytes(Ticket{"write-failure"}));
   stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
   // The schema payload is written first; fail that write.
   ASSERT_TRUE(WaitFor([&] { return stream.write_pending(); }))
@@ -768,9 +766,7 @@ TEST(AsyncGrpcTest, DoGetLateWriteCallbackAfterFinishStartsNothing) {
   helper->MakeCallContext(FlightMethod::DoGet, &stream.context(), &context);
   stream.Bind(detail::MakeDoGetReactor(std::move(context), &server));
 
-  pb::Ticket ticket;
-  ticket.set_ticket("late-write");
-  ::grpc::Slice slice(ticket.SerializeAsString());
+  ::grpc::Slice slice(WireBytes(Ticket{"late-write"}));
   stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
   ASSERT_TRUE(WaitFor([&] { return stream.write_pending(); }))
       << "the schema payload was never written";
@@ -835,9 +831,7 @@ TEST(AsyncGrpcTest, DoGetSecondCloseIsANoOp) {
   helper->MakeCallContext(FlightMethod::DoGet, &stream.context(), &context);
   stream.Bind(detail::MakeDoGetReactor(std::move(context), &server));
 
-  pb::Ticket ticket;
-  ticket.set_ticket("double-close");
-  ::grpc::Slice slice(ticket.SerializeAsString());
+  ::grpc::Slice slice(WireBytes(Ticket{"double-close"}));
   stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
   ASSERT_TRUE(WaitFor([&] { return stream.write_pending(); }));
   // The write fails: that path finishes the RPC and closes the stream.

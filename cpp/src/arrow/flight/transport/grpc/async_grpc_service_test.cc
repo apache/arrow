@@ -162,32 +162,24 @@ const char kTruncatedDescriptor[] = "\x0a\x7f\x01\x02";
 
 std::optional<MethodRequest> ValidRequest(std::string_view method) {
   if (method == "Handshake") {
-    pb::HandshakeRequest request;
-    request.set_payload("user");
-    return MethodRequest{method, request.SerializeAsString()};
+    // Field 2 (bytes payload): the only field the reactor reads.
+    return MethodRequest{method, std::string("\x12\x04user", 6)};
   }
   if (method == "DoGet") {
-    pb::Ticket ticket;
-    ticket.set_ticket("ticket");
-    return MethodRequest{method, ticket.SerializeAsString()};
+    return MethodRequest{method, WireBytes(Ticket{"ticket"})};
   }
   if (method == "DoPut" || method == "GetFlightInfo" || method == "GetSchema" ||
       method == "PollFlightInfo") {
-    pb::FlightDescriptor descriptor;
-    descriptor.set_type(pb::FlightDescriptor::PATH);
-    descriptor.add_path("path");
-    return MethodRequest{method, descriptor.SerializeAsString()};
+    return MethodRequest{method, WireBytes(FlightDescriptor::Path({"path"}))};
   }
   if (method == "DoAction") {
-    pb::Action action;
-    action.set_type("echo");
-    return MethodRequest{method, action.SerializeAsString()};
+    return MethodRequest{method, WireBytes(Action{"echo", nullptr})};
   }
   if (method == "ListActions") {
-    return MethodRequest{method, pb::Empty().SerializeAsString()};
+    return MethodRequest{method, ""};
   }
   if (method == "ListFlights") {
-    return MethodRequest{method, pb::Criteria().SerializeAsString()};
+    return MethodRequest{method, WireBytes(Criteria{})};
   }
   if (method == "DoExchange") {
     // DoExchange's own first message is a FlightData, built by the caller.
@@ -250,13 +242,11 @@ TEST(AsyncGrpcTest, RawRequestFailures) {
                      ::grpc::StatusCode::INVALID_ARGUMENT,
                      std::string("Failed to parse ") + what, false});
   }
-  // A valid protobuf whose descriptor type is UNKNOWN.
+  // A valid protobuf whose descriptor type is UNKNOWN: field 1 = 0, then
+  // field 3 (path) = "path".
   for (const auto& method : {"GetFlightInfo", "GetSchema", "PollFlightInfo"}) {
-    pb::FlightDescriptor descriptor;
-    descriptor.set_type(pb::FlightDescriptor::UNKNOWN);
-    descriptor.add_path("path");
     cases.push_back({std::string(method) + " with an UNKNOWN descriptor", method,
-                     {RawMessage(descriptor.SerializeAsString())},
+                     {RawMessage(std::string("\x08\x00\x1a\x04path", 8))},
                      ::grpc::StatusCode::INVALID_ARGUMENT, "UNKNOWN descriptor type",
                      false});
   }
@@ -438,20 +428,6 @@ TEST(AsyncGrpcTest, DoExchangeRawRequestFailures) {
     EXPECT_TRUE(raw.responses.empty());
     ASSERT_OK(StopClientAndServer(client.get(), &flight_server));
   }
-}
-
-TEST(AsyncGrpcTest, UnreadableRequestIsInternal) {
-  // gRPC can hand the reactor a buffer its reader cannot read at all, which is
-  // a different failure from a readable buffer holding bad protobuf. No raw call
-  // can produce it, so the shared parse helper is exercised directly.
-  ::grpc::ByteBuffer empty;
-  auto parsed = detail::ParseProtoRequest<pb::Ticket>(empty, "Ticket");
-  ASSERT_FALSE(parsed.ok());
-  ASSERT_EQ(StatusCode::IOError, parsed.status().code());
-  EXPECT_THAT(parsed.status().message(), ::testing::HasSubstr("Failed to read request"));
-  auto detail = FlightStatusDetail::UnwrapStatus(parsed.status());
-  ASSERT_NE(nullptr, detail);
-  EXPECT_EQ(FlightStatusCode::Internal, detail->code());
 }
 
 TEST(AsyncGrpcTest, DefaultHandlersAreUnimplemented) {

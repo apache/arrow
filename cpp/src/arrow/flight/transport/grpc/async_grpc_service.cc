@@ -99,17 +99,9 @@ AsyncGenericFlightService::AsyncGenericFlightService(
     case FlightMethod::Handshake:
       return detail::MakeHandshakeReactor(std::move(flight_context), base_);
     case FlightMethod::GetFlightInfo:
-      return new detail::UnaryReactor<FlightInfo, pb::FlightInfo>(
-          std::move(flight_context), base_,
-          &AsyncGenericFlightServerBase::GetFlightInfoAsync);
     case FlightMethod::GetSchema:
-      return new detail::UnaryReactor<SchemaResult, pb::SchemaResult>(
-          std::move(flight_context), base_,
-          &AsyncGenericFlightServerBase::GetSchemaAsync);
     case FlightMethod::PollFlightInfo:
-      return new detail::UnaryReactor<PollInfo, pb::PollInfo>(
-          std::move(flight_context), base_,
-          &AsyncGenericFlightServerBase::PollFlightInfoAsync);
+      return detail::MakeUnaryReactor(flight_method, std::move(flight_context), base_);
     case FlightMethod::ListActions:
       return detail::MakeListActionsReactor(std::move(flight_context), base_);
     case FlightMethod::DoAction:
@@ -138,5 +130,37 @@ AsyncGenericFlightService::AsyncGenericFlightService(
       flight_context,
       ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "Unknown method"));
 }
+
+namespace detail {
+
+::grpc::ServerGenericBidiReactor* MakeUnaryReactor(
+    FlightMethod method, AsyncCallContext flight_context,
+    AsyncGenericFlightServerBase* base) {
+  // The response type decides the reactor's protobuf type, so the mapping stays
+  // here, next to the reactor types themselves: instantiating them in a test
+  // would name protobuf types the DLL does not export.
+  switch (method) {
+    case FlightMethod::GetFlightInfo:
+      return new UnaryReactor<FlightInfo, pb::FlightInfo>(
+          std::move(flight_context), base,
+          &AsyncGenericFlightServerBase::GetFlightInfoAsync);
+    case FlightMethod::GetSchema:
+      return new UnaryReactor<SchemaResult, pb::SchemaResult>(
+          std::move(flight_context), base,
+          &AsyncGenericFlightServerBase::GetSchemaAsync);
+    case FlightMethod::PollFlightInfo:
+      return new UnaryReactor<PollInfo, pb::PollInfo>(
+          std::move(flight_context), base,
+          &AsyncGenericFlightServerBase::PollFlightInfoAsync);
+    default:
+      break;
+  }
+  // Only the three cases above reach this factory.
+  return new Unimplemented(
+      flight_context,
+      ::grpc::Status(::grpc::StatusCode::UNIMPLEMENTED, "Not a unary method"));
+}
+
+}  // namespace detail
 
 }  // namespace arrow::flight::transport::grpc

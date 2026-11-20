@@ -1007,9 +1007,7 @@ TEST(AsyncGrpcTest, DoPutSendsNoAcknowledgementOfItsOwn) {
       {"one ack", [] { return std::make_shared<OneAckListener>(); }, 1,
        [](const std::vector<::grpc::ByteBuffer>& replies) {
          ASSERT_EQ(1u, replies.size()) << "an extra PutResult was written";
-         pb::PutResult result;
-         ASSERT_TRUE(result.ParseFromString(ByteBufferToString(replies[0])));
-         EXPECT_EQ("ack", result.app_metadata());
+         EXPECT_EQ("ack", PutResultMetadata(ByteBufferToString(replies[0])));
        }},
       {"reply from OnFinish",
        [] {
@@ -1017,9 +1015,7 @@ TEST(AsyncGrpcTest, DoPutSendsNoAcknowledgementOfItsOwn) {
        },
        1, [](const std::vector<::grpc::ByteBuffer>& replies) {
         ASSERT_EQ(1u, replies.size()) << "an extra PutResult was written";
-        pb::PutResult result;
-        ASSERT_TRUE(result.ParseFromString(ByteBufferToString(replies[0])));
-        EXPECT_EQ("ingested 2 rows", result.app_metadata());
+        EXPECT_EQ("ingested 2 rows", PutResultMetadata(ByteBufferToString(replies[0])));
       }},
   };
 
@@ -1295,10 +1291,9 @@ TEST(AsyncGrpcTest, DoPutOverlappingMetadataWritesAreRejected) {
   ASSERT_TRUE(first.is_finished());
   EXPECT_TRUE(first.status().ok()) << first.status();
   {
-    pb::PutResult result;
     auto writes = upload.stream.writes();
-    ASSERT_TRUE(result.ParseFromString(ByteBufferToString(writes[0])));
-    EXPECT_EQ("orig", result.app_metadata()) << "the reply was not copied";
+    EXPECT_EQ("orig", PutResultMetadata(ByteBufferToString(writes[0])))
+        << "the reply was not copied";
   }
 
   // With the first message settled, a later write goes through, in order.
@@ -1309,9 +1304,7 @@ TEST(AsyncGrpcTest, DoPutOverlappingMetadataWritesAreRejected) {
   EXPECT_TRUE(third.status().ok()) << third.status();
   auto writes = upload.stream.writes();
   ASSERT_EQ(2u, writes.size());
-  pb::PutResult later;
-  ASSERT_TRUE(later.ParseFromString(ByteBufferToString(writes[1])));
-  EXPECT_EQ("third", later.app_metadata());
+  EXPECT_EQ("third", PutResultMetadata(ByteBufferToString(writes[1])));
 
   upload.HalfClose();
   ASSERT_TRUE(upload.stream.finish_observed().Wait(10));

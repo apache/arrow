@@ -1698,7 +1698,14 @@ bool WaitForSignalHandlerChange(
 template <typename Server>
 class TestServerSignalState : public ::testing::Test {};
 
+// Both server classes share one lifecycle, but the async server only exists
+// against gRPC >= 1.65: below that its Init() answers NotImplemented, so it
+// cannot serve and the lifecycle has nothing to compare.
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
 using ServerTypes = ::testing::Types<FlightServerBase, AsyncGenericFlightServerBase>;
+#else
+using ServerTypes = ::testing::Types<FlightServerBase>;
+#endif
 TYPED_TEST_SUITE(TestServerSignalState, ServerTypes);
 
 // Serve() must not leave the process signal handlers overridden when it fails.

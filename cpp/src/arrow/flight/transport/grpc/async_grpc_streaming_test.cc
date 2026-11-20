@@ -357,12 +357,10 @@ void ExpectStreamOutlivesCancelDuringNext(CancelDuringNextKind kind) {
 
   // The request: a DoAction needs its action, ListFlights passes no criteria.
   if (kind == CancelDuringNextKind::kDoAction) {
-    pb::Action action;
-    action.set_type("park");
-    ::grpc::Slice slice(action.SerializeAsString());
+    ::grpc::Slice slice(WireBytes(Action{"park", nullptr}));
     stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
   } else {
-    ::grpc::Slice slice(pb::Criteria().SerializeAsString());
+    ::grpc::Slice slice(WireBytes(Criteria{}));
     stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
   }
 
@@ -495,15 +493,13 @@ TEST(AsyncGrpcTest, StreamingWriteFailureFailsTheRpc) {
        [](detail::AsyncCallContext context, TestFlightServer* server) {
          return detail::MakeListActionsReactor(std::move(context), server);
        },
-       [](::grpc::Slice* slice) { *slice = ::grpc::Slice(pb::Empty().SerializeAsString()); }},
+       [](::grpc::Slice* slice) { *slice = ::grpc::Slice(""); }},
       {"DoAction", FlightMethod::DoAction,
        [](detail::AsyncCallContext context, TestFlightServer* server) {
          return detail::MakeDoActionReactor(std::move(context), server);
        },
        [](::grpc::Slice* slice) {
-         pb::Action action;
-         action.set_type("echo");
-         *slice = ::grpc::Slice(action.SerializeAsString());
+         *slice = ::grpc::Slice(WireBytes(Action{"echo", nullptr}));
        }},
       {"ListFlights", FlightMethod::ListFlights,
        [](detail::AsyncCallContext context, TestFlightServer* server) {
@@ -512,9 +508,7 @@ TEST(AsyncGrpcTest, StreamingWriteFailureFailsTheRpc) {
        [](::grpc::Slice* slice) {
          // A non-empty expression, or the handler serves an empty listing and the
          // RPC would finish before writing anything.
-         pb::Criteria criteria;
-         criteria.set_expression("filter");
-         *slice = ::grpc::Slice(criteria.SerializeAsString());
+         *slice = ::grpc::Slice(WireBytes(Criteria{"filter"}));
        }},
   };
 
@@ -563,7 +557,7 @@ TEST(AsyncGrpcTest, ListActionsCancelUsesTheDefaultForgetStream) {
   helper->MakeCallContext(FlightMethod::ListActions, &stream.context(), &context);
   stream.Bind(detail::MakeListActionsReactor(std::move(context), &server));
 
-  ::grpc::Slice slice(pb::Empty().SerializeAsString());
+  ::grpc::Slice slice("");
   stream.DeliverRead(::grpc::ByteBuffer(&slice, 1));
   // The reactor is inside its first write when the client goes away.
   ASSERT_TRUE(WaitFor([&] { return stream.write_pending(); }));
