@@ -23,6 +23,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -555,9 +556,14 @@ class ArrayLoader {
   ArrayData* out_ = nullptr;
 };
 
+}  // namespace
+
+namespace internal {
+
 Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& buf,
                                                  const IpcReadOptions& options,
                                                  util::Codec* codec) {
+  RETURN_NOT_OK(options.Validate());
   if (buf == nullptr || buf->size() == 0) {
     return buf;
   }
@@ -576,12 +582,35 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
     return SliceBuffer(buf, sizeof(int64_t), compressed_size);
   }
 
+  if (compressed_size == 0 && uncompressed_size > 0) {
+    return Status::Invalid(
+        "Compressed buffer has 0 payload bytes but non-zero uncompressed size ",
+        uncompressed_size);
+  }
+
+  if (options.max_decompression_ratio >= 0) {
+    int64_t max_allowed = 0;
+    if (ARROW_PREDICT_FALSE(::arrow::internal::MultiplyWithOverflow(
+            compressed_size, static_cast<int64_t>(options.max_decompression_ratio),
+            &max_allowed))) {
+      max_allowed = std::numeric_limits<int64_t>::max();
+    }
+    if (ARROW_PREDICT_FALSE(uncompressed_size > max_allowed)) {
+      return Status::CapacityError("Decompressed size (", uncompressed_size,
+                                   ") exceeds maximum allowed decompression ratio (",
+                                   options.max_decompression_ratio, ")");
+    }
+  }
+
+  std::span<const uint8_t> compressed_payload(data + sizeof(int64_t),
+                                              static_cast<size_t>(compressed_size));
+
   ARROW_ASSIGN_OR_RAISE(auto uncompressed,
                         AllocateBuffer(uncompressed_size, options.memory_pool));
 
   ARROW_ASSIGN_OR_RAISE(
       int64_t actual_decompressed,
-      codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
+      codec->Decompress(compressed_size, compressed_payload.data(), uncompressed_size,
                         uncompressed->mutable_data()));
   if (actual_decompressed != uncompressed_size) {
     return Status::Invalid("Failed to fully decompress buffer, expected ",
@@ -591,6 +620,12 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
 
   return uncompressed;
 }
+
+}  // namespace internal
+
+namespace {
+
+using internal::DecompressBuffer;
 
 Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,
                          ArrayDataVector* fields) {
@@ -795,7 +830,7 @@ Status GetCompressionExperimental(const flatbuf::Message* message,
 
 Status ReadContiguousPayload(io::InputStream* file, const IpcReadOptions& options,
                              std::unique_ptr<Message>* message) {
-  ARROW_ASSIGN_OR_RAISE(*message, ReadMessage(file, options.memory_pool));
+  ARROW_ASSIGN_OR_RAISE(*message, ReadMessage(file, options));
   if (*message == nullptr) {
     return Status::Invalid("Unable to read metadata at offset");
   }
@@ -1038,6 +1073,10 @@ class StreamDecoderInternal : public MessageDecoderListener {
         swap_endian_(false) {}
 
   Status OnMessageDecoded(std::unique_ptr<Message> message) override {
+    if (ARROW_PREDICT_TRUE(message != nullptr)) {
+      RETURN_NOT_OK(options_.CheckMetadataLength(message->metadata()->size()));
+      RETURN_NOT_OK(options_.CheckBodyLength(message->body_length()));
+    }
     ++stats_.num_messages;
     switch (state_) {
       case State::SCHEMA:
@@ -1232,6 +1271,7 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader,
 
 Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     std::unique_ptr<MessageReader> message_reader, const IpcReadOptions& options) {
+  RETURN_NOT_OK(options.Validate());
   // Private ctor
   auto result =
       std::make_shared<RecordBatchStreamReaderImpl>(std::move(message_reader), options);
@@ -1241,12 +1281,14 @@ Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
 
 Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     io::InputStream* stream, const IpcReadOptions& options) {
-  return Open(MessageReader::Open(stream), options);
+  RETURN_NOT_OK(options.Validate());
+  return Open(MessageReader::Open(stream, options), options);
 }
 
 Result<std::shared_ptr<RecordBatchStreamReader>> RecordBatchStreamReader::Open(
     const std::shared_ptr<io::InputStream>& stream, const IpcReadOptions& options) {
-  return Open(MessageReader::Open(stream), options);
+  RETURN_NOT_OK(options.Validate());
+  return Open(MessageReader::Open(stream, options), options);
 }
 
 // ----------------------------------------------------------------------
@@ -1271,12 +1313,14 @@ Result<FileBlock> FileBlockFromFlatbuffer(const flatbuf::Block* fb_block,
   return block;
 }
 
-Status CheckAligned(const FileBlock& block) {
+Status CheckBlock(const FileBlock& block, const IpcReadOptions& options) {
   if (!bit_util::IsMultipleOf8(block.offset) ||
       !bit_util::IsMultipleOf8(block.metadata_length) ||
       !bit_util::IsMultipleOf8(block.body_length)) {
     return Status::Invalid("Unaligned block in IPC file");
   }
+  RETURN_NOT_OK(options.CheckMetadataLength(block.metadata_length));
+  RETURN_NOT_OK(options.CheckBodyLength(block.body_length));
   return Status::OK();
 }
 
@@ -1296,19 +1340,19 @@ Result<MessagePtr> CheckBodyLength(MessagePtr message, const FileBlock& block) {
 Result<std::unique_ptr<Message>> ReadMessageFromBlock(
     const FileBlock& block, const IpcReadOptions& options, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader) {
-  RETURN_NOT_OK(CheckAligned(block));
+  RETURN_NOT_OK(CheckBlock(block, options));
   ARROW_ASSIGN_OR_RAISE(
       auto message, ReadMessage(block.offset, block.metadata_length, block.body_length,
-                                file, options.memory_pool, fields_loader));
+                                file, options, fields_loader));
   return CheckBodyLength(std::move(message), block);
 }
 
 Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
     const FileBlock& block, const IpcReadOptions& options, io::RandomAccessFile* file,
     const io::IOContext& io_context) {
-  RETURN_NOT_OK(CheckAligned(block));
+  RETURN_NOT_OK(CheckBlock(block, options));
   return ReadMessageAsync(block.offset, block.metadata_length, block.body_length, file,
-                          io_context.with_pool(options.memory_pool))
+                          options, io_context)
       .Then([block](std::shared_ptr<Message> message) {
         return CheckBodyLength(std::move(message), block);
       });
@@ -1501,6 +1545,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   Status Open(io::RandomAccessFile* file, int64_t footer_offset,
               const IpcReadOptions& options) {
+    RETURN_NOT_OK(options.Validate());
     // The metadata_cache_ may have already been constructed with an owned file in the
     // owning overload of Open
     if (!metadata_cache_) {
@@ -1530,6 +1575,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   Future<> OpenAsync(io::RandomAccessFile* file, int64_t footer_offset,
                      const IpcReadOptions& options) {
+    RETURN_NOT_OK(options.Validate());
     // The metadata_cache_ may have already been constructed with an owned file in the
     // owning overload of OpenAsync
     if (!metadata_cache_) {
@@ -1583,6 +1629,14 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     std::shared_ptr<io::internal::ReadRangeCache> cached_source;
     if (coalesce && !file_->supports_zero_copy()) {
       if (!owned_file_) return Status::Invalid("Cannot coalesce without an owned file");
+      for (int i = 0; i < state->num_dictionaries(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto block, state->GetDictionaryBlock(i));
+        RETURN_NOT_OK(CheckBlock(block, options_));
+      }
+      for (int i = 0; i < state->num_record_batches(); ++i) {
+        ARROW_ASSIGN_OR_RAISE(auto block, state->GetRecordBatchBlock(i));
+        RETURN_NOT_OK(CheckBlock(block, options_));
+      }
       // Since the user is asking for all fields then we can cache the entire
       // file (up to the footer)
       cached_source = std::make_shared<io::internal::ReadRangeCache>(file_, io_context,
@@ -1602,10 +1656,11 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
           all_metadata_ready.Then([this, index]() -> Result<std::shared_ptr<Message>> {
             stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
             ARROW_ASSIGN_OR_RAISE(FileBlock block, GetRecordBatchBlock(index));
+            RETURN_NOT_OK(CheckBlock(block, options_));
             ARROW_ASSIGN_OR_RAISE(
                 std::shared_ptr<Buffer> metadata,
                 metadata_cache_->Read({block.offset, block.metadata_length}));
-            return ReadMessage(std::move(metadata), nullptr);
+            return ReadMessage(std::move(metadata), nullptr, options_);
           });
       cached_metadata_.emplace(index, metadata_loaded);
     }
@@ -1708,6 +1763,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
     // Adds all dictionaries to the range cache
     for (int i = 0; i < num_dictionaries(); ++i) {
       ARROW_ASSIGN_OR_RAISE(FileBlock block, GetDictionaryBlock(i));
+      RETURN_NOT_OK(CheckBlock(block, options_));
       ranges->push_back({block.offset, block.metadata_length + block.body_length});
     }
     return Status::OK();
@@ -1717,6 +1773,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
                            std::vector<io::ReadRange>* ranges) {
     for (int index : indices) {
       ARROW_ASSIGN_OR_RAISE(FileBlock block, GetRecordBatchBlock(index));
+      RETURN_NOT_OK(CheckBlock(block, options_));
       ranges->push_back({block.offset, block.metadata_length});
     }
     return Status::OK();
@@ -1873,7 +1930,10 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
         .Then([this, index](const std::shared_ptr<Message>& message_obj)
                   -> Future<std::shared_ptr<RecordBatch>> {
           ARROW_ASSIGN_OR_RAISE(auto block, GetRecordBatchBlock(index));
-          ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(message_obj));
+          RETURN_NOT_OK(CheckBlock(block, options_));
+          ARROW_ASSIGN_OR_RAISE(auto checked_message,
+                                CheckBodyLength(message_obj, block));
+          ARROW_ASSIGN_OR_RAISE(auto message, GetFlatbufMessage(checked_message));
           ARROW_ASSIGN_OR_RAISE(auto batch, GetBatchFromMessage(message));
           ARROW_ASSIGN_OR_RAISE(auto context, GetIpcReadContext(message, batch));
 
@@ -1923,6 +1983,9 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
               footer_length > self->footer_offset_ - kMagicSize * 2 - 4) {
             return Status::Invalid("File is smaller than indicated metadata size");
           }
+
+          RETURN_NOT_OK(self->options_.CheckMetadataLength(
+              footer_length, "IPC file footer metadata length "));
 
           // Now read the footer
           auto read_footer = self->file_->ReadAsync(
@@ -2046,15 +2109,17 @@ WholeIpcFileRecordBatchGenerator::operator()() {
 
 Future<std::shared_ptr<Message>> WholeIpcFileRecordBatchGenerator::ReadBlock(
     const FileBlock& block) {
+  RETURN_NOT_OK(CheckBlock(block, state_->options_));
   if (cached_source_) {
     auto cached_source = cached_source_;
     io::ReadRange range{block.offset, block.metadata_length + block.body_length};
-    auto pool = state_->options_.memory_pool;
+    auto options = state_->options_;
     return cached_source->WaitFor({range}).Then(
-        [cached_source, pool, range]() -> Result<std::shared_ptr<Message>> {
+        [cached_source, options, range, block]() -> Result<std::shared_ptr<Message>> {
           ARROW_ASSIGN_OR_RAISE(auto buffer, cached_source->Read(range));
           io::BufferReader stream(std::move(buffer));
-          return ReadMessage(&stream, pool);
+          ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(&stream, options));
+          return CheckBodyLength(std::move(message), block);
         });
   } else {
     return ReadMessageFromBlockAsync(block, state_->options_, state_->file_, io_context_);
@@ -2167,7 +2232,7 @@ class StreamDecoder::StreamDecoderImpl : public StreamDecoderInternal {
   explicit StreamDecoderImpl(std::shared_ptr<Listener> listener, IpcReadOptions options)
       : StreamDecoderInternal(std::move(listener), options),
         message_decoder_(std::shared_ptr<StreamDecoderImpl>(this, [](void*) {}),
-                         options.memory_pool) {}
+                         options) {}
 
   Status Consume(const uint8_t* data, int64_t size) {
     return message_decoder_.Consume(data, size);
