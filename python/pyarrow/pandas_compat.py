@@ -1058,6 +1058,18 @@ def _extract_index_level(table, result_table, field_name,
         and (types_mapper is None or types_mapper(col.type) is None)
     ):
         pandas_dtype = _pandas_api.pandas_dtype(numpy_type)
+        if isinstance(pandas_dtype, _pandas_api.pd.StringDtype) and not (
+            pa.types.is_string(col.type)
+            or pa.types.is_large_string(col.type)
+            or pa.types.is_string_view(col.type)
+            or pa.types.is_binary(col.type)
+            or pa.types.is_large_binary(col.type)
+            or pa.types.is_binary_view(col.type)
+            or pa.types.is_null(col.type)
+        ):
+            # the index level was replaced by one of another type after the
+            # metadata was written
+            pandas_dtype = None
     if (
         isinstance(pandas_dtype, _pandas_api.extension_dtype)
         and hasattr(pandas_dtype, "__from_arrow__")
