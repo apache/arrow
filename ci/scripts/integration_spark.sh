@@ -42,7 +42,7 @@ pushd "${spark_dir}"
   echo "Building Spark ${spark_version}"
 
   # Build Spark only
-  build/mvn -B -DskipTests package
+  build/mvn -B -DskipTests -Phive package
 
   # Run pyarrow related Python tests only
   # "pyspark.sql.tests.arrow.test_arrow_grouped_map" and
