@@ -18,6 +18,7 @@
 #include <cmath>
 #include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -2619,6 +2620,71 @@ TEST_F(TestFloatValuesWriter, AlpAllNullDataPageV2) {
 
 TEST_F(TestDoubleValuesWriter, AlpAllNullDataPageV2) {
   this->TestAlpOptionalDataPageV2(/*num_nulls=*/SMALL_SIZE);
+}
+
+TEST(TestColumnWriter, DictionaryFallbackWaitsForRecordBoundary) {
+  // A WriteBatch call may end mid-record. If the dictionary overflows in that trailing
+  // partial record, fallback must wait for the next record boundary instead of
+  // flushing a data page that splits the record (V2 pages must start at a record).
+  auto schema = std::static_pointer_cast<GroupNode>(GroupNode::Make(
+      "schema", Repetition::REQUIRED, {schema::ByteArray("v", Repetition::REPEATED)}));
+  auto props = WriterProperties::Builder()
+                   .enable_dictionary()
+                   ->data_page_version(ParquetDataPageVersion::V2)
+                   ->dictionary_pagesize_limit(32)
+                   ->data_pagesize(1 << 20)
+                   ->build();
+  auto sink = CreateOutputStream();
+  auto file_writer = ParquetFileWriter::Open(sink, schema, props);
+  auto* writer =
+      static_cast<ByteArrayWriter*>(file_writer->AppendRowGroup()->NextColumn());
+
+  // Call 1: record 0 = {"a", "b"} keeps the dictionary small; record 1 starts with three
+  // long values that overflow the dictionary and is left unfinished.
+  const std::string long0(24, 'x'), long1(24, 'y'), long2(24, 'z');
+  const std::vector<ByteArray> values1 = {ByteArray("a"), ByteArray("b"),
+                                          ByteArray(long0), ByteArray(long1),
+                                          ByteArray(long2)};
+  const std::vector<int16_t> def1(values1.size(), 1);
+  const std::vector<int16_t> rep1 = {0, 1, 0, 1, 1};
+  writer->WriteBatch(static_cast<int64_t>(values1.size()), def1.data(), rep1.data(),
+                     values1.data());
+
+  // Call 2: finish record 1, then write records 2 and 3.
+  const std::vector<ByteArray> values2 = {ByteArray("c"), ByteArray("d"), ByteArray("e")};
+  const std::vector<int16_t> def2(values2.size(), 1);
+  const std::vector<int16_t> rep2 = {1, 0, 0};
+  writer->WriteBatch(static_cast<int64_t>(values2.size()), def2.data(), rep2.data(),
+                     values2.data());
+  ASSERT_NO_THROW(file_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  std::vector<int16_t> all_rep = rep1;
+  all_rep.insert(all_rep.end(), rep2.begin(), rep2.end());
+
+  auto file_reader = ParquetFileReader::Open(
+      std::make_shared<::arrow::io::BufferReader>(buffer), default_reader_properties());
+  auto page_reader = file_reader->RowGroup(0)->GetColumnPageReader(0);
+  int64_t levels_seen = 0;
+  int64_t rows_seen = 0;
+  int num_data_pages = 0;
+  bool saw_fallback_page = false;
+  std::shared_ptr<Page> page;
+  while ((page = page_reader->NextPage()) != nullptr) {
+    if (page->type() != PageType::DATA_PAGE_V2) continue;
+    auto data_page = std::static_pointer_cast<DataPageV2>(page);
+    ASSERT_LT(levels_seen, static_cast<int64_t>(all_rep.size()));
+    EXPECT_EQ(0, all_rep[levels_seen]) << "data page " << num_data_pages
+                                       << " starts mid-record at level " << levels_seen;
+    saw_fallback_page |= data_page->encoding() == Encoding::PLAIN;
+    levels_seen += data_page->num_values();
+    rows_seen += data_page->num_rows();
+    ++num_data_pages;
+  }
+  EXPECT_EQ(static_cast<int64_t>(all_rep.size()), levels_seen);
+  EXPECT_EQ(4, rows_seen);
+  EXPECT_GE(num_data_pages, 2);
+  EXPECT_TRUE(saw_fallback_page);
 }
 
 }  // namespace test
