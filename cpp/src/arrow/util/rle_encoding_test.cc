@@ -898,6 +898,31 @@ TEST(RleBitPacked, BitWidthZeroLiteral) {
   EXPECT_FALSE(decoder.Get(&val));
 }
 
+TEST(RleBitPacked, GetBatchWithDictOutOfBoundsInPartialRun) {
+  const std::vector<int32_t> dict = {10, 11, 12};
+  // Bit width 8: an RLE run of 8 out-of-bounds indices, then a bit-packed run of
+  // 8 valid indices.
+  const std::vector<uint8_t> buffer = {8 << 1, 200, (1 << 1) | 1, 0, 1, 2, 0, 1, 2, 0, 1};
+  for (bool spaced : {false, true}) {
+    ARROW_SCOPED_TRACE("spaced = ", spaced);
+    RleBitPackedDecoder<int32_t> decoder(buffer.data(), static_cast<int>(buffer.size()),
+                                         8);
+    // Leave the out-of-bounds run partially read
+    std::vector<int32_t> indices(4);
+    ASSERT_EQ(decoder.GetBatch(indices.data(), 4), 4);
+
+    // Decoding must stop at the out-of-bounds run instead of resuming with the
+    // next run
+    std::vector<int32_t> out(8);
+    const std::vector<uint8_t> valid_bits(1, 0xff);
+    const auto read =
+        spaced ? decoder.GetBatchWithDictSpaced(dict.data(), 3, out.data(), 8,
+                                                /*null_count=*/0, valid_bits.data(), 0)
+               : decoder.GetBatchWithDict(dict.data(), 3, out.data(), 8);
+    ASSERT_EQ(read, 0);
+  }
+}
+
 // Test that writes out a repeated group and then a literal
 // group but flush before finishing.
 TEST(BitRle, Flush) {
