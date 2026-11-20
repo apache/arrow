@@ -29,6 +29,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/type_fwd.h"
+#include "parquet/encoding.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
@@ -257,6 +258,8 @@ class PARQUET_EXPORT ColumnProperties {
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
+  void set_encoding_options(const EncodingOptions& options);
+
   void set_compression(Compression::type codec) { codec_ = codec; }
 
   void set_dictionary_enabled(bool dictionary_enabled) {
@@ -301,6 +304,8 @@ class PARQUET_EXPORT ColumnProperties {
 
   Encoding::type encoding() const { return encoding_; }
 
+  const EncodingOptions& encoding_options() const { return encoding_options_; }
+
   Compression::type compression() const { return codec_; }
 
   bool dictionary_enabled() const { return dictionary_enabled_; }
@@ -335,6 +340,7 @@ class PARQUET_EXPORT ColumnProperties {
   std::shared_ptr<CodecOptions> codec_options_;
   bool page_index_enabled_;
   std::optional<BloomFilterOptions> bloom_filter_options_;
+  EncodingOptions encoding_options_;
 };
 
 // EXPERIMENTAL: Options for content-defined chunking.
@@ -515,6 +521,18 @@ class PARQUET_EXPORT WriterProperties {
     Builder* data_pagesize(int64_t pg_size) {
       pagesize_ = pg_size;
       return this;
+    }
+
+    /// Set the encoding-specific options for all columns.
+    Builder* encoding_options(const EncodingOptions& options);
+
+    /// Set encoding-specific options for column specified by `path`.
+    Builder* encoding_options(const std::string& path, const EncodingOptions& options);
+
+    /// Set encoding-specific options for column specified by `path`.
+    Builder* encoding_options(const std::shared_ptr<schema::ColumnPath>& path,
+                              const EncodingOptions& options) {
+      return encoding_options(path->ToDotString(), options);
     }
 
     /// Specify the maximum number of rows per data page.
@@ -914,6 +932,9 @@ class PARQUET_EXPORT WriterProperties {
         get(item.first).set_codec_options(item.second);
       for (const auto& item : dictionary_enabled_)
         get(item.first).set_dictionary_enabled(item.second);
+      for (const auto& [path, options] : encoding_options_) {
+        get(path).set_encoding_options(options);
+      }
       for (const auto& item : statistics_enabled_)
         get(item.first).set_statistics_enabled(item.second);
       for (const auto& item : page_index_enabled_)
@@ -970,6 +991,7 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
     std::unordered_map<std::string, BloomFilterOptions> bloom_filter_options_;
+    std::unordered_map<std::string, EncodingOptions> encoding_options_;
 
     bool content_defined_chunking_enabled_;
     CdcOptions content_defined_chunking_options_;
@@ -1026,6 +1048,15 @@ class PARQUET_EXPORT WriterProperties {
     } else {
       return Encoding::PLAIN;
     }
+  }
+
+  const EncodingOptions& encoding_options() const {
+    return default_column_properties_.encoding_options();
+  }
+
+  const EncodingOptions& encoding_options(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).encoding_options();
   }
 
   const ColumnProperties& column_properties(

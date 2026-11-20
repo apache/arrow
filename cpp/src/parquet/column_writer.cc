@@ -1293,7 +1293,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding, properties,
                          content_defined_chunker) {
     current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
-                                   descr_, properties->memory_pool());
+                                   descr_, properties->memory_pool(),
+                                   properties->encoding_options(descr_->path()));
     // We have to dynamic_cast as some compilers don't want to static_cast
     // through virtual inheritance.
     current_value_encoder_ =
@@ -1876,7 +1877,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       fallback_ = true;
       // Only PLAIN encoding is supported for fallback
       current_encoder_ = MakeEncoder(ParquetType::type_num, Encoding::PLAIN, false,
-                                     descr_, properties_->memory_pool());
+                                     descr_, properties_->memory_pool(),
+                                     properties_->encoding_options(descr_->path()));
       current_value_encoder_ = dynamic_cast<ValueEncoderType*>(current_encoder_.get());
       current_dict_encoder_ = nullptr;  // not using dict
       encoding_ = Encoding::PLAIN;

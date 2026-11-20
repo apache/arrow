@@ -102,24 +102,23 @@ Status ValidateVectorInfo(const AlpInfo& alp_info, const AlpForInfo<T>& for_info
   return Status::OK();
 }
 
-// Exception positions index the output and the encoder writes them in order, so
-// they must be increasing and inside the vector. A repeated position would make
-// the patch step write the same slot twice and leave another slot untouched.
-Status ValidateExceptionPositions(
+// Exception positions index the output and must be inside the vector. The wire
+// format does not require positions to be sorted or unique.
+Result<bool> ValidateExceptionPositions(
     std::span<const AlpFormatConstants::PositionType> exception_positions,
     int32_t num_elements) {
+  bool strictly_increasing = true;
   for (size_t i = 0; i < exception_positions.size(); ++i) {
     const AlpFormatConstants::PositionType position = exception_positions[i];
     if (position >= num_elements) {
       return Status::Invalid("ALP exception position ", position,
                              " is outside a vector of ", num_elements, " elements");
     }
-    if (i > 0 && position <= exception_positions[i - 1]) {
-      return Status::Invalid("ALP exception positions must increase, but got ",
-                             exception_positions[i - 1], " then ", position);
+    if (i > 0 && exception_positions[i] <= exception_positions[i - 1]) {
+      strictly_increasing = false;
     }
   }
-  return Status::OK();
+  return strictly_increasing;
 }
 
 template <typename T>
@@ -378,7 +377,8 @@ Status AlpEncodedVectorView<T>::Reset(std::span<const uint8_t> input_buffer,
       input_buffer.subspan(static_cast<size_t>(input_offset), exception_position_size),
       std::span<AlpFormatConstants::PositionType>(exception_positions_));
   input_offset += exception_position_size;
-  RETURN_NOT_OK(ValidateExceptionPositions(exception_positions_, num_elements));
+  ARROW_ASSIGN_OR_RAISE(exception_positions_strictly_increasing_,
+                        ValidateExceptionPositions(exception_positions_, num_elements));
 
   exceptions_.resize(alp_info.num_exceptions());
   LoadLittleEndianArray(
@@ -397,6 +397,7 @@ void AlpEncodedVectorView<T>::Clear() {
   packed_values_ = {};
   exception_positions_.clear();
   exceptions_.clear();
+  exception_positions_strictly_increasing_ = true;
 }
 
 template class AlpEncodedVectorView<float>;
