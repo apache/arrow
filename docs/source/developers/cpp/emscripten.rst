@@ -75,6 +75,23 @@ go to ``arrow/python`` and run
 It should make a wheel targeting the currently enabled version of
 Pyodide in the ``dist`` subdirectory.
 
+To test the wheel, you can create a Pyodide virtual environment, which
+runs Python in Node.js, and run the PyArrow test suite in it:
+
+.. code:: shell
+
+   # create the environment outside of the source tree, so that the
+   # installed wheel is imported and python/setup.cfg is not used
+   pyodide venv /tmp/pyarrow-pyodide-venv
+   source /tmp/pyarrow-pyodide-venv/bin/activate
+   pip install dist/pyarrow-*.whl hypothesis pandas pytest
+   cd /tmp/pyarrow-pyodide-venv
+   python -m pytest --pyargs pyarrow
+
+The tests can also be run in a browser with
+``python/scripts/run_emscripten_tests.py``, which needs Selenium and a
+`Pyodide distribution <https://github.com/pyodide/pyodide/releases>`_.
+
 
 Manual Build
 ------------
