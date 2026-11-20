@@ -160,6 +160,16 @@ env:
       brew install --overwrite python@3.12 python@3.11 python@3.10
 
       set -x
+      # GHA macOS runners no longer pre-tap homebrew/core
+      # (see https://github.com/actions/runner-images/pull/15043).
+      # Use a shallow clone instead of `brew tap --force homebrew/core` to
+      # avoid downloading the full commit history on every CI run while
+      # preserving homebrew/core audit checks
+      core_tap=$(brew --repository homebrew/core)
+      if [ ! -d "${core_tap}" ]; then
+        git clone --depth=1 https://github.com/Homebrew/homebrew-core.git "${core_tap}"
+      fi
+
       ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
       echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
       for formula in ${ARROW_FORMULA} ${ARROW_GLIB_FORMULA}; do
@@ -175,7 +185,7 @@ env:
         # Make sure there's only one
         sed -i '' -E -e 's@.git.git@.git@' ${formula}
         cat ${formula}
-        cp ${formula} $(brew --repository homebrew/core)/Formula/a/
+        cp "${formula}" "${core_tap}/Formula/a/"
       done
 {% endmacro %}
 
