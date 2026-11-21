@@ -1311,7 +1311,7 @@ int64_t InferBatchLength(const std::vector<Datum>& values, bool* all_same) {
     }
   }
 
-  if (are_all_scalar && values.size() > 0) {
+  if (are_all_scalar && !values.empty()) {
     length = 1;
   } else if (length < 0) {
     length = 0;

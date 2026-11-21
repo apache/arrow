@@ -526,7 +526,7 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
                const std::vector<std::string>& dim_names)
     : type_(type), data_(data), shape_(shape), strides_(strides), dim_names_(dim_names) {
   ARROW_CHECK(is_tensor_supported(type->id()));
-  if (shape.size() > 0 && strides.size() == 0) {
+  if (!shape.empty() && strides.empty()) {
     ARROW_CHECK_OK(internal::ComputeRowMajorStrides(
         checked_cast<const FixedWidthType&>(*type_), shape, &strides_));
   }
@@ -542,7 +542,7 @@ Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buff
 
 const std::string& Tensor::dim_name(int i) const {
   static const std::string kEmpty = "";
-  if (dim_names_.size() == 0) {
+  if (dim_names_.empty()) {
     return kEmpty;
   } else {
     ARROW_CHECK_LT(i, static_cast<int>(dim_names_.size()));

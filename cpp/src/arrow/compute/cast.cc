@@ -178,7 +178,7 @@ Result<const Kernel*> CastFunction::DispatchExact(
     }
   }
 
-  if (candidate_kernels.size() == 0) {
+  if (candidate_kernels.empty()) {
     return Status::NotImplemented("Unsupported cast from ", types[0].type->ToString(),
                                   " to ", ToTypeName(out_type_id_), " using function ",
                                   this->name());
