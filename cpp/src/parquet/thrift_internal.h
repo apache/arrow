@@ -20,6 +20,7 @@
 #include "parquet/windows_compatibility.h"
 
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <span>
@@ -48,6 +49,7 @@
 #include "parquet/schema.h"
 #include "parquet/size_statistics.h"
 #include "parquet/statistics.h"
+#include "parquet/thrift_compact_reader.h"
 #include "parquet/types.h"
 
 #include "generated/parquet_types.h"  // IWYU pragma: export
@@ -580,11 +582,32 @@ class ThriftDeserializer {
  public:
   explicit ThriftDeserializer(const ReaderProperties& properties)
       : ThriftDeserializer(properties.thrift_string_size_limit(),
-                           properties.thrift_container_size_limit()) {}
+                           properties.thrift_container_size_limit(),
+                           properties.thrift_skip_column_statistics(),
+                           properties.thrift_skip_encoding_statistics(),
+                           properties.thrift_skip_size_statistics(),
+                           properties.thrift_statistics_columns_set(),
+                           properties.thrift_statistics_columns(),
+                           properties.thrift_skip_page_statistics(),
+                           properties.thrift_encoding_stats_as_mask()) {}
 
-  ThriftDeserializer(int32_t string_size_limit, int32_t container_size_limit)
+  ThriftDeserializer(int32_t string_size_limit, int32_t container_size_limit,
+                     bool skip_column_statistics = false,
+                     bool skip_encoding_statistics = false,
+                     bool skip_size_statistics = false,
+                     bool statistics_columns_set = false,
+                     std::vector<int32_t> statistics_columns = {},
+                     bool skip_page_statistics = false,
+                     bool encoding_stats_as_mask = false)
       : string_size_limit_(string_size_limit),
-        container_size_limit_(container_size_limit) {}
+        container_size_limit_(container_size_limit),
+        skip_column_statistics_(skip_column_statistics),
+        skip_encoding_statistics_(skip_encoding_statistics),
+        skip_size_statistics_(skip_size_statistics),
+        statistics_columns_set_(statistics_columns_set),
+        statistics_columns_(std::move(statistics_columns)),
+        skip_page_statistics_(skip_page_statistics),
+        encoding_stats_as_mask_(encoding_stats_as_mask) {}
 
   // Deserialize a thrift message from buf/len.  buf/len must at least contain
   // all the bytes needed to store the thrift message.
@@ -643,24 +666,100 @@ class ThriftDeserializer {
   template <class T>
   int64_t DeserializeUnencryptedMessage(const uint8_t* buf, int64_t len,
                                         T* deserialized_msg) {
-    // Deserialize msg bytes into c++ thrift msg using memory transport.
-    auto tmem_transport = CreateReadOnlyMemoryBuffer(const_cast<uint8_t*>(buf), len);
-    auto tproto = apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>(
-        tmem_transport, string_size_limit_, container_size_limit_);
-    try {
-      deserialized_msg
-          ->template read<apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>>(
-              &tproto);
-    } catch (std::exception& e) {
-      std::stringstream ss;
-      ss << "Couldn't deserialize thrift: " << e.what() << "\n";
-      throw ParquetException(ss.str());
+    // File metadata is parsed by the allocation-light compact reader.  The
+    // generated thrift reader remains a compatibility fallback for malformed
+    // or newer metadata that the hand-written reader does not understand.
+    const char* generated_reader = std::getenv("PARQUET_USE_GENERATED_THRIFT");
+    if constexpr (std::is_same_v<T, format::FileMetaData>) {
+      if (generated_reader == nullptr || generated_reader[0] != '1') {
+        try {
+          const bool skip_column_stats =
+              skip_column_statistics_ ||
+              std::getenv("PARQUET_SKIP_COLUMN_STATS") != nullptr;
+          const bool skip_encoding_stats =
+              skip_encoding_statistics_ ||
+              std::getenv("PARQUET_SKIP_ENCODING_STATS") != nullptr;
+          const bool skip_size_stats =
+              skip_size_statistics_ || std::getenv("PARQUET_SKIP_SIZE_STATS") != nullptr;
+          internal::CompactInput reader(
+              buf, len, skip_column_stats, skip_encoding_stats, skip_size_stats,
+              statistics_columns_set_ ? &statistics_columns_ : nullptr,
+              skip_page_statistics_, encoding_stats_as_mask_);
+          internal::ReadFileMetaData(reader, deserialized_msg);
+          return reader.position();
+        } catch (const ParquetException&) {
+          // Preserve libthrift's established diagnostics for malformed input.
+          *deserialized_msg = T{};
+        }
+      }
     }
-    return len - static_cast<int64_t>(tmem_transport->available_read());
+    if constexpr (std::is_same_v<T, format::ColumnIndex> ||
+                  std::is_same_v<T, format::OffsetIndex>) {
+      try {
+        internal::CompactInput reader(buf, len);
+        if constexpr (std::is_same_v<T, format::ColumnIndex>) {
+          internal::ReadColumnIndex(reader, deserialized_msg);
+        } else {
+          internal::ReadOffsetIndex(reader, deserialized_msg);
+        }
+        return reader.position();
+      } catch (const ParquetException&) {
+        *deserialized_msg = T{};
+      }
+    }
+    if constexpr (std::is_same_v<T, format::PageHeader>) {
+      try {
+        internal::CompactInput reader(buf, len);
+        internal::ReadPageHeader(reader, deserialized_msg);
+        return reader.position();
+      } catch (const ParquetException&) {
+        *deserialized_msg = T{};
+      }
+    }
+    if constexpr (std::is_same_v<T, format::BloomFilterHeader>) {
+      try {
+        internal::CompactInput reader(buf, len);
+        internal::ReadBloomFilterHeader(reader, deserialized_msg);
+        return reader.position();
+      } catch (const ParquetException&) {
+        *deserialized_msg = T{};
+      }
+    }
+    if constexpr (std::is_same_v<T, internal::DirectFileMetaData>) {
+      internal::CompactInput reader(
+          buf, len, skip_column_statistics_, skip_encoding_statistics_,
+          skip_size_statistics_, statistics_columns_set_ ? &statistics_columns_ : nullptr,
+          skip_page_statistics_, encoding_stats_as_mask_);
+      internal::ReadDirectFileMetaData(reader, deserialized_msg);
+      return reader.position();
+    }
+    if constexpr (!std::is_same_v<T, internal::DirectFileMetaData>) {
+      // Deserialize msg bytes into c++ thrift msg using memory transport.
+      auto tmem_transport = CreateReadOnlyMemoryBuffer(const_cast<uint8_t*>(buf), len);
+      auto tproto = apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>(
+          tmem_transport, string_size_limit_, container_size_limit_);
+      try {
+        deserialized_msg
+            ->template read<apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>>(
+                &tproto);
+      } catch (std::exception& e) {
+        std::stringstream ss;
+        ss << "Couldn't deserialize thrift: " << e.what() << "\n";
+        throw ParquetException(ss.str());
+      }
+      return len - static_cast<int64_t>(tmem_transport->available_read());
+    }
   }
 
   const int32_t string_size_limit_;
   const int32_t container_size_limit_;
+  const bool skip_column_statistics_;
+  const bool skip_encoding_statistics_;
+  const bool skip_size_statistics_;
+  const bool statistics_columns_set_;
+  const std::vector<int32_t> statistics_columns_;
+  const bool skip_page_statistics_;
+  const bool encoding_stats_as_mask_;
 };
 
 /// Utility class to serialize thrift objects to a binary format.  This object
