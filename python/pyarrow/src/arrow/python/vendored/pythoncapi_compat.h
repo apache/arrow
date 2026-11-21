@@ -141,6 +141,11 @@ static inline void _Py_SET_SIZE(PyVarObject *ob, Py_ssize_t size)
 #endif
 
 
+// The PyFrame* / PyThreadState_GetFrame* shims reference PyFrameObject, which
+// is only defined when frameobject.h is included -- not under Py_LIMITED_API.
+// Guard the whole frame block so a limited-API (abi3) build compiles. (Local
+// arrow patch; the pyarrow sources never call the PyFrame* API.)
+#ifndef Py_LIMITED_API
 // bpo-40421 added PyFrame_GetCode() to Python 3.9.0b1
 #if PY_VERSION_HEX < 0x030900B1 || defined(PYPY_VERSION)
 static inline PyCodeObject* PyFrame_GetCode(PyFrameObject *frame)
@@ -283,6 +288,7 @@ PyFrame_GetVarString(PyFrameObject *frame, const char *name)
     return value;
 }
 #endif
+#endif  // !Py_LIMITED_API
 
 
 // bpo-39947 added PyThreadState_GetInterpreter() to Python 3.9.0a5
@@ -296,6 +302,7 @@ PyThreadState_GetInterpreter(PyThreadState *tstate)
 #endif
 
 
+#ifndef Py_LIMITED_API
 // bpo-40429 added PyThreadState_GetFrame() to Python 3.9.0b1
 #if PY_VERSION_HEX < 0x030900B1 && !defined(PYPY_VERSION)
 static inline PyFrameObject* PyThreadState_GetFrame(PyThreadState *tstate)
@@ -314,6 +321,7 @@ _PyThreadState_GetFrameBorrow(PyThreadState *tstate)
     return frame;
 }
 #endif
+#endif  // !Py_LIMITED_API
 
 
 // bpo-39947 added PyInterpreterState_Get() to Python 3.9.0a5
@@ -1344,7 +1352,12 @@ PyDict_SetDefaultRef(PyObject *d, PyObject *key, PyObject *default_value,
 }
 #endif
 
-#if PY_VERSION_HEX < 0x030E0000 && PY_VERSION_HEX >= 0x03060000 && !defined(PYPY_VERSION)
+// The PyUnicodeWriter* shims reference _PyUnicodeWriter, which is only
+// declared outside Py_LIMITED_API. Under the stable API the real
+// PyUnicodeWriter_* (stable since 3.3) is always available, so skip the
+// shims for limited-API builds. (Local arrow patch.)
+#if PY_VERSION_HEX < 0x030E0000 && PY_VERSION_HEX >= 0x03060000 && !defined(PYPY_VERSION) \
+    && !defined(Py_LIMITED_API)
 typedef struct PyUnicodeWriter PyUnicodeWriter;
 
 static inline void PyUnicodeWriter_Discard(PyUnicodeWriter *writer)
@@ -1503,11 +1516,27 @@ PyUnicodeWriter_Format(PyUnicodeWriter *writer, const char *format, ...)
 static inline int PyLong_GetSign(PyObject *obj, int *sign)
 {
     if (!PyLong_Check(obj)) {
-        PyErr_Format(PyExc_TypeError, "expect int, got %s", Py_TYPE(obj)->tp_name);
+        PyErr_Format(PyExc_TypeError, "expect int, got %U", (PyObject *)Py_TYPE(obj));
         return -1;
     }
-
-    *sign = _PyLong_Sign(obj);
+    // Local arrow patch: _PyLong_Sign and PyTypeObject are not available under
+    // Py_LIMITED_API, so derive the sign with the stable comparison API.
+    PyObject *zero = PyLong_FromLong(0);
+    int cmp = PyObject_RichCompareBool(obj, zero, Py_LT);
+    Py_DECREF(zero);
+    if (cmp < 0) {
+        return -1;
+    }
+    *sign = cmp ? -1 : 1;
+    if (!cmp) {
+        zero = PyLong_FromLong(0);
+        int eq = PyObject_RichCompareBool(obj, zero, Py_EQ);
+        Py_DECREF(zero);
+        if (eq < 0) {
+            return -1;
+        }
+        *sign = eq ? 0 : 1;
+    }
     return 0;
 }
 #endif

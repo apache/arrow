@@ -1,0 +1,18 @@
+{
+  "results": {
+    "array_ops.ScalarAccess.time_as_py": 0.004864022019319236,
+    "array_ops.ScalarAccess.time_getitem": 0.0242996399756521,
+    "convert_builtins.ConvertArrayToPyList.time_convert": 0.0038353020208887756,
+    "convert_builtins.ConvertPyListToArray.time_convert": 0.004108241992071271,
+    "convert_builtins.InferPyListToArray.time_infer": 0.0044520520605146885,
+    "convert_pandas.PandasConversionsFromArrow.time_to_series": 0.00029696000274270773,
+    "convert_pandas.PandasConversionsToArrow.time_from_series": 0.00012429500930011272,
+    "convert_pandas.SerializeDeserializePandas.time_deserialize_pandas": 0.016783326980657876,
+    "convert_pandas.SerializeDeserializePandas.time_serialize_pandas": 0.030677062924951315,
+    "convert_pandas.TableFromPandasMicroperformance.time_Table_from_pandas": 0.16167198598850518,
+    "convert_pandas.ToPandasStrings.time_to_pandas_dedup": 0.0002187200589105487,
+    "convert_pandas.ToPandasStrings.time_to_pandas_no_dedup": 0.00021573540288954973,
+    "streaming.StreamReader.time_read_to_dataframe": 0.006927522947080433
+  },
+  "skipped": {}
+}
