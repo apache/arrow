@@ -355,8 +355,9 @@ def cast(arr, target_type=None, safe=None, options=None, memory_pool=None):
     arr : Array-like
     target_type : DataType or str
         Type to cast to
-    safe : bool, default True
-        Check for overflows or other unsafe conversions
+    safe : bool or None, default None
+        Check for overflows or other unsafe conversions. If ``options`` is
+        omitted, ``None`` uses a safe cast.
     options : CastOptions, default None
         Additional checks pass by CastOptions
     memory_pool : MemoryPool, optional
