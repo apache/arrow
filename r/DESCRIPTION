@@ -86,6 +86,7 @@ Collate:
     'arrow-package.R'
     'arrow-tabular.R'
     'buffer.R'
+    'c-data-interface.R'
     'chunked-array.R'
     'io.R'
     'compression.R'

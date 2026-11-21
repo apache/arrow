@@ -82,6 +82,11 @@
 #' - `$View(type)`: Construct a zero-copy view of this array with the given type.
 #' - `$Validate()` : Perform any validation checks to determine obvious inconsistencies
 #'    within the array's internal data. This can be an expensive check, potentially `O(length)`
+#' - `$export_to_c(array_ptr, schema_ptr)`: Fill an `ArrowArray` and an `ArrowSchema` struct
+#'    from this array for the Arrow C Data Interface; the pointers come from
+#'    [allocate_arrow_array()] and [allocate_arrow_schema()].
+#' - `Array$import_from_c(array_ptr, schema_ptr)`: Build an `Array` from structs
+#'    another library filled (a class method, not an instance method).
 #'
 #' @rdname array-class
 #' @examples
