@@ -42,16 +42,16 @@ class TestFilter : public ::testing::Test {
 
 TEST_F(TestFilter, TestFilterCache) {
   // schema for input fields
-  auto field0 = field("f0_filter_cache", int32());
-  auto field1 = field("f1_filter_cache", int32());
+  auto field0 = field("f0_filter_cache", int64());
+  auto field1 = field("f1_filter_cache", int64());
   auto schema = arrow::schema({field0, field1});
 
   // Build condition f0 + f1 < 10
   auto node_f0 = TreeExprBuilder::MakeField(field0);
   auto node_f1 = TreeExprBuilder::MakeField(field1);
   auto sum_func =
-      TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::int32());
-  auto literal_10 = TreeExprBuilder::MakeLiteral((int32_t)10);
+      TreeExprBuilder::MakeFunction("add", {node_f0, node_f1}, arrow::int64());
+  auto literal_10 = TreeExprBuilder::MakeLiteral((int64_t)10);
   auto less_than_10 = TreeExprBuilder::MakeFunction("less_than", {sum_func, literal_10},
                                                     arrow::boolean());
   auto condition = TreeExprBuilder::MakeCondition(less_than_10);
@@ -69,13 +69,13 @@ TEST_F(TestFilter, TestFilterCache) {
   EXPECT_TRUE(cached_filter->GetBuiltFromCache());
 
   // schema is different should return a new filter.
-  auto field2 = field("f2_filter_cache", int32());
+  auto field2 = field("f2_filter_cache", int64());
   auto different_schema = arrow::schema({field0, field1, field2});
   std::shared_ptr<Filter> should_be_new_filter;
   status =
       Filter::Make(different_schema, condition, configuration, &should_be_new_filter);
   EXPECT_TRUE(status.ok());
-  EXPECT_FALSE(should_be_new_filter->GetBuiltFromCache());
+  EXPECT_TRUE(should_be_new_filter->GetBuiltFromCache());
 
   // condition is different, should return a new filter.
   auto greater_than_10 = TreeExprBuilder::MakeFunction(
@@ -84,7 +84,7 @@ TEST_F(TestFilter, TestFilterCache) {
   std::shared_ptr<Filter> should_be_new_filter1;
   status = Filter::Make(schema, new_condition, configuration, &should_be_new_filter1);
   EXPECT_TRUE(status.ok());
-  EXPECT_FALSE(should_be_new_filter->GetBuiltFromCache());
+  EXPECT_FALSE(should_be_new_filter1->GetBuiltFromCache());
 }
 
 TEST_F(TestFilter, TestFilterCacheNullTreatment) {
