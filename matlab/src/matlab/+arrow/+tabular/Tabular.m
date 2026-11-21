@@ -119,7 +119,7 @@ classdef Tabular < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
     methods (Access=protected)
 
         function displayScalarObject(obj)
-            className = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            className = string(class(obj));
             tabularDisplay = arrow.tabular.internal.display.getTabularDisplay(obj, className);
             disp(tabularDisplay + newline);
         end
