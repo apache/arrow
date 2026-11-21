@@ -131,6 +131,10 @@ pre-commit run -a                   # every hook
   only, where it refers to the issue being fixed.
 - Search existing issues before drafting one, and use the templates in
   `.github/ISSUE_TEMPLATE/`.
+- Keep it concise: the problem, how to reproduce it, and what you
+  expected instead.
+- For a bug report or feature request, ask the contributor to describe
+  in their own words how it affects them, and include that.
 - Before starting on an issue, check that nobody is assigned and no PR
   already exists for it.
 - One issue per PR, but one issue for all instances of the same
@@ -165,8 +169,8 @@ with a `GH-` number.
 The description fills in every section of
 `.github/pull_request_template.md`:
 
-- Each section is a sentence or two and does not restate what the
-  diff already shows.
+- It gets to the point: each section states what matters briefly and
+  does not restate what the diff already shows.
 - It is updated when the code changes, so it still matches what is in
   the PR.
 - The "breaking changes" and "Critical Fix" lines are deleted unless
