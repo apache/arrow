@@ -22,6 +22,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -36,6 +37,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/trie_internal.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"  // IWYU pragma: keep
@@ -440,6 +442,14 @@ struct SingleParserTimestampValueDecoder : public ValueDecoder {
   const TimestampParser& parser_;
 };
 
+std::vector<const TimestampParser*> GetTimestampParsers(const ConvertOptions& options) {
+  std::vector<const TimestampParser*> parsers(options.timestamp_parsers.size());
+  for (size_t i = 0; i < options.timestamp_parsers.size(); ++i) {
+    parsers[i] = options.timestamp_parsers[i].get();
+  }
+  return parsers;
+}
+
 struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
   using value_type = int64_t;
 
@@ -449,7 +459,7 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
       : ValueDecoder(type, options, trie_cache),
         unit_(checked_cast<const TimestampType&>(*type_).unit()),
         expect_timezone_(!checked_cast<const TimestampType&>(*type_).timezone().empty()),
-        parsers_(GetParsers(options_)) {}
+        parsers_(GetTimestampParsers(options_)) {}
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     bool zone_offset_present = false;
@@ -464,18 +474,189 @@ struct MultipleParsersTimestampValueDecoder : public ValueDecoder {
   }
 
  protected:
-  using ParserVector = std::vector<const TimestampParser*>;
+  TimeUnit::type unit_;
+  bool expect_timezone_;
+  std::vector<const TimestampParser*> parsers_;
+};
 
-  static ParserVector GetParsers(const ConvertOptions& options) {
-    ParserVector parsers(options.timestamp_parsers.size());
-    for (size_t i = 0; i < options.timestamp_parsers.size(); ++i) {
-      parsers[i] = options.timestamp_parsers[i].get();
+//
+// Value decoder for dates, with fallback to user-defined timestamp parsers
+//
+
+// Splits the fractional seconds (1 to 9 digits) off the end of an ISO-8601
+// timestamp "YYYY-MM-DD[ T]hh:mm:ss.s{1,9}" into `subseconds`, and shortens
+// `size` to exclude them. Returns false if the fractional seconds are
+// malformed or followed by anything (zone offsets are rejected for dates
+// anyway).
+bool SplitISO8601Subseconds(const char* s, uint32_t* size, std::string_view* subseconds) {
+  if (*size <= 20 || s[19] != '.') {
+    return true;
+  }
+  const uint32_t fraction_length = *size - 20;
+  if (fraction_length > 9) {
+    return false;
+  }
+  for (uint32_t i = 20; i < *size; ++i) {
+    if (s[i] < '0' || s[i] > '9') {
+      return false;
+    }
+  }
+  *subseconds = std::string_view(s + 20, fraction_length);
+  *size = 19;
+  return true;
+}
+
+// Whether a strptime format can produce a value of type T, i.e. a date.
+// Directives not listed here count as producing one, so that a usable parser
+// is never skipped.
+template <typename T>
+bool StrptimeFormatCanProduce(const char* format) {
+  const char* p = format;
+  while (*p != '\0') {
+    if (*p++ != '%') {
+      continue;
+    }
+    // Skip flags, field width and the E/O modifiers
+    while (*p != '\0' && std::strchr("_-0^#123456789EO", *p) != nullptr) {
+      ++p;
+    }
+    switch (*p == '\0' ? '\0' : *p++) {
+      case '\0':
+        return false;
+      case 'Y':
+      case 'y':
+      case 'C':
+      case 'G':
+      case 'g':
+      case 'm':
+      case 'b':
+      case 'B':
+      case 'h':
+      case 'd':
+      case 'e':
+      case 'j':
+      case 'U':
+      case 'W':
+      case 'V':
+      case 'D':
+      case 'F':
+      case 'x':
+      case 'v':
+        if constexpr (is_date_type<T>::value) {
+          return true;
+        }
+        break;
+      case 'H':
+      case 'I':
+      case 'k':
+      case 'l':
+      case 'M':
+      case 'S':
+      case 'R':
+      case 'T':
+      case 'r':
+      case 'X':
+        // Time of day
+        break;
+      case 'a':
+      case 'A':
+      case 'u':
+      case 'w':
+      case 'z':
+      case 'Z':
+      case 'n':
+      case 't':
+      case '%':
+      case 'p':
+      case 'P':
+        // Weekday, zone offset, whitespace, literal '%', and AM/PM, which only
+        // qualifies an hour given by another directive
+        break;
+      default:
+        // %c, %s, %+ and directives not listed here
+        return true;
+    }
+  }
+  return false;
+}
+
+// Tries the ISO-8601 format first, then the user-defined timestamp parsers.
+// A timestamp produced by a user-defined parser is floored to the day
+// boundary (consistent with casting a timestamp to date32/date64).
+template <typename T>
+struct DateTimeWithParsersValueDecoder : public ValueDecoder {
+  using value_type = typename T::c_type;
+
+  DateTimeWithParsersValueDecoder(const std::shared_ptr<DataType>& type,
+                                  const ConvertOptions& options,
+                                  const TrieCache* trie_cache)
+      : ValueDecoder(type, options, trie_cache),
+        concrete_type_(checked_cast<const T&>(*type)),
+        parsers_(GetParsers(options_)) {}
+
+  Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
+    TrimWhiteSpace(&data, &size);
+    if (ARROW_PREDICT_TRUE(string_converter_.Convert(
+            concrete_type_, reinterpret_cast<const char*>(data), size, out))) {
+      return Status::OK();
+    }
+    for (const auto& parser : parsers_) {
+      int64_t timestamp = 0;
+      bool zone_offset_present = false;
+      const char* s = reinterpret_cast<const char*>(data);
+      uint32_t s_size = size;
+      std::string_view subseconds;
+      // Set the fractional seconds aside, so that any number of digits is
+      // accepted: dates discard them
+      if (std::strcmp(parser->kind(), "iso8601") == 0 &&
+          !SplitISO8601Subseconds(s, &s_size, &subseconds)) {
+        continue;
+      }
+      if (parser->operator()(s, s_size, TimeUnit::SECOND, &timestamp,
+                             &zone_offset_present) &&
+          !zone_offset_present) {
+        // Floor division, to handle values before the epoch
+        int64_t days = timestamp / kSecondsPerDay;
+        days -= (timestamp % kSecondsPerDay) < 0;
+        if constexpr (std::is_same_v<T, Date32Type>) {
+          if (days < std::numeric_limits<value_type>::min() ||
+              days > std::numeric_limits<value_type>::max()) {
+            continue;  // out of the range of date32
+          }
+          *out = static_cast<value_type>(days);
+        } else {
+          static_assert(std::is_same_v<T, Date64Type>);
+          if (arrow::internal::MultiplyWithOverflow(days, kMillisPerDay, out)) {
+            continue;  // out of the range of date64
+          }
+        }
+        return Status::OK();
+      }
+    }
+    return GenericConversionError(type_, data, size);
+  }
+
+ protected:
+  static constexpr int64_t kSecondsPerDay = 86400;
+  static constexpr int64_t kMillisPerDay = 86400000;
+
+  // The user-defined parsers, except strptime parsers whose format cannot
+  // produce a date, so that a time is not silently accepted with the date
+  // defaulted
+  static std::vector<const TimestampParser*> GetParsers(const ConvertOptions& options) {
+    std::vector<const TimestampParser*> parsers;
+    for (const auto* parser : GetTimestampParsers(options)) {
+      if (std::strcmp(parser->kind(), "strptime") == 0 &&
+          !StrptimeFormatCanProduce<T>(parser->format())) {
+        continue;
+      }
+      parsers.push_back(parser);
     }
     return parsers;
   }
 
-  TimeUnit::type unit_;
-  bool expect_timezone_;
+  const T& concrete_type_;
+  arrow::internal::StringConverter<T> string_converter_;
   std::vector<const TimestampParser*> parsers_;
 };
 
@@ -676,6 +857,27 @@ std::shared_ptr<Converter> MakeTimestampConverter(const std::shared_ptr<DataType
 }
 
 //
+// Concrete Converter factory for dates
+//
+
+template <template <typename, typename> class ConverterType, typename T>
+std::shared_ptr<Converter> MakeDateTimeConverter(const std::shared_ptr<DataType>& type,
+                                                 const ConvertOptions& options,
+                                                 MemoryPool* pool,
+                                                 bool is_type_inference) {
+  if (is_type_inference || options.timestamp_parsers.empty()) {
+    // Default to ISO-8601. Type inference must not use the user-defined
+    // timestamp parsers, otherwise a value with a time-of-day part could be
+    // inferred as a date and be silently truncated.
+    return std::make_shared<ConverterType<T, NumericValueDecoder<T>>>(type, options,
+                                                                      pool);
+  }
+  // Try ISO-8601 first, then the user-defined timestamp parsers
+  return std::make_shared<ConverterType<T, DateTimeWithParsersValueDecoder<T>>>(
+      type, options, pool);
+}
+
+//
 // Concrete Converter factory for reals
 //
 
@@ -715,7 +917,8 @@ DictionaryConverter::DictionaryConverter(const std::shared_ptr<DataType>& value_
 
 Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataType>& type,
                                                    const ConvertOptions& options,
-                                                   MemoryPool* pool) {
+                                                   MemoryPool* pool,
+                                                   bool is_type_inference) {
   std::shared_ptr<Converter> ptr;
 
   switch (type->id()) {
@@ -746,8 +949,6 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
     NUMERIC_CONVERTER_CASE(Type::FLOAT, FloatType)
     NUMERIC_CONVERTER_CASE(Type::DOUBLE, DoubleType)
     REAL_CONVERTER_CASE(Type::DECIMAL, Decimal128Type, DecimalValueDecoder)
-    NUMERIC_CONVERTER_CASE(Type::DATE32, Date32Type)
-    NUMERIC_CONVERTER_CASE(Type::DATE64, Date64Type)
     NUMERIC_CONVERTER_CASE(Type::TIME32, Time32Type)
     NUMERIC_CONVERTER_CASE(Type::TIME64, Time64Type)
     NUMERIC_CONVERTER_CASE(Type::DURATION, DurationType)
@@ -761,6 +962,16 @@ Result<std::shared_ptr<Converter>> Converter::Make(const std::shared_ptr<DataTyp
 
     case Type::TIMESTAMP:
       ptr = MakeTimestampConverter<PrimitiveConverter>(type, options, pool);
+      break;
+
+    case Type::DATE32:
+      ptr = MakeDateTimeConverter<PrimitiveConverter, Date32Type>(type, options, pool,
+                                                                  is_type_inference);
+      break;
+
+    case Type::DATE64:
+      ptr = MakeDateTimeConverter<PrimitiveConverter, Date64Type>(type, options, pool,
+                                                                  is_type_inference);
       break;
 
     case Type::STRING:
