@@ -547,6 +547,8 @@ cdef class ParquetReadOptions(_Weakrefable):
     @binary_type.setter
     def binary_type(self, ty):
         if ty is not None:
+            if not isinstance(ty, DataType):
+                raise TypeError(f"DataType expected, got {type(ty)!r}")
             self._binary_type = pyarrow_unwrap_data_type(ty).get().id()
         else:
             self._binary_type = _Type_BINARY
