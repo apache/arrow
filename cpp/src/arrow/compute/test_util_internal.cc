@@ -24,6 +24,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/logging_internal.h"
@@ -118,6 +119,17 @@ void ValidateOutput(const Datum& output) {
     default:
       break;
   }
+}
+
+std::shared_ptr<SelectionVector> SelectionVectorFromJSON(const std::string& json) {
+  return std::make_shared<SelectionVector>(*ArrayFromJSON(int32(), json));
+}
+
+std::shared_ptr<SelectionVector> MakeSelectionVectorTo(int64_t length) {
+  auto res = gen::Step<int32_t>()->Generate(length);
+  DCHECK_OK(res.status());
+  auto arr = res.ValueUnsafe();
+  return std::make_shared<SelectionVector>(*arr);
 }
 
 }  // namespace arrow::compute
