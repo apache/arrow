@@ -763,16 +763,15 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
       }
       return Status::OK();
     };
-    // Rebuild the child array run-by-run so a fixed-size list slot with no
-    // physical child values - whether it is itself null, or a non-repeated
-    // ancestor was null so its elements were never written - still
-    // contributes list_size child values in the final layout.
+    // Rebuild the child array run-by-run so null fixed-size list slots still
+    // contribute list_size child values in the final layout. `visit_runs`
+    // always covers the full [0, data->length) range, so an unexpected gap
+    // on a run that turns out not to need padding is still rejected by
+    // validate_offsets.
     auto rebuild_from_runs = [&](auto&& visit_runs) -> Status {
       ::arrow::ArrayVector child_arrays;
-
       auto visit_run = [&](int64_t start, int64_t length, bool has_elements) -> Status {
         RETURN_NOT_OK(validate_offsets(start, length, has_elements));
-
         const int64_t child_length = length * list_size;
         // Valid runs reuse the decoded child slice; null runs materialize null
         // children to preserve the fixed-size list shape.
@@ -788,7 +787,6 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
         return Status::OK();
       };
       RETURN_NOT_OK(visit_runs(visit_run));
-
       // TODO(GH-50271): Build one padded child array directly instead of creating
       // one temporary Array/ArrayData per validity run and concatenating them.
       ARROW_ASSIGN_OR_RAISE(auto child_array_with_padding,
@@ -797,17 +795,20 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
       return Status::OK();
     };
 
-    if (data->GetNullCount() != 0) {
-      DCHECK_NE(data->buffers[0], nullptr);
+    if (data->buffers[0] != nullptr) {
+      // A real validity buffer survived, so at least one row in this batch
+      // is null; rebuild run-by-run so each null run is padded.
       RETURN_NOT_OK(rebuild_from_runs([&](auto&& visit_run) {
         return ::arrow::internal::VisitBitRuns(data->buffers[0]->data(), data->offset,
                                                data->length, visit_run);
       }));
-    } else if (data->length > 0) {
-      // This field is schema non-nullable, so it has no validity buffer of
-      // its own: a null ancestor's "elements never written" gap can only be
-      // detected from the offsets directly, not from a (nonexistent) bitmap.
-      RETURN_NOT_OK(rebuild_from_runs([&](auto&& visit_run) -> Status {
+    } else if (!field()->nullable() && data->length > 0) {
+      // This field is schema non-nullable, so it never has a validity buffer
+      // at all, with or without nulls: a null non-repeated ancestor (e.g. a
+      // struct) still leaves no physical child values for its row, and that
+      // gap can only be detected from the offsets directly.
+      bool any_gap = false;
+      auto scan_offsets = [&](auto&& visit) -> Status {
         int64_t run_start = 0;
         bool run_has_elements = true;
         for (int64_t i = 0; i < data->length; ++i) {
@@ -815,13 +816,33 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
           if (i == run_start) {
             run_has_elements = has_elements;
           } else if (has_elements != run_has_elements) {
-            RETURN_NOT_OK(visit_run(run_start, i - run_start, run_has_elements));
+            RETURN_NOT_OK(visit(run_start, i - run_start, run_has_elements));
             run_start = i;
             run_has_elements = has_elements;
           }
         }
-        return visit_run(run_start, data->length - run_start, run_has_elements);
-      }));
+        return visit(run_start, data->length - run_start, run_has_elements);
+      };
+      // First pass: validate every run without allocating anything, and note
+      // whether any of them is missing its elements.
+      RETURN_NOT_OK(
+          scan_offsets([&](int64_t start, int64_t length, bool has_elements) -> Status {
+            RETURN_NOT_OK(validate_offsets(start, length, has_elements));
+            any_gap = any_gap || !has_elements;
+            return Status::OK();
+          }));
+      if (any_gap) {
+        // Second pass, only paid for a batch that actually needs padding.
+        RETURN_NOT_OK(rebuild_from_runs(scan_offsets));
+      }
+    } else {
+      // Either this field is nullable but every row in this batch happens to
+      // be valid (so its validity buffer was discarded, the same as a
+      // genuinely non-nullable field), or the batch is empty. A nullable
+      // field's own null count already reflects any non-repeated ancestor's
+      // absence, so a zero null count means there is no gap anywhere: a
+      // single pass validating the whole range is enough, with no padding.
+      RETURN_NOT_OK(validate_offsets(/*start=*/0, data->length, /*has_elements=*/true));
     }
     data->buffers.resize(1);
     std::shared_ptr<Array> result = ::arrow::MakeArray(data);
