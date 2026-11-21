@@ -17,12 +17,20 @@
 
 #include <stdlib.h>
 
+#include <functional>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "benchmark/benchmark.h"
 #include "gandiva/decimal_type_util.h"
+#include "gandiva/expr_cse.h"
+#include "gandiva/filter.h"
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tests/timed_evaluate.h"
@@ -34,6 +42,207 @@ using arrow::boolean;
 using arrow::int32;
 using arrow::int64;
 using arrow::utf8;
+
+namespace {
+
+enum class CsePattern : int64_t {
+  kDeepUnique,
+  kRepeatedSafe,
+  kRepeatedUnsafe,
+  kSharedDag,
+};
+
+struct CseBenchmarkExpression {
+  SchemaPtr schema;
+  ExpressionPtr expression;
+  ConditionPtr condition;
+};
+
+NodePtr MakeBalancedTree(int64_t leaves, const std::function<NodePtr()>& make_leaf) {
+  if (leaves <= 1) {
+    return make_leaf();
+  }
+  auto left = MakeBalancedTree(leaves / 2, make_leaf);
+  auto right = MakeBalancedTree(leaves - leaves / 2, make_leaf);
+  return TreeExprBuilder::MakeFunction("add", {left, right}, arrow::float64());
+}
+
+CseBenchmarkExpression MakeCseBenchmarkExpression(CsePattern pattern, int64_t size,
+                                                  int64_t salt) {
+  auto left = field("cse_left", arrow::float64());
+  auto right = field("cse_right", arrow::float64());
+  auto schema = arrow::schema({left, right});
+
+  NodePtr root;
+  switch (pattern) {
+    case CsePattern::kDeepUnique: {
+      root = TreeExprBuilder::MakeField(left);
+      for (int64_t i = 0; i < size; ++i) {
+        root = TreeExprBuilder::MakeFunction(
+            "add", {root, TreeExprBuilder::MakeLiteral(static_cast<double>(i + 1))},
+            arrow::float64());
+      }
+      break;
+    }
+    case CsePattern::kRepeatedSafe: {
+      auto make_leaf = [&] {
+        auto make_sum = [&] {
+          return TreeExprBuilder::MakeFunction(
+              "add",
+              {TreeExprBuilder::MakeField(left), TreeExprBuilder::MakeField(right)},
+              arrow::float64());
+        };
+        return TreeExprBuilder::MakeFunction("multiply", {make_sum(), make_sum()},
+                                             arrow::float64());
+      };
+      root = MakeBalancedTree(size, make_leaf);
+      break;
+    }
+    case CsePattern::kRepeatedUnsafe: {
+      auto make_leaf = [&] {
+        return TreeExprBuilder::MakeFunction(
+            "divide",
+            {TreeExprBuilder::MakeField(left), TreeExprBuilder::MakeField(right)},
+            arrow::float64());
+      };
+      root = MakeBalancedTree(size, make_leaf);
+      break;
+    }
+    case CsePattern::kSharedDag: {
+      root = TreeExprBuilder::MakeFunction(
+          "add", {TreeExprBuilder::MakeField(left), TreeExprBuilder::MakeField(right)},
+          arrow::float64());
+      for (int64_t i = 0; i < size; ++i) {
+        root = TreeExprBuilder::MakeFunction("add", {root, root}, arrow::float64());
+      }
+      break;
+    }
+  }
+
+  root = TreeExprBuilder::MakeFunction(
+      "add", {root, TreeExprBuilder::MakeLiteral(static_cast<double>(salt) + 0.125)},
+      arrow::float64());
+  auto condition_root = TreeExprBuilder::MakeFunction(
+      "greater_than", {root, TreeExprBuilder::MakeLiteral(0.0)}, arrow::boolean());
+  return {schema,
+          TreeExprBuilder::MakeExpression(
+              root, field("cse_result_" + std::to_string(salt), arrow::float64())),
+          TreeExprBuilder::MakeCondition(condition_root)};
+}
+
+void CseFoldOnly(benchmark::State& state) {
+  auto pattern = static_cast<CsePattern>(state.range(0));
+  auto size = state.range(1);
+  int64_t iteration = 0;
+  for (auto _ : state) {
+    state.PauseTiming();
+    auto input = MakeCseBenchmarkExpression(pattern, size, iteration++);
+    state.ResumeTiming();
+    auto folded = FoldCommonSubexpressions(*default_function_registry(),
+                                           ExpressionVector{input.expression});
+    benchmark::DoNotOptimize(folded);
+  }
+}
+
+void CseProjectorBuild(benchmark::State& state) {
+  auto pattern = static_cast<CsePattern>(state.range(0));
+  auto size = state.range(1);
+  int64_t iteration = 0;
+  int64_t total_ir_bytes = 0;
+  for (auto _ : state) {
+    state.PauseTiming();
+    auto input = MakeCseBenchmarkExpression(pattern, size, iteration++);
+    auto configuration = std::make_shared<Configuration>(
+        true, default_function_registry(), /*dump_ir=*/true);
+    state.ResumeTiming();
+
+    std::shared_ptr<Projector> projector;
+    ASSERT_OK(
+        Projector::Make(input.schema, {input.expression}, configuration, &projector));
+
+    state.PauseTiming();
+    ASSERT_OK_AND_ASSIGN(auto ir, projector->DumpUnoptimizedIR());
+    total_ir_bytes += static_cast<int64_t>(ir.size());
+    benchmark::DoNotOptimize(projector);
+    state.ResumeTiming();
+  }
+  state.counters["ir_bytes"] =
+      benchmark::Counter(total_ir_bytes, benchmark::Counter::kAvgIterations);
+}
+
+void CseFilterBuild(benchmark::State& state) {
+  auto pattern = static_cast<CsePattern>(state.range(0));
+  auto size = state.range(1);
+  int64_t iteration = 0;
+  for (auto _ : state) {
+    state.PauseTiming();
+    auto input = MakeCseBenchmarkExpression(pattern, size, iteration++);
+    auto configuration = std::make_shared<Configuration>(
+        true, default_function_registry(), /*dump_ir=*/false);
+    state.ResumeTiming();
+
+    std::shared_ptr<Filter> filter;
+    ASSERT_OK(Filter::Make(input.schema, input.condition, configuration, &filter));
+    benchmark::DoNotOptimize(filter);
+  }
+}
+
+void CseProjectorEvaluate(benchmark::State& state) {
+  auto pattern = static_cast<CsePattern>(state.range(0));
+  auto size = state.range(1);
+  auto input = MakeCseBenchmarkExpression(pattern, size, 0);
+  std::shared_ptr<Projector> projector;
+  ASSERT_OK(
+      Projector::Make(input.schema, {input.expression}, TestConfiguration(), &projector));
+  auto left = MakeArrowArrayFloat64(std::vector<double>(1024, 12.0));
+  auto right = MakeArrowArrayFloat64(std::vector<double>(1024, 3.0));
+  auto batch = arrow::RecordBatch::Make(input.schema, 1024, {left, right});
+
+  for (auto _ : state) {
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*batch, arrow::default_memory_pool(), &outputs));
+    benchmark::DoNotOptimize(outputs);
+  }
+  state.SetItemsProcessed(state.iterations() * batch->num_rows());
+}
+
+void CseFilterEvaluate(benchmark::State& state) {
+  auto pattern = static_cast<CsePattern>(state.range(0));
+  auto size = state.range(1);
+  auto input = MakeCseBenchmarkExpression(pattern, size, 0);
+  std::shared_ptr<Filter> filter;
+  ASSERT_OK(Filter::Make(input.schema, input.condition, TestConfiguration(), &filter));
+  auto left = MakeArrowArrayFloat64(std::vector<double>(1024, 12.0));
+  auto right = MakeArrowArrayFloat64(std::vector<double>(1024, 3.0));
+  auto batch = arrow::RecordBatch::Make(input.schema, 1024, {left, right});
+  std::shared_ptr<SelectionVector> selection;
+  ASSERT_OK(SelectionVector::MakeInt32(batch->num_rows(), arrow::default_memory_pool(),
+                                       &selection));
+
+  for (auto _ : state) {
+    ASSERT_OK(filter->Evaluate(*batch, selection));
+    benchmark::DoNotOptimize(selection);
+  }
+  state.SetItemsProcessed(state.iterations() * batch->num_rows());
+}
+
+void CseBenchmarkArguments(benchmark::internal::Benchmark* benchmark) {
+  for (auto pattern : {CsePattern::kDeepUnique, CsePattern::kRepeatedSafe,
+                       CsePattern::kRepeatedUnsafe}) {
+    for (auto size : {10, 100, 1000}) {
+      benchmark->Args({static_cast<int64_t>(pattern), size});
+    }
+  }
+}
+
+void CseFoldBenchmarkArguments(benchmark::internal::Benchmark* benchmark) {
+  CseBenchmarkArguments(benchmark);
+  for (auto depth : {10, 20, 24}) {
+    benchmark->Args({static_cast<int64_t>(CsePattern::kSharedDag), depth});
+  }
+}
+
+}  // namespace
 
 static void TimedTestAdd3(benchmark::State& state) {
   // schema for input fields
@@ -491,6 +700,26 @@ static void DecimalAdd3Large(benchmark::State& state) {
 }
 
 BENCHMARK(TimedTestExprCompilation)->Unit(benchmark::kMicrosecond);
+BENCHMARK(CseFoldOnly)
+    ->Apply(CseFoldBenchmarkArguments)
+    ->ArgNames({"pattern", "size"})
+    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(CseProjectorBuild)
+    ->Apply(CseBenchmarkArguments)
+    ->ArgNames({"pattern", "size"})
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(CseFilterBuild)
+    ->Apply(CseBenchmarkArguments)
+    ->ArgNames({"pattern", "size"})
+    ->Unit(benchmark::kMillisecond);
+BENCHMARK(CseProjectorEvaluate)
+    ->Apply(CseBenchmarkArguments)
+    ->ArgNames({"pattern", "size"})
+    ->Unit(benchmark::kMicrosecond);
+BENCHMARK(CseFilterEvaluate)
+    ->Apply(CseBenchmarkArguments)
+    ->ArgNames({"pattern", "size"})
+    ->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestAdd3)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestBigNested)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestExtractYear)->Unit(benchmark::kMicrosecond);

@@ -23,6 +23,7 @@
 #include "gandiva/bitmap_accumulator.h"
 #include "gandiva/cache.h"
 #include "gandiva/condition.h"
+#include "gandiva/expr_cse.h"
 #include "gandiva/expr_validator.h"
 #include "gandiva/llvm_generator.h"
 #include "gandiva/selection_vector_impl.h"
@@ -45,10 +46,13 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   ARROW_RETURN_IF(configuration == nullptr,
                   Status::Invalid("Configuration cannot be null"));
 
+  auto folded_condition =
+      FoldCommonSubexpressions(*configuration->function_registry(), condition);
+
   std::shared_ptr<Cache<ExpressionCacheKey, std::shared_ptr<llvm::MemoryBuffer>>> cache =
       LLVMGenerator::GetCache();
 
-  Condition conditionToKey = *(condition.get());
+  Condition conditionToKey = *(folded_condition.get());
 
   ExpressionCacheKey cache_key(schema, configuration, conditionToKey);
 
@@ -73,7 +77,7 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
     // Return if the expression is invalid since we will not be able to process further.
     ExprValidator expr_validator(llvm_gen->types(), schema,
                                  configuration->function_registry());
-    ARROW_RETURN_NOT_OK(expr_validator.Validate(condition));
+    ARROW_RETURN_NOT_OK(expr_validator.Validate(folded_condition));
   }
 
   // Pre-load the already-compiled object from the cache lookup above, if there was
@@ -82,7 +86,8 @@ Status Filter::Make(SchemaPtr schema, ConditionPtr condition,
   // decided whether Build() below still compiles.
   ARROW_RETURN_NOT_OK(llvm_gen->SetLLVMObjectCache(prev_cached_obj));
 
-  ARROW_RETURN_NOT_OK(llvm_gen->Build({condition}, SelectionVector::Mode::MODE_NONE));
+  ARROW_RETURN_NOT_OK(
+      llvm_gen->Build({folded_condition}, SelectionVector::Mode::MODE_NONE));
 
   // Instantiate the filter with the completely built llvm generator
   *filter = std::make_shared<Filter>(std::move(llvm_gen), schema, configuration);
