@@ -25,7 +25,6 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/print_internal.h"
 #include "arrow/util/sort_internal.h"
 
 namespace arrow::internal {
@@ -48,22 +47,6 @@ bool IsPermutationTrivial(std::span<const int64_t> permutation) {
     }
   }
   return true;
-}
-
-Status IsPermutationValid(std::span<const int64_t> permutation) {
-  const auto size = static_cast<int64_t>(permutation.size());
-  std::vector<uint8_t> dim_seen(size, 0);
-
-  for (const auto p : permutation) {
-    if (p < 0 || p >= size || dim_seen[p] != 0) {
-      return Status::Invalid(
-          "Permutation indices for ", size,
-          " dimensional tensors must be unique and within [0, ", size - 1,
-          "] range. Got: ", ::arrow::internal::PrintVector{permutation, ","});
-    }
-    dim_seen[p] = 1;
-  }
-  return Status::OK();
 }
 
 Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,

@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <span>
 #include <vector>
 
@@ -35,9 +34,6 @@ Result<int64_t> ComputeShapeProduct(std::span<const int64_t> shape);
 
 ARROW_EXPORT
 bool IsPermutationTrivial(std::span<const int64_t> permutation);
-
-ARROW_EXPORT
-Status IsPermutationValid(std::span<const int64_t> permutation);
 
 ARROW_EXPORT
 Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,
