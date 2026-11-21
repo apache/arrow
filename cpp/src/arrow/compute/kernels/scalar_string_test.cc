@@ -15,8 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -25,6 +27,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/expression.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
@@ -1703,6 +1706,53 @@ TYPED_TEST(TestBaseBinaryKernels, MatchSubstring) {
                    &options_empty);
 }
 
+TYPED_TEST(TestBaseBinaryKernels, MatchSubstringConcurrentFirstUse) {
+  auto in_schema = schema({field("x", this->type())});
+  MatchSubstringOptions options{"ab"};
+  auto expr = call("match_substring", {field_ref("x")}, options);
+  ASSERT_OK_AND_ASSIGN(auto bound_expr, expr.Bind(*in_schema));
+
+  Datum input =
+      ArrayFromJSON(this->type(), R"(["abc", "acb", "cab", null, "bac", "AB"])");
+  ExecBatch batch({input}, 6);
+
+  constexpr int kNumThreads = 16;
+  std::vector<std::thread> threads;
+  std::vector<Result<Datum>> results(kNumThreads);
+  // Synchronize threads at a two-phase barrier so that all threads are actively
+  // waiting before any thread begins execution, guaranteeing a true concurrent
+  // first-initialization race on the cached matcher.
+  std::atomic<int> waiting{0};
+  std::atomic<bool> go{false};
+
+  for (int i = 0; i < kNumThreads; ++i) {
+    threads.emplace_back([&, i]() {
+      // Signal arrival at the barrier and spin-wait until all threads are ready.
+      waiting.fetch_add(1, std::memory_order_relaxed);
+      while (!go.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      results[i] = ExecuteScalarExpression(bound_expr, batch);
+    });
+  }
+
+  // Wait for all threads to reach the barrier before releasing them concurrently.
+  while (waiting.load(std::memory_order_relaxed) < kNumThreads) {
+    std::this_thread::yield();
+  }
+  go.store(true, std::memory_order_release);
+
+  for (auto& t : threads) {
+    t.join();
+  }
+
+  Datum expected = ArrayFromJSON(boolean(), "[true, false, true, null, false, false]");
+  for (int i = 0; i < kNumThreads; ++i) {
+    ASSERT_OK(results[i].status());
+    AssertDatumsEqual(expected, results[i].ValueOrDie());
+  }
+}
+
 #ifdef ARROW_WITH_RE2
 TYPED_TEST(TestBaseBinaryKernels, MatchSubstringIgnoreCase) {
   MatchSubstringOptions options_insensitive{"aé(", /*ignore_case=*/true};
@@ -1842,6 +1892,53 @@ TYPED_TEST(TestBaseBinaryKernels, MatchSubstringRegexInvalid) {
       CallFunction("match_substring_regex", {input}, &options));
 }
 
+TYPED_TEST(TestBaseBinaryKernels, MatchSubstringRegexConcurrentFirstUse) {
+  auto in_schema = schema({field("x", this->type())});
+  MatchSubstringOptions options{"ab"};
+  auto expr = call("match_substring_regex", {field_ref("x")}, options);
+  ASSERT_OK_AND_ASSIGN(auto bound_expr, expr.Bind(*in_schema));
+
+  Datum input =
+      ArrayFromJSON(this->type(), R"(["abc", "acb", "cab", null, "bac", "AB"])");
+  ExecBatch batch({input}, 6);
+
+  constexpr int kNumThreads = 16;
+  std::vector<std::thread> threads;
+  std::vector<Result<Datum>> results(kNumThreads);
+  // Synchronize threads at a two-phase barrier so that all threads are actively
+  // waiting before any thread begins execution, guaranteeing a true concurrent
+  // first-initialization race on the cached matcher.
+  std::atomic<int> waiting{0};
+  std::atomic<bool> go{false};
+
+  for (int i = 0; i < kNumThreads; ++i) {
+    threads.emplace_back([&, i]() {
+      // Signal arrival at the barrier and spin-wait until all threads are ready.
+      waiting.fetch_add(1, std::memory_order_relaxed);
+      while (!go.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      results[i] = ExecuteScalarExpression(bound_expr, batch);
+    });
+  }
+
+  // Wait for all threads to reach the barrier before releasing them concurrently.
+  while (waiting.load(std::memory_order_relaxed) < kNumThreads) {
+    std::this_thread::yield();
+  }
+  go.store(true, std::memory_order_release);
+
+  for (auto& t : threads) {
+    t.join();
+  }
+
+  Datum expected = ArrayFromJSON(boolean(), "[true, false, true, null, false, false]");
+  for (int i = 0; i < kNumThreads; ++i) {
+    ASSERT_OK(results[i].status());
+    AssertDatumsEqual(expected, results[i].ValueOrDie());
+  }
+}
+
 TYPED_TEST(TestBinaryKernels, MatchLikeIgnoreCase) {
   // Case-folding is ASCII-only for binary types
   MatchSubstringOptions insensitive_substring{"%e%", /*ignore_case=*/true};
@@ -1926,6 +2023,53 @@ TYPED_TEST(TestBaseBinaryKernels, MatchLikeEscaping) {
   MatchSubstringOptions escape_sequences{"\n\t%"};
   this->CheckUnary("match_like", R"(["\n\tfoo\t", "\n\t", "\n"])", boolean(),
                    "[true, true, false]", &escape_sequences);
+}
+
+TYPED_TEST(TestBaseBinaryKernels, MatchLikeConcurrentFirstUse) {
+  auto in_schema = schema({field("x", this->type())});
+  MatchSubstringOptions options{"%ab%"};
+  auto expr = call("match_like", {field_ref("x")}, options);
+  ASSERT_OK_AND_ASSIGN(auto bound_expr, expr.Bind(*in_schema));
+
+  Datum input =
+      ArrayFromJSON(this->type(), R"(["abc", "acb", "cab", null, "bac", "AB"])");
+  ExecBatch batch({input}, 6);
+
+  constexpr int kNumThreads = 16;
+  std::vector<std::thread> threads;
+  std::vector<Result<Datum>> results(kNumThreads);
+  // Synchronize threads at a two-phase barrier so that all threads are actively
+  // waiting before any thread begins execution, guaranteeing a true concurrent
+  // first-initialization race on the cached matcher.
+  std::atomic<int> waiting{0};
+  std::atomic<bool> go{false};
+
+  for (int i = 0; i < kNumThreads; ++i) {
+    threads.emplace_back([&, i]() {
+      // Signal arrival at the barrier and spin-wait until all threads are ready.
+      waiting.fetch_add(1, std::memory_order_relaxed);
+      while (!go.load(std::memory_order_acquire)) {
+        std::this_thread::yield();
+      }
+      results[i] = ExecuteScalarExpression(bound_expr, batch);
+    });
+  }
+
+  // Wait for all threads to reach the barrier before releasing them concurrently.
+  while (waiting.load(std::memory_order_relaxed) < kNumThreads) {
+    std::this_thread::yield();
+  }
+  go.store(true, std::memory_order_release);
+
+  for (auto& t : threads) {
+    t.join();
+  }
+
+  Datum expected = ArrayFromJSON(boolean(), "[true, false, true, null, false, false]");
+  for (int i = 0; i < kNumThreads; ++i) {
+    ASSERT_OK(results[i].status());
+    AssertDatumsEqual(expected, results[i].ValueOrDie());
+  }
 }
 #endif
 
