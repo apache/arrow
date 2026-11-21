@@ -42,12 +42,19 @@ py -0p
 @REM Install the built wheels
 %PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\repaired_wheels pyarrow || exit /B 1
 
+@REM S3 ships in the separate pyarrow-s3 wheel: with only pyarrow installed,
+@REM check that S3 fails with an actionable message, then install it.
+if "%PYARROW_TEST_S3%"=="ON" %PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_check_s3_split.py || exit /B 1
+if "%PYARROW_TEST_S3%"=="ON" %PYTHON_CMD% -m pip install --no-index --find-links=C:\arrow\python\repaired_wheels pyarrow-s3 || exit /B 1
+@REM from_uri must work even if pyarrow.fs was never imported.
+if "%PYARROW_TEST_S3%"=="ON" %PYTHON_CMD% -c "from pyarrow._fs import FileSystem; FileSystem.from_uri('s3://bucket/key?region=us-east-1')" || exit /B 1
+
 @REM Test that the modules are importable
 %PYTHON_CMD% -c "import pyarrow" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow._azurefs" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow._gcsfs" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow._hdfs" || exit /B 1
-%PYTHON_CMD% -c "import pyarrow._s3fs" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow.fs; pyarrow.fs.S3FileSystem" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow.csv" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow.dataset" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow.flight" || exit /B 1

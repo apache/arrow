@@ -21,7 +21,7 @@ from cpython.datetime cimport datetime, PyDateTime_DateTime
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow_python cimport PyDateTime_to_TimePoint
-from pyarrow.lib import _detect_compression, frombytes, tobytes
+from pyarrow.lib import ArrowInvalid, _detect_compression, frombytes, tobytes
 from pyarrow.lib cimport *
 from pyarrow.util import _stringify_path
 
@@ -499,8 +499,22 @@ cdef class FileSystem(_Weakrefable):
         """
         if isinstance(uri, str) and uri.startswith(("fsspec+", "hf://")):
             return FileSystem._fsspec_from_uri(uri)
-        else:
+        try:
             return FileSystem._native_from_uri(uri)
+        except ArrowInvalid as exc:
+            if not (isinstance(uri, str) and uri.startswith("s3://")
+                    and "Unrecognized filesystem type" in str(exc)):
+                raise
+            # S3 support can ship separately, as the pyarrow-s3 package.
+            # Importing pyarrow.fs loads it if installed, which registers
+            # the s3 scheme.
+            import pyarrow.fs
+            if "S3FileSystem" not in pyarrow.fs._not_imported:
+                return FileSystem._native_from_uri(uri)
+            reason = pyarrow.fs._not_imported_reasons.get("S3FileSystem")
+            if reason is None:
+                raise
+            raise ArrowInvalid(f"{exc} ({reason})") from None
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         self.wrapped = wrapped
