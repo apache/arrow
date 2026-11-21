@@ -1193,6 +1193,34 @@ def test_key_value_metadata():
         ], b='BETA')
 
 
+def test_key_value_metadata_index_errors():
+    meta = pa.KeyValueMetadata({'a': 'A', 'b': 'B'})
+
+    # in-bounds accesses still work
+    assert meta.key(0) == b'a'
+    assert meta.key(1) == b'b'
+    assert meta.value(0) == b'A'
+    assert meta.value(1) == b'B'
+
+    # out-of-range indexes raise IndexError instead of segfaulting
+    with pytest.raises(IndexError):
+        meta.key(2)
+    with pytest.raises(IndexError):
+        meta.key(-1)
+    with pytest.raises(IndexError):
+        meta.value(2)
+    with pytest.raises(IndexError):
+        meta.value(-1)
+
+    # empty metadata: index 0 is out of bounds too
+    empty = pa.KeyValueMetadata()
+    assert len(empty) == 0
+    with pytest.raises(IndexError):
+        empty.key(0)
+    with pytest.raises(IndexError):
+        empty.value(0)
+
+
 def test_key_value_metadata_duplicates():
     meta = pa.KeyValueMetadata({'a': '1', 'b': '2'})
 
