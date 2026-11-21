@@ -424,6 +424,9 @@ class ARROW_DS_EXPORT Scanner {
   /// much in memory (this is goverended by the readahead options and use_threads option).
   /// If the readahead queue fills up then I/O will pause until the calling thread catches
   /// up.
+  ///
+  /// Destroying the iterator before the end of the stream stops the scan.  Reads that
+  /// were already in flight may finish in the background afterwards.
   virtual Result<TaggedRecordBatchIterator> ScanBatches() = 0;
   virtual Result<TaggedRecordBatchGenerator> ScanBatchesAsync() = 0;
   virtual Result<TaggedRecordBatchGenerator> ScanBatchesAsync(
@@ -434,7 +437,8 @@ class ARROW_DS_EXPORT Scanner {
   /// may be cached in RAM or just happen to get scheduled earlier by the I/O)
   ///
   /// To make up for the out-of-order iteration each batch is further tagged with
-  /// positional information.
+  /// positional information.  As with ScanBatches, destroying the iterator early stops
+  /// the scan.
   virtual Result<EnumeratedRecordBatchIterator> ScanBatchesUnordered() = 0;
   virtual Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync() = 0;
   virtual Result<EnumeratedRecordBatchGenerator> ScanBatchesUnorderedAsync(
@@ -453,6 +457,9 @@ class ARROW_DS_EXPORT Scanner {
   virtual Future<int64_t> CountRowsAsync() = 0;
   /// \brief Convert the Scanner to a RecordBatchReader so it can be
   /// easily used with APIs that expect a reader.
+  ///
+  /// Closing or destroying the reader before the end of the stream stops the scan.
+  /// Reads that were already in flight may finish in the background afterwards.
   virtual Result<std::shared_ptr<RecordBatchReader>> ToRecordBatchReader() = 0;
 
   /// \brief Get the options for this scan.
