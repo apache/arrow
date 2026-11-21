@@ -2905,6 +2905,75 @@ TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithEmit) {
                        /*include_columns=*/{}, conversion_options);
 }
 
+TEST(SubstraitRoundTrip, ProjectRelWithComputedOutputType) {
+  auto input_schema =
+      schema({field("A", boolean()), field("B", boolean()), field("C", int32())});
+  auto input_table = TableFromJSON(input_schema, {R"([
+      [true,  false, 10],
+      [false, true,  20],
+      [false, false, 30],
+      [null,  null,  40]
+  ])"});
+
+  std::string substrait_json = R"({
+    "version": {"major_number": 9999, "minor_number": 9999, "patch_number": 9999},
+    "relations": [{"rel": {"project": {
+      "expressions": [{"if_then": {
+        "ifs": [
+          {
+            "if": {"selection": {
+              "directReference": {"structField": {"field": 0}}, "rootReference": {}
+            }},
+            "then": {"selection": {
+              "directReference": {"structField": {"field": 2}}, "rootReference": {}
+            }}
+          },
+          {
+            "if": {"selection": {
+              "directReference": {"structField": {"field": 1}}, "rootReference": {}
+            }},
+            "then": {"literal": {"i32": 0}}
+          }
+        ],
+        "else": {"literal": {"i32": -1}}
+      }}],
+      "input": {"read": {
+        "base_schema": {
+          "names": ["A", "B", "C"],
+          "struct": {"types": [{"bool": {}}, {"bool": {}}, {"i32": {}}]}
+        },
+        "namedTable": {"names": ["A"]}
+      }}
+    }}}]
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = AlwaysProvideSameTable(input_table);
+
+  // case_when resolves its output type when the expression is bound.
+  ASSERT_OK_AND_ASSIGN(auto plan_info,
+                       DeserializePlan(*buf, /*registry=*/nullptr,
+                                       /*ext_set_out=*/nullptr, conversion_options));
+  const auto& output_schema = plan_info.root.output_schema;
+  ASSERT_EQ(4, output_schema->num_fields());
+  ASSERT_NE(nullptr, output_schema->field(3)->type());
+  AssertTypeEqual(*int32(), *output_schema->field(3)->type());
+
+  auto expected_schema = schema({field("A", boolean()), field("B", boolean()),
+                                 field("C", int32()), field("case_when", int32())});
+  auto expected_table = TableFromJSON(expected_schema, {R"([
+      [true,  false, 10, 10],
+      [false, true,  20, 0],
+      [false, false, 30, -1],
+      [null,  null,  40, -1]
+  ])"});
+  CheckRoundTripResult(std::move(expected_table), buf, /*include_columns=*/{},
+                       conversion_options);
+}
+
 TEST(SubstraitRoundTrip, ProjectRelOnFunctionWithAllEmit) {
   compute::ExecContext exec_context;
   auto dummy_schema = schema({field("A", int32()), field("B", int32())});

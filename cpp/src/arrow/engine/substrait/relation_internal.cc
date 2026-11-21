@@ -643,8 +643,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
         ARROW_ASSIGN_OR_RAISE(compute::Expression bound_expr,
                               des_expr.Bind(*input.output_schema));
         if (auto* expr_call = bound_expr.call()) {
-          project_field = field(expr_call->function_name,
-                                expr_call->kernel->signature->out_type().type());
+          project_field = field(expr_call->function_name, expr_call->type.GetSharedPtr());
         } else if (auto* field_ref = des_expr.field_ref()) {
           ARROW_ASSIGN_OR_RAISE(FieldPath field_path,
                                 field_ref->FindOne(*input.output_schema));
