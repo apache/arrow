@@ -4399,6 +4399,20 @@ TEST(TestQuantileKernel, Scalar) {
   }
 }
 
+TEST(TestQuantileKernel, InvalidQuantileLevel) {
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  auto values = ArrayFromJSON(float64(), "[1.0, 2.0, 3.0]");
+  auto empty = ArrayFromJSON(float64(), "[]");
+  for (const std::vector<double>& q :
+       std::vector<std::vector<double>>{{-0.1}, {1.1}, {nan}, {0.5, nan}}) {
+    for (const auto& input : {values, empty}) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid, ::testing::HasSubstr("Quantile must be between 0 and 1"),
+          Quantile(input, QuantileOptions(q)));
+    }
+  }
+}
+
 TEST(TestQuantileKernel, Options) {
   auto ty = float64();
   QuantileOptions keep_nulls(/*q=*/0.5, QuantileOptions::LINEAR,
@@ -4514,6 +4528,28 @@ TEST(TestTDigestKernel, Options) {
               ResultWith(ArrayFromJSON(ty, "[null]")));
   EXPECT_THAT(TDigest(ScalarFromJSON(ty, "null"), keep_nulls_min_count),
               ResultWith(ArrayFromJSON(ty, "[null]")));
+}
+
+TEST(TestTDigestKernel, InvalidQuantileLevel) {
+  const double nan = std::numeric_limits<double>::quiet_NaN();
+  auto values = ArrayFromJSON(float64(), "[1.0, 2.0, 3.0]");
+  auto empty = ArrayFromJSON(float64(), "[]");
+  for (const std::vector<double>& q :
+       std::vector<std::vector<double>>{{-0.1},
+                                        {1.1},
+                                        {0.5, 1.5},
+                                        {-std::numeric_limits<double>::infinity()},
+                                        {nan},
+                                        {0.5, nan}}) {
+    for (const auto& input : {values, empty}) {
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid, ::testing::HasSubstr("Quantile must be between 0 and 1"),
+          TDigest(input, TDigestOptions(q)));
+    }
+  }
+  // The bounds themselves are valid.
+  EXPECT_THAT(TDigest(values, TDigestOptions(std::vector<double>{0, 1})),
+              ResultWith(ArrayFromJSON(float64(), "[1.0, 3.0]")));
 }
 
 TEST(TestTDigestKernel, ApproximateMedian) {

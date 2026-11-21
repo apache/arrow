@@ -19,8 +19,10 @@
 
 #include <cmath>
 #include <initializer_list>
+#include <vector>
 
 #include "arrow/compute/kernels/util_internal.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
@@ -28,6 +30,16 @@
 #include "arrow/util/logging_internal.h"
 
 namespace arrow::compute::internal {
+
+// Quantile levels must lie in [0, 1]. The negated form also rejects NaN.
+inline Status ValidateQuantileLevels(const std::vector<double>& q) {
+  for (double level : q) {
+    if (!(level >= 0 && level <= 1)) {
+      return Status::Invalid("Quantile must be between 0 and 1");
+    }
+  }
+  return Status::OK();
+}
 
 // Find the largest compatible primitive type for a primitive type.
 template <typename I, typename Enable = void>
