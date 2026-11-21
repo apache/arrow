@@ -4618,6 +4618,59 @@ def test_to_pandas_types_mapper_index(index):
     tm.assert_frame_equal(result, expected)
 
 
+@pytest.mark.parametrize(
+    ("values", "dtype"),
+    [
+        ([1, None, 3], "Int64"),
+        ([2**53 + 1, None, 3], "Int64"),
+        ([1, None, 3], "UInt8"),
+        ([1.5, None, 3.0], "Float64"),
+        ([True, None, False], "boolean"),
+        (["a", None, "c"], "string"),
+        ([1, None, 3], "int64[pyarrow]"),
+        ([1, 2, 3], "int64[pyarrow]"),
+    ],
+)
+def test_to_pandas_index_extension_dtype(values, dtype):
+    # GH-55677
+    index = pd.Index(pd.array(values, dtype=dtype), name="idx")
+    df = pd.DataFrame({"a": [1, 2, 3]}, index=index)
+
+    result = pa.Table.from_pandas(df).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
+def test_to_pandas_multiindex_extension_dtype():
+    # GH-55677
+    index = pd.MultiIndex.from_arrays(
+        [
+            pd.array([1, None, 3], dtype="Int64"),
+            ["x", "y", "z"],
+            pd.array([True, False, None], dtype="boolean"),
+        ],
+        names=["a", "b", "c"],
+    )
+    df = pd.DataFrame({"d": [1, 2, 3]}, index=index)
+
+    result = pa.Table.from_pandas(df).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.parametrize("dtype", ["Int64", "string"])
+def test_to_pandas_index_stale_extension_dtype_metadata(dtype):
+    # GH-55677: the metadata of a replaced index column is not applied
+    values = {"Int64": [1, 2], "string": ["x", "y"]}[dtype]
+    replacement = {"Int64": pa.array(["x", "y"]), "string": pa.array([1, 2])}[dtype]
+    df = pd.DataFrame(
+        {"a": [1, 2]}, index=pd.Index(pd.array(values, dtype=dtype), name="idx"))
+    table = pa.Table.from_pandas(df)
+    table = table.set_column(
+        table.schema.get_field_index("idx"), "idx", replacement)
+
+    result = table.to_pandas()
+    assert result.index.tolist() == replacement.to_pylist()
+
+
 def test_array_to_pandas_types_mapper():
     # https://issues.apache.org/jira/browse/ARROW-9664
     data = pa.array([1, 2, 3], pa.int64())

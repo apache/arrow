@@ -1048,12 +1048,58 @@ def _extract_index_level(table, result_table, field_name,
         return result_table, None, None
 
     col = table.column(i)
-    index_level = col.to_pandas(types_mapper=types_mapper)
-    index_level.name = None
+    pandas_dtype = _get_index_level_extension_dtype(
+        col.type, field_name_to_metadata[field_name], types_mapper)
+    index_level = None
+    if pandas_dtype is not None:
+        try:
+            index_level = pandas_dtype.__from_arrow__(col)
+        except (TypeError, ValueError, NotImplementedError, pa.ArrowException):
+            # The metadata no longer describes the column, for example
+            # because the column was replaced by one of another type
+            pass
+    if index_level is None:
+        index_level = col.to_pandas(types_mapper=types_mapper)
+        index_level.name = None
     result_table = result_table.remove_column(
         result_table.schema.get_field_index(field_name)
     )
     return result_table, index_level, index_name
+
+
+def _get_index_level_extension_dtype(arrow_type, col_meta, types_mapper=None):
+    """
+    The pandas extension dtype that the pandas metadata stores for an index
+    level, or None if the level converts as a column without metadata does.
+
+    As for the data columns (see _get_extension_dtypes), `types_mapper` and
+    an Arrow extension type take priority over the metadata.
+    """
+    if types_mapper is not None and types_mapper(arrow_type) is not None:
+        return None
+    if isinstance(arrow_type, pa.BaseExtensionType):
+        return None
+
+    dtype = col_meta['numpy_type']
+    if dtype in _pandas_supported_numpy_types:
+        return None
+    try:
+        pandas_dtype = _pandas_api.pandas_dtype(dtype)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(pandas_dtype, _pandas_api.extension_dtype):
+        return None
+    if isinstance(pandas_dtype, _pandas_api.pd.StringDtype) and not (
+        pa.types.is_string(arrow_type)
+        or pa.types.is_large_string(arrow_type)
+        or pa.types.is_string_view(arrow_type)
+    ):
+        # A dictionary converts to categorical, and any other type is not
+        # the strings that the metadata describes
+        return None
+    if not hasattr(pandas_dtype, "__from_arrow__"):
+        return None
+    return pandas_dtype
 
 
 def _backwards_compatible_index_name(raw_name, logical_name):
