@@ -46,6 +46,11 @@ class GANDIVA_EXPORT FunctionSignature {
 
   std::string ToString() const;
 
+  /// String identifying the call shape: lowercased base name + parameter types
+  /// (return type omitted). Useful for detecting two functions that share the
+  /// same `name(args)` shape but differ in return type.
+  std::string CallShape() const;
+
  private:
   std::string base_name_;
   DataTypeVector param_types_;
