@@ -5627,8 +5627,109 @@ def test_union_dataset_filter(tempdir, dstype):
     filtered_ds1 = ds1.filter(pc.field("colA") < 3)
     filtered_ds2 = ds2.filter(pc.field("colA") < 10)
 
-    with pytest.raises(ValueError, match="currently not supported"):
-        ds.dataset((filtered_ds1, filtered_ds2))
+    union_of_filtered = ds.dataset((filtered_ds1, filtered_ds2))
+    assert union_of_filtered.to_table() == pa.table({
+        "colA": [1, 2, 9],
+        "col2": ["a", "b", "h"]
+    })
+    assert union_of_filtered.count_rows() == 3
+    assert union_of_filtered.filter(pc.field("col2") != "a").to_table() == pa.table({
+        "colA": [2, 9],
+        "col2": ["b", "h"]
+    })
+    assert all(isinstance(child, ds.FilteredDataset)
+               for child in union_of_filtered.children)
+
+    # Each child keeps its own filter, even where they overlap or select nulls.
+    t3 = pa.table({"colA": [1, None, 9], "col2": ["x", "y", "z"]})
+    union_of_filtered = ds.dataset([
+        ds.dataset(t3).filter(pc.field("colA") < 3),
+        ds.dataset(t3).filter(pc.field("colA") > 3),
+        ds.dataset(t3).filter(pc.field("colA").is_null()),
+    ])
+    assert union_of_filtered.to_table() == pa.table({
+        "colA": [1, 9, None],
+        "col2": ["x", "z", "y"]
+    })
+
+
+@pytest.mark.parquet
+def test_filtered_dataset(tempdir, pickle_module):
+    table = pa.table({"part": [1, 1, 2, 2], "value": [1, 2, 3, 4]})
+    ds.write_dataset(table, tempdir, format="parquet", partitioning=["part"])
+    dataset = ds.dataset(tempdir, format="parquet", partitioning=["part"])
+
+    filtered = ds.FilteredDataset(dataset, pc.field("value") > 1)
+    assert filtered.filter_expression.equals(pc.field("value") > 1)
+    assert filtered.child.to_table().num_rows == 4
+    assert filtered.to_table().sort_by("value")["value"].to_pylist() == [2, 3, 4]
+    assert filtered.count_rows() == 3
+
+    # The __filename field holds the paths of the underlying files.
+    filenames = filtered.to_table(columns=["__filename"])["__filename"]
+    assert set(filenames.to_pylist()) == {f.path for f in dataset.get_fragments()}
+
+    # The inherited Dataset.filter method applies a further filter.
+    refiltered = filtered.filter(pc.field("value") < 4)
+    assert refiltered.to_table().sort_by("value")["value"].to_pylist() == [2, 3]
+
+    # Fragments that cannot match the filter are pruned.
+    on_part = ds.FilteredDataset(dataset, pc.field("part") == 2)
+    assert len(list(on_part.get_fragments())) == 1
+    assert on_part.to_table()["value"].to_pylist() == [3, 4]
+
+    # A lazy filter on the child is folded into the FilteredDataset's filter.
+    combined = ds.FilteredDataset(dataset.filter(pc.field("value") < 4),
+                                  pc.field("value") > 1)
+    assert combined.to_table().sort_by("value")["value"].to_pylist() == [2, 3]
+
+    assert pickle_module.loads(
+        pickle_module.dumps(filtered)).to_table().num_rows == 3
+
+    # A filter applied with Dataset.filter() is kept when pickling.
+    restored = pickle_module.loads(pickle_module.dumps(refiltered))
+    assert restored.filter_expression.equals(pc.field("value") > 1)
+    assert restored.to_table().sort_by("value")["value"].to_pylist() == [2, 3]
+
+    with pytest.raises(pa.ArrowInvalid):
+        ds.FilteredDataset(dataset, pc.field("missing") > 1)
+    with pytest.raises(TypeError):
+        ds.FilteredDataset(dataset, pc.field("value") + 1)
+
+
+@pytest.mark.parquet
+def test_union_of_filtered_datasets_pushes_down_outer_filter(tempdir):
+    """
+    When scanning a union of filtered datasets with a predicate,
+    both the outer and inner predicates must be applied.
+    """
+    # Write a Hive partitioned dataset with data covering 1000 days,
+    # with 10 rows per day.
+    day = pa.array([i // 10 for i in range(10_000)])
+    for (i, part) in enumerate(["A", "B"]):
+        part_dir = tempdir / f"part={part}"
+        part_dir.mkdir()
+        table = pa.table({
+            "day": day,
+            "v": pc.cast(pc.multiply(day, i + 2), "float64"),
+        })
+        pq.write_table(table, part_dir / "part.parquet", row_group_size=500)
+    base = ds.dataset(tempdir, format="parquet", partitioning="hive")
+
+    low_days = base.filter(pc.field("day") < 300)
+    high_days = base.filter(pc.field("day") >= 700)
+    union = ds.dataset([low_days, high_days])
+    outer_filter = (pc.field("day") >= 250) & (pc.field("day") < 750)
+
+    expected = pa.concat_tables(
+        [low_days.to_table(), high_days.to_table()]).filter(outer_filter)
+    assert expected.num_rows == 2_000
+    result = union.filter(outer_filter)
+    sorting = [
+        ("part", "ascending", "at_end"),
+        ("day", "ascending", "at_end"),
+    ]
+    assert result.to_table().sort_by(sorting).equals(expected.sort_by(sorting))
 
 
 def test_parquet_dataset_filter(tempdir):

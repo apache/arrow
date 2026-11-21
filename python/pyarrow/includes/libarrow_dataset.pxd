@@ -154,6 +154,15 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
         const CDatasetVector& children() const
 
+    cdef cppclass CFilteredDataset "arrow::dataset::FilteredDataset"(
+            CDataset):
+        @staticmethod
+        CResult[shared_ptr[CFilteredDataset]] Make(shared_ptr[CDataset] child,
+                                                   CExpression filter)
+
+        const shared_ptr[CDataset]& child() const
+        const CExpression& filter() const
+
     cdef cppclass CInspectOptions "arrow::dataset::InspectOptions":
         int fragments
         CField.CMergeOptions field_merge_options

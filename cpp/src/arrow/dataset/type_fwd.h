@@ -67,6 +67,9 @@ enum class ExistingDataBehavior : int8_t {
 
 class InMemoryDataset;
 
+class FilteredDataset;
+class FilteredFragment;
+
 class CsvFileFormat;
 class CsvFileWriter;
 class CsvFileWriteOptions;

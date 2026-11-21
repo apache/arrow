@@ -277,6 +277,136 @@ TEST_F(TestUnionDataset, TrivialScan) {
   AssertDatasetEquals(reader.get(), dataset.get());
 }
 
+class TestFilteredDataset : public DatasetFixtureMixin {};
+
+TEST_F(TestFilteredDataset, UnionOfDifferentFilters) {
+  SetSchema({field("i", int32())});
+  // Include a null value to test handling when the filter evaluates to null.
+  auto batch = RecordBatchFromJSON(schema_, R"([[1], [2], [3], [null], [4]])");
+  auto child = std::make_shared<InMemoryDataset>(schema_, RecordBatchVector{batch});
+
+  ASSERT_OK_AND_ASSIGN(auto small,
+                       FilteredDataset::Make(child, compute::less(compute::field_ref("i"),
+                                                                  compute::literal(2))));
+  ASSERT_OK_AND_ASSIGN(
+      auto large, FilteredDataset::Make(child, compute::greater(compute::field_ref("i"),
+                                                                compute::literal(3))));
+  ASSERT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(schema_, {small, large}));
+
+  ASSERT_OK_AND_ASSIGN(auto builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  AssertTablesEqual(*TableFromJSON(schema_, {R"([[1], [4]])"}), *table,
+                    /*same_chunk_layout=*/false);
+  ASSERT_OK_AND_EQ(2, scanner->CountRows());
+
+  // A filter on the union applies on top of each child's filter.
+  ASSERT_OK_AND_ASSIGN(builder, dataset->NewScan());
+  ASSERT_OK(
+      builder->Filter(compute::not_equal(compute::field_ref("i"), compute::literal(1))));
+  ASSERT_OK_AND_ASSIGN(scanner, builder->Finish());
+  ASSERT_OK_AND_ASSIGN(table, scanner->ToTable());
+  AssertTablesEqual(*TableFromJSON(schema_, {R"([[4]])"}), *table,
+                    /*same_chunk_layout=*/false);
+  ASSERT_OK_AND_EQ(1, scanner->CountRows());
+}
+
+TEST_F(TestFilteredDataset, ReplaceSchema) {
+  SetSchema({field("i", int32())});
+  auto batch = RecordBatchFromJSON(schema_, R"([[1], [2]])");
+  auto child = std::make_shared<InMemoryDataset>(schema_, RecordBatchVector{batch});
+  ASSERT_OK_AND_ASSIGN(
+      auto filtered, FilteredDataset::Make(child, compute::equal(compute::field_ref("i"),
+                                                                 compute::literal(2))));
+
+  auto wider = schema({field("i", int32()), field("j", utf8())});
+  ASSERT_OK_AND_ASSIGN(auto replaced, filtered->ReplaceSchema(wider));
+  ASSERT_EQ("filtered", replaced->type_name());
+  ASSERT_OK_AND_ASSIGN(auto builder, replaced->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  AssertTablesEqual(*TableFromJSON(wider, {R"([[2, null]])"}), *table,
+                    /*same_chunk_layout=*/false);
+
+  // Check we get an error if attempting to replace the schema with one
+  // that the filter won't bind against.
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("No match for FieldRef"),
+                                  filtered->ReplaceSchema(schema({field("j", utf8())})));
+}
+
+TEST_F(TestFilteredDataset, FilterOnPartitionField) {
+  SetSchema({field("part", int32()), field("i", int32())});
+  auto make_fragment = [this](int32_t part, const std::string& json) {
+    return std::make_shared<InMemoryFragment>(
+        schema_, RecordBatchVector{RecordBatchFromJSON(schema_, json)},
+        compute::equal(compute::field_ref("part"), compute::literal(part)));
+  };
+  auto child = std::make_shared<FragmentDataset>(
+      schema_, FragmentVector{make_fragment(1, R"([[1, 10], [1, 11]])"),
+                              make_fragment(2, R"([[2, 20], [2, 21]])"),
+                              make_fragment(3, R"([[3, 30], [3, 31]])")});
+
+  // This filter is fully guaranteed by the matching fragment's partition expression,
+  // so it simplifies to true and no per-batch filtering is needed.
+  ASSERT_OK_AND_ASSIGN(
+      auto first, FilteredDataset::Make(child, compute::equal(compute::field_ref("part"),
+                                                              compute::literal(1))));
+  // This filter only partially simplifies, leaving i > 20 to apply to each batch.
+  ASSERT_OK_AND_ASSIGN(
+      auto second,
+      FilteredDataset::Make(
+          child, compute::and_(
+                     compute::equal(compute::field_ref("part"), compute::literal(2)),
+                     compute::greater(compute::field_ref("i"), compute::literal(20)))));
+
+  // Fragments whose partition expression contradicts the filter are pruned.
+  ASSERT_OK_AND_ASSIGN(auto fragment_it, first->GetFragments());
+  ASSERT_OK_AND_ASSIGN(auto fragments, fragment_it.ToVector());
+  ASSERT_EQ(1, fragments.size());
+  ASSERT_EQ("filtered", fragments[0]->type_name());
+  // ToString() is used for the __filename field, so must match the wrapped fragment.
+  ASSERT_EQ(checked_cast<const FilteredFragment&>(*fragments[0]).fragment()->ToString(),
+            fragments[0]->ToString());
+
+  ASSERT_OK_AND_ASSIGN(auto dataset, UnionDataset::Make(schema_, {first, second}));
+  ASSERT_OK_AND_ASSIGN(auto builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  AssertTablesEqual(*TableFromJSON(schema_, {R"([[1, 10], [1, 11], [2, 21]])"}), *table,
+                    /*same_chunk_layout=*/false);
+  ASSERT_OK_AND_EQ(3, scanner->CountRows());
+}
+
+TEST_F(TestFilteredDataset, ScalarFilterResult) {
+  // The batches lack column j, so it is filled with a null scalar when filtering and
+  // filters that only reference j produce a scalar mask.
+  SetSchema({field("i", int32()), field("j", utf8())});
+  auto batch = RecordBatchFromJSON(schema({field("i", int32())}), R"([[1], [2]])");
+  auto child = std::make_shared<InMemoryDataset>(schema_, RecordBatchVector{batch});
+
+  // A true mask keeps every row.
+  ASSERT_OK_AND_ASSIGN(
+      auto keep_all,
+      FilteredDataset::Make(child, compute::is_null(compute::field_ref("j"))));
+  // A null mask drops every row.
+  ASSERT_OK_AND_ASSIGN(auto drop_null, FilteredDataset::Make(
+                                           child, compute::equal(compute::field_ref("j"),
+                                                                 compute::literal("x"))));
+  // A false mask drops every row.
+  ASSERT_OK_AND_ASSIGN(
+      auto drop_false,
+      FilteredDataset::Make(child, compute::is_valid(compute::field_ref("j"))));
+
+  ASSERT_OK_AND_ASSIGN(auto dataset,
+                       UnionDataset::Make(schema_, {keep_all, drop_null, drop_false}));
+  ASSERT_OK_AND_ASSIGN(auto builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  AssertTablesEqual(*TableFromJSON(schema_, {R"([[1, null], [2, null]])"}), *table,
+                    /*same_chunk_layout=*/false);
+  ASSERT_OK_AND_EQ(2, scanner->CountRows());
+}
+
 TEST(TestProjector, CheckProjectable) {
   struct Assert {
     explicit Assert(FieldVector from) : from_(from) {}
