@@ -105,8 +105,21 @@ Type Checking
 =============
 
 PyArrow provides type stubs (``*.pyi`` files) for static type checking. These
-stubs are located in the ``pyarrow-stubs/`` directory and are automatically
-included in the distributed wheel packages.
+stubs are located in the ``pyarrow-stubs/`` directory, which is laid out as a
+:pep:`561` stub-only package for ``pyarrow``, so type checkers and IDEs pick
+it up from the ``arrow/python`` directory. The stubs are installed alongside
+the package, and the wheel builds add the docstrings of the built modules to
+them with `docstring-adder <https://github.com/astral-sh/docstring-adder>`_
+(``PYARROW_REQUIRE_STUB_DOCSTRINGS=ON``). The ``py.typed`` marker is omitted
+from the wheels until the stubs are complete (see
+`GH-49831 <https://github.com/apache/arrow/issues/49831>`_).
+
+Run all the commands in this section from the ``arrow/python`` directory,
+which holds the type checker configurations in ``pyproject.toml``:
+
+.. code-block::
+
+   $ cd arrow/python
 
 Running Type Checkers
 ---------------------
@@ -114,16 +127,44 @@ Running Type Checkers
 We support multiple type checkers. Their configurations are in
 ``pyproject.toml``.
 
+The easiest way to run all of them is with ``pre-commit``, which installs
+the type checkers and stub packages pinned in ``requirements-stubs.txt`` (with
+uv). This also lints and formats the stubs with ruff:
+
+.. code-block::
+
+   $ pre-commit run --hook-stage manual python-stubs --all-files
+
+The type checkers only run on request, while ruff also runs on commit. The
+Lint CI job runs all of them as well. CI also runs the type checkers, the type
+stub tests and stubtest (see below) against the PyArrow it builds, with
+``ci/scripts/python_test_type_annotations.sh``.
+
+To run a type checker directly instead, install the pinned type checkers and
+stub packages in your PyArrow development environment:
+
+.. code-block::
+
+   $ pip install -r requirements-stubs.txt
+
+Checking the PyArrow tests also needs their dependencies from
+``requirements-test.txt``.
+
 **mypy**
 
 To run mypy on the PyArrow codebase:
 
 .. code-block::
 
-   $ cd arrow/python
    $ mypy
 
 The mypy configuration is in the ``[tool.mypy]`` section of ``pyproject.toml``.
+mypy only uses the stubs when it checks them too, so pass ``pyarrow-stubs``
+along with any other files you check:
+
+.. code-block::
+
+   $ mypy pyarrow-stubs pyarrow/tests/test_array.py
 
 **pyright**
 
@@ -131,19 +172,44 @@ To run pyright:
 
 .. code-block::
 
-   $ cd arrow/python
    $ pyright
 
 The pyright configuration is in the ``[tool.pyright]`` section of ``pyproject.toml``.
 
 **ty**
 
-To run ty (note: currently only partially configured):
+To run ty:
 
 .. code-block::
 
-   $ cd arrow/python
    $ ty check
+
+**stubtest**
+
+mypy's stubtest compares the stubs with the signatures of the installed
+PyArrow. Run it with:
+
+.. code-block::
+
+   $ python scripts/run_stubtest.py
+
+Stubs that aren't written yet are skipped. The known mismatches are listed in
+``pyarrow-stubs-tests/stubtest_allowlist.txt``; remove the entries of the
+mismatches you fix, as stubtest fails on unused entries.
+
+The wheel builds also check the stubs shipped in each wheel against the
+modules in the same wheel, without installing it:
+
+.. code-block::
+
+   $ python scripts/run_stubtest.py --wheel dist/pyarrow-*.whl
+
+Type Checking in an IDE
+-----------------------
+
+Editors also run the type checkers from the folder they open. If you open the
+whole ``arrow`` repository in VS Code, point the type checker at ``arrow/python``
+instead.
 
 Maintaining Type Stubs
 -----------------------
@@ -168,6 +234,43 @@ in downstream projects and for users' IDEs.
 
 Note: ``py.typed`` marker file in the ``pyarrow/`` directory indicates to type
 checkers that PyArrow supports type checking according to :pep:`561`.
+
+Testing Type Stubs
+------------------
+
+The tests in ``pyarrow-stubs-tests/`` pin down the annotated types of public
+APIs. Each check pairs :func:`typing.assert_type`, which every type checker
+verifies statically, with a runtime ``isinstance`` check:
+
+.. code-block:: python
+
+   from typing import TYPE_CHECKING
+
+   import pyarrow as pa
+
+   from _check import assert_type, check
+
+   def test_list_type() -> None:
+       lst = pa.list_(pa.int32())
+       check(assert_type(lst, pa.ListType), pa.ListType)
+       check(assert_type(lst.value_type, pa.DataType), pa.DataType)
+
+       if TYPE_CHECKING:
+           pa.list_(1)  # type: ignore[call-overload]
+
+The type checkers check these files as part of the regular runs above, and
+pytest runs them against the installed PyArrow to make sure the stubs agree
+with what PyArrow actually returns:
+
+.. code-block::
+
+   $ pytest pyarrow-stubs-tests
+
+Code under ``if TYPE_CHECKING:`` is never executed. It holds the usage that
+should fail type checking, which is asserted with a
+``# type: ignore[<mypy code>]`` comment: unused ignores are reported as errors
+in these tests, so the test fails once the usage is no longer rejected. ty
+doesn't honor mypy error codes, so it doesn't check invalid usage.
 
 Doctest
 =======

@@ -16,190 +16,20 @@
 # under the License.
 
 """
-Extract docstrings from pyarrow runtime and insert them into stub files.
+Add the docstrings of the pyarrow runtime to the installed type stubs with
+docstring-adder (https://github.com/astral-sh/docstring-adder).
 
 Usage:
     python scripts/update_stub_docstrings.py <install_prefix> <source_dir>
 """
 
 import argparse
-import importlib
-import inspect
+import ast
 import os
 import shutil
 import sys
 import tempfile
 from pathlib import Path
-from textwrap import indent
-
-import libcst
-from libcst import matchers as m
-
-
-def _resolve_object(module, path):
-    """Resolve an object by dotted path from a module."""
-    if not path:
-        return module, None, module.__name__
-
-    parts = path.split(".")
-    parent = None
-    obj = module
-
-    for part in parts:
-        parent = obj
-        try:
-            obj = getattr(obj, part)
-        except AttributeError:
-            try:
-                obj = vars(parent).get(part)
-                if obj is not None:
-                    continue
-            except TypeError:
-                pass
-            return None, None, None
-
-    return obj, parent, getattr(obj, "__name__", parts[-1])
-
-
-def _get_docstring(name, module, indentation):
-    """Extract and format a docstring for insertion into a stub file."""
-    obj, parent, obj_name = _resolve_object(module, name)
-    if obj is None:
-        print(f"{name} not found in {module.__name__}")
-        return None
-
-    docstring = inspect.getdoc(obj)
-    if not docstring:
-        return None
-
-    # Remove signature prefix
-    parent_name = getattr(parent, "__name__", None) if parent else None
-    if docstring.startswith(obj_name) or (
-        parent_name and docstring.startswith(f"{parent_name}.{obj_name}")
-    ):
-        docstring = "\n".join(docstring.splitlines()[2:])
-
-    # Skip empty docstrings
-    if not docstring.strip():
-        return None
-
-    prefix = "    " * indentation
-    return '"""\n' + indent(docstring + '\n"""', prefix)
-
-
-class DocstringInserter(libcst.CSTTransformer):
-    """CST transformer that inserts docstrings into stub file nodes."""
-
-    def __init__(self, module, namespace):
-        self.module = module
-        self.base_namespace = namespace
-        self.stack = []
-        self.indentation = 0
-
-    def _full_name(self):
-        name = ".".join(self.stack)
-        return f"{self.base_namespace}.{name}" if self.base_namespace else name
-
-    def leave_Module(self, original_node, updated_node):
-        new_body = []
-        clone_matcher = m.SimpleStatementLine(
-            body=[m.Assign(value=m.Call(func=m.Name(value="_clone_signature"))),
-                  m.ZeroOrMore()]
-        )
-        for stmt in updated_node.body:
-            new_body.append(stmt)
-            if m.matches(stmt, clone_matcher):
-                name = stmt.body[0].targets[0].target.value
-                if self.base_namespace:
-                    name = f"{self.base_namespace}.{name}"
-                docstring = _get_docstring(name, self.module, 0)
-                if docstring:
-                    new_body.append(libcst.SimpleStatementLine(
-                        body=[libcst.Expr(value=libcst.SimpleString(docstring))]))
-        return updated_node.with_changes(body=new_body)
-
-    def visit_ClassDef(self, node):
-        self.stack.append(node.name.value)
-        self.indentation += 1
-
-    def leave_ClassDef(self, original_node, updated_node):
-        name = self._full_name()
-        docstring = _get_docstring(name, self.module, self.indentation)
-
-        if docstring:
-            ellipsis_class = m.ClassDef(body=m.IndentedBlock(body=[
-                m.SimpleStatementLine(body=[
-                    m.Expr(m.Ellipsis()), m.ZeroOrMore()]), m.ZeroOrMore()]))
-            func_class = m.ClassDef(body=m.IndentedBlock(
-                body=[m.FunctionDef(), m.ZeroOrMore()]))
-
-            if m.matches(updated_node, ellipsis_class):
-                updated_node = updated_node.deep_replace(
-                    updated_node.body.body[0].body[0].value,
-                    libcst.SimpleString(value=docstring))
-            elif m.matches(updated_node, func_class):
-                docstring_stmt = libcst.SimpleStatementLine(
-                    body=[libcst.Expr(value=libcst.SimpleString(value=docstring))])
-                updated_node = updated_node.with_changes(
-                    body=updated_node.body.with_changes(
-                        body=[docstring_stmt] + list(updated_node.body.body)))
-
-        self.stack.pop()
-        self.indentation -= 1
-        return updated_node
-
-    def visit_FunctionDef(self, node):
-        self.stack.append(node.name.value)
-        self.indentation += 1
-
-    def leave_FunctionDef(self, original_node, updated_node):
-        name = self._full_name()
-        ellipsis_func = m.FunctionDef(
-            body=m.SimpleStatementSuite(body=[m.Expr(m.Ellipsis())]))
-
-        if m.matches(original_node, ellipsis_func):
-            docstring = _get_docstring(name, self.module, self.indentation)
-            if docstring:
-                docstring_stmt = libcst.SimpleStatementLine(
-                    body=[libcst.Expr(value=libcst.SimpleString(value=docstring))])
-                updated_node = updated_node.with_changes(
-                    body=libcst.IndentedBlock(body=[docstring_stmt]))
-
-        self.stack.pop()
-        self.indentation -= 1
-        return updated_node
-
-
-LIB_MODULES = {"array", "builder", "compat", "config", "device", "error", "io",
-               "_ipc", "memory", "pandas_shim", "scalar", "table", "tensor", "_types"}
-
-
-def add_docstrings_to_stubs(stubs_dir):
-    """Update all stub files in stubs_dir with docstrings from pyarrow runtime."""
-    stubs_dir = Path(stubs_dir)
-    print(f"Updating stub docstrings in: {stubs_dir}")
-
-    pyarrow = importlib.import_module("pyarrow")
-
-    for stub_file in sorted(stubs_dir.rglob('*.pyi')):
-        if stub_file.name == "_stubs_typing.pyi":
-            continue
-
-        module_name = stub_file.stem
-        if module_name in LIB_MODULES:
-            namespace = "lib"
-        elif stub_file.parent.name in ("parquet", "interchange"):
-            namespace = (stub_file.parent.name if module_name == "__init__"
-                         else f"{stub_file.parent.name}.{module_name}")
-        elif module_name == "__init__":
-            namespace = ""
-        else:
-            namespace = module_name
-
-        print(f"  {stub_file.name} -> {namespace or '(root)'}")
-        tree = libcst.parse_module(stub_file.read_text(encoding="utf-8"))
-        modified = tree.visit(DocstringInserter(pyarrow, namespace))
-        stub_file.write_text(modified.code, encoding="utf-8")
 
 
 def _link_or_copy(source, destination):
@@ -246,6 +76,32 @@ def _create_importable_pyarrow(pyarrow_pkg, source_dir, install_pyarrow_dir):
             _link_or_copy(artifact, destination)
 
 
+def _has_class_docstring(stub_file, class_name):
+    tree = ast.parse(stub_file.read_text(encoding="utf-8"))
+    return any(isinstance(node, ast.ClassDef) and node.name == class_name
+               and ast.get_docstring(node) for node in tree.body)
+
+
+def add_docstrings_to_stubs(stubs_dir):
+    """Add the docstrings of the pyarrow runtime to the stubs in stubs_dir."""
+    import add_docstrings
+
+    # docstring-adder logs the modules it can't import and skips them, so
+    # fail early if pyarrow.lib can't be imported.
+    import pyarrow.lib
+    print(f"Adding docstrings to the stubs in {stubs_dir} "
+          f"from {pyarrow.lib.__file__}")
+
+    try:
+        add_docstrings._main(["--packages", str(stubs_dir)])
+    except SystemExit as e:
+        if e.code:
+            raise
+
+    if not _has_class_docstring(stubs_dir / "lib.pyi", "Array"):
+        raise RuntimeError("docstring-adder didn't add docstrings to lib.pyi")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("install_prefix", type=Path,
@@ -259,10 +115,9 @@ if __name__ == "__main__":
     install_pyarrow_dir = install_prefix / "pyarrow"
     if not install_pyarrow_dir.exists():
         install_pyarrow_dir = install_prefix
-
-    if not any(install_pyarrow_dir.rglob("*.pyi")):
-        print("No .pyi files found in install tree, skipping docstring injection")
-        sys.exit(0)
+    # docstring-adder derives the module names of the stubs from their paths.
+    if install_pyarrow_dir.name != "pyarrow":
+        sys.exit(f"The stubs must be in a pyarrow directory: {install_pyarrow_dir}")
 
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
         pyarrow_pkg = Path(tmpdir) / "pyarrow"

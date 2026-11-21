@@ -15,15 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Type stubs for PyArrow.
+# Mismatches between the type stubs and the runtime that stubtest skips, one
+# regex per line; see scripts/run_stubtest.py. Unused entries fail stubtest,
+# so remove the entries of the mismatches you fix. Print the entries for the
+# current mismatches with
+#   python scripts/run_stubtest.py --generate-allowlist
 
-This is a placeholder stub file.
-Complete type annotations will be added in subsequent PRs.
-"""
+# Stub-only module.
+pyarrow\._stubs_typing
 
-from typing import Any
-
-# TODO(GH-48970): remove __getattr__ before release as this
-# will annotate non-existing attributes as Any.
-# https://github.com/apache/arrow/issues/48970
-def __getattr__(name: str) -> Any: ...
+# The __init__ of Cython extension types takes (*args, **kwargs) at runtime.
+pyarrow\.lib\.[A-Za-z_]+\.__init__

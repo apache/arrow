@@ -48,15 +48,9 @@ else
   exit 1
 fi
 
-wheel_build_binary_flag="--only-binary=:all:"
-if python -c "import sys; sys.exit(0 if sys.version_info[:2] == (3, 15) else 1)"; then
-  # TODO: 3.15 workaround due to pyyaml (via libcst). Remove once pyyaml ships 3.15 wheels.
-  wheel_build_binary_flag=""
-fi
-
 pip install \
   --force-reinstall \
-  ${wheel_build_binary_flag} \
+  --only-binary=:all: \
   --upgrade \
   -r "${source_dir}/python/requirements-wheel-build.txt"
 pip install "delocate>=0.10.3"
@@ -154,8 +148,7 @@ popd
 
 echo "=== (${PYTHON_VERSION}) Building wheel ==="
 export PYARROW_BUNDLE_ARROW_CPP=ON
-# TODO(GH-32609): Re-enable when pyarrow-stubs are shipped in wheels again.
-# export PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
+export PYARROW_REQUIRE_STUB_DOCSTRINGS=ON
 export PYARROW_WITH_ACERO="${ARROW_ACERO}"
 export PYARROW_WITH_AZURE="${ARROW_AZURE}"
 export PYARROW_WITH_DATASET="${ARROW_DATASET}"
@@ -193,3 +186,7 @@ fi
 # Move the verified wheels
 mkdir -p "${source_dir}/python/repaired_wheels"
 mv "${source_dir}"/python/dist/*.whl "${source_dir}"/python/repaired_wheels/
+
+echo "=== (${PYTHON_VERSION}) Check the type stubs against the wheel ==="
+python "${source_dir}/python/scripts/run_stubtest.py" \
+  --wheel "${source_dir}"/python/repaired_wheels/pyarrow-*.whl
