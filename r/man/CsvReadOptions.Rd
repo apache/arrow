@@ -60,6 +60,10 @@ The order of application is as follows:
 and LF (\code{0x0a}) characters? (default \code{FALSE})
 \item \code{ignore_empty_lines} Logical: should empty lines be ignored (default) or
 generate a row of missing values (if \code{FALSE})?
+\item \code{pad_short_rows} Logical: should rows with fewer columns than expected be
+padded with missing values (default \code{FALSE}) or raise an error?
+\item \code{ignore_extra_columns} Logical: should columns beyond the number expected be
+ignored (default \code{FALSE}) or raise an error?
 }
 
 \code{JsonParseOptions$create()} accepts only the \code{newlines_in_values} argument.
