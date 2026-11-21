@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import pathlib
 
 import click
@@ -72,17 +73,15 @@ def release_committers(obj, previous_version, version):
 
 
 @release.command('update-milestones')
-@click.option('--branch', default='main',
-              help="Branch to inspect for merged commits.")
 @click.option('--dry-run/--execute', default=True,
               help="Display milestone updates instead of applying them.")
 @click.pass_obj
-def release_update_milestones(obj, branch, dry_run):
+def release_update_milestones(obj, dry_run):
     """Set milestones on closed issues merged since the last major release."""
     updates = update_milestones(
         Repo(obj['repo']),
         obj['issue_tracker'].github_repo,
-        branch=branch,
+        branch=os.getenv('ARCHERY_DEFAULT_BRANCH', 'main'),
         dry_run=dry_run,
     )
     for issue_number, milestone in updates:

@@ -361,85 +361,15 @@ def test_maintenance_patch_selection(fake_issue_tracker):
     assert shas_to_pick == expected
 
 
-def test_count_committers():
-    commits = [
-        SimpleNamespace(summary=summary) for summary in [
-            "GH-1: [C++] Title (#11)",
-            "GH-2: [Python] Title (#12)",
-            "MINOR: [Release] Update versions for 2.0.0",
-            "GH-3: [R] Title (#13)",
-            "GH-4: [Docs] Title (#14)",
-            "GH-5: [CI] Mention (#10) in the middle",
-            "GH-6: [Ruby] Title (#15)",
-            "GH-7: [Go] Title (#16)",
-        ]
-    ]
-    mergers = {
-        "pr11": {"login": "zoe", "name": "Zoe Z"},
-        "pr12": {"login": "bob", "name": "Bob B"},
-        "pr13": {"login": "zoe", "name": "Zoe Z"},
-        # a user without a name: the login is used
-        "pr14": {"login": "alice", "name": None},
-        # no merger: not counted
-        "pr15": None,
-        # not a user, for example a bot: the login is used
-        "pr16": {"login": "carol"},
-    }
+def _make_github_repo(nodes, milestones=(), not_found=()):
     queries = []
-
-    def graphql_query(query, variables):
-        queries.append(query)
-        pull_requests = {
-            alias: {"mergedBy": merger} for alias, merger in mergers.items()
-        }
-        return {}, {"data": {"repository": pull_requests}}
-
-    github_repo = SimpleNamespace(
-        requester=SimpleNamespace(graphql_query=graphql_query))
-
-    with pytest.warns(UserWarning, match="#15 doesn't have a merger"):
-        committers = count_committers(commits, github_repo)
-
-    assert committers == [
-        ("Zoe Z", 2),
-        ("Bob B", 1),
-        ("alice", 1),
-        ("carol", 1),
-    ]
-    assert queries == [
-        'query {repository(owner: "apache", name: "arrow") {' +
-        " ".join(f"pr{number}: pullRequest(number: {number}) "
-                 "{mergedBy {login ... on User {name}}}"
-                 for number in range(11, 17)) +
-        '}}'
-    ]
-
-
-class _FakeRepo:
-
-    def __init__(self, tags, refs, commits_by_range):
-        self.tags = tags
-        self.refs = {name: SimpleNamespace(name=name) for name in refs}
-        self._commits_by_range = commits_by_range
-
-    def iter_commits(self, commit_range):
-        return iter(self._commits_by_range[commit_range])
-
-
-def _make_milestone(title, number, state="open"):
-    return SimpleNamespace(
-        title=title, number=number, state=state, due_on=None
-    )
-
-
-def _make_github_repo(milestones, issue_nodes, not_found=()):
     edited = []
 
     def graphql_query(query, variables):
-        data = {}
-        errors = []
-        for number, node in issue_nodes.items():
-            alias = f"issue{number}"
+        queries.append((query, variables))
+        data, errors = {}, []
+        for number, node in nodes.items():
+            alias = f"n{number}"
             if f"{alias}:" in query:
                 data[alias] = node
                 if number in not_found:
@@ -455,9 +385,9 @@ def _make_github_repo(milestones, issue_nodes, not_found=()):
         return {}, payload
 
     def get_issue(number):
-        def edit(**kwargs):
-            edited.append((number, kwargs["milestone"].title))
-        return SimpleNamespace(edit=edit)
+        return SimpleNamespace(
+            edit=lambda **kw: edited.append((number, kw["milestone"].title))
+        )
 
     repo = SimpleNamespace(
         full_name="apache/arrow",
@@ -465,93 +395,129 @@ def _make_github_repo(milestones, issue_nodes, not_found=()):
         get_issue=get_issue,
         requester=SimpleNamespace(graphql_query=graphql_query),
     )
-    return repo, edited
+    return repo, queries, edited
+
+
+def test_count_committers():
+    commits = [SimpleNamespace(summary=s) for s in [
+        "GH-1: [C++] Title (#11)",
+        "GH-2: [Python] Title (#12)",
+        "GH-2: [Python] Reland (#12)",
+        "MINOR: [Release] Update versions for 2.0.0",
+        "GH-3: [R] Title (#13)",
+        "GH-4: [Docs] Title (#14)",
+        "GH-5: [CI] Mention (#10) in the middle",
+        "GH-6: [Ruby] Title (#15)",
+        "GH-7: [Go] Title (#16)",
+        "GH-8: [C++] Issue number (#17)",
+    ]]
+    nodes = {
+        11: {"mergedBy": {"login": "zoe", "name": "Zoe Z"}},
+        12: {"mergedBy": {"login": "bob", "name": "Bob B"}},
+        13: {"mergedBy": {"login": "zoe", "name": "Zoe Z"}},
+        # a user without a name: the login is used
+        14: {"mergedBy": {"login": "alice", "name": None}},
+        # no merger: not counted
+        15: {"mergedBy": None},
+        # not a user, for example a bot: the login is used
+        16: {"mergedBy": {"login": "carol"}},
+        # an issue rather than a pull request: not counted
+        17: {},
+    }
+    github_repo, queries, _ = _make_github_repo(nodes)
+
+    with pytest.warns(UserWarning) as record:
+        committers = count_committers(commits, github_repo, batch_size=4)
+
+    assert [str(w.message) for w in record] == [
+        "#15 doesn't have a merger. It isn't counted.",
+        "#17 doesn't have a merger. It isn't counted.",
+    ]
+    assert committers == [
+        ("Bob B", 2),
+        ("Zoe Z", 2),
+        ("alice", 1),
+        ("carol", 1),
+    ]
+    sel = "... on PullRequest {mergedBy {login ... on User {name}}}"
+    assert queries == [
+        (
+            'query($owner: String!, $name: String!) '
+            '{repository(owner: $owner, name: $name) {' +
+            " ".join(f"n{n}: issueOrPullRequest(number: {n}) {{{sel}}}"
+                     for n in batch) +
+            '}}',
+            {"owner": "apache", "name": "arrow"},
+        )
+        for batch in ([11, 12, 13, 14], [15, 16, 17])
+    ]
+
+
+def _make_fake_repo(commits_by_range, refs=("main",),
+                    tags=("apache-arrow-26.0.0",)):
+    return SimpleNamespace(
+        tags=tags,
+        refs={name: SimpleNamespace(name=name) for name in refs},
+        iter_commits=lambda r: iter(
+            SimpleNamespace(summary=s) for s in commits_by_range[r]
+        ),
+    )
+
+
+def _ms(title, number, state="open"):
+    return SimpleNamespace(
+        title=title, number=number, state=state, due_on=None
+    )
+
+
+def _issue(state="CLOSED", reason="COMPLETED", milestone=None):
+    return {"state": state, "stateReason": reason, "milestone": milestone}
 
 
 def test_update_milestones_with_maintenance_branch():
-    # Commits are newest-first, matching git.Repo.iter_commits().
-    c_before_cut = SimpleNamespace(
-        hexsha="aaa111", summary="GH-101: [C++] Before branch cut (#1)"
-    )
-    c_partial_before = SimpleNamespace(
-        hexsha="aaa222", summary="GH-102: [C++] Partial fix (#2)"
-    )
-    c_cherry_main = SimpleNamespace(
-        hexsha="bbb111", summary="GH-103: [Python] Cherry-picked fix (#3)"
-    )
-    c_cherry_maint = SimpleNamespace(
-        hexsha="ccc111", summary="GH-103: [Python] Cherry-picked fix (#3)"
-    )
-    c_closing_after = SimpleNamespace(
-        hexsha="bbb222", summary="GH-102: [C++] Complete fix (#4)"
-    )
-    c_after_cut = SimpleNamespace(
-        hexsha="bbb333", summary="GH-104: [R] After branch cut (#5)"
-    )
-    c_open = SimpleNamespace(
-        hexsha="bbb444", summary="GH-105: [Docs] Still open (#6)"
-    )
-    c_existing = SimpleNamespace(
-        hexsha="bbb555", summary="GH-106: [Dev] Already milestoned (#7)"
-    )
-    c_not_planned = SimpleNamespace(
-        hexsha="bbb666", summary="GH-107: [Dev] Closed not planned (#8)"
-    )
-    c_is_pr = SimpleNamespace(
-        hexsha="bbb777", summary="GH-108: [Dev] Actually a PR (#9)"
-    )
-    c_missing = SimpleNamespace(
-        hexsha="bbb888", summary="GH-109: [Dev] Typo issue number (#10)"
-    )
-    c_minor = SimpleNamespace(
-        hexsha="bbb999", summary="MINOR: [Release] Bump version"
-    )
-    c_direct_maint = SimpleNamespace(
-        hexsha="ccc222", summary="GH-110: [CI] Direct maint commit (#11)"
-    )
-
-    repo = _FakeRepo(
-        tags=["apache-arrow-26.0.0"],
-        refs=["main", "origin/maint-27.0.0"],
+    repo = _make_fake_repo(
+        refs=("main", "origin/maint-27.0.0"),
         commits_by_range={
-            "apache-arrow-26.0.0..main": [
-                c_minor, c_missing, c_is_pr, c_not_planned, c_existing,
-                c_open, c_after_cut, c_closing_after, c_cherry_main,
-                c_partial_before, c_before_cut,
-            ],
             "apache-arrow-26.0.0..origin/maint-27.0.0": [
-                c_direct_maint, c_cherry_maint, c_partial_before, c_before_cut,
+                "GH-110: [CI] Direct maint commit (#11)",
+                "GH-103: [Python] Cherry-picked fix (#3)",
+                "GH-102: [C++] Partial fix (#2)",
+                "GH-101: [C++] Before branch cut (#1)",
+            ],
+            "origin/maint-27.0.0..main": [
+                "MINOR: [Release] Bump version",
+                "GH-109: [Dev] Typo issue number (#10)",
+                "GH-108: [Dev] Actually a PR (#9)",
+                "GH-107: [Dev] Closed not planned (#8)",
+                "GH-106: [Dev] Already milestoned (#7)",
+                "GH-105: [Docs] Still open (#6)",
+                "GH-104: [R] After branch cut (#5)",
+                "GH-102: [C++] Complete fix (#4)",
+                "GH-103: [Python] Cherry-picked fix (#3)",
             ],
         },
     )
     milestones = [
-        _make_milestone("JS-0.4.0", 1, state="closed"),
-        _make_milestone("26.0.0", 75, state="closed"),
-        _make_milestone("26.0.1", 76, state="open"),
-        _make_milestone("27.0.0", 77, state="open"),
-        _make_milestone("28.0.0", 78, state="open"),
+        _ms("JS-0.4.0", 1, "closed"),
+        _ms("26.0.0", 75, "closed"),
+        _ms("26.0.1", 76),
+        _ms("27.0.0", 77),
+        _ms("28.0.0", 78),
     ]
-    issue_nodes = {
-        101: {"state": "CLOSED", "stateReason": "COMPLETED",
-              "milestone": None},
-        102: {"state": "CLOSED", "stateReason": "COMPLETED",
-              "milestone": None},
-        103: {"state": "CLOSED", "stateReason": "COMPLETED",
-              "milestone": None},
-        104: {"state": "CLOSED", "stateReason": "COMPLETED",
-              "milestone": None},
-        105: {"state": "OPEN", "stateReason": None, "milestone": None},
-        106: {"state": "CLOSED", "stateReason": "COMPLETED",
-              "milestone": {"number": 76}},
-        107: {"state": "CLOSED", "stateReason": "NOT_PLANNED",
-              "milestone": None},
+    nodes = {
+        101: _issue(),
+        102: _issue(),
+        103: _issue(),
+        104: _issue(),
+        105: _issue(state="OPEN", reason=None),
+        106: _issue(milestone={"number": 76}),
+        107: _issue(reason="NOT_PLANNED"),
         108: {},
         109: None,
-        110: {"state": "CLOSED", "stateReason": "COMPLETED",
-              "milestone": None},
+        110: _issue(),
     }
-    github_repo, edited = _make_github_repo(
-        milestones, issue_nodes, not_found=(109,)
+    github_repo, _, edited = _make_github_repo(
+        nodes, milestones=milestones, not_found=(109,)
     )
 
     with pytest.warns(UserWarning, match="#109 not found"):
@@ -571,47 +537,30 @@ def test_update_milestones_with_maintenance_branch():
 
 
 def test_update_milestones_dry_run():
-    repo = _FakeRepo(
-        tags=["apache-arrow-26.0.0"],
-        refs=["main"],
-        commits_by_range={
-            "apache-arrow-26.0.0..main": [
-                SimpleNamespace(hexsha="aaa111", summary="GH-201: [Dev] Fix"),
-            ],
-        },
+    repo = _make_fake_repo(
+        commits_by_range={"apache-arrow-26.0.0..main": ["GH-201: [Dev] Fix"]}
     )
-    milestones = [
-        _make_milestone("26.0.0", 75, state="closed"),
-        _make_milestone("27.0.0", 77, state="open"),
+    milestones = [_ms("26.0.0", 75, "closed"), _ms("27.0.0", 77)]
+    github_repo, _, edited = _make_github_repo(
+        {201: _issue()}, milestones=milestones
+    )
+
+    assert update_milestones(repo, github_repo, dry_run=True) == [
+        (201, "27.0.0")
     ]
-    issue_nodes = {
-        201: {"state": "CLOSED", "stateReason": "COMPLETED",
-              "milestone": None},
-    }
-    github_repo, edited = _make_github_repo(milestones, issue_nodes)
-
-    updates = update_milestones(repo, github_repo, dry_run=True)
-
-    assert updates == [(201, "27.0.0")]
     assert edited == []
 
 
 def test_update_milestones_missing_next_major():
-    repo = _FakeRepo(
-        tags=["apache-arrow-26.0.0"],
-        refs=["main", "origin/maint-27.0.0"],
+    repo = _make_fake_repo(
+        refs=("main", "origin/maint-27.0.0"),
         commits_by_range={
-            "apache-arrow-26.0.0..main": [
-                SimpleNamespace(hexsha="bbb111", summary="GH-301: [Dev] Fix"),
-            ],
             "apache-arrow-26.0.0..origin/maint-27.0.0": [],
+            "origin/maint-27.0.0..main": ["GH-301: [Dev] Fix"],
         },
     )
-    milestones = [
-        _make_milestone("26.0.0", 75, state="closed"),
-        _make_milestone("27.0.0", 77, state="open"),
-    ]
-    github_repo, _ = _make_github_repo(milestones, {})
+    milestones = [_ms("26.0.0", 75, "closed"), _ms("27.0.0", 77)]
+    github_repo, _, _ = _make_github_repo({}, milestones=milestones)
 
     with pytest.raises(ValueError, match="No open major release milestone"):
         update_milestones(repo, github_repo, dry_run=True)
