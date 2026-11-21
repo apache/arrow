@@ -532,6 +532,28 @@ class ORCFileReader::Impl {
     if (!include_names.empty()) {
       RETURN_NOT_OK(SelectNames(&opts, include_names));
     }
+    return MakeRecordBatchReader(batch_size, opts);
+  }
+
+  Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReaderByIndices(
+      int64_t batch_size, const std::vector<int>& include_indices) {
+    ARROW_RETURN_IF(batch_size <= 0,
+                    Status::Invalid("batch_size must be greater than zero"));
+    auto opts = DefaultRowReaderOptions();
+    if (!include_indices.empty()) {
+      RETURN_NOT_OK(SelectIndices(&opts, include_indices));
+    }
+    return MakeRecordBatchReader(batch_size, opts);
+  }
+
+  Result<std::shared_ptr<RecordBatchReader>> NextStripeReader(int64_t batch_size) {
+    std::vector<int> empty_vec;
+    return NextStripeReader(batch_size, empty_vec);
+  }
+
+ private:
+  Result<std::shared_ptr<RecordBatchReader>> MakeRecordBatchReader(
+      int64_t batch_size, const liborc::RowReaderOptions& opts) {
     ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
     std::unique_ptr<liborc::RowReader> row_reader;
 
@@ -543,12 +565,6 @@ class ORCFileReader::Impl {
                                              pool_);
   }
 
-  Result<std::shared_ptr<RecordBatchReader>> NextStripeReader(int64_t batch_size) {
-    std::vector<int> empty_vec;
-    return NextStripeReader(batch_size, empty_vec);
-  }
-
- private:
   MemoryPool* pool_;
   std::unique_ptr<liborc::Reader> reader_;
   std::vector<StripeInformation> stripes_;
@@ -623,6 +639,11 @@ Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(
 Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::GetRecordBatchReader(
     int64_t batch_size, const std::vector<std::string>& include_names) {
   return impl_->GetRecordBatchReader(batch_size, include_names);
+}
+
+Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::GetRecordBatchReaderByIndices(
+    int64_t batch_size, const std::vector<int>& include_indices) {
+  return impl_->GetRecordBatchReaderByIndices(batch_size, include_indices);
 }
 
 Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(
