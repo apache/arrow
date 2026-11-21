@@ -61,8 +61,7 @@ read_parquet <- function(
     # infer which columns to keep from schema
     sim_df <- as.data.frame(reader$GetSchema())
     field_indices <- eval_select(col_select, sim_df) - 1L
-    # ReadTable() takes Parquet leaf column indices, which differ from the
-    # positions of the fields in the schema when there are nested columns
+    # ReadTable() takes Parquet leaf column indices, not schema field positions
     indices <- parquet___arrow___FileReader__FieldIndicesToColumnIndices(
       reader,
       field_indices
@@ -493,18 +492,21 @@ ParquetFileWriter$create <- function(
 #'    groups (0-based integers).
 #'    The optional `column_indices=` argument is a 0-based integer vector indicating which columns to retain.
 #' - `$GetSchema()`: get the `arrow::Schema` of the data in the file
-#' - `$ReadColumn(i)`: read the `i`th column (0-based) as a [ChunkedArray].
+#' - `$ReadColumn(i)`: read the `i`th field (1-based) of the schema returned by
+#'    `$GetSchema()` as a [ChunkedArray].
 #'
-#' `column_indices` refer to Parquet leaf columns, not to the fields of the
-#' schema returned by `$GetSchema()`. The two differ when the file has nested
-#' columns, as each nested field is stored as one leaf column per child. Selecting
-#' only some of a nested field's leaves returns that field containing only the
-#' selected children.
+#' `column_indices` count Parquet leaf columns, not the fields of the schema
+#' returned by `$GetSchema()`. Parquet stores each non-nested value as its own
+#' column, called a leaf column, so a nested field takes up one leaf column per
+#' innermost child. For example, in a file with fields `a`, `s` (a struct with
+#' children `x` and `y`) and `b`, the leaf columns are `a` (0), `s.x` (1),
+#' `s.y` (2) and `b` (3). Selecting only some of a nested field's leaves
+#' returns that field with only those children.
 #'
 #' @section Active bindings:
 #'
 #' - `$num_rows`: number of rows.
-#' - `$num_columns`: number of columns.
+#' - `$num_columns`: number of Parquet leaf columns.
 #' - `$num_row_groups`: number of row groups.
 #'
 #' @export
