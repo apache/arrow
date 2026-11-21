@@ -4164,8 +4164,8 @@ def timestamp(unit, tz=None):
     unit : str
         one of 's' [second], 'ms' [millisecond], 'us' [microsecond], or 'ns'
         [nanosecond]
-    tz : str, default None
-        Time zone name. None indicates time zone naive
+    tz : str, bytes or datetime.tzinfo, default None
+        Time zone name, or a tzinfo object. None indicates time zone naive
 
     Examples
     --------
