@@ -99,6 +99,34 @@ safe_r_metadata <- function(metadata, on_save = FALSE) {
 
   # This variable will be used to store the types of elements that were removed,
   # if any, so we can give an informative warning if needed.
+  # Return common metadata unchanged after checking the entire tree. Complex
+  # attributes and disallowed types retain the existing filtering/error path.
+  plain_types <- c("character", "double", "integer", "logical", "complex", "list", "NULL")
+  is_plain_safe <- function(x, depth = 0L) {
+    if (depth > 64L) return(FALSE)
+    type <- typeof(x)
+    if (!type %in% plain_types) return(FALSE)
+    attrs <- attributes(x)
+    if (type != "list") return(is.null(attrs))
+    if (!is.null(attrs) && !identical(names(attrs), "names")) return(FALSE)
+    if (!is.null(attrs) &&
+        (typeof(attrs[[1L]]) != "character" || !is.null(attributes(attrs[[1L]])))) {
+      return(FALSE)
+    }
+    # Check element types without evaluating promises before extracting them.
+    types <- vapply(x, typeof, character(1), USE.NAMES = FALSE)
+    if (!all(types %in% plain_types)) return(FALSE)
+    for (elt in x) {
+      if (!is_plain_safe(elt, depth + 1L)) return(FALSE)
+    }
+    TRUE
+  }
+  if (is_plain_safe(metadata)) {
+    # Preserve evaluation and validation of on_save on the fast path.
+    if (on_save) return(metadata)
+    return(metadata)
+  }
+
   types_removed <- c()
 
   # Internal function that we'll recursively apply,
