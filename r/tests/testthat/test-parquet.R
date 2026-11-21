@@ -573,17 +573,11 @@ test_that("read_parquet() col_select works with nested columns (GH-55578)", {
   on.exit(unlink(tf))
   write_parquet(df, tf)
 
-  # columns after the nested one
-  expect_identical(names(read_parquet(tf, col_select = "b")), "b")
-  expect_identical(names(read_parquet(tf, col_select = "c")), "c")
-  expect_identical(names(read_parquet(tf, col_select = c("a", "c"))), c("a", "c"))
-  expect_identical(read_parquet(tf, col_select = c("a", "c")), df[, c("a", "c")])
-
-  # selection order is preserved
-  expect_identical(names(read_parquet(tf, col_select = c("c", "a"))), c("c", "a"))
+  # columns after the nested one, values and selection order
+  expect_identical(read_parquet(tf, col_select = "b"), df[, "b"])
+  expect_identical(read_parquet(tf, col_select = c("c", "a")), df[, c("c", "a")])
 
   # the nested column itself is read in full
   nested <- read_parquet(tf, col_select = "nested", as_data_frame = FALSE)
-  expect_identical(names(nested), "nested")
   expect_equal(nested, read_parquet(tf, as_data_frame = FALSE)[, "nested"])
 })
