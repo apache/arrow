@@ -302,6 +302,9 @@ namespace red_arrow {
     VALUE convert(const arrow::UnionArray& array,
                   const int64_t i);
 
+    VALUE convert(const arrow::RunEndEncodedArray& array,
+                  const int64_t i);
+
     VALUE convert(const arrow::DictionaryArray& array,
                   const int64_t i);
 
@@ -399,6 +402,7 @@ namespace red_arrow {
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
+    VISIT(RunEndEncoded)
     VISIT(Decimal128)
     VISIT(Decimal256)
     // TODO
@@ -500,6 +504,7 @@ namespace red_arrow {
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
+    VISIT(RunEndEncoded)
     VISIT(Decimal128)
     VISIT(Decimal256)
     // TODO
@@ -601,6 +606,7 @@ namespace red_arrow {
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
+    VISIT(RunEndEncoded)
     VISIT(Decimal128)
     VISIT(Decimal256)
     // TODO
@@ -710,6 +716,7 @@ namespace red_arrow {
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
+    VISIT(RunEndEncoded)
     VISIT(Decimal128)
     VISIT(Decimal256)
     // TODO
@@ -815,6 +822,7 @@ namespace red_arrow {
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
+    VISIT(RunEndEncoded)
     VISIT(Decimal128)
     VISIT(Decimal256)
     // TODO
@@ -921,6 +929,7 @@ namespace red_arrow {
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
+    VISIT(RunEndEncoded)
     VISIT(Decimal128)
     VISIT(Decimal256)
     // TODO
@@ -1037,6 +1046,7 @@ namespace red_arrow {
     VISIT(SparseUnion)
     VISIT(DenseUnion)
     VISIT(Dictionary)
+    VISIT(RunEndEncoded)
     VISIT(Decimal128)
     VISIT(Decimal256)
     // TODO
