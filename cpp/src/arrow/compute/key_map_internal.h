@@ -257,6 +257,12 @@ class ARROW_COMPUTE_EXPORT SwissTable {
   // Resize large hash tables when 75% full.
   Status grow_double();
 
+  // Grow the hash table in a single bulk resize to the given log_blocks target.
+  // Unlike repeated grow_double() calls, this performs only one O(N) rehash
+  // pass over all existing entries regardless of how many doubling steps are
+  // required. Must be called with target_log_blocks > log_blocks_.
+  Status grow_to(int target_log_blocks);
+
   // When log_blocks is greater than 25, there will be overlapping bits between block id
   // and stamp within a 32-bit hash value. So we must check if this is the case when
   // right shifting a hash value to retrieve block id and stamp. The following two
