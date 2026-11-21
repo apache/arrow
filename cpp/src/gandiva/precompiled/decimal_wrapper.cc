@@ -403,8 +403,8 @@ void castDECIMAL_utf8(int64_t context, const char* in, int32_t in_length,
   int32_t precision_from_str;
   int32_t scale_from_str;
   int32_t status =
-      gdv_fn_dec_from_string(context, in, in_length, &precision_from_str, &scale_from_str,
-                             &dec_high_from_str, &dec_low_from_str);
+      gdv_fn_dec_from_string(context, in, in_length, out_scale, &precision_from_str,
+                             &scale_from_str, &dec_high_from_str, &dec_low_from_str);
   if (status != 0) {
     *out_high = 0;
     *out_low = 0;
