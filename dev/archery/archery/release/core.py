@@ -181,7 +181,7 @@ class IssueTracker:
                 errors = (
                     data.get("errors") if isinstance(data, dict) else None
                 )
-                if (errors and "data" in data and
+                if (errors and data.get("data") and
                         all(err.get("type") == "NOT_FOUND"
                             for err in errors)):
                     result = data
