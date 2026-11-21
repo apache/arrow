@@ -97,8 +97,8 @@ class PythonErrorDetail : public StatusDetail {
       return result.ValueOrDie();
     } else {
       // Fallback to just the exception type
-      const auto ty = reinterpret_cast<const PyTypeObject*>(exc_type_.obj());
-      return std::string("Python exception: ") + ty->tp_name;
+      return std::string("Python exception: ") +
+             internal::PyObject_StdStringTypeName(exc_type_.obj());
     }
   }
 

@@ -2641,3 +2641,16 @@ def test_array_accepts_pyarrow_scalar_errors(seq):
                        match="Cannot append scalar of type int64 "
                              "to builder for type null"):
         pa.array([pa.scalar(1)], type=pa.null())
+
+
+def test_datetime_subclass_raising_field():
+    # The abi3 builds read datetime fields via attribute access; a subclass
+    # whose field raises must surface the Python error, not abort the
+    # interpreter (the fast struct-field path used Py_FatalError).
+    class EvilDatetime(datetime.datetime):
+        @property
+        def hour(self):
+            raise ValueError("boom")
+
+    with pytest.raises(Exception, match="boom"):
+        pa.scalar(EvilDatetime(2024, 1, 1, 12), type=pa.timestamp("us"))

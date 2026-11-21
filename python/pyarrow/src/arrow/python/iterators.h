@@ -72,18 +72,31 @@ inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& 
 #else
     if (PyList_Check(obj) || PyTuple_Check(obj)) {
 #endif
-      // Use fast item access
-      const Py_ssize_t size = PySequence_Fast_GET_SIZE(obj);
+      // Fast item access via the limited-API PySequence_Fast + list/tuple
+      // item access. Note: PySequence_Fast() returns exact lists and tuples
+      // unchanged (Py_NewRef) on CPython >= 3.13.15 / 3.14, while older
+      // versions always return a list — dispatch on the result type.
+      const OwnedRef seq_ref(PySequence_Fast(obj, "index sequence"));
+      RETURN_IF_PYERROR();
+      const bool is_list = PyList_Check(seq_ref.obj());
+      const Py_ssize_t size =
+          is_list ? PyList_Size(seq_ref.obj()) : PyTuple_Size(seq_ref.obj());
       for (Py_ssize_t i = offset; keep_going && i < size; ++i) {
-        PyObject* value = PySequence_Fast_GET_ITEM(obj, i);
-        RETURN_NOT_OK(func(value, static_cast<int64_t>(i), &keep_going));
+        // Item access returns a borrowed reference; seq_ref owns the
+        // container (and thus the items) for the whole loop. Do NOT wrap the
+        // item in OwnedRef (that would underflow its refcount and
+        // use-after-free it).
+        PyObject* item =
+            is_list ? PyList_GetItem(seq_ref.obj(), i)
+                    : PyTuple_GetItem(seq_ref.obj(), i);
+        RETURN_NOT_OK(func(item, static_cast<int64_t>(i), &keep_going));
       }
     } else {
       // Regular sequence: avoid making a potentially large copy
       const Py_ssize_t size = PySequence_Size(obj);
       RETURN_IF_PYERROR();
       for (Py_ssize_t i = offset; keep_going && i < size; ++i) {
-        OwnedRef value_ref(PySequence_ITEM(obj, i));
+        OwnedRef value_ref(PySequence_GetItem(obj, i));
         RETURN_IF_PYERROR();
         RETURN_NOT_OK(func(value_ref.obj(), static_cast<int64_t>(i), &keep_going));
       }
@@ -157,7 +170,8 @@ inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
 
     return VisitSequenceGeneric(
         obj, offset, [&func, &mo](PyObject* value, int64_t i, bool* keep_going) {
-          OwnedRef value_ref(PySequence_ITEM(mo, i));
+          OwnedRef value_ref(PySequence_GetItem(mo, i));
+          RETURN_IF_PYERROR();
           if (!PyBool_Check(value_ref.obj()))
             return Status::TypeError("Mask must be a sequence of booleans");
           return func(value, value_ref.obj() == Py_True, keep_going);
