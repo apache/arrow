@@ -3781,6 +3781,59 @@ TEST(ArrowReadWrite, FixedSizeListRejectsPresentEmptyListAtRequiredTopLevel) {
       reader->ReadTable(&table));
 }
 
+TEST(ArrowReadWrite, FixedSizeListRejectsPresentEmptyListUnderPresentStruct) {
+  // GH-55682 follow-up: a REQUIRED fixed-size list nested in an OPTIONAL
+  // struct that is present (never null) for every row. Only the struct's
+  // own absence legitimately explains a missing child value; here the
+  // struct is present throughout, so a physically empty list is corrupt
+  // data and must still raise the size-mismatch error, not be padded as if
+  // the struct were null.
+  auto struct_type = ::arrow::struct_(
+      {::arrow::field("shape", ::arrow::fixed_size_list(::arrow::int32(), 2),
+                      /*nullable=*/false)});
+  auto arrow_schema = ::arrow::schema({::arrow::field("x", struct_type)});
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<Buffer> serialized,
+      ::arrow::ipc::SerializeSchema(*arrow_schema, ::arrow::default_memory_pool()));
+  auto key_value_metadata = ::arrow::key_value_metadata(
+      {"ARROW:schema"}, {::arrow::util::base64_encode(serialized->ToString())});
+
+  auto element = PrimitiveNode::Make("element", Repetition::REQUIRED, ParquetType::INT32);
+  auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+  auto shape =
+      GroupNode::Make("shape", Repetition::REQUIRED, {list}, LogicalType::List());
+  auto x = GroupNode::Make("x", Repetition::OPTIONAL, {shape});
+  auto schema_node = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, {x}));
+
+  auto sink = CreateOutputStream();
+  auto writer = ParquetFileWriter::Open(sink, schema_node, default_writer_properties(),
+                                        key_value_metadata);
+  auto row_group_writer = writer->AppendRowGroup();
+  auto column_writer =
+      static_cast<TypedColumnWriter<Int32Type>*>(row_group_writer->NextColumn());
+  // Row 0: x present, shape=[1, 2]. Row 1: x present, shape present but
+  // empty (corrupt for a fixed size of 2; x itself is never null here).
+  // Row 2: x present, shape=[3, 4]. def=2 is an element, def=1 is x present
+  // with shape's list present but empty, def=0 would be x null (unused).
+  std::vector<int16_t> def_levels = {2, 2, 1, 2, 2};
+  std::vector<int16_t> rep_levels = {0, 1, 0, 0, 1};
+  std::vector<int32_t> values = {1, 2, 3, 4};
+  column_writer->WriteBatch(def_levels.size(), def_levels.data(), rep_levels.data(),
+                            values.data());
+  row_group_writer->Close();
+  writer->Close();
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_AND_ASSIGN(reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                        ::arrow::default_memory_pool()));
+  std::shared_ptr<Table> table;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Expected all lists to be of size=2"),
+      reader->ReadTable(&table));
+}
+
 TEST(ArrowReadWrite, ListOfStructOfList2) {
   using ::arrow::field;
   using ::arrow::list;
