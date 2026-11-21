@@ -120,6 +120,11 @@ Status PyUnicode_AsStdString(PyObject* obj, std::string* out);
 ARROW_PYTHON_EXPORT
 std::string PyBytes_AsStdString(PyObject* obj);
 
+// \brief Return a std::string_view over a Python bytes object's buffer
+// \note The view is only valid while a reference to \c obj is held
+ARROW_PYTHON_EXPORT
+std::string_view PyBytes_AsStdStringView(PyObject* obj);
+
 // \brief Call str() on the given object and return the result as a std::string
 ARROW_PYTHON_EXPORT
 Status PyObject_StdStringStr(PyObject* obj, std::string* out);
@@ -127,6 +132,10 @@ Status PyObject_StdStringStr(PyObject* obj, std::string* out);
 // \brief Return the repr() of the given object (always succeeds)
 ARROW_PYTHON_EXPORT
 std::string PyObject_StdStringRepr(PyObject* obj);
+
+// \brief Return the type name of the given object as a std::string
+ARROW_PYTHON_EXPORT
+std::string PyObject_StdStringTypeName(PyObject* obj);
 
 // \brief Cast the given size to int32_t, with error checking
 inline Status CastSize(Py_ssize_t size, int32_t* out,
