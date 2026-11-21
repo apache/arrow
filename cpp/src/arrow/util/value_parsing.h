@@ -553,6 +553,35 @@ static inline bool ParseHH_MM_SS(const char* s, Duration* out) {
   return true;
 }
 
+template <typename Duration>
+static inline bool ParseHHMMSS(const char* s, Duration* out) {
+  uint8_t hours = 0;
+  uint8_t minutes = 0;
+  uint8_t seconds = 0;
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 0, 2, &hours))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 2, 2, &minutes))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(!ParseUnsigned(s + 4, 2, &seconds))) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(hours >= 24)) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(minutes >= 60)) {
+    return false;
+  }
+  if (ARROW_PREDICT_FALSE(seconds >= 60)) {
+    return false;
+  }
+  *out = std::chrono::duration_cast<Duration>(std::chrono::hours(hours) +
+                                              std::chrono::minutes(minutes) +
+                                              std::chrono::seconds(seconds));
+  return true;
+}
+
 static inline bool ParseSubSeconds(const char* s, size_t length, TimeUnit::type unit,
                                    uint32_t* out) {
   // The decimal point has been peeled off at this point
@@ -669,7 +698,7 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   // We allow the following zone offset formats:
   // - (none)
   // - Z
-  // - [+-]HH(:?MM)?
+  // - [+-]HH(:?MM(:?SS)?)?
   //
   // We allow the following formats for all units:
   // - "YYYY-MM-DD"
@@ -712,15 +741,33 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
   if (s[length - 1] == 'Z') {
     --length;
     if (out_zone_offset_present) *out_zone_offset_present = true;
-  } else if (s[length - 3] == '+' || s[length - 3] == '-') {
-    // [+-]HH
-    length -= 3;
-    if (ARROW_PREDICT_FALSE(!detail::ParseHH(s + length + 1, &zone_offset))) {
+  } else if (length >= 19 && (s[length - 9] == '+' || s[length - 9] == '-') &&
+             (s[length - 6] == ':') && (s[length - 3] == ':')) {
+    // [+-]HH:MM:SS
+    length -= 9;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM_SS(s + length + 1, &zone_offset))) {
       return false;
     }
     if (s[length] == '+') zone_offset *= -1;
     if (out_zone_offset_present) *out_zone_offset_present = true;
-  } else if (s[length - 5] == '+' || s[length - 5] == '-') {
+  } else if (length >= 17 && (s[length - 7] == '+' || s[length - 7] == '-')) {
+    // [+-]HHMMSS
+    length -= 7;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHHMMSS(s + length + 1, &zone_offset))) {
+      return false;
+    }
+    if (s[length] == '+') zone_offset *= -1;
+    if (out_zone_offset_present) *out_zone_offset_present = true;
+  } else if (length >= 16 && (s[length - 6] == '+' || s[length - 6] == '-') &&
+             (s[length - 3] == ':')) {
+    // [+-]HH:MM
+    length -= 6;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s + length + 1, &zone_offset))) {
+      return false;
+    }
+    if (s[length] == '+') zone_offset *= -1;
+    if (out_zone_offset_present) *out_zone_offset_present = true;
+  } else if (length >= 15 && (s[length - 5] == '+' || s[length - 5] == '-')) {
     // [+-]HHMM
     length -= 5;
     if (ARROW_PREDICT_FALSE(!detail::ParseHHMM(s + length + 1, &zone_offset))) {
@@ -728,10 +775,10 @@ static inline bool ParseTimestampISO8601(const char* s, size_t length,
     }
     if (s[length] == '+') zone_offset *= -1;
     if (out_zone_offset_present) *out_zone_offset_present = true;
-  } else if ((s[length - 6] == '+' || s[length - 6] == '-') && (s[length - 3] == ':')) {
-    // [+-]HH:MM
-    length -= 6;
-    if (ARROW_PREDICT_FALSE(!detail::ParseHH_MM(s + length + 1, &zone_offset))) {
+  } else if (length >= 13 && (s[length - 3] == '+' || s[length - 3] == '-')) {
+    // [+-]HH
+    length -= 3;
+    if (ARROW_PREDICT_FALSE(!detail::ParseHH(s + length + 1, &zone_offset))) {
       return false;
     }
     if (s[length] == '+') zone_offset *= -1;
