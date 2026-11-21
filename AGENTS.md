@@ -68,12 +68,11 @@ to pass there before opening the PR.
 Run pre-commit on the files you changed:
 
 ```bash
-pip install pre-commit
-pre-commit install
 pre-commit run --files <paths you changed>
-pre-commit run --all-files r        # one component; aliases are listed in .pre-commit-config.yaml
-pre-commit run -a                   # every hook
 ```
+
+Hook aliases for running one component are listed in
+`.pre-commit-config.yaml`.
 
 ### Writing Tests
 
@@ -93,10 +92,10 @@ pre-commit run -a                   # every hook
 - Fix what the issue describes, nothing more. Don't generalise, rename,
   or reformat nearby code, and keep unrelated files out of the diff.
 - Internal preconditions are documented (or `DCHECK`ed), not validated
-  with error paths. Reviewers reject input validation nobody asked for.
+  with error paths.
 - Before writing a bitmap loop, a visitor, an index normaliser, or a
   test helper, look for an existing one in `cpp/src/arrow/util/` and
-  the nearest `testing/` or `test_util` file. There usually is one.
+  the nearest `testing/` or `test_util` file.
 - Comments describe the code for a future reader, never the PR, the
   bug, or what changed. If a comment says "this change", "now",
   "still", or "previously", delete it. If the point is worth keeping,
@@ -120,8 +119,7 @@ pre-commit run -a                   # every hook
 - PRs are squash-merged, so the PR title and description become the
   commit message. Don't spend effort polishing individual commits.
 - Rebase on `upstream/main` when the branch is stale, and force-push
-  the contributor's PR branch; reviewers expect that. An outdated
-  branch makes CI run every job and often fails for unrelated reasons.
+  the contributor's PR branch.
 
 ## Issues
 
@@ -160,11 +158,10 @@ Example: `GH-14736: [C++][Python] Ensure no validity bitmap in UnionArray::SetDa
 Use the issue number, not the PR number, and match the component
 casing of existing PRs (`[Docs]`, `[Format]`, `[C++]`).
 
-A PR may use `MINOR: [Component] Short description` instead, with no
-issue, only if it is a grammar, usage, or spelling fix touching at
-most 2 files, or a documentation update touching at most 2 files and
-under 500 words. Note the space after `MINOR:`. Never combine `MINOR: `
-with a `GH-` number.
+A small documentation or spelling fix may use
+`MINOR: [Component] Short description` instead, with no issue; the
+limits are under "Minor Fixes" in `CONTRIBUTING.md`. Never combine
+`MINOR: ` with a `GH-` number.
 
 The description fills in every section of
 `.github/pull_request_template.md`:
@@ -178,13 +175,11 @@ The description fills in every section of
   (security, incorrect data, or a crash), not any bug fix.
 - The "Was AI used for this PR?" checkboxes are completed truthfully,
   including who reviewed the change before submission.
-- It has no `@mention`s. It becomes the commit message, so mentions
-  follow it into git history and every cherry-pick.
+- It has no `@mention`s.
 
 If the contributor already has a PR open, and it has unanswered review
 feedback or they have not had a PR merged yet, say so before starting
-new work. Maintainers close new PRs from authors who are ignoring
-feedback on old ones.
+new work.
 
 Once the PR is open, fix CI failures the change caused. Leave failures
 that are already happening on `main`, and tell the contributor so they
@@ -205,28 +200,10 @@ In practice:
   papering over it.
 - Do not reply to review comments on the contributor's behalf, and do
   not draft replies for them to paste. The contributor reads each
-  comment and answers it in their own words. Reviewers recognise
-  agent-written replies and treat them as a sign nobody is reading.
-  If the contributor has you draft any other GitHub post (an issue,
-  say), it must end with a short attribution line saying so.
+  comment and answers it in their own words. If the contributor has
+  you draft any other GitHub post (an issue, say), it must end with a
+  short attribution line saying so.
 - Do not report a review comment as addressed until the change is
-  pushed and visible in the diff. A claimed-but-missing change ends
-  the conversation.
+  pushed and visible in the diff.
 - Never tag or ping maintainers, and never "bump" a PR.
-- Keep PRs small and focused. Avoid verbose comments, unnecessary test
-  cases, and changes outside the scope of the issue.
 
-## Boundaries
-
-- **Ask first:** adding a dependency, changing public APIs, changes
-  that span more than one component, destructive git operations
-  (force-pushing the contributor's own PR branch after a rebase is
-  the one routine exception).
-- **Never:** push to `upstream`, hand-edit generated files, commit
-  secrets or credentials, ping maintainers.
-
-## Further Resources
-
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [New Contributor's Guide](https://arrow.apache.org/docs/developers/guide/index.html)
-- [Contributing Overview](https://arrow.apache.org/docs/developers/overview.html)
