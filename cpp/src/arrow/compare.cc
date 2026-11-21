@@ -1252,8 +1252,9 @@ bool StridedFloatTensorContentEquals(const int dim_index, int64_t left_offset,
                                      int64_t right_offset, const Tensor& left,
                                      const Tensor& right, const EqualOptions& opts) {
   using c_type = typename DataType::c_type;
-  static_assert(std::is_floating_point<c_type>::value,
-                "DataType must be a floating point type");
+  static_assert(std::is_floating_point<c_type>::value ||
+                    std::is_same<DataType, HalfFloatType>::value,
+                "DataType must be a floating point type or half-float");
 
   const auto n = left.shape()[dim_index];
   const auto left_stride = left.strides()[dim_index];
@@ -1311,8 +1312,9 @@ bool TensorEquals(const Tensor& left, const Tensor& right, const EqualOptions& o
   }
 
   switch (left.type_id()) {
-    // TODO: Support half-float tensors
-    // case Type::HALF_FLOAT:
+    case Type::HALF_FLOAT:
+      return FloatTensorEquals<HalfFloatType>(left, right, opts);
+
     case Type::FLOAT:
       return FloatTensorEquals<FloatType>(left, right, opts);
 
@@ -1349,8 +1351,9 @@ bool FloatSparseTensorDataEquals(const typename DataType::c_type* left_data,
                                  const typename DataType::c_type* right_data,
                                  const int64_t length, const EqualOptions& opts) {
   using c_type = typename DataType::c_type;
-  static_assert(std::is_floating_point<c_type>::value,
-                "DataType must be a floating point type");
+  static_assert(std::is_floating_point<c_type>::value ||
+                    std::is_same<DataType, HalfFloatType>::value,
+                "DataType must be a floating point type or half-float");
   if (opts.nans_equal()) {
     if (left_data == right_data) {
       return true;
@@ -1397,8 +1400,11 @@ struct SparseTensorEqualsImpl<SparseIndexType, SparseIndexType> {
     const uint8_t* left_data = left.data()->data();
     const uint8_t* right_data = right.data()->data();
     switch (left.type()->id()) {
-      // TODO: Support half-float tensors
-      // case Type::HALF_FLOAT:
+      case Type::HALF_FLOAT:
+        return FloatSparseTensorDataEquals<HalfFloatType>(
+            reinterpret_cast<const uint16_t*>(left_data),
+            reinterpret_cast<const uint16_t*>(right_data), length, opts);
+
       case Type::FLOAT:
         return FloatSparseTensorDataEquals<FloatType>(
             reinterpret_cast<const float*>(left_data),
