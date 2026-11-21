@@ -27,8 +27,8 @@ namespace parquet {
 /// versions).
 ///
 /// However, some features - such as compression algorithms, encryption,
-/// or the improved "v2" data page format - must be enabled separately in
-/// ArrowWriterProperties.
+/// or opting out of the "v2" data page format - are configured separately in
+/// WriterProperties.
 struct ParquetVersion {
   enum type : int {
     /// Enable only pre-2.2 Parquet format features when writing

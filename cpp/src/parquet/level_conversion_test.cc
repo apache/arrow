@@ -17,7 +17,7 @@
 
 #include "parquet/level_conversion.h"
 
-#include "parquet/level_comparison.h"
+#include "parquet/level_comparison_internal.h"
 #include "parquet/test_util.h"
 
 #include <gmock/gmock.h>

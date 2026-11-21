@@ -44,7 +44,7 @@
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
-#include "parquet/level_comparison.h"
+#include "parquet/level_comparison_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
 #include "parquet/platform.h"

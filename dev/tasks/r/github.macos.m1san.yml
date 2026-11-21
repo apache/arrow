@@ -40,6 +40,10 @@ jobs:
         uses: r-lib/actions/setup-r-dependencies@v2
         with:
           cache: false # cache does not work on across branches
+          # TODO(GH-55625): remove once a pak release includes the fix for
+          # https://github.com/r-lib/pak/issues/926. pak 0.11.2 rebuilds
+          # Matrix from source on R-devel, which needs libintl.h.
+          pak-version: devel
           working-directory: arrow/r
           extra-packages: |
             any::rcmdcheck

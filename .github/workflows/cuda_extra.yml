@@ -106,7 +106,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@5a4eaabe6c43770c9df95875a513a6b8362be5eb
+        uses: apache/infrastructure-actions/stash/restore@762a01f36a09ab9e0e4c8af8f4b0f2ed12683df5
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
@@ -136,7 +136,7 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@5a4eaabe6c43770c9df95875a513a6b8362be5eb
+        uses: apache/infrastructure-actions/stash/save@762a01f36a09ab9e0e4c8af8f4b0f2ed12683df5
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}

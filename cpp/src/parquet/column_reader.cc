@@ -47,7 +47,7 @@
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
-#include "parquet/level_comparison.h"
+#include "parquet/level_comparison_internal.h"
 #include "parquet/level_conversion.h"
 #include "parquet/level_decoder_internal.h"
 #include "parquet/properties.h"

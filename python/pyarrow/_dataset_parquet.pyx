@@ -707,7 +707,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             compression_level=None,
             use_byte_stream_split=False,
             column_encoding=None,
-            data_page_version="1.0",
+            data_page_version="2.0",
             min_compression_savings=0.01,
             use_deprecated_int96_timestamps=False,
             coerce_timestamps=None,
