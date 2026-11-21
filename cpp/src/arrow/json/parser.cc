@@ -766,15 +766,6 @@ class ParseImpl : public BlockParser {
   Status Parse(const std::shared_ptr<Buffer>& json) override {
     RETURN_NOT_OK(ReserveScalarStorage(json->size()));
 
-    const std::string_view input(reinterpret_cast<const char*>(json->data()),
-                                 json->size());
-    // TODO(GH-51809): Remove this check once Arrow requires simdjson 5.0.2,
-    // which fixes truncated_bytes() for empty input.
-    const int64_t input_size = input.size();
-    if (internal::ConsumeJsonWhitespace(input, /*trailing=*/false) == input_size) {
-      return Status::OK();
-    }
-
     auto parse = [&](const auto& input) -> Status {
       ARROW_ASSIGN_OR_RAISE(auto stream, arrow::internal::ResolveSimdjsonResult(
                                              parser_.iterate_many(input),
