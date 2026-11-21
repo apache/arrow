@@ -140,4 +140,22 @@ inline auto VisitTypeId(Type::type id, VISITOR&& visitor, ARGS&&... args)
 
 #undef TYPE_ID_VISIT_INLINE
 
+#define TYPE_VISIT_INLINE(TYPE_CLASS)                          \
+  case TYPE_CLASS##Type::type_id:                              \
+    return std::forward<VISITOR>(visitor)(                     \
+        internal::checked_cast<const TYPE_CLASS##Type&>(type), \
+        std::forward<ARGS>(args)...);
+
+template <typename VISITOR, typename... ARGS>
+inline auto VisitIntegerType(const DataType& type, VISITOR&& visitor, ARGS&&... args)
+    -> decltype(std::forward<VISITOR>(visitor)(type, args...)) {
+  switch (type.id()) {
+    ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(TYPE_VISIT_INLINE);
+    default:
+      Unreachable("Not an integer type");
+  }
+}
+
+#undef TYPE_VISIT_INLINE
+
 }  // namespace arrow
