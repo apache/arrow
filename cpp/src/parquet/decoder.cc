@@ -358,6 +358,9 @@ class PlainDecoder : public TypedDecoderImpl<DType> {
 
   int Decode(T* buffer, int max_values) override;
 
+  int DecodeSpaced(T* buffer, int num_values, int null_count, const uint8_t* valid_bits,
+                   int64_t valid_bits_offset) override;
+
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::Accumulator* builder) override;
@@ -530,6 +533,39 @@ int PlainDecoder<DType>::Decode(T* buffer, int max_values) {
   this->len_ -= bytes_consumed;
   this->num_values_ -= max_values;
   return max_values;
+}
+
+template <typename DType>
+int PlainDecoder<DType>::DecodeSpaced(T* buffer, int num_values, int null_count,
+                                      const uint8_t* valid_bits,
+                                      int64_t valid_bits_offset) {
+  if constexpr (std::is_same_v<DType, ByteArrayType> || std::is_same_v<DType, FLBAType>) {
+    // Not a plain copy of the page
+    return TypedDecoderImpl<DType>::DecodeSpaced(buffer, num_values, null_count,
+                                                 valid_bits, valid_bits_offset);
+  } else {
+    if (null_count == 0) {
+      return Decode(buffer, num_values);
+    }
+    // Same checks as Decode and TypedDecoderImpl::DecodeSpaced, but the values
+    // are spread out straight from the page instead of being copied first.
+    const int values_to_read = num_values - null_count;
+    const int values_read = std::min(values_to_read, this->num_values_);
+    const int64_t bytes_to_decode = static_cast<int64_t>(values_read) * sizeof(T);
+    if (bytes_to_decode > this->len_) {
+      ParquetException::EofException();
+    }
+    if (values_read != values_to_read) {
+      throw ParquetException("Number of values / definition_levels read did not match");
+    }
+    ::arrow::util::internal::SpacedExpand(reinterpret_cast<const T*>(this->data_),
+                                          num_values, null_count, valid_bits,
+                                          valid_bits_offset, buffer);
+    this->data_ += bytes_to_decode;
+    this->len_ -= static_cast<int>(bytes_to_decode);
+    this->num_values_ -= values_read;
+    return num_values;
+  }
 }
 
 // PLAIN decoder implementation for BOOLEAN
