@@ -35,6 +35,12 @@ if ! archery --help > /dev/null 2>&1; then
   exit 1
 fi
 
+. "${SOURCE_DIR}/utils-env.sh"
+
+# Without a token archery waits on the rate limit of GitHub for a long
+# time instead of failing.
+: "${GH_TOKEN:?GH_TOKEN is required to ask GitHub who merged the pull requests}"
+
 previous_version=$1
 version=$2
 
@@ -75,10 +81,11 @@ rough_n_development_months=$((
 git_tag=apache-arrow-${version}
 git_range=apache-arrow-${previous_version}..${git_tag}
 
-committers_command_line="git shortlog -sn --group=trailer:signed-off-by ${git_range}"
 contributors_command_line="git shortlog -sn ${git_range}"
 
-committers=$(${committers_command_line})
+# Count the pull requests of the commits in ${git_range} by who merged
+# them. This asks GitHub: it needs GH_TOKEN.
+committers=$(archery release committers ${previous_version} ${version})
 contributors=$(${contributors_command_line})
 
 n_commits=$(git log --pretty=oneline ${git_range} | wc -l)
@@ -151,8 +158,7 @@ cat <<ANNOUNCE >> "${announce_file}"
 
 The following Apache committers merged contributed patches to the repository.
 
-\`\`\`console
-$ ${committers_command_line}
+\`\`\`text
 ANNOUNCE
 
 echo "${committers}" >> "${announce_file}"

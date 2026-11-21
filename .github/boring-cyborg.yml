@@ -59,7 +59,7 @@ labelPRBasedOnFilePath:
     - "**/*.Rd"
 
 verifyTitles:
-  titleRegexp: '^(WIP:?\s*)?GH-[0-9]+|^MINOR: '
+  titleRegexp: '^GH-[0-9]+|^MINOR: '
   alwaysUsePrTitle: true
   validateEitherPrOrSingleCommitTitle: false
   statusTitle: "PR Title"
@@ -67,8 +67,12 @@ verifyTitles:
   failureMessage: "Title must start with 'GH-<issue>: [Component]' or 'MINOR: [Component]'"
 
 insertIssueLinkInPrDescription:
-  descriptionIssuePlaceholderRegexp: '^\* GitHub Issue: (.*)$'
+  descriptionIssuePlaceholderRegexp: '^\* GitHub Issue: (?![Rr]efs\b)(.*)$'
   matchers:
+    closedIssue:
+      targetBranchFilter: '^main$'
+      titleIssueIdRegexp: '^GH-([0-9]+)'
+      descriptionIssueLink: 'Closes #${1}'
     githubIssue:
       titleIssueIdRegexp: '^(?:WIP:?\s*)?GH-([0-9]+)'
       descriptionIssueLink: '#${1}'

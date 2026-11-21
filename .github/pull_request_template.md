@@ -34,4 +34,4 @@ In accordance to the [AI generation guidelines](https://arrow.apache.org/docs/de
 - [ ] AI
 - [ ] Not reviewed
 
-* GitHub Issue: (filled in automatically from the PR title)
+* GitHub Issue: (filled in automatically from the PR title; change "Closes" to "Refs" for a partial fix)

@@ -33,8 +33,42 @@ committer.
 
 ## How to Merge a Pull Request
 
-Please don't merge PRs using the GitHub Web interface. Instead, run
-the following command:
+Use the "Squash and merge" button of the GitHub Web interface. Before
+you merge, check that:
+
+* The pull request title is what you want as the commit title:
+  `GH-XXX: [Component] Title` or `MINOR: [Component] Title`. The
+  "PR Title" status of the Boring Cyborg app
+  (`.github/boring-cyborg.yml`) fails unless the title starts with
+  `GH-XXX` or `MINOR: ` but it doesn't block the merge.
+* The last line of the pull request description is
+  `* GitHub Issue: Closes #XXX`. The Boring Cyborg app writes it for a
+  pull request to `main` and GitHub closes the issue on merge because
+  of it. If the pull request fixes only a part of the issue, change
+  the line to `* GitHub Issue: Refs #XXX` before you merge: the issue
+  stays open. If the line doesn't say `Closes #XXX`, for example
+  because the app is down, change it or close the issue yourself.
+* The pull request description is what you want as the commit
+  message. Remove leftovers of the pull request template in the
+  merge dialog if needed.
+
+A scheduled GitHub Actions workflow (`Update issue milestones`,
+`.github/workflows/dev_update_milestones.yml`) runs
+`archery release update-milestones --execute` to set the milestone on
+closed issues referenced by `GH-XXX` commits since the previous major
+release. Existing issue milestones are retained, so set a milestone
+before or after merging if the pull request isn't targeted for the next
+major release. If the issue doesn't have a milestone, the workflow sets
+the major release matching the commit's branch (`maint-X.0.0` if
+already branched, otherwise the next major release). The workflow can
+also be triggered manually via `workflow_dispatch`.
+
+### Merge script
+
+The merge script is still available for now, but using the merge button
+is encouraged. It additionally adds `Authored-by:`, `Co-authored-by:`
+and `Signed-off-by:` trailers to the commit message. Run the following
+command:
 
 ```bash
 dev/merge_arrow_pr.sh
