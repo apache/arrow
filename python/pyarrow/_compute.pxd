@@ -38,6 +38,14 @@ cdef class FunctionOptions(_Weakrefable):
     cdef inline shared_ptr[CFunctionOptions] unwrap(self)
 
 
+cdef class FunctionExecutor(_Weakrefable):
+    cdef:
+        shared_ptr[CFunctionExecutor] sp_executor
+        CFunctionExecutor* base_executor
+
+    cdef void init(self, const shared_ptr[CFunctionExecutor]& sp_executor) except *
+
+
 cdef class _SortOptions(FunctionOptions):
     pass
 
