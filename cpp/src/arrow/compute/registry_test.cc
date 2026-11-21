@@ -21,11 +21,15 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array/array_nested.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/function_options.h"
 #include "arrow/compute/registry.h"
+#include "arrow/extension/bool8.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/macros.h"
 
@@ -45,6 +49,51 @@ TEST(TestRegistry, CreateBuiltInRegistry) {
   // if there is a problem initializing the global function registry
   FunctionRegistry* registry = GetFunctionRegistry();
   ARROW_UNUSED(registry);
+}
+
+TEST(TestRegistry, DropNullUnionWithoutIsValid) {
+  // The core registry intentionally doesn't register optional compute kernels.
+  ASSERT_RAISES(KeyError, GetFunctionRegistry()->GetFunction("is_valid"));
+
+  std::shared_ptr<Array> type_ids;
+  std::shared_ptr<Array> dense_offsets;
+  std::shared_ptr<Array> dense_bool8_storage;
+  std::shared_ptr<Array> dense_other;
+  std::shared_ptr<Array> sparse_bool8_storage;
+  std::shared_ptr<Array> sparse_other;
+  ArrayFromVector<Int8Type>(std::vector<int8_t>{0, 1, 0}, &type_ids);
+  ArrayFromVector<Int32Type>(std::vector<int32_t>{0, 0, 1}, &dense_offsets);
+  ArrayFromVector<Int8Type>(int8(), {false, true}, {0, 1}, &dense_bool8_storage);
+  ArrayFromVector<Int32Type>(std::vector<int32_t>{42}, &dense_other);
+  ArrayFromVector<Int8Type>(int8(), {false, true, true}, {0, 1, 1},
+                            &sparse_bool8_storage);
+  ArrayFromVector<Int32Type>(std::vector<int32_t>{0, 42, 0}, &sparse_other);
+
+  for (bool is_dense : {true, false}) {
+    std::shared_ptr<Array> values;
+    if (is_dense) {
+      auto bool8_values =
+          ExtensionType::WrapArray(extension::bool8(), dense_bool8_storage);
+      ASSERT_OK_AND_ASSIGN(
+          values,
+          DenseUnionArray::Make(*type_ids, *dense_offsets, {bool8_values, dense_other},
+                                std::vector<std::string>{"bool8", "int32"}));
+    } else {
+      auto bool8_values =
+          ExtensionType::WrapArray(extension::bool8(), sparse_bool8_storage);
+      ASSERT_OK_AND_ASSIGN(
+          values, SparseUnionArray::Make(*type_ids, {bool8_values, sparse_other},
+                                         std::vector<std::string>{"bool8", "int32"}));
+    }
+
+    ASSERT_OK_AND_ASSIGN(auto actual, DropNull(*values));
+    ASSERT_EQ(actual->length(), 2);
+    ASSERT_EQ(actual->ComputeLogicalNullCount(), 0);
+    ASSERT_TRUE(actual->type()->Equals(values->type()));
+    const auto& actual_union = static_cast<const UnionArray&>(*actual);
+    ASSERT_EQ(actual_union.type_code(0), 1);
+    ASSERT_EQ(actual_union.type_code(1), 0);
+  }
 }
 
 TEST_P(TestRegistry, Basics) {
