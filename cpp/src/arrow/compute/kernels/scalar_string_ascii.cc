@@ -2039,6 +2039,10 @@ struct PlainSubstringReplacer {
 
   static Result<std::unique_ptr<PlainSubstringReplacer>> Make(
       const ReplaceSubstringOptions& options, bool is_utf8) {
+    if (options.pattern.empty()) {
+      // An empty pattern would match at every position without advancing.
+      return Status::Invalid("Empty substring pattern is not supported");
+    }
     return std::make_unique<PlainSubstringReplacer>(options);
   }
 
@@ -2119,7 +2123,8 @@ struct RegexSubstringReplacer {
     re2::StringPiece replacement(options_.replacement);
 
     // If s is empty, then it's essentially global
-    if (options_.max_replacements == -1 || s.empty()) {
+    // Any negative value means unlimited replacements.
+    if (options_.max_replacements < 0 || s.empty()) {
       std::string s_copy{s.data(), s.length()};
       RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
