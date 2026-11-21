@@ -1640,6 +1640,17 @@ cdef class Bool8Scalar(ExtensionScalar):
         py_val = super().as_py()
         return None if py_val is None else py_val != 0
 
+
+cdef class FixedClosednessRangeScalar(ExtensionScalar):
+    """
+    Concrete class for fixed closedness range extension scalar.
+    """
+
+cdef class VariableClosednessRangeScalar(ExtensionScalar):
+    """
+    Concrete class for variable closedness range extension scalar.
+    """
+
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,
     _Type_UINT8: UInt8Scalar,
