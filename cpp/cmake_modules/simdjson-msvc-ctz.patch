@@ -1,0 +1,27 @@
+--- a/include/simdjson/generic/ondemand/key_selector.h	2026-10-19 16:19:59.453490738 +0000
++++ b/include/simdjson/generic/ondemand/key_selector.h	2026-10-19 16:21:02.913454494 +0000
+@@ -38,6 +38,24 @@
+   #define SIMDJSON_KEY_SELECTOR_HAS_LSX 0
+ #endif
+ 
++// MSVC compatibility: __builtin_ctz/__builtin_ctzll are GCC/Clang builtins.
++// Provide equivalents using MSVC intrinsics (_BitScanForward).
++#if defined(_MSC_VER)
++  #include <intrin.h>
++  static inline unsigned long _simdjson_ctz(unsigned long value) {
++    unsigned long result;
++    _BitScanForward(&result, value);
++    return result;
++  }
++  static inline unsigned long _simdjson_ctzll(uint64_t value) {
++    unsigned long result;
++    _BitScanForward64(&result, value);
++    return result;
++  }
++  #define __builtin_ctz(x)   _simdjson_ctz(x)
++  #define __builtin_ctzll(x) _simdjson_ctzll(x)
++#endif
++
+ // Clang 15 and earlier reject a call to a consteval function from within a
+ // consteval function template when an argument refers to one of the caller's
+ // reference parameters ("function parameter 'keys' with unknown value cannot
