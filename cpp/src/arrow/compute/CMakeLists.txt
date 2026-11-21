@@ -194,6 +194,7 @@ add_arrow_compute_test(row_test
                        arrow_compute_testing_main)
 
 add_arrow_compute_benchmark(function_benchmark)
+add_arrow_compute_benchmark(key_hash_benchmark)
 
 add_subdirectory(kernels)
 
