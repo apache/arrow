@@ -224,19 +224,58 @@ int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_lengt
             static_cast<int32_t>(components.fractional_digits.size()),
             components.exponent, &input_scale) &&
         input_scale > out_scale) {
-      std::string digits(components.whole_digits);
-      digits.append(components.fractional_digits);
-      digits.erase(0, digits.find_first_not_of('0'));
-      const int64_t num_digits =
-          static_cast<int64_t>(digits.size()) + out_scale - input_scale;
+      // Count significant digits (skipping leading zeros across whole and
+      // fractional parts combined) without copying them, so a very long,
+      // possibly attacker-controlled input is only ever scanned, not
+      // allocated and copied in full.
+      int64_t leading_zeros = 0;
+      for (char c : components.whole_digits) {
+        if (c != '0') break;
+        ++leading_zeros;
+      }
+      if (leading_zeros == static_cast<int64_t>(components.whole_digits.size())) {
+        for (char c : components.fractional_digits) {
+          if (c != '0') break;
+          ++leading_zeros;
+        }
+      }
+      const int64_t stripped_length =
+          static_cast<int64_t>(components.whole_digits.size() +
+                               components.fractional_digits.size()) -
+          leading_zeros;
+      const int64_t num_digits = stripped_length + out_scale - input_scale;
       if (num_digits > arrow::Decimal128::kMaxPrecision) {
+        // Only reachable when the original FromString above failed (status
+        // not ok), so status.message() is already non-empty: a successful
+        // parse bounds stripped_length by kMaxPrecision, and this branch
+        // requires input_scale > out_scale + kMaxScale, which together force
+        // num_digits negative (kMaxPrecision == kMaxScale for Decimal128).
         gdv_fn_context_set_error_msg(context, status.message().data());
         return -1;
       }
+      std::string digits;
       bool round_up = false;
       if (num_digits < 0) {
         digits = "0";
       } else {
+        // Only the first num_digits characters plus one rounding digit are
+        // ever read below (bounded by kMaxPrecision + 1), so copy no more
+        // than that instead of materializing the full stripped sequence.
+        int64_t skip = leading_zeros;
+        int64_t take = num_digits + 1;
+        digits.reserve(static_cast<size_t>(take));
+        for (std::string_view part :
+             {components.whole_digits, components.fractional_digits}) {
+          for (char c : part) {
+            if (skip > 0) {
+              --skip;
+              continue;
+            }
+            if (take <= 0) break;
+            digits.push_back(c);
+            --take;
+          }
+        }
         round_up = num_digits < static_cast<int64_t>(digits.size()) &&
                    digits[static_cast<size_t>(num_digits)] >= '5';
         digits.resize(static_cast<size_t>(num_digits), '0');

@@ -256,8 +256,13 @@ TEST(ConverterTest, Decimal128And256PrecisionError) {
 
     std::string error_msg;
     if (decimal_type->id() == Type::DECIMAL128) {
+      // Decimal128's own FromString rejects this value outright (40 significant
+      // digits exceeds its 38-digit kMaxPrecision), so the converter never wraps
+      // it with a "Failed to convert JSON to ..." prefix. Assert on the stable
+      // core message rather than the full status text, so this keeps matching
+      // if the converter ever starts wrapping this error too.
       error_msg =
-          "Invalid: The string '123456789012345678901234567890.0123456789' "
+          "The string '123456789012345678901234567890.0123456789' "
           "cannot be represented as decimal128";
     } else {
       error_msg = "Invalid: Failed to convert JSON to " + decimal_type->ToString() +
