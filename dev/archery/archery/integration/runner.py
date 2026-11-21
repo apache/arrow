@@ -80,6 +80,8 @@ class IntegrationRunner(object):
             print(f"-- Only running tests with {self.match} in their name")
             self.json_files = [json_file for json_file in self.json_files
                                if self.match in json_file.name]
+            self.flight_scenarios = [scenario for scenario in self.flight_scenarios
+                                     if self.match in scenario.name]
 
     def run_ipc(self):
         """
