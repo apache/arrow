@@ -194,7 +194,6 @@ int parquet___arrow___FileReader__num_columns(
 
 namespace {
 
-// Append the Parquet leaf column indices below `field` to `out`
 void AppendLeafColumnIndices(const parquet::arrow::SchemaField& field,
                              std::vector<int>* out) {
   if (field.is_leaf()) {
@@ -208,9 +207,6 @@ void AppendLeafColumnIndices(const parquet::arrow::SchemaField& field,
 
 }  // namespace
 
-// Translate 0-based indices of top-level fields in the Arrow schema to the 0-based
-// Parquet leaf column indices that FileReader::ReadTable() etc. expect. The two
-// differ whenever the file has nested columns.
 // [[parquet::export]]
 std::vector<int> parquet___arrow___FileReader__FieldIndicesToColumnIndices(
     const std::shared_ptr<parquet::arrow::FileReader>& reader,
