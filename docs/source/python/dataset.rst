@@ -595,14 +595,23 @@ uses an object called a :class:`Scanner` to do this.  A Scanner is created for y
 automatically by the :func:`~Dataset.to_table` and :func:`~Dataset.to_batches` method of the dataset.
 Any arguments you pass to these methods will be passed on to the Scanner constructor.
 
-One of those parameters is the ``batch_size``.  This controls the maximum size of the
-batches returned by the scanner.  Batches can still be smaller than the ``batch_size``
-if the dataset consists of small files or those files themselves consist of small
-row groups.  For example, a parquet file with 10,000 rows per row group will yield
-batches with, at most, 10,000 rows unless the ``batch_size`` is set to a smaller value.
+The ``batch_size`` parameter sets the maximum number of rows in a batch. It
+defaults to 131,072 rows. Batches can be smaller if the dataset consists of
+small files or small Parquet row groups.
 
-The default batch size is one million rows and this is typically a good default but
-you may want to customize it if you are reading a large number of columns.
+For example, increasing ``batch_size`` does not combine Parquet row groups
+into a single batch:
+
+.. code-block:: python
+
+    >>> batch_path = base / "batch_sizes.parquet"
+    >>> pq.write_table(pa.table({'a': range(6)}), batch_path, row_group_size=3)
+    >>> batch_dataset = ds.dataset(batch_path, format="parquet")
+    >>> [batch.num_rows for batch in batch_dataset.to_batches(batch_size=6)]
+    [3, 3]
+
+By default, :func:`~pyarrow.parquet.write_table` writes row groups of at most
+1,048,576 rows. This is a writer default, not a limit on ``batch_size``.
 
 A note on transactions & ACID guarantees
 ----------------------------------------
