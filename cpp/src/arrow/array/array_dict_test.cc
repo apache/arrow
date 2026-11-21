@@ -1070,22 +1070,47 @@ TEST(TestDictionaryBuilderIndexType, PreservesRequestedIndexType) {
   }
 }
 
-TEST(TestDictionaryBuilderIndexType, WidthAdaptsWhenUnsigned) {
-  // The width stays adaptive, as it does for signed indices. The underlying builder is
-  // signed, so it widens after 128 distinct values rather than the 256 a uint8 could
-  // hold, but the widened type stays unsigned rather than falling back to a signed type.
+TEST(TestDictionaryBuilderIndexType, WidthAdaptsOnUnsignedThresholds) {
+  // An unsigned index uses the full unsigned range: 256 distinct values still fit
+  // a uint8 index, and the 257th widens it to uint16.
   auto dict_type = dictionary(uint8(), utf8());
   ASSERT_OK_AND_ASSIGN(auto boxed_builder, MakeBuilder(dict_type));
   auto& builder = checked_cast<DictionaryBuilder<StringType>&>(*boxed_builder);
 
-  for (int i = 0; i < 200; ++i) {
+  for (int i = 0; i < 256; ++i) {
     ASSERT_OK(builder.Append(std::to_string(i)));
   }
-
+  AssertTypeEqual(*uint8(),
+                  *checked_cast<const DictionaryType&>(*builder.type()).index_type());
+  {
+    // Indices above 127 must round-trip through the one-byte lanes intact.
+    ASSERT_OK_AND_ASSIGN(auto full, builder.Finish());
+    ASSERT_OK(full->ValidateFull());
+    const auto& dict_array = checked_cast<const DictionaryArray&>(*full);
+    const auto& indices = checked_cast<const UInt8Array&>(*dict_array.indices());
+    ASSERT_EQ(indices.length(), 256);
+    ASSERT_EQ(indices.Value(255), 255);
+    ASSERT_EQ(dict_array.dictionary()->length(), 256);
+  }
+  for (int i = 0; i < 256; ++i) {
+    ASSERT_OK(builder.Append(std::to_string(i)));
+  }
+  ASSERT_OK(builder.Append("one more"));
   ASSERT_OK_AND_ASSIGN(auto result, builder.Finish());
   ASSERT_OK(result->ValidateFull());
   AssertTypeEqual(*uint16(),
                   *checked_cast<const DictionaryType&>(*result->type()).index_type());
+
+  // The signed counterpart still widens on the signed threshold.
+  ASSERT_OK_AND_ASSIGN(auto signed_builder, MakeBuilder(dictionary(int8(), utf8())));
+  auto& sbuilder = checked_cast<DictionaryBuilder<StringType>&>(*signed_builder);
+  for (int i = 0; i < 200; ++i) {
+    ASSERT_OK(sbuilder.Append(std::to_string(i)));
+  }
+  ASSERT_OK_AND_ASSIGN(auto signed_result, sbuilder.Finish());
+  AssertTypeEqual(
+      *int16(),
+      *checked_cast<const DictionaryType&>(*signed_result->type()).index_type());
 }
 
 TEST(TestDictionaryBuilderIndexType, NullValueTypePreservesUnsignedIndexType) {
@@ -1119,6 +1144,25 @@ TEST(TestDictionaryBuilderIndexType, FinishDeltaPreservesUnsignedIndexType) {
   ASSERT_OK(result_indices->ValidateFull());
   AssertTypeEqual(*uint32(), *result_indices->type());
   AssertArraysEqual(*ArrayFromJSON(uint32(), "[0, 1]"), *result_indices);
+}
+
+TEST(TestDictionaryBuilderIndexType, FinishDeltaUsesUnsignedRange) {
+  // The delta path shares the unsigned width logic: 200 distinct values keep a
+  // uint8 index and the values above 127 come through intact.
+  auto dict_type = dictionary(uint8(), utf8());
+  ASSERT_OK_AND_ASSIGN(auto boxed_builder, MakeBuilder(dict_type));
+  auto& builder = checked_cast<DictionaryBuilder<StringType>&>(*boxed_builder);
+
+  for (int i = 0; i < 200; ++i) {
+    ASSERT_OK(builder.Append(std::to_string(i)));
+  }
+
+  std::shared_ptr<Array> result_indices, result_delta;
+  ASSERT_OK(builder.FinishDelta(&result_indices, &result_delta));
+  ASSERT_OK(result_indices->ValidateFull());
+  AssertTypeEqual(*uint8(), *result_indices->type());
+  ASSERT_EQ(checked_cast<const UInt8Array&>(*result_indices).Value(199), 199);
+  ASSERT_EQ(result_delta->length(), 200);
 }
 
 TEST(TestDictionaryBuilderIndexType, SuppliedDictionaryPreservesUnsignedIndexType) {
