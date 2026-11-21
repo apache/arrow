@@ -44,6 +44,7 @@
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
+#include "parquet/level_comparison_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
 #include "parquet/platform.h"
@@ -977,11 +978,7 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
             ScanAllValues(column_batch_size, def_levels.data(), rep_levels.data(),
                           values.data(), &values_read, col_reader.get());
         if (col_reader->descr()->max_repetition_level() > 0) {
-          for (size_t i = 0; i < static_cast<size_t>(levels_read); i++) {
-            if (rep_levels[i] == 0) {
-              total_rows[col]++;
-            }
-          }
+          total_rows[col] += internal::CountLevels(rep_levels.data(), levels_read, 0);
         } else {
           total_rows[col] += levels_read;
         }
