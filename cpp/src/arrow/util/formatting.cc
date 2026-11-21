@@ -42,8 +42,10 @@ const char digit_pairs[] =
 
 struct FloatToStringFormatter::Impl {
   Impl()
-      : converter_(DoubleToStringConverter::EMIT_POSITIVE_EXPONENT_SIGN, "inf", "nan",
-                   'e', -6, 10, 6, 0) {}
+      : converter_(DoubleToStringConverter::EMIT_POSITIVE_EXPONENT_SIGN |
+                       DoubleToStringConverter::EMIT_TRAILING_DECIMAL_POINT |
+                       DoubleToStringConverter::EMIT_TRAILING_ZERO_AFTER_POINT,
+                   "inf", "nan", 'e', -6, 10, 6, 0) {}
 
   Impl(int flags, const char* inf_symbol, const char* nan_symbol, char exp_character,
        int decimal_in_shortest_low, int decimal_in_shortest_high,

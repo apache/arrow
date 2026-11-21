@@ -147,18 +147,18 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
 
   std::vector<double> values2 = {0., 1., 2., 3., 4.};
   static const char* ex2 = R"expected([
-  0,
-  1,
+  0.0,
+  1.0,
   null,
-  3,
+  3.0,
   null
 ])expected";
   CheckPrimitive<DoubleType, double>({0, 10}, is_valid, values2, ex2);
   static const char* ex2_in2 = R"expected(  [
-    0,
-    1,
+    0.0,
+    1.0,
     null,
-    3,
+    3.0,
     null
   ])expected";
   CheckPrimitive<DoubleType, double>({2, 10}, is_valid, values2, ex2_in2);
@@ -337,16 +337,16 @@ TEST_F(TestPrettyPrint, UInt64) {
 TEST_F(TestPrettyPrint, HalfFloat) {
   static const char* expected = R"expected([
   -inf,
-  -1234,
-  -0,
-  0,
-  1,
+  -1234.0,
+  -0.0,
+  0.0,
+  1.0,
   1.2001953125,
   2.5,
   3.9921875,
   4.125,
-  10000,
-  12344,
+  10000.0,
+  12344.0,
   inf,
   nan,
   null

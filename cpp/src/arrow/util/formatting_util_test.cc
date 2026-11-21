@@ -246,12 +246,14 @@ TEST(Formatting, Int64) {
 TEST(Formatting, Float) {
   StringFormatter<FloatType> formatter;
 
-  AssertFormatting(formatter, 0.0f, "0");
-  AssertFormatting(formatter, -0.0f, "-0");
+  AssertFormatting(formatter, 0.0f, "0.0");
+  AssertFormatting(formatter, -0.0f, "-0.0");
+  AssertFormatting(formatter, 20.0f, "20.0");
+  AssertFormatting(formatter, -20.0f, "-20.0");
   AssertFormatting(formatter, 1.5f, "1.5");
   AssertFormatting(formatter, 0.0001f, "0.0001");
   AssertFormatting(formatter, 1234.567f, "1234.567");
-  AssertFormatting(formatter, 1e9f, "1000000000");
+  AssertFormatting(formatter, 1e9f, "1000000000.0");
   AssertFormatting(formatter, 1e10f, "1e+10");
   AssertFormatting(formatter, 1e20f, "1e+20");
   AssertFormatting(formatter, 1e-6f, "0.000001");
@@ -266,12 +268,14 @@ TEST(Formatting, Float) {
 TEST(Formatting, Double) {
   StringFormatter<DoubleType> formatter;
 
-  AssertFormatting(formatter, 0.0, "0");
-  AssertFormatting(formatter, -0.0, "-0");
+  AssertFormatting(formatter, 0.0, "0.0");
+  AssertFormatting(formatter, -0.0, "-0.0");
+  AssertFormatting(formatter, 20.0, "20.0");
+  AssertFormatting(formatter, -20.0, "-20.0");
   AssertFormatting(formatter, 1.5, "1.5");
   AssertFormatting(formatter, 0.0001, "0.0001");
   AssertFormatting(formatter, 1234.567, "1234.567");
-  AssertFormatting(formatter, 1e9, "1000000000");
+  AssertFormatting(formatter, 1e9, "1000000000.0");
   AssertFormatting(formatter, 1e10, "1e+10");
   AssertFormatting(formatter, 1e20, "1e+20");
   AssertFormatting(formatter, 1e-6, "0.000001");
@@ -286,21 +290,23 @@ TEST(Formatting, Double) {
 TEST(Formatting, HalfFloat) {
   StringFormatter<HalfFloatType> formatter;
 
-  AssertFormatting(formatter, Float16(0.0f).bits(), "0");
-  AssertFormatting(formatter, Float16(-0.0f).bits(), "-0");
+  AssertFormatting(formatter, Float16(0.0f).bits(), "0.0");
+  AssertFormatting(formatter, Float16(-0.0f).bits(), "-0.0");
+  AssertFormatting(formatter, Float16(20.0f).bits(), "20.0");
+  AssertFormatting(formatter, Float16(-20.0f).bits(), "-20.0");
   AssertFormatting(formatter, Float16(1.5f).bits(), "1.5");
 
   // Slightly adapted from values present here
   // https://blogs.mathworks.com/cleve/2017/05/08/half-precision-16-bit-floating-point-arithmetic/
-  AssertFormatting(formatter, 0x3c00, "1");
+  AssertFormatting(formatter, 0x3c00, "1.0");
   AssertFormatting(formatter, 0x3c01, "1.0009765625");
   AssertFormatting(formatter, 0x0400, "0.00006103515625");
   AssertFormatting(formatter, 0x0001, "5.960464477539063e-8");
 
   // Can't avoid loss of precision here.
-  AssertFormatting(formatter, Float16(1234.567f).bits(), "1235");
-  AssertFormatting(formatter, Float16(1e3f).bits(), "1000");
-  AssertFormatting(formatter, Float16(1e4f).bits(), "10000");
+  AssertFormatting(formatter, Float16(1234.567f).bits(), "1235.0");
+  AssertFormatting(formatter, Float16(1e3f).bits(), "1000.0");
+  AssertFormatting(formatter, Float16(1e4f).bits(), "10000.0");
   AssertFormatting(formatter, Float16(1e10f).bits(), "inf");
   AssertFormatting(formatter, Float16(1e15f).bits(), "inf");
 
