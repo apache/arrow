@@ -25,15 +25,17 @@ ARG jdk=17
 ARG maven=3.9.9
 
 ARG numpy=latest
-COPY ci/scripts/install_numpy.sh /arrow/ci/scripts/
+# Spark master requires pandas<3, remove pin and use latest once resolved:
+#     https://github.com/apache/spark/issues/59824
+ARG pandas=2.*
+COPY ci/scripts/install_pandas.sh /arrow/ci/scripts/
 
 RUN mamba install -q -y \
         openjdk=${jdk} \
-        maven=${maven} \
-        pandas && \
+        maven=${maven} && \
     mamba clean --all --yes && \
     mamba uninstall -q -y numpy && \
-    /arrow/ci/scripts/install_numpy.sh ${numpy}
+    /arrow/ci/scripts/install_pandas.sh ${pandas} ${numpy}
 
 # installing specific version of spark
 ARG spark=master
