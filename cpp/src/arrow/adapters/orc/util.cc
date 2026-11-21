@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array/builder_base.h"
+#include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/chunked_array.h"
 #include "arrow/scalar.h"
@@ -397,33 +398,24 @@ Result<std::shared_ptr<Array>> NormalizeArray(const std::shared_ptr<Array>& arra
         return array;
       } else {
         auto struct_array = checked_pointer_cast<StructArray>(array);
-        const std::shared_ptr<Buffer> bitmap = struct_array->null_bitmap();
-        std::shared_ptr<DataType> struct_type = struct_array->type();
-        std::size_t size = struct_type->fields().size();
-        std::vector<std::shared_ptr<Array>> new_children(size, nullptr);
-        for (std::size_t i = 0; i < size; i++) {
-          std::shared_ptr<Array> child = struct_array->field(static_cast<int>(i));
-          const std::shared_ptr<Buffer> child_bitmap = child->null_bitmap();
-          std::shared_ptr<Buffer> final_child_bitmap;
-          if (child_bitmap == nullptr) {
-            final_child_bitmap = bitmap;
-          } else {
-            ARROW_ASSIGN_OR_RAISE(
-                final_child_bitmap,
-                internal::BitmapAnd(default_memory_pool(), bitmap->data(), 0,
-                                    child_bitmap->data(), 0, struct_array->length(), 0));
-          }
-          std::shared_ptr<ArrayData> child_array_data = child->data();
-          std::vector<std::shared_ptr<Buffer>> child_buffers = child_array_data->buffers;
-          child_buffers[0] = final_child_bitmap;
-          std::shared_ptr<ArrayData> new_child_array_data =
-              ArrayData::Make(child->type(), child->length(), child_buffers,
-                              child_array_data->child_data, child_array_data->dictionary);
-          ARROW_ASSIGN_OR_RAISE(new_children[i],
-                                NormalizeArray(MakeArray(new_child_array_data)));
+        std::vector<std::shared_ptr<Array>> new_children(
+            struct_array->type()->num_fields());
+        for (int i = 0; i < static_cast<int>(new_children.size()); ++i) {
+          // Push the struct's offset down and merge the struct's validity into
+          // the child's, so each child is valid only on rows valid in both.
+          ARROW_ASSIGN_OR_RAISE(auto child, struct_array->GetFlattenedField(i));
+          ARROW_ASSIGN_OR_RAISE(new_children[i], NormalizeArray(child));
         }
-        return std::make_shared<StructArray>(struct_type, struct_array->length(),
-                                             new_children, bitmap);
+        // The children have been rebased to offset 0, so rebase the struct's
+        // own validity bitmap to offset 0 as well.
+        std::shared_ptr<Buffer> new_bitmap;
+        ARROW_ASSIGN_OR_RAISE(new_bitmap, AllocateEmptyBitmap(struct_array->length(),
+                                                              default_memory_pool()));
+        internal::CopyBitmap(struct_array->null_bitmap_data(), struct_array->offset(),
+                             struct_array->length(), new_bitmap->mutable_data(), 0);
+        return std::make_shared<StructArray>(struct_array->type(), struct_array->length(),
+                                             new_children, std::move(new_bitmap),
+                                             struct_array->null_count());
       }
     }
     case Type::type::LIST: {
