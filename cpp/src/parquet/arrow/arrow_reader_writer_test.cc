@@ -3668,6 +3668,21 @@ TEST_P(TestFixedSizeListRoundTrip, RoundTrip) {
 INSTANTIATE_TEST_SUITE_P(ArrowReadWrite, TestFixedSizeListRoundTrip,
                          ::testing::ValuesIn(kFixedSizeListTestCases));
 
+TEST(ArrowReadWrite, NonNullableFixedSizeListInsideNullableStruct) {
+  // GH-55682: a non-nullable fixed-size list has no validity buffer of its
+  // own, so a null struct ancestor leaves no physical child values for that
+  // row, and nothing records the gap at the list level.
+  auto type = ::arrow::struct_(
+      {::arrow::field("shape", ::arrow::fixed_size_list(::arrow::int32(), 2),
+                      /*nullable=*/false)});
+  auto table = ::arrow::TableFromJSON(::arrow::schema({::arrow::field("x", type)}), {R"([
+        {"x": {"shape": [1, 2]}},
+        {"x": null},
+        {"x": {"shape": [3, 4]}}])"});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
 TEST(ArrowReadWrite, ListOfStructOfList2) {
   using ::arrow::field;
   using ::arrow::list;
