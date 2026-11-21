@@ -729,6 +729,73 @@ static void BM_AlpDecodingDouble(benchmark::State& state) {
 }
 
 BENCHMARK(BM_AlpDecodingDouble)->Range(MIN_RANGE, MAX_RANGE);
+// ALP speed depends on how "decimal-like" the data is, so vary the number of decimals
+// and the share of values that cannot be encoded that way (exceptions).
+template <typename T>
+static std::vector<T> MakeAlpInput(int64_t length, int decimals, int exception_percent) {
+  std::default_random_engine gen(/*seed=*/42);
+  std::uniform_int_distribution<int64_t> dist_digits(0, 100000);
+  std::uniform_real_distribution<T> dist_random(0, 1000);
+  std::bernoulli_distribution dist_exception(exception_percent / 100.0);
+  const T scale = static_cast<T>(std::pow(10.0, decimals));
+  std::vector<T> values(length);
+  for (auto& v : values) {
+    v = dist_exception(gen) ? dist_random(gen) : static_cast<T>(dist_digits(gen)) / scale;
+  }
+  return values;
+}
+
+template <typename DType>
+static void BM_AlpEncodingVaried(benchmark::State& state) {
+  using T = typename DType::c_type;
+  std::vector<T> values = MakeAlpInput<T>(
+      state.range(0), static_cast<int>(state.range(1)), static_cast<int>(state.range(2)));
+  auto encoder = MakeTypedEncoder<DType>(Encoding::ALP);
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(values.size()));
+    encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * values.size());
+}
+
+template <typename DType>
+static void BM_AlpDecodingVaried(benchmark::State& state) {
+  using T = typename DType::c_type;
+  std::vector<T> values = MakeAlpInput<T>(
+      state.range(0), static_cast<int>(state.range(1)), static_cast<int>(state.range(2)));
+  auto encoder = MakeTypedEncoder<DType>(Encoding::ALP);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+  auto decoder = MakeTypedDecoder<DType>(Encoding::ALP);
+  std::vector<T> output(values.size());
+  for (auto _ : state) {
+    decoder->SetData(static_cast<int>(values.size()), buf->data(),
+                     static_cast<int>(buf->size()));
+    decoder->Decode(output.data(), static_cast<int>(values.size()));
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * values.size());
+  state.counters["compression_ratio"] =
+      static_cast<double>(values.size() * sizeof(T)) / buf->size();
+}
+
+static void AlpCustomArguments(benchmark::internal::Benchmark* b) {
+  for (int num_values : {MIN_RANGE, MAX_RANGE}) {
+    for (int decimals : {1, 4}) {
+      for (int exception_percent : {0, 1, 10, 50, 100}) {
+        b->Args({num_values, decimals, exception_percent});
+      }
+    }
+  }
+  b->ArgNames({"num-values", "decimals", "exception-percent"});
+}
+
+BENCHMARK_TEMPLATE(BM_AlpEncodingVaried, FloatType)->Apply(AlpCustomArguments);
+BENCHMARK_TEMPLATE(BM_AlpEncodingVaried, DoubleType)->Apply(AlpCustomArguments);
+BENCHMARK_TEMPLATE(BM_AlpDecodingVaried, FloatType)->Apply(AlpCustomArguments);
+BENCHMARK_TEMPLATE(BM_AlpDecodingVaried, DoubleType)->Apply(AlpCustomArguments);
 
 // ----------------------------------------------------------------------
 // DeltaBitPacking encoding/decoding benchmarks
