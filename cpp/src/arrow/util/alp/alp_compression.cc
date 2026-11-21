@@ -89,22 +89,36 @@ class AlpInlines {
     return FastRound(n);
   }
 
-  // Encodes one value using the exponent/factor pair.
-  static EncodedSigned EncodeValue(const T value,
-                                   const AlpExponentAndFactor exponent_and_factor) {
-    const T tmp_encoded_value = value *
-                                Constants::GetExponent(exponent_and_factor.exponent) *
-                                Constants::GetFactor(exponent_and_factor.factor);
+  // The two decimal multipliers applied by EncodeValue() or DecodeValue(),
+  // resolved once per vector from the power-of-ten tables.
+  struct Multipliers {
+    T exponent;
+    T factor;
+  };
+
+  static Multipliers GetEncodeMultipliers(
+      const AlpExponentAndFactor exponent_and_factor) {
+    return Multipliers{Constants::GetExponent(exponent_and_factor.exponent),
+                       Constants::GetFactor(exponent_and_factor.factor)};
+  }
+
+  static Multipliers GetDecodeMultipliers(
+      const AlpExponentAndFactor exponent_and_factor) {
+    // Decoding applies the inverse scaling: 10^factor then 10^-exponent.
+    return Multipliers{Constants::GetExponent(exponent_and_factor.factor),
+                       Constants::GetFactor(exponent_and_factor.exponent)};
+  }
+
+  // Encodes one value using pre-resolved encode multipliers.
+  static EncodedSigned EncodeValue(const T value, const Multipliers multipliers) {
+    const T tmp_encoded_value = value * multipliers.exponent * multipliers.factor;
     return NumberToInt(tmp_encoded_value);
   }
 
-  // Decodes one encoded integer using the exponent/factor pair.
-  static T DecodeValue(const EncodedSigned encoded_value,
-                       const AlpExponentAndFactor exponent_and_factor) {
+  // Decodes one encoded integer using pre-resolved decode multipliers.
+  static T DecodeValue(const EncodedSigned encoded_value, const Multipliers multipliers) {
     // The cast to T is needed to prevent a signed integer overflow.
-    return static_cast<T>(encoded_value) *
-           Constants::GetExponent(exponent_and_factor.factor) *
-           Constants::GetFactor(exponent_and_factor.exponent);
+    return static_cast<T>(encoded_value) * multipliers.exponent * multipliers.factor;
   }
 };
 
@@ -149,6 +163,10 @@ std::optional<int64_t> EstimateCompressedSizeBits(
   static constexpr int kBatchSize = 8;
   const size_t n = inputs.size();
   int64_t num_exceptions = 0;
+  const auto encode_multipliers =
+      AlpInlines<T>::GetEncodeMultipliers(exponent_and_factor);
+  const auto decode_multipliers =
+      AlpInlines<T>::GetDecodeMultipliers(exponent_and_factor);
 
   size_t i = 0;
   for (; i + kBatchSize <= n; i += kBatchSize) {
@@ -157,12 +175,12 @@ std::optional<int64_t> EstimateCompressedSizeBits(
 
     // Pass 1: Encode (vectorizable: multiply + magic-number round)
     for (int j = 0; j < kBatchSize; j++) {
-      encoded_values[j] = AlpInlines<T>::EncodeValue(inputs[i + j], exponent_and_factor);
+      encoded_values[j] = AlpInlines<T>::EncodeValue(inputs[i + j], encode_multipliers);
     }
     // Pass 2: Decode (vectorizable: int->float cast + multiply)
     for (int j = 0; j < kBatchSize; j++) {
       decoded_values[j] =
-          AlpInlines<T>::DecodeValue(encoded_values[j], exponent_and_factor);
+          AlpInlines<T>::DecodeValue(encoded_values[j], decode_multipliers);
     }
     // Pass 3: Compare and accumulate min/max/exceptions
     for (int j = 0; j < kBatchSize; j++) {
@@ -177,9 +195,8 @@ std::optional<int64_t> EstimateCompressedSizeBits(
   // Scalar tail for remaining elements
   for (; i < n; i++) {
     const EncodedSigned encoded_value =
-        AlpInlines<T>::EncodeValue(inputs[i], exponent_and_factor);
-    const T decoded_value =
-        AlpInlines<T>::DecodeValue(encoded_value, exponent_and_factor);
+        AlpInlines<T>::EncodeValue(inputs[i], encode_multipliers);
+    const T decoded_value = AlpInlines<T>::DecodeValue(encoded_value, decode_multipliers);
     if (decoded_value == inputs[i]) {
       max_encoded_value = std::max(encoded_value, max_encoded_value);
       min_encoded_value = std::min(encoded_value, min_encoded_value);
@@ -381,12 +398,15 @@ typename AlpCompression<T>::EncodingResult AlpCompression<T>::EncodeVector(
 
   // Encode all values first. Values that do not round-trip are treated as exceptions,
   // while the remaining values define the FOR range.
+  const auto encode_multipliers =
+      AlpInlines<T>::GetEncodeMultipliers(exponent_and_factor);
+  const auto decode_multipliers =
+      AlpInlines<T>::GetDecodeMultipliers(exponent_and_factor);
   int64_t input_offset = 0;
   for (const T input : inputs) {
     const EncodedSigned encoded_value =
-        AlpInlines<T>::EncodeValue(input, exponent_and_factor);
-    const T decoded_value =
-        AlpInlines<T>::DecodeValue(encoded_value, exponent_and_factor);
+        AlpInlines<T>::EncodeValue(input, encode_multipliers);
+    const T decoded_value = AlpInlines<T>::DecodeValue(encoded_value, decode_multipliers);
     for_deltas.push_back(static_cast<EncodedUnsigned>(encoded_value));
 
     if (decoded_value != input) {
@@ -560,13 +580,14 @@ void AlpCompression<T>::Decompress(const AlpEncodedVectorView<T>& encoded_view,
   // Fused unFOR + decode loop: undo FOR in unsigned arithmetic, reinterpret the
   // result as signed encoded integers, then apply the normative decimal decode.
   const EncodedUnsigned frame_of_ref = for_info.frame_of_reference();
-  // Read the exponent/factor once. AlpInfo stores them as uint8_t, which may
-  // alias the output stores, so reading them inside the loop blocks vectorization.
-  const AlpExponentAndFactor exponent_and_factor = alp_info.GetExponentAndFactor();
+  // Resolve the decimal multipliers once before the loop so the inner loop does
+  // not reload from the power-of-ten tables or alias output stores.
+  const auto decode_multipliers =
+      AlpInlines<T>::GetDecodeMultipliers(alp_info.GetExponentAndFactor());
   for (size_t i = 0; i < output.size(); ++i) {
     const EncodedUnsigned unfored_value = scratch[i] + frame_of_ref;
     const EncodedSigned signed_value = util::SafeCopy<EncodedSigned>(unfored_value);
-    output[i] = AlpInlines<T>::DecodeValue(signed_value, exponent_and_factor);
+    output[i] = AlpInlines<T>::DecodeValue(signed_value, decode_multipliers);
   }
 
   PatchExceptions<TargetType>(
