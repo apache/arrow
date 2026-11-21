@@ -98,6 +98,45 @@ bool EqualBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type r,
                 l.size() - BinaryViewType::kPrefixSize) == 0;
 }
 
+/// \brief Compare a BinaryView value with contiguous string data.
+///
+/// Performs prefix-accelerated early rejection by checking string length and the
+/// 4-byte inline prefix before dereferencing variadic buffers.
+template <typename BufferPtr>
+bool EqualBinaryViewString(BinaryViewType::c_type v, const uint8_t* str_data,
+                           int64_t str_len, const BufferPtr* v_buffers) {
+  if (v.size() != str_len) return false;
+  if (v.size() == 0) return true;
+
+  if (v.size() < BinaryViewType::kPrefixSize) {
+    return memcmp(v.inline_data(), str_data, v.size()) == 0;
+  }
+
+  uint32_t v_prefix, str_prefix;
+  memcpy(&v_prefix, v.inline_data(), sizeof(uint32_t));
+  memcpy(&str_prefix, str_data, sizeof(uint32_t));
+  if (v_prefix != str_prefix) return false;
+
+  if (v.is_inline()) {
+    if (v.size() == BinaryViewType::kPrefixSize) return true;
+    return memcmp(v.inline_data() + BinaryViewType::kPrefixSize,
+                  str_data + BinaryViewType::kPrefixSize,
+                  v.size() - BinaryViewType::kPrefixSize) == 0;
+  }
+
+  const uint8_t* v_payload = v_buffers[v.ref.buffer_index]->data() + v.ref.offset;
+  return memcmp(v_payload + BinaryViewType::kPrefixSize,
+                str_data + BinaryViewType::kPrefixSize,
+                v.size() - BinaryViewType::kPrefixSize) == 0;
+}
+
+template <typename BufferPtr>
+bool EqualBinaryViewString(BinaryViewType::c_type v, std::string_view s,
+                           const BufferPtr* v_buffers) {
+  return EqualBinaryViewString(v, reinterpret_cast<const uint8_t*>(s.data()),
+                               static_cast<int64_t>(s.size()), v_buffers);
+}
+
 /// \brief Compute the total size of a list of binary views including null
 /// views.
 ///
