@@ -4329,6 +4329,28 @@ function(build_awssdk)
       endif()
     endif()
   endforeach()
+  # Keep platform libraries required by the bundled AWS CRT with the
+  # aws-c-common target so they are propagated to the bundled archive.
+  if(TARGET aws-c-common)
+    if(APPLE)
+      find_library(CORE_FOUNDATION CoreFoundation REQUIRED)
+      find_library(NETWORK Network REQUIRED)
+      find_library(SECURITY Security REQUIRED)
+      target_link_libraries(aws-c-common INTERFACE "${CORE_FOUNDATION}" "${NETWORK}"
+                                                   "${SECURITY}")
+    elseif(WIN32)
+      target_link_libraries(aws-c-common
+                            INTERFACE "winhttp.lib"
+                                      "bcrypt.lib"
+                                      "wininet.lib"
+                                      "userenv.lib"
+                                      "version.lib"
+                                      "ncrypt.lib"
+                                      "Secur32.lib"
+                                      "Shlwapi.lib")
+    endif()
+  endif()
+
   list(PREPEND
        AWSSDK_LINK_LIBRARIES
        aws-cpp-sdk-identity-management
