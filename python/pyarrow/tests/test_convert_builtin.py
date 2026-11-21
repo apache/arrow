@@ -2384,6 +2384,7 @@ def test_auto_chunking_list_of_binary():
     assert arr.chunk(1).to_pylist() == [['x' * 1024]] * 2
 
 
+@pytest.mark.numpy
 @pytest.mark.large_memory
 def test_auto_chunking_list_like():
     item = np.ones((2**28,), dtype='uint8')
@@ -2452,6 +2453,7 @@ def test_nested_auto_chunking(ty, char):
     }
 
 
+@pytest.mark.numpy
 @pytest.mark.large_memory
 def test_array_from_pylist_data_overflow():
     # Regression test for ARROW-12983
@@ -2474,6 +2476,7 @@ def test_array_from_pylist_data_overflow():
     assert len(arr.chunks) > 1
 
 
+@pytest.mark.numpy
 @pytest.mark.slow
 @pytest.mark.large_memory
 def test_array_from_pylist_offset_overflow():
