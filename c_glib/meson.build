@@ -313,6 +313,7 @@ if parquet.found()
     subdir('parquet-glib')
 endif
 subdir('example')
+subdir('test')
 
 if get_option('doc')
     subdir('doc')
