@@ -1467,6 +1467,11 @@ TEST(Cast, Decimal64ToDecimal32) {
     options.to_type = expected->type();
     CheckCastFails(d64_4_2, options);
   }
+
+  // GH-53288: coefficient wider than the target precision must be rejected
+  options.allow_decimal_truncate = false;
+  options.to_type = decimal32(9, 0);
+  CheckCastFails(ArrayFromJSON(decimal64(18, 0), R"(["5000000000."])"), options);
 }
 
 TEST(Cast, Decimal64ToDecimal128) {
@@ -1724,6 +1729,23 @@ TEST(Cast, Decimal128ToDecimal32) {
     options.to_type = expected->type();
     CheckCastFails(d128_4_2, options);
   }
+
+  // GH-53288: rescale and range-check happen at the source width
+  options.allow_decimal_truncate = false;
+  options.to_type = decimal32(9, 0);
+  CheckCastFails(ArrayFromJSON(decimal128(12, 0), R"(["5000000000."])"), options);
+
+  Decimal32Builder builder(decimal32(9, -3));
+  ASSERT_OK(builder.Append(Decimal32(536870912)));
+  ASSERT_OK_AND_ASSIGN(auto d32_9_m3, builder.Finish());
+  auto d128_12_0 = ArrayFromJSON(decimal128(12, 0), R"(["536870912000."])");
+  CheckCast(d128_12_0, d32_9_m3, options);
+  options.allow_decimal_truncate = true;
+  CheckCast(d128_12_0, d32_9_m3, options);
+
+  options.allow_decimal_truncate = false;
+  CheckCast(ArrayFromJSON(decimal128(12, 2), R"(["30000000.00"])"),
+            ArrayFromJSON(decimal32(9, 0), R"(["30000000."])"), options);
 }
 
 TEST(Cast, Decimal128ToDecimal64) {
@@ -1977,6 +1999,11 @@ TEST(Cast, Decimal256ToDecimal32) {
     options.to_type = expected->type();
     CheckCastFails(d256_4_2, options);
   }
+
+  // GH-53288: coefficient wider than the target precision must be rejected
+  options.allow_decimal_truncate = false;
+  options.to_type = decimal32(9, 0);
+  CheckCastFails(ArrayFromJSON(decimal256(40, 0), R"(["5000000000."])"), options);
 }
 
 TEST(Cast, Decimal256ToDecimal64) {
