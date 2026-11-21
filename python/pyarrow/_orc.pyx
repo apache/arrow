@@ -364,6 +364,52 @@ cdef class ORCReader(_Weakrefable):
 
         return pyarrow_wrap_batch(sp_record_batch)
 
+    def iter_batches(self, int64_t batch_size, stripes=None, columns=None):
+        cdef:
+            shared_ptr[CRecordBatchReader] batch_reader
+            shared_ptr[CRecordBatch] batch
+            std_vector[c_string] names
+            optional[std_vector[c_string]] selected_names
+            int64_t stripe
+
+        if columns is not None:
+            names = [tobytes(name) for name in columns]
+            selected_names = optional[std_vector[c_string]](names)
+
+        # None selects a whole-file reader. Zero-column projection needs
+        # individual stripe readers to preserve row counts.
+        if stripes is None and (columns is None or len(columns) != 0):
+            stripe_indices = [None]
+        elif stripes is None:
+            stripe_indices = range(self.nstripes())
+        else:
+            stripe_indices = stripes
+
+        try:
+            for index in stripe_indices:
+                if index is None:
+                    batch_size = max(1, min(batch_size, self.nrows()))
+                    with nogil:
+                        batch_reader = GetResultValue(
+                            self.reader.get().GetRecordBatchReader(batch_size, names))
+                else:
+                    stripe = index
+                    with nogil:
+                        batch_reader = GetResultValue(
+                            self.reader.get().GetStripeReader(
+                                stripe, batch_size, selected_names))
+                while True:
+                    with nogil:
+                        check_status(batch_reader.get().ReadNext(&batch))
+                    if batch.get() == NULL:
+                        break
+                    yield pyarrow_wrap_batch(batch)
+                    batch.reset()
+                batch_reader.reset()
+        finally:
+            batch.reset()
+            batch_reader.reset()
+
     def read(self, columns=None):
         cdef:
             shared_ptr[CTable] sp_table
