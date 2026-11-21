@@ -458,6 +458,57 @@ TEST_F(TestParquetFileFormat, MultithreadedScan) {
   ASSERT_EQ(batches.size(), kNumRowGroups);
 }
 
+// Verify that a threaded, pre-buffered Dataset scan makes progress with only one I/O
+// worker while multiple fragments and batches are scheduled ahead.
+TEST_F(TestParquetFileFormat, MultithreadedScanWithSingleIOThread) {
+  // Constrain the global I/O pool for this test and restore its original capacity on
+  // every exit path.
+  struct PoolResetGuard {
+    int original_capacity = io::GetIOThreadPoolCapacity();
+    ~PoolResetGuard() { DCHECK_OK(io::SetIOThreadPoolCapacity(original_capacity)); }
+  } guard;
+  ASSERT_OK(io::SetIOThreadPoolCapacity(1));
+
+  // Create several fragments with multiple row groups so fragment and row-group work
+  // can overlap and exercise the asynchronous scheduling path.
+  constexpr int64_t kNumFiles = 3;
+  constexpr int64_t kNumRowGroups = 4;
+  FragmentVector fragments;
+  for (int64_t i = 0; i < kNumFiles; ++i) {
+    auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+    auto source = GetFileSource(reader.get());
+    fragments.push_back(MakeFragment(*source));
+  }
+
+  FragmentDataset dataset(ArithmeticDatasetFixture::schema(), std::move(fragments));
+  ScannerBuilder builder({&dataset, [](...) {}});
+  auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
+
+  // Select the incremental pre-buffered reader and apply enough batch and fragment
+  // readahead to keep the single I/O worker under scheduling pressure.
+  fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
+
+  ASSERT_OK(builder.UseThreads(true));
+  ASSERT_OK(builder.BatchSize(2));
+  ASSERT_OK(builder.BatchReadahead(4));
+  ASSERT_OK(builder.FragmentReadahead(kNumFiles));
+  ASSERT_OK(builder.FragmentScanOptions(std::move(fragment_scan_options)));
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+  ASSERT_OK_AND_ASSIGN(auto generator, scanner->ScanBatchesUnorderedAsync());
+
+  // Collecting the complete generator proves that all scheduled work makes progress;
+  // an executor deadlock would prevent this future from finishing.
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto batches,
+                                CollectAsyncGenerator(std::move(generator)));
+
+  // Confirm that constrained scheduling did not drop or duplicate any rows.
+  int64_t num_rows = 0;
+  for (const auto& batch : batches) {
+    num_rows += batch.record_batch.value->num_rows();
+  }
+  ASSERT_EQ(num_rows, kNumFiles * kNumRowGroups * (kNumRowGroups + 1) / 2);
+}
+
 TEST_F(TestParquetFileFormat, SingleThreadExecutor) {
   // Reset capacity for io executor
   struct PoolResetGuard {

@@ -182,6 +182,11 @@ class PARQUET_EXPORT FileReader {
   /// The FileReader must outlive the generator, so this requires that you pass in a
   /// shared_ptr.
   ///
+  /// With pre_buffer enabled, row groups are normally decoded incrementally in batches
+  /// no larger than batch_size. Threaded reads decode incrementally when cpu_executor
+  /// is not caller-owned or is also the I/O executor. Otherwise, row groups are decoded
+  /// eagerly.
+  ///
   /// \returns error Result if either row_group_indices or column_indices contains an
   ///     invalid index
   virtual ::arrow::Result<
