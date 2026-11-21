@@ -578,6 +578,8 @@ test_that("read_parquet() col_select works with nested columns (GH-55578)", {
   expect_identical(read_parquet(tf, col_select = c("c", "a")), df[, c("c", "a")])
 
   # the nested column itself is read in full
-  nested <- read_parquet(tf, col_select = "nested", as_data_frame = FALSE)
-  expect_equal(nested, read_parquet(tf, as_data_frame = FALSE)[, "nested"])
+  nested <- read_parquet(tf, col_select = "nested")
+  # list columns are read back as arrow_list
+  nested$nested <- as.list(nested$nested)
+  expect_identical(nested, df[, "nested"])
 })
