@@ -29,6 +29,7 @@ streaming messaging and interprocess communication.
 For more information see the official page at https://arrow.apache.org
 """
 
+import atexit as _atexit
 import importlib as _importlib
 import os as _os
 import platform as _platform
@@ -61,6 +62,12 @@ from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_p
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
                          io_thread_count, is_opentelemetry_enabled, set_io_thread_count)
+
+from pyarrow.lib import (
+    _wait_for_thread_pools_at_exit as _wait_for_thread_pools_at_exit
+)
+_atexit.register(_wait_for_thread_pools_at_exit)
+del _atexit, _wait_for_thread_pools_at_exit
 
 
 def show_versions():

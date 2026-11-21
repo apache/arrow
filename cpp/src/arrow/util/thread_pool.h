@@ -490,6 +490,10 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // This is useful for sequencing tests
   void WaitForIdle();
 
+  // Wait for both pools to be idle at the same time. Tasks may submit work to
+  // the other pool. The caller must prevent new work from other producers.
+  void WaitForIdle(ThreadPool& other);
+
   void KeepAlive(std::shared_ptr<Executor::Resource> resource) override;
 
   struct State;
@@ -563,6 +567,7 @@ class ARROW_EXPORT ThreadPool : public SerialExecutor {
   //
   // This is useful for sequencing tests
   void WaitForIdle();
+  void WaitForIdle(ThreadPool& other);
 
  protected:
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();

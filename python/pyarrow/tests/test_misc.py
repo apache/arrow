@@ -157,6 +157,103 @@ def test_import_at_shutdown():
     subprocess.check_call([sys.executable, "-c", code])
 
 
+@pytest.mark.processes
+def test_cpu_thread_pool_is_idle_before_interpreter_finalization():
+    pytest.importorskip("fsspec")
+    code = """if 1:
+        import atexit
+        from pathlib import Path
+        import shutil
+        import tempfile
+
+        root = Path(tempfile.mkdtemp())
+        atexit.register(shutil.rmtree, root, ignore_errors=True)
+
+        import fsspec
+        import pyarrow as pa
+        import pyarrow.dataset as ds
+        import pyarrow.fs as fs
+        import pyarrow.parquet as pq
+
+        pa.set_cpu_count(24)
+        pq.write_table(
+            pa.table({"value": [1, 2, 3]}), root / "valid.parquet", compression="NONE"
+        )
+        (root / "bad.parquet").write_bytes(b"not a parquet file")
+        filesystem = fs.PyFileSystem(
+            fs.FSSpecHandler(fsspec.filesystem("file"))
+        )
+        paths = [str(root / name) for name in (
+            "valid.parquet", "bad.parquet", "valid.parquet", "valid.parquet"
+        )]
+        dataset = ds.dataset(
+            paths, filesystem=filesystem, format="parquet",
+            schema=pa.schema([("value", pa.int64())]),
+            exclude_invalid_files=False
+        )
+        try:
+            dataset.to_table(use_threads=True, fragment_readahead=4)
+        except pa.ArrowInvalid:
+            pass
+        else:
+            raise AssertionError("Expected the malformed-fragment error")
+        """
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=30)
+
+
+@pytest.mark.processes
+@pytest.mark.parametrize("use_threads", [False, True])
+def test_pending_prebuffer_reads_finish_before_interpreter_finalization(
+        tmp_path, use_threads):
+    code = """if 1:
+        import io
+        import sys
+        import threading
+        import time
+
+        import pyarrow as pa
+        import pyarrow.dataset as ds
+        import pyarrow.parquet as pq
+
+        path = sys.argv[1]
+        values = [b"x" * 16384] * 1024
+        pq.write_table(
+            pa.table({f"c{i}": values for i in range(4)}), path,
+            compression="NONE", use_dictionary=False,
+        )
+        pending = threading.Event()
+
+        class RangeErrorFile(io.BufferedReader):
+            failed = False
+
+            def read(self, size=-1):
+                if size > 65536 and not self.failed:
+                    self.failed = True
+                    raise OSError("range read failed")
+                if self.failed:
+                    pending.set()
+                    time.sleep(0.5)
+                return super().read(size)
+
+        with RangeErrorFile(io.FileIO(path, "r")) as source:
+            fragment = ds.ParquetFileFormat().make_fragment(source)
+            reader = fragment.scanner(
+                use_threads=sys.argv[2] == "True",
+                batch_readahead=0, fragment_readahead=0,
+            ).to_reader()
+            try:
+                reader.read_next_batch()
+            except OSError as error:
+                assert str(error) == "range read failed"
+            else:
+                raise AssertionError("Expected the range-read error")
+            assert pending.wait(5), "No later prebuffer read started"
+            reader.close()
+        """
+    subprocess.run([sys.executable, "-c", code, str(tmp_path / "data.parquet"),
+                    str(use_threads)], check=True, timeout=30)
+
+
 @pytest.mark.skipif(sys.platform == "win32",
                     reason="Path to timezone database is not configurable "
                            "on non-Windows platforms")
