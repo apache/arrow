@@ -42,6 +42,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/extension/json.h"
 #include "arrow/io/api.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
@@ -52,6 +53,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"  // for ARROW_CSV and PARQUET_REQUIRE_ENCRYPTION
 #include "arrow/util/decimal.h"
@@ -3667,6 +3669,117 @@ TEST_P(TestFixedSizeListRoundTrip, RoundTrip) {
 
 INSTANTIATE_TEST_SUITE_P(ArrowReadWrite, TestFixedSizeListRoundTrip,
                          ::testing::ValuesIn(kFixedSizeListTestCases));
+
+TEST(ArrowReadWrite, NonNullableFixedSizeListInsideNullableStruct) {
+  // GH-55682: a non-nullable fixed-size list has no validity buffer of its
+  // own, so a null struct ancestor leaves no physical child values for that
+  // row, and nothing records the gap at the list level.
+  auto type = ::arrow::struct_(
+      {::arrow::field("shape", ::arrow::fixed_size_list(::arrow::int32(), 2),
+                      /*nullable=*/false)});
+  auto table = ::arrow::TableFromJSON(::arrow::schema({::arrow::field("x", type)}), {R"([
+        {"x": {"shape": [1, 2]}},
+        {"x": null},
+        {"x": {"shape": [3, 4]}}])"});
+  auto props_store_schema = ArrowWriterProperties::Builder().store_schema()->build();
+  CheckSimpleRoundtrip(table, 2, props_store_schema);
+}
+
+TEST(ArrowReadWrite, FixedSizeListRejectsPresentEmptyListWithZeroNulls) {
+  // GH-55682 follow-up: a nullable fixed-size list field whose validity
+  // bitmap reports zero nulls must still reject a physically empty list, not
+  // silently reinterpret it as padding. Parquet has no native fixed-size-list
+  // type, so a positive fixed size is only ever reconstructed from Arrow
+  // schema metadata; a corrupt or adversarial file can still declare a list
+  // slot present (definition level one below the leaf) while writing none of
+  // its elements. Build that file with the low-level API, since a real
+  // Arrow write can never produce it.
+  auto arrow_schema = ::arrow::schema(
+      {::arrow::field("x", ::arrow::fixed_size_list(::arrow::int32(), 2))});
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<Buffer> serialized,
+      ::arrow::ipc::SerializeSchema(*arrow_schema, ::arrow::default_memory_pool()));
+  auto key_value_metadata = ::arrow::key_value_metadata(
+      {"ARROW:schema"}, {::arrow::util::base64_encode(serialized->ToString())});
+
+  auto element = PrimitiveNode::Make("element", Repetition::REQUIRED, ParquetType::INT32);
+  auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+  auto x = GroupNode::Make("x", Repetition::OPTIONAL, {list}, LogicalType::List());
+  auto schema_node = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, {x}));
+
+  auto sink = CreateOutputStream();
+  auto writer = ParquetFileWriter::Open(sink, schema_node, default_writer_properties(),
+                                        key_value_metadata);
+  auto row_group_writer = writer->AppendRowGroup();
+  auto column_writer =
+      static_cast<TypedColumnWriter<Int32Type>*>(row_group_writer->NextColumn());
+  // Row 0: [1, 2]. Row 1: present but empty (corrupt for a fixed size of 2).
+  // Row 2: [3, 4]. def=2 is an element, def=1 is a present-but-empty list.
+  std::vector<int16_t> def_levels = {2, 2, 1, 2, 2};
+  std::vector<int16_t> rep_levels = {0, 1, 0, 0, 1};
+  std::vector<int32_t> values = {1, 2, 3, 4};
+  column_writer->WriteBatch(def_levels.size(), def_levels.data(), rep_levels.data(),
+                            values.data());
+  row_group_writer->Close();
+  writer->Close();
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_AND_ASSIGN(reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                        ::arrow::default_memory_pool()));
+  std::shared_ptr<Table> table;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Expected all lists to be of size=2"),
+      reader->ReadTable(&table));
+}
+
+TEST(ArrowReadWrite, FixedSizeListRejectsPresentEmptyListAtRequiredTopLevel) {
+  // GH-55682 follow-up: a bare top-level REQUIRED fixed-size list, with no
+  // optional ancestor anywhere in its path, can never legitimately have a
+  // missing row: there is nothing that could have been null to explain the
+  // gap. A physically empty list here is always corrupt data and must still
+  // raise the size-mismatch error, not be reinterpreted as padding.
+  auto arrow_schema =
+      ::arrow::schema({::arrow::field("x", ::arrow::fixed_size_list(::arrow::int32(), 2),
+                                      /*nullable=*/false)});
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<Buffer> serialized,
+      ::arrow::ipc::SerializeSchema(*arrow_schema, ::arrow::default_memory_pool()));
+  auto key_value_metadata = ::arrow::key_value_metadata(
+      {"ARROW:schema"}, {::arrow::util::base64_encode(serialized->ToString())});
+
+  auto element = PrimitiveNode::Make("element", Repetition::REQUIRED, ParquetType::INT32);
+  auto list = GroupNode::Make("list", Repetition::REPEATED, {element});
+  auto x = GroupNode::Make("x", Repetition::REQUIRED, {list}, LogicalType::List());
+  auto schema_node = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, {x}));
+
+  auto sink = CreateOutputStream();
+  auto writer = ParquetFileWriter::Open(sink, schema_node, default_writer_properties(),
+                                        key_value_metadata);
+  auto row_group_writer = writer->AppendRowGroup();
+  auto column_writer =
+      static_cast<TypedColumnWriter<Int32Type>*>(row_group_writer->NextColumn());
+  // Row 0: [1, 2]. Row 1: present but empty (corrupt for a fixed size of 2).
+  // Row 2: [3, 4]. def=1 is an element, def=0 is a present-but-empty list.
+  std::vector<int16_t> def_levels = {1, 1, 0, 1, 1};
+  std::vector<int16_t> rep_levels = {0, 1, 0, 0, 1};
+  std::vector<int32_t> values = {1, 2, 3, 4};
+  column_writer->WriteBatch(def_levels.size(), def_levels.data(), rep_levels.data(),
+                            values.data());
+  row_group_writer->Close();
+  writer->Close();
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_AND_ASSIGN(reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                        ::arrow::default_memory_pool()));
+  std::shared_ptr<Table> table;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Expected all lists to be of size=2"),
+      reader->ReadTable(&table));
+}
 
 TEST(ArrowReadWrite, ListOfStructOfList2) {
   using ::arrow::field;
