@@ -347,6 +347,13 @@ PRIMITIVE_FACTORY(ByteArray, BYTE_ARRAY)
 void PARQUET_EXPORT PrintSchema(const schema::Node* schema, std::ostream& stream,
                                 int indent_width = 2);
 
+/// \brief Return true if the node may be the element of a FINITE_VECTOR-annotated group.
+///
+/// Elements must be required primitives of type BOOLEAN, FLOAT or DOUBLE
+/// (unannotated), INT32 or INT64 (unannotated, INT or DECIMAL), or
+/// FIXED_LEN_BYTE_ARRAY (FLOAT16 or DECIMAL).
+PARQUET_EXPORT bool IsValidFiniteVectorElement(const Node& node);
+
 }  // namespace schema
 
 // The ColumnDescriptor encapsulates information necessary to interpret

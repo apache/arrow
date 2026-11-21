@@ -1467,6 +1467,7 @@ cdef logical_type_name_from_enum(ParquetLogicalTypeId type_):
         ParquetLogicalType_UUID: 'UUID',
         ParquetLogicalType_GEOMETRY: 'GEOMETRY',
         ParquetLogicalType_GEOGRAPHY: 'GEOGRAPHY',
+        ParquetLogicalType_FINITE_VECTOR: 'FINITE_VECTOR',
         ParquetLogicalType_NONE: 'NONE',
     }.get(type_, 'UNKNOWN')
 
@@ -2301,7 +2302,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         writer_engine_version=None,
         use_compliant_nested_type=True,
         store_schema=True,
-        write_time_adjusted_to_utc=False) except *:
+        write_time_adjusted_to_utc=False,
+        use_finite_vector_logical_type=False) except *:
     """Arrow writer properties"""
     cdef:
         shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2351,6 +2353,13 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         raise ValueError(f"Unsupported Writer Engine Version: {writer_engine_version}")
 
     arrow_props.set_time_adjusted_to_utc(write_time_adjusted_to_utc)
+
+    # use_finite_vector_logical_type
+
+    if use_finite_vector_logical_type:
+        arrow_props.enable_finite_vector_logical_type()
+    else:
+        arrow_props.disable_finite_vector_logical_type()
 
     arrow_properties = arrow_props.build()
 
@@ -2417,7 +2426,8 @@ cdef class ParquetWriter(_Weakrefable):
                   use_content_defined_chunking=False,
                   write_time_adjusted_to_utc=False,
                   bloom_filter_options=None,
-                  min_compression_savings=0.01):
+                  min_compression_savings=0.01,
+                  use_finite_vector_logical_type=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2465,6 +2475,7 @@ cdef class ParquetWriter(_Weakrefable):
             use_compliant_nested_type=use_compliant_nested_type,
             store_schema=store_schema,
             write_time_adjusted_to_utc=write_time_adjusted_to_utc,
+            use_finite_vector_logical_type=use_finite_vector_logical_type,
         )
 
         pool = maybe_unbox_memory_pool(memory_pool)
