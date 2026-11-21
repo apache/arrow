@@ -67,7 +67,7 @@ def release_committers(obj, previous_version, version):
     """Count the pull requests of a release by who merged them."""
     commit_range = f"apache-arrow-{previous_version}..apache-arrow-{version}"
     commits = Repo(obj['repo']).iter_commits(commit_range)
-    committers = count_committers(commits, obj['issue_tracker'].github_repo)
+    committers = count_committers(commits, obj['issue_tracker'])
     for name, count in committers:
         click.echo(f"{count:6d}\t{name}")
 
@@ -80,7 +80,7 @@ def release_update_milestones(obj, dry_run):
     """Set milestones on closed issues merged since the last major release."""
     updates = update_milestones(
         Repo(obj['repo']),
-        obj['issue_tracker'].github_repo,
+        obj['issue_tracker'],
         branch=os.getenv('ARCHERY_DEFAULT_BRANCH', 'main'),
         dry_run=dry_run,
     )

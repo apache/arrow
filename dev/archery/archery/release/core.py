@@ -57,6 +57,10 @@ class Version(SemVer):
             release_date=milestone.due_on
         )
 
+    @property
+    def is_major(self):
+        return self.patch == 0 and (self.major == 0 or self.minor == 0)
+
 
 class Issue:
 
@@ -111,26 +115,23 @@ class IssueTracker:
             if milestone == version_string:
                 return milestone
 
-    def project_versions(self):
-        versions = []
-        milestones = self.github_repo.get_milestones(state="all")
-        for milestone in milestones:
+    def project_milestones(self):
+        milestones = {}
+        for milestone in self.github_repo.get_milestones(state="all"):
             try:
-                versions.append(Version.from_milestone(milestone))
+                version = Version.from_milestone(milestone)
             except ValueError:
                 # ignore invalid semantic versions like JS-0.4.0
                 continue
-        return sorted(versions, reverse=True)
+            milestones[version] = milestone
+        return milestones
+
+    def project_versions(self):
+        return sorted(self.project_milestones(), reverse=True)
 
     def _milestone_from_semver(self, semver):
-        milestones = self.github_repo.get_milestones(state="all")
-        for milestone in milestones:
-            try:
-                if milestone.title == semver:
-                    return milestone
-            except ValueError:
-                # ignore invalid semantic versions like JS-0.3.0
-                continue
+        version = Version.parse(semver) if isinstance(semver, str) else semver
+        return self.project_milestones().get(version)
 
     def project_issues(self, version):
         issues = self.github_repo.get_issues(
@@ -145,6 +146,45 @@ class IssueTracker:
 
     def issue(self, key):
         return Issue.from_github(self.github_repo.get_issue(key))
+
+    def set_milestone(self, number, milestone):
+        self.github_repo.get_issue(number).edit(milestone=milestone)
+
+    def query_nodes(self, numbers, selection, batch_size=50):
+        """Query issueOrPullRequest nodes in GraphQL batches."""
+        owner, name = self.github_repo.full_name.split("/", 1)
+        unique = list(dict.fromkeys(numbers))
+        nodes = {}
+        for i in range(0, len(unique), batch_size):
+            batch = unique[i:i + batch_size]
+            fields = " ".join(
+                f"n{n}: issueOrPullRequest(number: {n}) {{{selection}}}"
+                for n in batch
+            )
+            query = (
+                'query($owner: String!, $name: String!) '
+                f'{{repository(owner: $owner, name: $name) {{{fields}}}}}'
+            )
+            variables = {"owner": owner, "name": name}
+            try:
+                _, result = self.github_repo.requester.graphql_query(
+                    query, variables
+                )
+            except GithubException as exc:
+                data = getattr(exc, "data", None)
+                errors = (
+                    data.get("errors") if isinstance(data, dict) else None
+                )
+                if (errors and "data" in data and
+                        all(err.get("type") == "NOT_FOUND"
+                            for err in errors)):
+                    result = data
+                else:
+                    raise
+            repository = result["data"]["repository"]
+            for n in batch:
+                nodes[n] = repository[f"n{n}"]
+        return nodes
 
 
 _TITLE_REGEX = re.compile(
@@ -241,43 +281,17 @@ class Commit:
     def title(self):
         return self._title
 
+    @property
+    def github_issue_id(self):
+        if self.project == "GH" and self.issue_id:
+            return int(self.issue_id)
+        return None
+
 
 _PULL_REQUEST_NUMBER_REGEX = re.compile(r" \(#(\d+)\)$")
 
 
-def _graphql_batch(github_repo, numbers, selection, batch_size=50):
-    """Query issueOrPullRequest nodes in GraphQL batches."""
-    owner, name = github_repo.full_name.split("/", 1)
-    unique = list(dict.fromkeys(numbers))
-    nodes = {}
-    for i in range(0, len(unique), batch_size):
-        batch = unique[i:i + batch_size]
-        fields = " ".join(
-            f"n{n}: issueOrPullRequest(number: {n}) {{{selection}}}"
-            for n in batch
-        )
-        query = (
-            'query($owner: String!, $name: String!) '
-            f'{{repository(owner: $owner, name: $name) {{{fields}}}}}'
-        )
-        variables = {"owner": owner, "name": name}
-        try:
-            _, result = github_repo.requester.graphql_query(query, variables)
-        except GithubException as exc:
-            data = getattr(exc, "data", None)
-            errors = data.get("errors") if isinstance(data, dict) else None
-            if (errors and "data" in data and
-                    all(err.get("type") == "NOT_FOUND" for err in errors)):
-                result = data
-            else:
-                raise
-        repository = result["data"]["repository"]
-        for n in batch:
-            nodes[n] = repository[f"n{n}"]
-    return nodes
-
-
-def count_committers(commits, github_repo, batch_size=50):
+def count_committers(commits, issue_tracker, batch_size=50):
     """
     Count the pull requests of the commits by who merged them.
 
@@ -291,8 +305,7 @@ def count_committers(commits, github_repo, batch_size=50):
                for commit in commits)
     numbers = [int(match.group(1)) for match in matches if match]
 
-    nodes = _graphql_batch(
-        github_repo,
+    nodes = issue_tracker.query_nodes(
         numbers,
         "... on PullRequest {mergedBy {login ... on User {name}}}",
         batch_size=batch_size,
@@ -316,38 +329,11 @@ def _find_ref(repo, name):
     return None
 
 
-def _commit_gh_issue(commit):
-    parsed = Commit(commit)
-    if parsed.project == "GH" and parsed.issue_id:
-        return int(parsed.issue_id)
-    return None
-
-
-def update_milestones(repo, github_repo, branch="main", dry_run=False,
-                      batch_size=50):
-    """
-    Set milestones on closed GitHub issues merged since the last major release.
-
-    Only closed issues without an existing milestone (and not closed as
-    NOT_PLANNED) are updated. Commits in an open major maintenance branch
-    (``maint-X.0.0``) get ``X.0.0``; commits only on ``branch`` get the
-    next open major release without a maintenance branch.
-
-    Returns a sorted list of ``(issue_number, milestone_title)`` pairs that
-    were updated (or would be updated when ``dry_run=True``).
-    """
+def _plan_issue_milestones(repo, major_milestones, branch):
+    """Map GH issue numbers in commits since the last major tag to milestones."""
     main_ref = _find_ref(repo, branch)
     if main_ref is None:
         raise ValueError(f"Branch `{branch}` not found in repository.")
-
-    major_milestones = {}
-    for milestone in github_repo.get_milestones(state="all"):
-        try:
-            version = Version.from_milestone(milestone)
-        except ValueError:
-            continue
-        if version.minor == 0 and version.patch == 0:
-            major_milestones[version] = milestone
 
     previous_tag = next(
         (f"apache-arrow-{v}"
@@ -373,7 +359,7 @@ def update_milestones(repo, github_repo, branch="main", dry_run=False,
     for version, maint_ref in branched:
         for raw_commit in repo.iter_commits(f"{base_ref}..{maint_ref.name}"):
             maint_summaries.add(raw_commit.summary)
-            issue_number = _commit_gh_issue(raw_commit)
+            issue_number = Commit(raw_commit).github_issue_id
             if issue_number is not None:
                 target_milestones[issue_number] = major_milestones[version]
         base_ref = maint_ref.name
@@ -382,7 +368,7 @@ def update_milestones(repo, github_repo, branch="main", dry_run=False,
     for raw_commit in repo.iter_commits(f"{base_ref}..{main_ref.name}"):
         if raw_commit.summary in maint_summaries:
             continue
-        issue_number = _commit_gh_issue(raw_commit)
+        issue_number = Commit(raw_commit).github_issue_id
         if issue_number is None:
             continue
         if next_major is None:
@@ -390,8 +376,31 @@ def update_milestones(repo, github_repo, branch="main", dry_run=False,
             continue
         target_milestones[issue_number] = major_milestones[next_major]
 
-    nodes = _graphql_batch(
-        github_repo,
+    return target_milestones, missing_next_milestone
+
+
+def update_milestones(repo, issue_tracker, branch="main", dry_run=False,
+                      batch_size=50):
+    """
+    Set milestones on closed GitHub issues merged since the last major release.
+
+    Only closed issues without an existing milestone (and not closed as
+    NOT_PLANNED) are updated. Commits in an open major maintenance branch
+    (``maint-X.0.0``) get ``X.0.0``; commits only on ``branch`` get the
+    next open major release without a maintenance branch.
+
+    Returns a sorted list of ``(issue_number, milestone_title)`` pairs that
+    were updated (or would be updated when ``dry_run=True``).
+    """
+    major_milestones = {
+        version: milestone
+        for version, milestone in issue_tracker.project_milestones().items()
+        if version.is_major
+    }
+    target_milestones, missing_next_milestone = _plan_issue_milestones(
+        repo, major_milestones, branch
+    )
+    nodes = issue_tracker.query_nodes(
         sorted(target_milestones),
         "... on Issue {state stateReason milestone {number}}",
         batch_size=batch_size,
@@ -407,7 +416,7 @@ def update_milestones(repo, github_repo, branch="main", dry_run=False,
             continue
         milestone = target_milestones[number]
         if not dry_run:
-            github_repo.get_issue(number).edit(milestone=milestone)
+            issue_tracker.set_milestone(number, milestone)
         updated.append((number, milestone.title))
 
     if missing_next_milestone:

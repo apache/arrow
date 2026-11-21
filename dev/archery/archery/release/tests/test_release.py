@@ -361,7 +361,7 @@ def test_maintenance_patch_selection(fake_issue_tracker):
     assert shas_to_pick == expected
 
 
-def _make_github_repo(nodes, milestones=(), not_found=()):
+def _make_issue_tracker(nodes, milestones=(), not_found=()):
     queries = []
     edited = []
 
@@ -389,13 +389,14 @@ def _make_github_repo(nodes, milestones=(), not_found=()):
             edit=lambda **kw: edited.append((number, kw["milestone"].title))
         )
 
-    repo = SimpleNamespace(
+    tracker = object.__new__(IssueTracker)
+    tracker.github_repo = SimpleNamespace(
         full_name="apache/arrow",
         get_milestones=lambda state="all": milestones,
         get_issue=get_issue,
         requester=SimpleNamespace(graphql_query=graphql_query),
     )
-    return repo, queries, edited
+    return tracker, queries, edited
 
 
 def test_count_committers():
@@ -424,10 +425,10 @@ def test_count_committers():
         # an issue rather than a pull request: not counted
         17: {},
     }
-    github_repo, queries, _ = _make_github_repo(nodes)
+    tracker, queries, _ = _make_issue_tracker(nodes)
 
     with pytest.warns(UserWarning) as record:
-        committers = count_committers(commits, github_repo, batch_size=4)
+        committers = count_committers(commits, tracker, batch_size=4)
 
     assert [str(w.message) for w in record] == [
         "#15 doesn't have a merger. It isn't counted.",
@@ -516,15 +517,9 @@ def test_update_milestones_with_maintenance_branch():
         109: None,
         110: _issue(),
     }
-    github_repo, _, edited = _make_github_repo(
+    tracker, _, edited = _make_issue_tracker(
         nodes, milestones=milestones, not_found=(109,)
     )
-
-    with pytest.warns(UserWarning, match="#109 not found"):
-        updates = update_milestones(
-            repo, github_repo, dry_run=False, batch_size=4
-        )
-
     expected = [
         (101, "27.0.0"),
         (102, "28.0.0"),
@@ -532,23 +527,18 @@ def test_update_milestones_with_maintenance_branch():
         (104, "28.0.0"),
         (110, "27.0.0"),
     ]
-    assert updates == expected
-    assert edited == expected
 
-
-def test_update_milestones_dry_run():
-    repo = _make_fake_repo(
-        commits_by_range={"apache-arrow-26.0.0..main": ["GH-201: [Dev] Fix"]}
-    )
-    milestones = [_ms("26.0.0", 75, "closed"), _ms("27.0.0", 77)]
-    github_repo, _, edited = _make_github_repo(
-        {201: _issue()}, milestones=milestones
-    )
-
-    assert update_milestones(repo, github_repo, dry_run=True) == [
-        (201, "27.0.0")
-    ]
+    with pytest.warns(UserWarning, match="#109 not found"):
+        assert update_milestones(
+            repo, tracker, dry_run=True, batch_size=4
+        ) == expected
     assert edited == []
+
+    with pytest.warns(UserWarning, match="#109 not found"):
+        assert update_milestones(
+            repo, tracker, dry_run=False, batch_size=4
+        ) == expected
+    assert edited == expected
 
 
 def test_update_milestones_missing_next_major():
@@ -560,7 +550,7 @@ def test_update_milestones_missing_next_major():
         },
     )
     milestones = [_ms("26.0.0", 75, "closed"), _ms("27.0.0", 77)]
-    github_repo, _, _ = _make_github_repo({}, milestones=milestones)
+    tracker, _, _ = _make_issue_tracker({}, milestones=milestones)
 
     with pytest.raises(ValueError, match="No open major release milestone"):
-        update_milestones(repo, github_repo, dry_run=True)
+        update_milestones(repo, tracker, dry_run=True)
