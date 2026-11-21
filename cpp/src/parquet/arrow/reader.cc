@@ -763,9 +763,11 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
       }
       return Status::OK();
     };
-    if (data->GetNullCount() != 0) {
-      // Rebuild the child array run-by-run so null fixed-size list slots still
-      // contribute list_size child values in the final layout.
+    // Rebuild the child array run-by-run so a fixed-size list slot with no
+    // physical child values - whether it is itself null, or a non-repeated
+    // ancestor was null so its elements were never written - still
+    // contributes list_size child values in the final layout.
+    auto rebuild_from_runs = [&](auto&& visit_runs) -> Status {
       ::arrow::ArrayVector child_arrays;
 
       auto visit_run = [&](int64_t start, int64_t length, bool has_elements) -> Status {
@@ -785,18 +787,41 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
             ::arrow::MakeArray(data->child_data[0]->Slice(offsets[start], child_length)));
         return Status::OK();
       };
-
-      DCHECK_NE(data->buffers[0], nullptr);
-      RETURN_NOT_OK(::arrow::internal::VisitBitRuns(
-          data->buffers[0]->data(), data->offset, data->length, visit_run));
+      RETURN_NOT_OK(visit_runs(visit_run));
 
       // TODO(GH-50271): Build one padded child array directly instead of creating
       // one temporary Array/ArrayData per validity run and concatenating them.
       ARROW_ASSIGN_OR_RAISE(auto child_array_with_padding,
                             ::arrow::Concatenate(child_arrays, ctx_->pool));
       data->child_data[0] = child_array_with_padding->data();
-    } else {
-      RETURN_NOT_OK(validate_offsets(/*start=*/0, data->length, /*valid=*/true));
+      return Status::OK();
+    };
+
+    if (data->GetNullCount() != 0) {
+      DCHECK_NE(data->buffers[0], nullptr);
+      RETURN_NOT_OK(rebuild_from_runs([&](auto&& visit_run) {
+        return ::arrow::internal::VisitBitRuns(data->buffers[0]->data(), data->offset,
+                                               data->length, visit_run);
+      }));
+    } else if (data->length > 0) {
+      // This field is schema non-nullable, so it has no validity buffer of
+      // its own: a null ancestor's "elements never written" gap can only be
+      // detected from the offsets directly, not from a (nonexistent) bitmap.
+      RETURN_NOT_OK(rebuild_from_runs([&](auto&& visit_run) -> Status {
+        int64_t run_start = 0;
+        bool run_has_elements = true;
+        for (int64_t i = 0; i < data->length; ++i) {
+          const bool has_elements = offsets[i + 1] != offsets[i];
+          if (i == run_start) {
+            run_has_elements = has_elements;
+          } else if (has_elements != run_has_elements) {
+            RETURN_NOT_OK(visit_run(run_start, i - run_start, run_has_elements));
+            run_start = i;
+            run_has_elements = has_elements;
+          }
+        }
+        return visit_run(run_start, data->length - run_start, run_has_elements);
+      }));
     }
     data->buffers.resize(1);
     std::shared_ptr<Array> result = ::arrow::MakeArray(data);
