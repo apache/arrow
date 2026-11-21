@@ -392,7 +392,9 @@ def _make_issue_tracker(nodes, milestones=(), not_found=()):
     tracker = object.__new__(IssueTracker)
     tracker.github_repo = SimpleNamespace(
         full_name="apache/arrow",
-        get_milestones=lambda state="all": milestones,
+        get_milestones=lambda state="open": [
+            m for m in milestones if state == "all" or m.state == state
+        ],
         get_issue=get_issue,
         requester=SimpleNamespace(graphql_query=graphql_query),
     )
@@ -455,9 +457,9 @@ def test_count_committers():
 
 
 def _make_fake_repo(commits_by_range, refs=("main",),
-                    tags=("apache-arrow-26.0.0",)):
+                    tags=("apache-arrow-26.0.0", "apache-arrow-26.0.1")):
     return SimpleNamespace(
-        tags=tags,
+        tags=[SimpleNamespace(name=t) for t in tags],
         refs={name: SimpleNamespace(name=name) for name in refs},
         iter_commits=lambda r: iter(
             SimpleNamespace(summary=s) for s in commits_by_range[r]

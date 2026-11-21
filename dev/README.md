@@ -65,9 +65,10 @@ also be triggered manually via `workflow_dispatch`.
 
 ### Merge script
 
-The merge script is still available for now but using the merge button is encouraged. It additionally adds
-`Authored-by:`, `Co-authored-by:` and `Signed-off-by:` trailers to the
-commit message. Run the following command:
+The merge script is still available for now, but using the merge button
+is encouraged. It additionally adds `Authored-by:`, `Co-authored-by:`
+and `Signed-off-by:` trailers to the commit message. Run the following
+command:
 
 ```bash
 dev/merge_arrow_pr.sh

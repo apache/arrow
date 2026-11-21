@@ -57,10 +57,6 @@ class Version(SemVer):
             release_date=milestone.due_on
         )
 
-    @property
-    def is_major(self):
-        return self.patch == 0 and (self.major == 0 or self.minor == 0)
-
 
 class Issue:
 
@@ -115,23 +111,26 @@ class IssueTracker:
             if milestone == version_string:
                 return milestone
 
-    def project_milestones(self):
-        milestones = {}
-        for milestone in self.github_repo.get_milestones(state="all"):
+    def project_versions(self):
+        versions = []
+        milestones = self.github_repo.get_milestones(state="all")
+        for milestone in milestones:
             try:
-                version = Version.from_milestone(milestone)
+                versions.append(Version.from_milestone(milestone))
             except ValueError:
                 # ignore invalid semantic versions like JS-0.4.0
                 continue
-            milestones[version] = milestone
-        return milestones
-
-    def project_versions(self):
-        return sorted(self.project_milestones(), reverse=True)
+        return sorted(versions, reverse=True)
 
     def _milestone_from_semver(self, semver):
-        version = Version.parse(semver) if isinstance(semver, str) else semver
-        return self.project_milestones().get(version)
+        milestones = self.github_repo.get_milestones(state="all")
+        for milestone in milestones:
+            try:
+                if milestone.title == semver:
+                    return milestone
+            except ValueError:
+                # ignore invalid semantic versions like JS-0.3.0
+                continue
 
     def project_issues(self, version):
         issues = self.github_repo.get_issues(
@@ -146,6 +145,13 @@ class IssueTracker:
 
     def issue(self, key):
         return Issue.from_github(self.github_repo.get_issue(key))
+
+    def open_major_milestones(self):
+        return sorted(
+            (Version.parse(m.title), m)
+            for m in self.github_repo.get_milestones(state="open")
+            if re.fullmatch(r"\d+\.0\.0", m.title)
+        )
 
     def set_milestone(self, number, milestone):
         self.github_repo.get_issue(number).edit(milestone=milestone)
@@ -329,39 +335,43 @@ def _find_ref(repo, name):
     return None
 
 
-def _plan_issue_milestones(repo, major_milestones, branch):
+def _plan_issue_milestones(repo, open_major, branch):
     """Map GH issue numbers in commits since the last major tag to milestones."""
     main_ref = _find_ref(repo, branch)
     if main_ref is None:
         raise ValueError(f"Branch `{branch}` not found in repository.")
 
+    major_tags = sorted(
+        (Version.parse(t.name.removeprefix("apache-arrow-")), t.name)
+        for t in repo.tags
+        if re.fullmatch(r"apache-arrow-\d+\.0\.0", t.name)
+    )
     previous_tag = next(
-        (f"apache-arrow-{v}"
-         for v in sorted(major_milestones, reverse=True)
-         if v.released and f"apache-arrow-{v}" in repo.tags),
+        (tag for v, tag in reversed(major_tags)
+         if not open_major or v < open_major[0][0]),
         None,
     )
     if previous_tag is None:
         raise ValueError("No released major version tag found in repository.")
 
     branched = []
-    next_major = None
-    for version in sorted(v for v in major_milestones if not v.released):
+    next_milestone = None
+    for version, milestone in open_major:
         maint_ref = _find_ref(repo, f"maint-{version}")
         if maint_ref is not None:
-            branched.append((version, maint_ref))
-        elif next_major is None:
-            next_major = version
+            branched.append((milestone, maint_ref))
+        elif next_milestone is None:
+            next_milestone = milestone
 
     base_ref = previous_tag
     maint_summaries = set()
     target_milestones = {}
-    for version, maint_ref in branched:
+    for milestone, maint_ref in branched:
         for raw_commit in repo.iter_commits(f"{base_ref}..{maint_ref.name}"):
             maint_summaries.add(raw_commit.summary)
             issue_number = Commit(raw_commit).github_issue_id
             if issue_number is not None:
-                target_milestones[issue_number] = major_milestones[version]
+                target_milestones[issue_number] = milestone
         base_ref = maint_ref.name
 
     missing_next_milestone = False
@@ -371,10 +381,10 @@ def _plan_issue_milestones(repo, major_milestones, branch):
         issue_number = Commit(raw_commit).github_issue_id
         if issue_number is None:
             continue
-        if next_major is None:
+        if next_milestone is None:
             missing_next_milestone = True
             continue
-        target_milestones[issue_number] = major_milestones[next_major]
+        target_milestones[issue_number] = next_milestone
 
     return target_milestones, missing_next_milestone
 
@@ -392,13 +402,8 @@ def update_milestones(repo, issue_tracker, branch="main", dry_run=False,
     Returns a sorted list of ``(issue_number, milestone_title)`` pairs that
     were updated (or would be updated when ``dry_run=True``).
     """
-    major_milestones = {
-        version: milestone
-        for version, milestone in issue_tracker.project_milestones().items()
-        if version.is_major
-    }
     target_milestones, missing_next_milestone = _plan_issue_milestones(
-        repo, major_milestones, branch
+        repo, issue_tracker.open_major_milestones(), branch
     )
     nodes = issue_tracker.query_nodes(
         sorted(target_milestones),

@@ -67,7 +67,7 @@ verifyTitles:
   failureMessage: "Title must start with 'GH-<issue>: [Component]' or 'MINOR: [Component]'"
 
 insertIssueLinkInPrDescription:
-  descriptionIssuePlaceholderRegexp: '^\* GitHub Issue: (?!Refs )(.*)$'
+  descriptionIssuePlaceholderRegexp: '^\* GitHub Issue: (?![Rr]efs\b)(.*)$'
   matchers:
     closedIssue:
       targetBranchFilter: '^main$'

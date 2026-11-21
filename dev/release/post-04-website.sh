@@ -35,6 +35,8 @@ if ! archery --help > /dev/null 2>&1; then
   exit 1
 fi
 
+. "${SOURCE_DIR}/utils-env.sh"
+
 # Without a token archery waits on the rate limit of GitHub for a long
 # time instead of failing.
 : "${GH_TOKEN:?GH_TOKEN is required to ask GitHub who merged the pull requests}"
