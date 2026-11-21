@@ -4309,6 +4309,34 @@ TEST(Cast, IdentityCasts) {
   CheckIdentityCast(dictionary(int8(), int8()), "[1, 2, 3, 1, null, 3]");
 }
 
+TEST(Cast, NullChildLength) {
+  const auto struct_type = arrow::struct_({std::make_shared<Field>("a", int64(), false),
+                                           std::make_shared<Field>("n", null())});
+
+  auto struct_array = ArrayFromJSON(
+      struct_type, R"([{"a": 1, "n": null}, {"a": 2, "n": null}])");
+  ASSERT_OK_AND_ASSIGN(auto sliced_struct, Cast(*struct_array->Slice(1, 1), struct_type));
+  ASSERT_OK(sliced_struct->ValidateFull());
+
+  const auto output_list_type = list(struct_type);
+  for (const auto& source_list_type : {list(struct_type), large_list(struct_type),
+                                       list_view(struct_type), large_list_view(struct_type)}) {
+    auto list_array = ArrayFromJSON(
+        source_list_type, R"([[{"a": 1, "n": null}, {"a": 2, "n": null}]])");
+    ASSERT_OK_AND_ASSIGN(auto cast, Cast(*list_array, output_list_type));
+    ASSERT_OK(cast->ValidateFull());
+  }
+
+  const auto nested_type = arrow::struct_({
+      std::make_shared<Field>("a", arrow::struct_({std::make_shared<Field>("n", null())}),
+                              false),
+      std::make_shared<Field>("b", int64(), false)});
+  auto nested_array =
+      ArrayFromJSON(nested_type, R"([{"a": {"n": null}, "b": 1}, null])");
+  ASSERT_OK_AND_ASSIGN(auto nested_cast, Cast(*nested_array, nested_type));
+  ASSERT_OK(nested_cast->ValidateFull());
+}
+
 TEST(Cast, EmptyCasts) {
   // ARROW-4766: 0-length arrays should not segfault
   auto CheckCastEmpty = [](std::shared_ptr<DataType> from, std::shared_ptr<DataType> to) {
