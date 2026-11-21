@@ -92,23 +92,59 @@ struct ConversionSchema {
 // An iterator of Buffers that makes sure there is no straddling CRLF sequence.
 class CSVBufferIterator {
  public:
+  explicit CSVBufferIterator(ParseOptions options) : options_(std::move(options)) {
+    // Quote tracking is only needed when a trailing '\r' can be quoted
+    // data. That happens only when the chunker is quote-aware, i.e. when
+    // quoting is enabled AND newlines in values are allowed: MakeChunker
+    // picks the lexing boundary finder only then, and otherwise splits
+    // rows at raw newlines, so every '\r' is a terminator and stripping
+    // is always consistent with the chunker. In all other configurations
+    // the old rule -- strip whenever fused -- is exact, and running the
+    // lexer would be a wasted second pass over the data. In particular
+    // the default configuration (newlines_in_values=false) pays no cost
+    // at all for this fix.
+    track_lexer_ = options_.quoting && options_.newlines_in_values;
+  }
+
   static Iterator<std::shared_ptr<Buffer>> Make(
-      Iterator<std::shared_ptr<Buffer>> buffer_iterator) {
+      Iterator<std::shared_ptr<Buffer>> buffer_iterator, const ParseOptions& options) {
     Transformer<std::shared_ptr<Buffer>, std::shared_ptr<Buffer>> fn =
-        CSVBufferIterator();
+        CSVBufferIterator(options);
     return MakeTransformedIterator(std::move(buffer_iterator), fn);
   }
 
   static AsyncGenerator<std::shared_ptr<Buffer>> MakeAsync(
-      AsyncGenerator<std::shared_ptr<Buffer>> buffer_iterator) {
+      AsyncGenerator<std::shared_ptr<Buffer>> buffer_iterator,
+      const ParseOptions& options) {
     Transformer<std::shared_ptr<Buffer>, std::shared_ptr<Buffer>> fn =
-        CSVBufferIterator();
+        CSVBufferIterator(options);
     return MakeTransformedGenerator(std::move(buffer_iterator), fn);
   }
 
   Result<TransformFlow<std::shared_ptr<Buffer>>> operator()(std::shared_ptr<Buffer> buf) {
     if (buf == nullptr) {
       // EOF
+      if (held_buffer_ != nullptr) {
+        // The last block ended with '\r' and was held back (see below).
+        // Emit it together with its trailing '\r': no block follows, so
+        // the '\r' cannot be the first half of a straddling CRLF pair.
+        auto held = std::move(held_buffer_);
+        ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(held->size() + 1));
+        memcpy(out->mutable_data(), held->data(), static_cast<size_t>(held->size()));
+        out->mutable_data()[held->size()] = '\r';
+        return TransformYield(std::shared_ptr<Buffer>(std::move(out)),
+                              /*ready_for_next=*/false);
+      }
+      if (pending_cr_) {
+        // A '\r' was withheld from the end of the previous buffer.  Emit it
+        // now so that no data is lost, and ask to be called again with the
+        // end-of-stream marker so that we can then finish the stream.
+        pending_cr_ = false;
+        ARROW_ASSIGN_OR_RAISE(auto cr, AllocateBuffer(1));
+        cr->mutable_data()[0] = '\r';
+        return TransformYield(std::shared_ptr<Buffer>(std::move(cr)),
+                              /*ready_for_next=*/false);
+      }
       return TransformFinish();
     }
 
@@ -120,25 +156,219 @@ class CSVBufferIterator {
       first_buffer_ = false;
     }
 
-    if (trailing_cr_ && buf->data()[offset] == '\n') {
-      // Skip '\r\n' line separator that started at the end of previous buffer
-      ++offset;
+    // Fuse this block with whatever was withheld from the previous one, so
+    // that a CRLF pair straddling a block boundary stays contiguous inside
+    // a single buffer, where both the chunker and the parser handle it
+    // correctly -- whether it is a line separator or data inside a quoted
+    // field (GH-51368).
+    const int64_t incoming = buf->size() - offset;
+
+    // Advance the lexing state over the newly arrived bytes, in stream
+    // order, but only when the state can affect the strip decision below
+    // (see track_lexer_). Bytes withheld earlier (held_buffer_ /
+    // pending_cr_) were already lexed when they first arrived, and the
+    // '\r' re-inserted at a fusion seam below is that same byte, so only
+    // the incoming bytes are new. The state after this call is the state
+    // at the end of the fused buffer, which the strip decision below
+    // relies on.
+    if (track_lexer_) {
+      AdvanceLexer(buf->data() + offset, incoming);
+    }
+    bool fused = false;
+    std::shared_ptr<Buffer> current;
+    if (held_buffer_ != nullptr) {
+      auto held = std::move(held_buffer_);
+      ARROW_ASSIGN_OR_RAISE(auto joined, AllocateBuffer(held->size() + 1 + incoming));
+      uint8_t* out = joined->mutable_data();
+      memcpy(out, held->data(), static_cast<size_t>(held->size()));
+      out[held->size()] = '\r';
+      if (incoming > 0) {
+        memcpy(out + held->size() + 1, buf->data() + offset,
+               static_cast<size_t>(incoming));
+      }
+      current = std::shared_ptr<Buffer>(std::move(joined));
+      fused = true;
+    } else if (pending_cr_) {
+      pending_cr_ = false;
+      ARROW_ASSIGN_OR_RAISE(auto joined, AllocateBuffer(1 + incoming));
+      uint8_t* out = joined->mutable_data();
+      out[0] = '\r';
+      if (incoming > 0) {
+        memcpy(out + 1, buf->data() + offset, static_cast<size_t>(incoming));
+      }
+      current = std::shared_ptr<Buffer>(std::move(joined));
+      fused = true;
+    } else if (offset != 0) {
+      current = SliceBuffer(buf, offset);
+    } else {
+      current = buf;
     }
 
-    trailing_cr_ = (buf->data()[buf->size() - 1] == '\r');
-    buf = SliceBuffer(std::move(buf), offset);
-    if (buf->size() == 0) {
-      // EOF
-      return TransformFinish();
-    } else {
-      return TransformYield(std::move(buf));
+    if (current->size() > 0 && current->data()[current->size() - 1] == '\r') {
+      if (fused && incoming > 0 &&
+          (!track_lexer_ || lexer_state_ == LexerState::FIELD_START)) {
+        // The fused buffer ends with a '\r' that the chunker will treat
+        // as a line terminator: either the lexer is back at a field start
+        // (tracked case), or quote tracking is off because the chunker
+        // splits at raw newlines in this configuration (see track_lexer_).
+        // Either way the buffer still contains complete lines before its
+        // last byte. It is safe to
+        // emit it without the trailing '\r' and let the next block
+        // complete the possible CRLF pair: the withheld '\r' is itself
+        // a line terminator for whatever row tail follows it.
+        //
+        // This condition is the v4 fix. v3 stripped whenever the buffer
+        // was fused, on the assumption that a fused buffer always
+        // contains a usable terminator before its last byte. That is
+        // false when the buffer ends inside a quoted field: the tail
+        // after the last true terminator is then an open quoted field,
+        // and the withheld '\r' becomes quoted data in the next buffer
+        // rather than a terminator. If that next buffer holds no
+        // terminator after the closing quote -- e.g. block_size=8 on
+        // "a,b\r1,x\r2,\r3,\"a\rb\"\r", where the fused buffer ends
+        // with the quoted '\r' of "a\rb" -- the chunker cannot complete
+        // the row within one more block and fails with "straddling
+        // object straddles two block boundaries". Holding such a
+        // buffer instead keeps the row inside a single fused buffer,
+        // where the chunker's own lexer handles it correctly.
+        pending_cr_ = true;
+        // Compute the slice length before moving `current`: the
+        // evaluation order of function arguments is unspecified, so
+        // `current->size()` could otherwise be read after the move.
+        const int64_t length = current->size() - 1;
+        current = SliceBuffer(std::move(current), 0, length);
+      } else {
+        // Do not emit this block without its trailing '\r': downstream,
+        // the chunker requires the block that follows an unterminated row
+        // to contain a line terminator, and a block stripped of its only
+        // terminator (e.g. one holding just "z" from a split such as
+        // "...333,z" + "\r" + "\n") would be rejected with "straddling
+        // object straddles two block boundaries".  Hold the block back
+        // instead and prepend it to the next one above; it is flushed
+        // as-is at end of stream.  This also covers the first block: the
+        // first emitted buffer then contains the header line's
+        // terminator, which ReaderMixin::ProcessHeader relies on when it
+        // parses the first buffer on its own (e.g. block_size=4 on
+        // "a,b\r1,2\r").
+        held_buffer_ = SliceBuffer(current, 0, current->size() - 1);
+        return TransformSkip();
+      }
     }
+
+    if (current->size() == 0) {
+      // Nothing to emit (e.g. an input consisting only of a BOM)
+      return TransformFinish();
+    }
+    return TransformYield(std::move(current));
   }
 
  protected:
   bool first_buffer_ = true;
-  // Whether there was a trailing CR at the end of last received buffer
-  bool trailing_cr_ = false;
+  // Whether a trailing '\r' was withheld from the end of the last emitted
+  // buffer, to be prepended to the next one (GH-51368)
+  bool pending_cr_ = false;
+  // A block (without its trailing '\r') that ended with '\r' and was held
+  // back to be prepended to the next block, or flushed at end of stream;
+  // the '\r' that followed it is re-inserted when fusing
+  std::shared_ptr<Buffer> held_buffer_;
+
+  // Lexing state of the CSV stream, mirroring the state machine in
+  // csv::Lexer (chunker.cc): quotes are only recognized at the start of
+  // a field, a doubled quote inside a quoted field is an escaped quote,
+  // and an escape character makes the following byte data. Only
+  // FIELD_START -- the stream ended cleanly at a line boundary -- makes
+  // it safe to strip a trailing '\r' from a fused buffer (see above).
+  // A buffer ending inside a quoted field (IN_QUOTED_FIELD, or a quote
+  // pending at AT_QUOTED_QUOTE) is held instead.
+  enum class LexerState {
+    FIELD_START,
+    IN_FIELD,
+    IN_QUOTED_FIELD,
+    AT_ESCAPE,
+    AT_QUOTED_ESCAPE,
+    AT_QUOTED_QUOTE,
+  };
+  ParseOptions options_;
+  // Whether the quote tracking above runs at all: false unless quoting is
+  // enabled and newlines in values are allowed (see the constructor).
+  // When false, the strip decision falls back to the pre-v4 rule and the
+  // lexer state is never consulted.
+  bool track_lexer_ = false;
+  LexerState lexer_state_ = LexerState::FIELD_START;
+
+  void AdvanceLexer(const uint8_t* data, int64_t size) {
+    int64_t i = 0;
+    while (i < size) {
+      const char c = static_cast<char>(data[i]);
+      switch (lexer_state_) {
+        case LexerState::FIELD_START:
+          if (options_.quoting && c == options_.quote_char) {
+            lexer_state_ = LexerState::IN_QUOTED_FIELD;
+            ++i;
+          } else {
+            // Not a quote: reprocess this byte as the start of a field.
+            lexer_state_ = LexerState::IN_FIELD;
+          }
+          break;
+        case LexerState::IN_FIELD:
+          if (options_.escaping && c == options_.escape_char) {
+            lexer_state_ = LexerState::AT_ESCAPE;
+            ++i;
+          } else if (c == '\r' || c == '\n') {
+            lexer_state_ = LexerState::FIELD_START;
+            ++i;
+          } else if (options_.quoting && c == options_.delimiter) {
+            lexer_state_ = LexerState::FIELD_START;
+            ++i;
+          } else {
+            ++i;
+          }
+          break;
+        case LexerState::AT_ESCAPE:
+          // The escaped byte is data, whatever it is.
+          lexer_state_ = LexerState::IN_FIELD;
+          ++i;
+          break;
+        case LexerState::IN_QUOTED_FIELD:
+          if (options_.escaping && c == options_.escape_char) {
+            lexer_state_ = LexerState::AT_QUOTED_ESCAPE;
+            ++i;
+          } else if (c == options_.quote_char) {
+            if (i + 1 < size && options_.double_quote &&
+                static_cast<char>(data[i + 1]) == options_.quote_char) {
+              // Doubled quote: an escaped quote, still inside the field.
+              i += 2;
+            } else if (i + 1 == size) {
+              // Quote at the very end of the available bytes: it may
+              // close the field, or it may be the first half of an
+              // escaped pair. Decide when the next byte arrives.
+              lexer_state_ = LexerState::AT_QUOTED_QUOTE;
+              ++i;
+            } else {
+              lexer_state_ = LexerState::IN_FIELD;
+              ++i;
+            }
+          } else {
+            ++i;
+          }
+          break;
+        case LexerState::AT_QUOTED_ESCAPE:
+          lexer_state_ = LexerState::IN_QUOTED_FIELD;
+          ++i;
+          break;
+        case LexerState::AT_QUOTED_QUOTE:
+          if (options_.double_quote && c == options_.quote_char) {
+            lexer_state_ = LexerState::IN_QUOTED_FIELD;
+            ++i;
+          } else {
+            // The pending quote closed the field: reprocess this byte
+            // as the start of the following unquoted content.
+            lexer_state_ = LexerState::IN_FIELD;
+          }
+          break;
+      }
+    }
+  }
 };
 
 struct CSVBlock {
@@ -857,7 +1087,8 @@ class StreamingReaderImpl : public ReaderMixin,
 
     auto transferred_it = MakeTransferredGenerator(bg_it, cpu_executor);
 
-    auto buffer_generator = CSVBufferIterator::MakeAsync(std::move(transferred_it));
+    auto buffer_generator =
+        CSVBufferIterator::MakeAsync(std::move(transferred_it), parse_options_);
 
     int max_readahead = cpu_executor->GetCapacity();
     auto self = shared_from_this();
@@ -980,7 +1211,7 @@ class SerialTableReader : public BaseTableReader {
     int32_t block_queue_size = 1;
     ARROW_ASSIGN_OR_RAISE(auto rh_it,
                           MakeReadaheadIterator(std::move(istream_it), block_queue_size));
-    buffer_iterator_ = CSVBufferIterator::Make(std::move(rh_it));
+    buffer_iterator_ = CSVBufferIterator::Make(std::move(rh_it), parse_options_);
     return Status::OK();
   }
 
@@ -1049,7 +1280,8 @@ class AsyncThreadedTableReader
                                             max_readahead, readahead_restart));
 
     auto transferred_it = MakeTransferredGenerator(bg_it, cpu_executor_);
-    buffer_generator_ = CSVBufferIterator::MakeAsync(std::move(transferred_it));
+    buffer_generator_ =
+        CSVBufferIterator::MakeAsync(std::move(transferred_it), parse_options_);
     return Status::OK();
   }
 
@@ -1178,7 +1410,8 @@ class CSVRowCounter : public ReaderMixin,
     ARROW_ASSIGN_OR_RAISE(auto bg_it, MakeBackgroundGenerator(std::move(istream_it),
                                                               io_context_.executor()));
     auto transferred_it = MakeTransferredGenerator(bg_it, cpu_executor_);
-    auto buffer_generator = CSVBufferIterator::MakeAsync(std::move(transferred_it));
+    auto buffer_generator =
+        CSVBufferIterator::MakeAsync(std::move(transferred_it), parse_options_);
 
     return buffer_generator().Then(
         [self, buffer_generator](std::shared_ptr<Buffer> first_buffer) {
