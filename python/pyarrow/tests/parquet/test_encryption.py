@@ -882,6 +882,114 @@ class TestDirectKeyEncryption:
         result = pq.read_table(path, decryption_properties=dec_props)
         assert data_table.equals(result)
 
+    @pytest.mark.parametrize("plaintext_footer", [False, True])
+    @pytest.mark.parametrize("store_aad_prefix", [False, True])
+    def test_per_column_keys_roundtrip(
+        self, tempdir, data_table, plaintext_footer, store_aad_prefix
+    ):
+        path = tempdir / "direct_columns.parquet"
+        column_keys = {"a": DIRECT_KEY_192, "b": DIRECT_KEY_256}
+        enc_props = pe.create_encryption_properties(
+            DIRECT_KEY_128,
+            column_keys=column_keys,
+            plaintext_footer=plaintext_footer,
+            aad_prefix=DIRECT_AAD_PREFIX,
+            store_aad_prefix=store_aad_prefix,
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(
+            DIRECT_KEY_128,
+            column_keys=column_keys,
+            aad_prefix=DIRECT_AAD_PREFIX,
+        )
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert result.equals(data_table)
+
+    def test_per_column_keys_projection(self, tempdir, data_table):
+        path = tempdir / "direct_projection.parquet"
+        enc_props = pe.create_encryption_properties(
+            DIRECT_KEY_128,
+            column_keys={"a": DIRECT_KEY_192, "b": DIRECT_KEY_256},
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        # A key is only required for an encrypted column being read.
+        result = pq.read_table(
+            path, columns=["c"],
+            decryption_properties=pe.create_decryption_properties(DIRECT_KEY_128),
+        )
+        assert result.equals(data_table.select(["c"]))
+        result = pq.read_table(
+            path, columns=["a", "c"],
+            decryption_properties=pe.create_decryption_properties(
+                DIRECT_KEY_128, column_keys={"a": DIRECT_KEY_192}),
+        )
+        assert result.equals(data_table.select(["a", "c"]))
+
+        with pytest.raises(IOError, match="key"):
+            pq.read_table(
+                path,
+                decryption_properties=pe.create_decryption_properties(
+                    DIRECT_KEY_128, column_keys={"a": DIRECT_KEY_192}),
+            )
+
+    def test_per_column_wrong_key(self, tempdir, data_table):
+        path = tempdir / "direct_wrong_column_key.parquet"
+        enc_props = pe.create_encryption_properties(
+            DIRECT_KEY_128, column_keys={"a": DIRECT_KEY_192})
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        with pytest.raises(IOError, match="decrypt"):
+            pq.read_table(
+                path,
+                decryption_properties=pe.create_decryption_properties(
+                    DIRECT_KEY_128, column_keys={"a": DIRECT_KEY_256}),
+            )
+
+    def test_per_column_nested_path(self, tempdir):
+        table = pa.table({"details": [{"private": 1, "public": "a"},
+                                      {"private": 2, "public": "b"}]})
+        path = tempdir / "direct_nested.parquet"
+        column_keys = {"details.private": DIRECT_KEY_192}
+        pq.write_table(
+            table, path,
+            encryption_properties=pe.create_encryption_properties(
+                DIRECT_KEY_128, column_keys=column_keys),
+        )
+        result = pq.read_table(
+            path,
+            decryption_properties=pe.create_decryption_properties(
+                DIRECT_KEY_128, column_keys=column_keys),
+        )
+        assert result.equals(table)
+
+    def test_per_column_unknown_path(self, tempdir, data_table):
+        enc_props = pe.create_encryption_properties(
+            DIRECT_KEY_128, column_keys={"missing": DIRECT_KEY_192})
+        with pytest.raises(
+            IOError, match="Encrypted column missing not in file schema"
+        ):
+            pq.write_table(
+                data_table, tempdir / "direct_unknown_column.parquet",
+                encryption_properties=enc_props,
+            )
+
+    @pytest.mark.parametrize("factory", [
+        "create_encryption_properties", "create_decryption_properties",
+    ])
+    @pytest.mark.parametrize("column_keys, error, message", [
+        ([], TypeError, "column_keys must be a dict"),
+        ({}, ValueError, "column_keys must not be empty"),
+        ({1: DIRECT_KEY_128}, TypeError, "column paths.*must be strings"),
+        ({"": DIRECT_KEY_128}, ValueError, "column paths.*must not be empty"),
+        ({"a": "0123456789abcdef"}, TypeError, "column keys must be bytes"),
+        ({"a": b"short"}, ValueError, "column keys must be 16, 24, or 32 bytes"),
+    ])
+    def test_invalid_column_keys(self, factory, column_keys, error, message):
+        with pytest.raises(error, match=message):
+            getattr(pe, factory)(DIRECT_KEY_128, column_keys=column_keys)
+
     def test_roundtrip_with_aad_prefix(self, tempdir, data_table):
         path = tempdir / "direct_aad.parquet"
 

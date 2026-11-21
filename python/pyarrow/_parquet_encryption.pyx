@@ -749,12 +749,29 @@ cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object
     raise TypeError("Expected DecryptionConfiguration, got %s" % type(decryptionconfig))
 
 
+cdef _validate_column_keys(column_keys):
+    if not isinstance(column_keys, dict):
+        raise TypeError("column_keys must be a dict of column paths to bytes")
+    if not column_keys:
+        raise ValueError("column_keys must not be empty")
+    for column_path, key in column_keys.items():
+        if not isinstance(column_path, str):
+            raise TypeError("column paths in column_keys must be strings")
+        if not column_path:
+            raise ValueError("column paths in column_keys must not be empty")
+        if not isinstance(key, bytes):
+            raise TypeError("column keys must be bytes")
+        if len(key) not in (16, 24, 32):
+            raise ValueError("column keys must be 16, 24, or 32 bytes")
+
+
 def create_decryption_properties(
     footer_key,
     *,
     aad_prefix=None,
     bint check_footer_integrity=True,
     bint allow_plaintext_files=False,
+    column_keys=None,
 ):
     """
     Create FileDecryptionProperties using a direct footer key.
@@ -769,18 +786,12 @@ def create_decryption_properties(
     Parquet key management specification and is interoperable with
     other tools and frameworks.
 
-    .. note::
-       Currently only uniform encryption (single key for footer and all
-       columns) is supported with this method. Per-column keys are not
-       yet available; files encrypted with per-column keys cannot be
-       decrypted using this function.
-
     Parameters
     ----------
     footer_key : bytes
-        The decryption key for the file footer and all columns (uniform
-        encryption). Must be 16, 24, or 32 bytes for AES-128, AES-192,
-        or AES-256 respectively.
+        The decryption key for the file footer and any columns encrypted
+        with the footer key. Must be 16, 24, or 32 bytes for AES-128,
+        AES-192, or AES-256 respectively.
     aad_prefix : bytes, optional
         Additional Authenticated Data prefix. Must match the AAD prefix
         that was used during encryption. Required if the AAD prefix was
@@ -791,6 +802,12 @@ def create_decryption_properties(
     allow_plaintext_files : bool, default False
         Whether to allow reading plaintext (unencrypted) files with
         these decryption properties without raising an error.
+    column_keys : dict[str, bytes], optional
+        Explicit keys for encrypted columns, mapped by their full Parquet
+        column paths (dot-separated for nested fields). Keys must be 16, 24,
+        or 32 bytes. Only columns read need to have keys supplied. Columns
+        encrypted with the footer key continue to use ``footer_key``.
+        An empty dictionary is not allowed.
 
     Returns
     -------
@@ -814,6 +831,11 @@ def create_decryption_properties(
         CSecureString c_footer_key
         CFileDecryptionPropertiesBuilder builder
         shared_ptr[CFileDecryptionProperties] props
+        c_map[c_string, shared_ptr[CColumnDecryptionProperties]] c_column_keys
+        unique_ptr[CColumnDecryptionPropertiesBuilder] column_builder
+        c_string c_column_path
+        c_string c_column_key_str
+        CSecureString c_column_key
 
     if not isinstance(footer_key, bytes):
         raise TypeError(
@@ -827,6 +849,18 @@ def create_decryption_properties(
     c_footer_key_str = <c_string>footer_key
     c_footer_key = CSecureString(move(c_footer_key_str))
     builder.footer_key(c_footer_key)
+
+    if column_keys is not None:
+        _validate_column_keys(column_keys)
+        for column_path, key in column_keys.items():
+            c_column_path = tobytes(column_path)
+            c_column_key_str = <c_string>key
+            c_column_key = CSecureString(move(c_column_key_str))
+            column_builder.reset(
+                new CColumnDecryptionPropertiesBuilder(c_column_path))
+            column_builder.get().key(c_column_key)
+            c_column_keys[c_column_path] = column_builder.get().build()
+        builder.column_keys(c_column_keys)
 
     if aad_prefix is not None:
         if not isinstance(aad_prefix, bytes):
@@ -853,6 +887,7 @@ def create_encryption_properties(
     bint store_aad_prefix=True,
     encryption_algorithm="AES_GCM_V1",
     bint plaintext_footer=False,
+    column_keys=None,
 ):
     """
     Create FileEncryptionProperties using a direct footer key.
@@ -871,18 +906,12 @@ def create_encryption_properties(
        prefer it unless you have a specific reason to manage
        keys yourself.
 
-    .. note::
-       Currently only uniform encryption (single key for footer and all
-       columns) is supported with this method. Per-column keys are not
-       yet available; the provided key encrypts both the footer and
-       every column.
-
     Parameters
     ----------
     footer_key : bytes
-        The encryption key for the file footer and all columns (uniform
-        encryption). Must be 16, 24, or 32 bytes for AES-128, AES-192,
-        or AES-256 respectively.
+        The encryption key for the file footer. Also encrypts every column
+        when ``column_keys`` is not specified (uniform encryption). Must be
+        16, 24, or 32 bytes for AES-128, AES-192, or AES-256 respectively.
     aad_prefix : bytes, optional
         Additional Authenticated Data prefix for cryptographic binding.
     store_aad_prefix : bool, default True
@@ -896,6 +925,12 @@ def create_encryption_properties(
     plaintext_footer : bool, default False
         Whether to leave the file footer unencrypted. When True, file
         schema and metadata are readable without a key.
+    column_keys : dict[str, bytes], optional
+        Keys for columns to encrypt, mapped by their full Parquet column
+        paths (dot-separated for nested fields). Keys must be 16, 24, or
+        32 bytes. When specified, columns not in this dictionary remain
+        unencrypted. If omitted, all columns use ``footer_key``.
+        An empty dictionary is not allowed.
 
     Returns
     -------
@@ -922,6 +957,10 @@ def create_encryption_properties(
         CFileEncryptionPropertiesBuilder* builder
         shared_ptr[CFileEncryptionProperties] props
         ParquetCipher cipher
+        c_map[c_string, shared_ptr[CColumnEncryptionProperties]] c_column_keys
+        c_string c_column_path
+        c_string c_column_key_str
+        CSecureString c_column_key
 
     if not isinstance(footer_key, bytes):
         raise TypeError(
@@ -938,6 +977,16 @@ def create_encryption_properties(
     builder = new CFileEncryptionPropertiesBuilder(c_footer_key)
     try:
         builder.algorithm(cipher)
+
+        if column_keys is not None:
+            _validate_column_keys(column_keys)
+            for column_path, key in column_keys.items():
+                c_column_path = tobytes(column_path)
+                c_column_key_str = <c_string>key
+                c_column_key = CSecureString(move(c_column_key_str))
+                c_column_keys[c_column_path] = \
+                    CColumnEncryptionProperties.WithColumnKey(c_column_key, b"")
+            builder.encrypted_columns(c_column_keys)
 
         if aad_prefix is not None:
             if not isinstance(aad_prefix, bytes):
