@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# cython: annotation_typing=False
+
 from cpython.pycapsule cimport (
     PyCapsule_CheckExact,
     PyCapsule_GetPointer,
@@ -30,6 +32,9 @@ import re
 import sys
 import warnings
 from cython import sizeof
+
+# from typing import TYPE_CHECKING, Self
+
 
 # These are imprecise because the type depends on the presence of nulls
 cdef dict _pandas_type_map = {}
@@ -247,17 +252,15 @@ cdef class DataType(_Weakrefable):
         -------
         pyarrow.Field
         """
-        if not isinstance(i, int):
-            raise TypeError(f"Expected int index, got type '{type(i)}'")
         cdef int index = <int> _normalize_index(i, self.type.num_fields())
         return pyarrow_wrap_field(self.type.field(index))
 
     @property
-    def id(self):
+    def id(self) -> int:
         return self.type.id()
 
     @property
-    def bit_width(self):
+    def bit_width(self) -> int:
         """
         Bit width for fixed width type.
 
@@ -276,7 +279,7 @@ cdef class DataType(_Weakrefable):
         return ty.bit_width()
 
     @property
-    def byte_width(self):
+    def byte_width(self) -> int:
         """
         Byte width for fixed width type.
 
@@ -298,7 +301,7 @@ cdef class DataType(_Weakrefable):
         return byte_width
 
     @property
-    def num_fields(self):
+    def num_fields(self) -> int:
         """
         The number of child fields.
 
@@ -320,7 +323,7 @@ cdef class DataType(_Weakrefable):
         return self.type.num_fields()
 
     @property
-    def num_buffers(self):
+    def num_buffers(self) -> int:
         """
         Number of data buffers required to construct Array type
         excluding children.
@@ -336,7 +339,7 @@ cdef class DataType(_Weakrefable):
         return self.type.layout().buffers.size()
 
     @property
-    def has_variadic_buffers(self):
+    def has_variadic_buffers(self) -> bool:
         """
         If True, the number of expected buffers is only
         lower-bounded by num_buffers.
@@ -369,7 +372,7 @@ cdef class DataType(_Weakrefable):
         except (TypeError, ValueError):
             return NotImplemented
 
-    def equals(self, other, *, check_metadata=False):
+    def equals(self, other: DataType | str, *, check_metadata: bool = False):
         """
         Return true if type is equivalent to passed value.
 
@@ -448,7 +451,7 @@ cdef class DataType(_Weakrefable):
         return capsule
 
     @staticmethod
-    def _import_from_c_capsule(schema):
+    def _import_from_c_capsule(schema) -> DataType:
         """
         Import a DataType from a ArrowSchema PyCapsule
 
