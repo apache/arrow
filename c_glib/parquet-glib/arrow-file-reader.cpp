@@ -235,6 +235,11 @@ typedef struct GParquetArrowFileReaderPrivate_
 {
   parquet::arrow::FileReader *arrow_file_reader;
   GArrowSeekableInputStream *source;
+  // The source opened by this reader such as a file opened by
+  // gparquet_arrow_file_reader_new_path(). This is closed by
+  // gparquet_arrow_file_reader_close() because
+  // parquet::ParquetFileReader::Close() doesn't close its source.
+  std::shared_ptr<arrow::io::RandomAccessFile> owned_source;
 } GParquetArrowFileReaderPrivate;
 
 enum {
@@ -265,6 +270,7 @@ gparquet_arrow_file_reader_finalize(GObject *object)
   auto priv = GPARQUET_ARROW_FILE_READER_GET_PRIVATE(object);
 
   delete priv->arrow_file_reader;
+  priv->owned_source.~shared_ptr();
 
   G_OBJECT_CLASS(gparquet_arrow_file_reader_parent_class)->finalize(object);
 }
@@ -312,6 +318,27 @@ gparquet_arrow_file_reader_get_property(GObject *object,
 static void
 gparquet_arrow_file_reader_init(GParquetArrowFileReader *object)
 {
+  auto priv = GPARQUET_ARROW_FILE_READER_GET_PRIVATE(object);
+  new (&priv->owned_source) std::shared_ptr<arrow::io::RandomAccessFile>;
+}
+
+static GParquetArrowFileReader *
+gparquet_arrow_file_reader_open_path(const gchar *path,
+                                     GParquetReaderProperties *properties,
+                                     GError **error,
+                                     const char *tag)
+{
+  auto source = arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
+  if (!garrow::check(error, source, tag)) {
+    return nullptr;
+  }
+  auto reader = open_reader(*source, nullptr, properties, error, tag);
+  if (!reader) {
+    return nullptr;
+  }
+  auto priv = GPARQUET_ARROW_FILE_READER_GET_PRIVATE(reader);
+  priv->owned_source = std::move(*source);
+  return reader;
 }
 
 static void
@@ -380,12 +407,10 @@ gparquet_arrow_file_reader_new_arrow(GArrowSeekableInputStream *source, GError *
 GParquetArrowFileReader *
 gparquet_arrow_file_reader_new_path(const gchar *path, GError **error)
 {
-  const char *tag = "[parquet][arrow][file-reader][new-path]";
-  auto source = arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
-  if (!garrow::check(error, source, tag)) {
-    return NULL;
-  }
-  return open_reader(*source, nullptr, nullptr, error, tag);
+  return gparquet_arrow_file_reader_open_path(path,
+                                              nullptr,
+                                              error,
+                                              "[parquet][arrow][file-reader][new-path]");
 }
 
 /**
@@ -432,12 +457,11 @@ gparquet_arrow_file_reader_new_path_full(const gchar *path,
                                          GParquetReaderProperties *properties,
                                          GError **error)
 {
-  const char *tag = "[parquet][arrow][file-reader][new-path-full]";
-  auto source = arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
-  if (!garrow::check(error, source, tag)) {
-    return NULL;
-  }
-  return open_reader(*source, nullptr, properties, error, tag);
+  return gparquet_arrow_file_reader_open_path(
+    path,
+    properties,
+    error,
+    "[parquet][arrow][file-reader][new-path-full]");
 }
 
 /**
@@ -445,6 +469,13 @@ gparquet_arrow_file_reader_new_path_full(const gchar *path,
  * @reader: A #GParquetArrowFileReader.
  *
  * Close the reader.
+ *
+ * If the reader is created by gparquet_arrow_file_reader_new_path() or
+ * gparquet_arrow_file_reader_new_path_full(), this also closes the
+ * file opened by the reader. You can't read data with the reader
+ * after this. The source passed to
+ * gparquet_arrow_file_reader_new_arrow() or
+ * gparquet_arrow_file_reader_new_arrow_full() isn't closed.
  *
  * Since: 23.0.0
  */
@@ -455,6 +486,13 @@ gparquet_arrow_file_reader_close(GParquetArrowFileReader *reader)
   auto parquet_reader = parquet_arrow_file_reader->parquet_reader();
   if (parquet_reader) {
     parquet_reader->Close();
+  }
+  auto priv = GPARQUET_ARROW_FILE_READER_GET_PRIVATE(reader);
+  if (priv->owned_source) {
+    // We ignore an error because this is a void function. The
+    // reader can't be used after this anyway.
+    auto status = priv->owned_source->Close();
+    ARROW_UNUSED(status);
   }
 }
 
