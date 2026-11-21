@@ -758,6 +758,16 @@ defined with the ``min_rows_per_group`` parameter of :meth:`write_dataset`.
     less than this value if other options such as ``max_open_files`` or
     ``max_rows_per_file`` force smaller row group sizes.
 
+    Rows waiting for a row group to fill are held in memory. The writer limits
+    how many rows it holds this way, across all files being written, to the
+    larger of ``max_rows_queued / 4`` and ``min_rows_per_group``. When the
+    limit is reached, the file holding the most waiting rows has them written
+    out as a smaller row group. A single file therefore always reaches
+    ``min_rows_per_group``, but a partitioned write may not unless the
+    ``max_rows_queued`` parameter of :meth:`write_dataset` is at least 4 times
+    ``min_rows_per_group`` multiplied by the number of partitions being written
+    at the same time. Raising ``max_rows_queued`` uses more memory.
+
 The maximum number of rows allowed per group is defined with the
 ``max_rows_per_group`` parameter of :meth:`write_dataset`.
 
