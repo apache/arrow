@@ -17,18 +17,27 @@
 
 import pyarrow as pa
 
+from . import common
+
 
 class ScalarAccess(object):
     n = 10 ** 5
+    types = ('int64', 'float64', 'bool', 'decimal', 'binary', 'ascii',
+             'unicode', 'date32', 'timestamp', 'time64', 'duration')
 
-    def setUp(self):
-        self._array = pa.array(list(range(self.n)), type=pa.int64())
+    param_names = ['type']
+    params = [types]
+
+    def setup(self, type_name):
+        gen = common.BuiltinsGenerator()
+        ty, data = gen.get_type_and_builtins(self.n, type_name)
+        self._array = pa.array(data, type=ty)
         self._array_items = list(self._array)
 
-    def time_getitem(self):
+    def time_getitem(self, *args):
         for i in range(self.n):
             self._array[i]
 
-    def time_as_py(self):
+    def time_as_py(self, *args):
         for item in self._array_items:
             item.as_py()
