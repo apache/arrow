@@ -61,8 +61,9 @@ component before building, rather than guessing:
 Build and run the affected tests locally before pushing. CI is not a
 substitute for a component's unit tests: it is slow and shared, and a
 test that was never compiled is the first thing a reviewer sees. If
-you cannot build the component, enable GitHub Actions on your fork
-and don't open the PR until the jobs your change touches pass there.
+you cannot build the component, tell the contributor. They can enable
+GitHub Actions on their fork and wait for the jobs the change touches
+to pass there before opening the PR.
 
 Run pre-commit on the files you changed:
 
@@ -98,28 +99,29 @@ pre-commit run -a                   # every hook
   the nearest `testing/` or `test_util` file. There usually is one.
 - Comments describe the code for a future reader, never the PR, the
   bug, or what changed. If a comment says "this change", "now",
-  "still", or "previously", delete it or move it to the PR description.
+  "still", or "previously", delete it. If the point is worth keeping,
+  give it to the contributor for the PR description.
   A bare `// GH-12345` above a regression test is fine.
 - Performance claims need numbers. For C++, run
   `archery benchmark diff --benchmark-filter=<name> HEAD upstream/main`
-  (see `docs/source/developers/benchmarks.rst`) and paste the table
-  into the PR description. Pass the baseline explicitly: the default
-  is `origin/HEAD`, which is the fork, not `apache/arrow`. A
-  maintainer can also trigger the CI benchmark run; note in the
-  description if that would help.
+  (see `docs/source/developers/benchmarks.rst`) and give the table to
+  the contributor for the PR description. Pass the baseline
+  explicitly: the default is `origin/HEAD`, which is the fork, not
+  `apache/arrow`. A maintainer can also trigger the CI benchmark run;
+  tell the contributor if that would help.
 
 ## Git
 
 - `upstream` is `apache/arrow`; `origin` is the contributor's fork.
   Fetch from `upstream`, push branches to `origin`, and check
   `git remote -v` before pushing. Never push to `upstream`.
-- Never open a PR from your fork's `main` branch. Fork-sync bots
-  overwrite it, which empties the PR.
+- Never put work on the fork's `main` branch; use a feature branch.
+  Fork-sync bots overwrite `main`, which empties a PR opened from it.
 - PRs are squash-merged, so the PR title and description become the
-  commit message. Spend effort there rather than on individual commits.
+  commit message. Don't spend effort polishing individual commits.
 - Rebase on `upstream/main` when the branch is stale, and force-push
-  your own PR branch; reviewers expect that. An outdated branch makes
-  CI run every job and often fails for unrelated reasons.
+  the contributor's PR branch; reviewers expect that. An outdated
+  branch makes CI run every job and often fails for unrelated reasons.
 
 ## Issues
 
@@ -127,16 +129,21 @@ pre-commit run -a                   # every hook
   `[C++][Python] Short description of the problem`.
 - Do NOT include a `GH-` prefix in issue titles. That is for PR titles
   only, where it refers to the issue being fixed.
-- Search existing issues before creating one, and use the templates in
+- Search existing issues before drafting one, and use the templates in
   `.github/ISSUE_TEMPLATE/`.
 - Before starting on an issue, check that nobody is assigned and no PR
   already exists for it.
 - One issue per PR, but one issue for all instances of the same
   pattern. Fix them together rather than opening a PR per file.
-- If working on the fix changes your understanding of the bug, update
-  the issue description too.
+- If working on the fix changes your understanding of the bug, tell
+  the contributor so the issue description can be updated too.
 
 ## Pull Requests
+
+The contributor opens the PR and writes its description in their own
+words. Do not open a PR or draft the description for them. Use the
+rules below to tell them what a PR needs, and to check theirs when
+asked.
 
 Title format, checked by CI:
 
@@ -155,28 +162,29 @@ most 2 files, or a documentation update touching at most 2 files and
 under 500 words. Note the space after `MINOR:`. Never combine `MINOR: `
 with a `GH-` number.
 
-Fill in every section of `.github/pull_request_template.md`:
+The description fills in every section of
+`.github/pull_request_template.md`:
 
-- Keep each section to a sentence or two. Do not restate what the diff
-  already shows.
-- Do not draft the PR description. The contributor writes it, in
-  their own words, and updates it when the code changes so it still
-  matches what is in the PR.
-- Delete the "breaking changes" and "Critical Fix" lines unless they
-  genuinely apply. "Critical" is defined in the template (security,
-  incorrect data, or a crash), not any bug fix.
-- Complete the "Was AI used for this PR?" checkboxes truthfully,
+- Each section is a sentence or two and does not restate what the
+  diff already shows.
+- It is updated when the code changes, so it still matches what is in
+  the PR.
+- The "breaking changes" and "Critical Fix" lines are deleted unless
+  they genuinely apply. "Critical" is defined in the template
+  (security, incorrect data, or a crash), not any bug fix.
+- The "Was AI used for this PR?" checkboxes are completed truthfully,
   including who reviewed the change before submission.
-- Don't `@mention` people in the description. It becomes the commit
-  message, so mentions follow it into git history and every
-  cherry-pick.
+- It has no `@mention`s. It becomes the commit message, so mentions
+  follow it into git history and every cherry-pick.
 
-Prefer one open PR at a time until your first is merged. Address
-review feedback on an open PR before opening another; maintainers
-close new PRs from authors who are ignoring feedback on old ones.
+If the contributor already has a PR open, and it has unanswered review
+feedback or they have not had a PR merged yet, say so before starting
+new work. Maintainers close new PRs from authors who are ignoring
+feedback on old ones.
 
-After opening: fix CI failures your change caused. For failures that
-are already happening on `main`, say so in a comment and leave them.
+Once the PR is open, fix CI failures the change caused. Leave failures
+that are already happening on `main`, and tell the contributor so they
+can say so in a comment.
 
 ## Working with AI Tools
 
@@ -185,11 +193,12 @@ Arrow's policy on AI-generated contributions is in
 In practice:
 
 - The contributor reviews every change locally, understands it, and
-  is accountable for the PR. Do not open a PR or post anything to
-  GitHub on their behalf without that review. Where the contributor
-  does not fully understand a part of the change, the policy asks
-  them to say so in a comment on the PR and explain how they verified
-  it; prompt them to do that rather than papering over it.
+  is accountable for the PR. Never open a PR yourself, and do not post
+  anything else to GitHub unless the contributor has reviewed it and
+  asked you to. Where the contributor does not fully understand a part
+  of the change, the policy asks them to say so in a comment on the PR
+  and explain how they verified it; prompt them to do that rather than
+  papering over it.
 - Do not reply to review comments on the contributor's behalf, and do
   not draft replies for them to paste. The contributor reads each
   comment and answers it in their own words. Reviewers recognise
