@@ -1364,8 +1364,13 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       value_offset += values_to_write;
 
       // Dictionary size checked separately from data page size since we
-      // circumvent this check when writing ::arrow::DictionaryArray directly
-      CheckDictionarySizeLimit();
+      // circumvent this check when writing ::arrow::DictionaryArray directly.
+      // check_page is true only when this chunk ends on a record boundary (always
+      // for non-repeated columns). Fallback flushes buffered pages, so only check
+      // here to avoid splitting a repeated record across pages.
+      if (check_page) {
+        CheckDictionarySizeLimit();
+      }
     };
     DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
                 properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
@@ -1416,8 +1421,13 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
       value_offset += batch_num_spaced_values;
 
       // Dictionary size checked separately from data page size since we
-      // circumvent this check when writing ::arrow::DictionaryArray directly
-      CheckDictionarySizeLimit();
+      // circumvent this check when writing ::arrow::DictionaryArray directly.
+      // check_page is true only when this chunk ends on a record boundary (always
+      // for non-repeated columns). Fallback flushes buffered pages, so only check
+      // here to avoid splitting a repeated record across pages.
+      if (check_page) {
+        CheckDictionarySizeLimit();
+      }
     };
     DoInBatches(def_levels, rep_levels, num_values, properties_->write_batch_size(),
                 properties_->max_rows_per_page(), pages_change_on_record_boundaries(),
@@ -2562,7 +2572,11 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
 
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, batch_size - non_null,
                                  check_page);
-    CheckDictionarySizeLimit();
+    // Only check on record boundaries so fallback never splits a repeated record
+    // across pages (see WriteBatchInternal).
+    if (check_page) {
+      CheckDictionarySizeLimit();
+    }
     value_offset += batch_num_spaced_values;
   };
 
