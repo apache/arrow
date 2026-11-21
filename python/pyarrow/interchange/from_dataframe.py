@@ -276,7 +276,8 @@ def categorical_column_to_dictionary(
                                col.offset)
 
     # Constructing a pa.DictionaryArray
-    dict_array = pa.DictionaryArray.from_arrays(indices, dictionary)
+    dict_array = pa.DictionaryArray.from_arrays(indices, dictionary,
+                                                ordered=categorical["is_ordered"])
 
     return dict_array
 
