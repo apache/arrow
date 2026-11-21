@@ -31,6 +31,7 @@
 #include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 
@@ -87,6 +88,14 @@ std::string make_range_json(int start, int end) {
     result += std::to_string(i);
   }
   result += "]";
+  return result;
+}
+
+// Concatenate JSON arrays: "[1,2]" + "[3]" -> "[1,2,3]"
+std::string concat_json(const std::string& left, const std::string& right) {
+  std::string result = left.substr(0, left.size() - 1);
+  if (result.size() > 1 && right.size() > 2) result += ",";
+  result += right.substr(1);
   return result;
 }
 
@@ -1751,6 +1760,24 @@ struct Simplify {
   Expectable WithGuarantee(Expression guarantee) { return {expr, guarantee}; }
 };
 
+// Rows satisfying `guarantee` (as JSON) must evaluate identically under `filter` and
+// under `filter` simplified against the guarantee.
+void ExpectSimplifiedEvaluatesEqually(Expression filter, const Expression& guarantee,
+                                      const std::string& rows) {
+  ASSERT_OK_AND_ASSIGN(filter, filter.Bind(*kBoringSchema));
+  ASSERT_OK_AND_ASSIGN(auto simplified, SimplifyWithGuarantee(filter, guarantee));
+  auto input = RecordBatchFromJSON(kBoringSchema, rows);
+  Datum evaluated, simplified_evaluated;
+  ExpectExecute(filter, input, &evaluated);
+  ExpectExecute(simplified, input, &simplified_evaluated);
+  if (simplified_evaluated.is_scalar()) {
+    ASSERT_OK_AND_ASSIGN(
+        simplified_evaluated,
+        MakeArrayFromScalar(*simplified_evaluated.scalar(), input->num_rows()));
+  }
+  AssertDatumsEqual(evaluated, simplified_evaluated, /*verbose=*/true);
+}
+
 TEST(Expression, SingleComparisonGuarantees) {
   auto i32 = field_ref("i32");
 
@@ -2055,6 +2082,97 @@ TEST(Expression, SimplifyWithComparisonAndNullableCaveat) {
           true_unless_null(field_ref("i32"))));  // not satisfiable, will drop row group
 }
 
+TEST(Expression, SimplifyWithNullableRangeGuarantee) {
+  // The shape of Parquet statistics for a row group which may contain nulls: both
+  // bounds hold for every non-null value.
+  auto i32 = field_ref("i32");
+  auto u32 = field_ref("u32");
+  auto range = and_(greater_equal(i32, literal(1)), less_equal(i32, literal(5)));
+  auto nullable_range = or_(range, is_null(i32));
+
+  Simplify{greater(i32, literal(10))}
+      .WithGuarantee(nullable_range)
+      .Expect(not_(true_unless_null(i32)));
+  Simplify{less(i32, literal(0))}
+      .WithGuarantee(nullable_range)
+      .Expect(not_(true_unless_null(i32)));
+  Simplify{less(i32, literal(10))}
+      .WithGuarantee(nullable_range)
+      .Expect(true_unless_null(i32));
+  Simplify{is_null(i32)}.WithGuarantee(nullable_range).ExpectUnchanged();
+  Simplify{is_valid(i32)}.WithGuarantee(nullable_range).ExpectUnchanged();
+
+  // Small value sets are filtered by both bounds
+  auto is_in = [&](std::string json_array) {
+    return call(
+        "is_in", {i32},
+        SetLookupOptions{ArrayFromJSON(int32(), json_array), SetLookupOptions::MATCH});
+  };
+  Simplify{is_in("[10, 11]")}.WithGuarantee(nullable_range).Expect(false);
+  Simplify{is_in("[0, 3, 11]")}.WithGuarantee(nullable_range).Expect(is_in("[3]"));
+
+  // Statistics cannot bound NaN, which is_in matches, so a small value set
+  // containing NaN is not filtered either
+  auto f64 = field_ref("f64");
+  auto f64_range = and_(greater_equal(f64, literal(0.0)), less_equal(f64, literal(10.0)));
+  auto is_in_f64 = [&](std::string json_array) {
+    return call("is_in", {f64}, SetLookupOptions{ArrayFromJSON(float64(), json_array)});
+  };
+  Simplify{is_in_f64("[NaN]")}.WithGuarantee(f64_range).ExpectUnchanged();
+  Simplify{is_in_f64("[NaN, 5.0, 20.0]")}.WithGuarantee(f64_range).ExpectUnchanged();
+  // ... of any floating point type: a half float value set is matched as float32
+  auto f32 = field_ref("f32");
+  Simplify{call("is_in", {f32}, SetLookupOptions{ArrayFromJSON(float16(), "[NaN, 20]")})}
+      .WithGuarantee(greater_equal(f32, literal(0.0F)))
+      .ExpectUnchanged();
+  // ... unless the field cannot be NaN
+  Simplify{call("is_in", {i32}, SetLookupOptions{ArrayFromJSON(float64(), "[NaN, 20]")})}
+      .WithGuarantee(range)
+      .Expect(false);
+
+  // A null bound says nothing
+  Simplify{greater(i32, literal(10))}
+      .WithGuarantee(or_(and_(greater_equal(i32, literal(MakeNullScalar(int32()))),
+                              less_equal(i32, literal(5))),
+                         is_null(i32)))
+      .Expect(not_(true_unless_null(i32)));
+
+  // A range which may be null is applied after the other members of the guarantee,
+  // so that a comparison against those is not offered what a call folds to
+  Simplify{greater(f64, cast(is_in("[10, 11]"), float64()))}
+      .WithGuarantee(and_(nullable_range, greater_equal(f64, literal(1.0))))
+      .Expect(greater(f64, literal(0.0)));
+
+  // Bounds are not inferred for a field other than the one which may be null
+  Simplify{greater(i32, literal(10))}
+      .WithGuarantee(or_(range, is_null(u32)))
+      .ExpectUnchanged();
+
+  // The bounds of a nullable range are only used where no types need to be
+  // reconciled: the field has the type of the bounds (as the statistics of a column
+  // have unless it is read as another type than it is stored as), the call is on the
+  // field itself and a small value set has the field's type.
+  auto i64 = field_ref("i64");
+  auto int64_10 = literal<int64_t>(10);
+  auto int32_range = and_(greater_equal(i64, literal(1)), less_equal(i64, literal(5)));
+  auto is_in_int64_set =
+      call("is_in", {i32}, SetLookupOptions{ArrayFromJSON(int64(), "[10]")});
+  // ... int32 bounds on an int64 field
+  Simplify{greater(i64, int64_10)}
+      .WithGuarantee(or_(int32_range, is_null(i64)))
+      .ExpectUnchanged();
+  // ... an int32 field which is cast to compare it
+  Simplify{greater(cast(i32, int64()), int64_10)}
+      .WithGuarantee(nullable_range)
+      .ExpectUnchanged();
+  // ... an int64 value set for an int32 field
+  Simplify{is_in_int64_set}.WithGuarantee(nullable_range).ExpectUnchanged();
+  // A guarantee of a shape which was recognized before is used as before
+  Simplify{greater(i64, int64_10)}
+      .WithGuarantee(or_(less_equal(i64, literal(5)), is_null(i64)))
+      .Expect(not_(true_unless_null(i64)));
+}
+
 TEST(Expression, SimplifyIsIn) {
   auto is_in = [](Expression field, std::shared_ptr<DataType> value_set_type,
                   std::string json_array,
@@ -2115,8 +2233,8 @@ TEST(Expression, SimplifyIsIn) {
         .WithGuarantee(greater(field_ref("u32"), literal(10)))
         .Expect(is_in(field_ref("u32"), int64(), make_range_json(11, 40), null_matching));
 
-    // For large ranges we don't do any simplification, see
-    // `kIsInSimplificationMaxValueSet` in expression.cc.
+    // Large value sets (longer than `kIsInSimplificationMaxValueSet`) are never
+    // narrowed, only simplified to false. See SimplifyIsInLargeValueSet.
     Simplify{is_in(field_ref("u32"), int64(), make_range_json(1, 100), null_matching)}
         .WithGuarantee(greater(field_ref("u32"), literal(3)))
         .ExpectUnchanged();
@@ -2201,6 +2319,262 @@ TEST(Expression, SimplifyIsIn) {
       .WithGuarantee(
           or_(greater(field_ref("i32"), literal(2)), is_null(field_ref("i32"))))
       .ExpectUnchanged();
+}
+
+TEST(Expression, SimplifyIsInLargeValueSet) {
+  // Value sets longer than kIsInSimplificationMaxValueSet are searched for the range
+  // admitted by the inequalities of the guarantee. The call is simplified to false if
+  // the range is empty and is left unchanged otherwise. Only bounds which have the
+  // type of the field are used, as the statistics of a column have.
+  auto u32 = field_ref("u32");
+  auto i32 = field_ref("i32");
+  auto i64 = field_ref("i64");
+  auto f64 = field_ref("f64");
+  auto str = field_ref("str");
+
+  // 100 contiguous values, and 101 values with a gap: [1, 50] and [100, 150]
+  auto range = make_range_json(1, 100);
+  auto gapped = concat_json(make_range_json(1, 50), make_range_json(100, 150));
+  auto in_gap = and_(greater_equal(i32, literal(51)), less_equal(i32, literal(99)));
+  // 100 to 1, each twice
+  std::string unsorted = "[";
+  for (int i = 100; i >= 1; --i) {
+    unsorted += std::to_string(i) + "," + std::to_string(i) + ",";
+  }
+  unsorted.back() = ']';
+  // "k100" to "k159"
+  std::string strings = "[";
+  for (int i = 0; i < 60; ++i) {
+    strings += (i > 0 ? ",\"k" : "\"k") + std::to_string(100 + i) + "\"";
+  }
+  strings += "]";
+  auto u32_literal = [](uint32_t value) { return literal(value); };
+
+  enum Expected { kUnchanged, kFalse };
+  struct Case {
+    Expression arg;
+    std::shared_ptr<DataType> value_set_type;
+    std::string value_set;
+    Expression guarantee;
+    Expected expected;
+  };
+  const std::vector<Case> cases = {
+      // Guarantees overlapping the value set, and disjoint from its hull
+      {u32, int64(), range, less_equal(u32, u32_literal(1)), kUnchanged},
+      {u32, int64(), range, greater(u32, u32_literal(100)), kFalse},
+      {u32, int64(), range, less(u32, u32_literal(1)), kFalse},
+      // Guarantees inside the value set's hull but disjoint from its values. This
+      // requires considering both bounds of the guarantee at once.
+      {i32, int32(), gapped, and_(greater(i32, literal(50)), less(i32, literal(100))),
+       kFalse},
+      {i32, int32(), gapped, in_gap, kFalse},
+      // ... but a single value of the set in the range is enough to keep the call
+      {i32, int32(), gapped,
+       and_(greater_equal(i32, literal(50)), less_equal(i32, literal(99))), kUnchanged},
+      {i32, int32(), gapped,
+       and_(greater_equal(i32, literal(51)), less_equal(i32, literal(100))), kUnchanged},
+      {i32, int32(), gapped, or_(equal(i32, literal(50)), is_null(i32)), kUnchanged},
+      // Redundant bounds on the same field are all applied, a strict one winning
+      // over an inclusive one at the same value
+      {i32, int32(), gapped,
+       and_(and_(greater(i32, literal(10)), greater(i32, literal(50))),
+            less(i32, literal(100))),
+       kFalse},
+      {i32, int32(), gapped,
+       and_(and_(greater_equal(i32, literal(50)), greater(i32, literal(50))),
+            less(i32, literal(100))),
+       kFalse},
+      // Bounds on other fields are irrelevant, including those of a range which may
+      // be null for another field
+      {i32, int32(), gapped, or_(in_gap, is_null(u32)), kUnchanged},
+      {i32, int32(), gapped,
+       or_(and_(in_gap, greater_equal(u32, u32_literal(51))), is_null(u32)), kUnchanged},
+      // The kernel casts the value set to the field's type when the call is bound
+      {i64, int32(), range, greater(i64, literal<int64_t>(100)), kFalse},
+      // Bounds of another type than the field's are ignored, the others are used
+      {i64, int32(), range, greater(i64, literal(100)), kUnchanged},
+      {i64, int64(), range,
+       and_(greater_equal(i64, literal("10")), less_equal(i64, literal("9"))),
+       kUnchanged},
+      {i64, int64(), range,
+       and_(greater(i64, literal<int64_t>(100)), less(i64, literal(200))), kFalse},
+      // The call must be applied to the field itself, not to a cast of it
+      {cast(i32, int32()), int32(), range, greater(i32, literal(100)), kUnchanged},
+      // Unsorted value sets with duplicates are sorted
+      {u32, int64(), unsorted,
+       and_(greater(u32, u32_literal(50)), less(u32, u32_literal(51))), kFalse},
+      {u32, int64(), unsorted,
+       and_(greater_equal(u32, u32_literal(50)), less(u32, u32_literal(51))), kUnchanged},
+      // Strings
+      {str, utf8(), strings, greater(str, literal("k159")), kFalse},
+      {str, utf8(), strings,
+       and_(greater(str, literal("k110")), less(str, literal("k111"))), kFalse},
+      {str, utf8(), strings,
+       and_(greater_equal(str, literal("k110")), less(str, literal("k111"))), kUnchanged},
+      // Floats
+      {f64, float64(), range, and_(greater(f64, literal(50.0)), less(f64, literal(51.0))),
+       kFalse},
+      {f64, float64(), range,
+       and_(greater(f64, literal(50.0)), less_equal(f64, literal(51.0))), kUnchanged},
+      // Statistics cannot bound NaN, so a value set containing NaN is never simplified
+      {f64, float64(), concat_json("[NaN]", range), less(f64, literal(0.5)), kUnchanged},
+  };
+  // The guarantees above rule out nulls or the call is left unchanged, so the null
+  // matching behavior does not matter (see SimplifyIsInLargeValueSetNullMatching).
+  for (auto null_matching :
+       {SetLookupOptions::MATCH, SetLookupOptions::SKIP, SetLookupOptions::EMIT_NULL,
+        SetLookupOptions::INCONCLUSIVE}) {
+    SCOPED_TRACE(null_matching);
+    for (const auto& c : cases) {
+      SetLookupOptions options{ArrayFromJSON(c.value_set_type, c.value_set),
+                               null_matching};
+      auto expect = Simplify{call("is_in", {c.arg}, options)}.WithGuarantee(c.guarantee);
+      c.expected == kFalse ? expect.Expect(false) : expect.ExpectUnchanged();
+    }
+  }
+
+  // index_in shares the kernel state of is_in but is never simplified
+  Simplify{call("index_in", {i32}, SetLookupOptions{ArrayFromJSON(int32(), gapped)})}
+      .WithGuarantee(in_gap)
+      .ExpectUnchanged();
+
+  // Value sets longer than kIsInMaxSortedValueSet are only bounded by their smallest
+  // and largest value, so a guarantee inside a gap of the value set does not prune
+  auto chunks = ChunkedArrayFromJSON(
+      int32(), {make_range_json(1, 70000), make_range_json(100001, 170000)});
+  auto huge = call("is_in", {i32}, SetLookupOptions{chunks});
+  // Computing the bounds must not allocate a contiguous copy of the chunks.
+  ProxyMemoryPool pool(default_memory_pool());
+  ExecContext ctx(&pool);
+  ASSERT_OK_AND_ASSIGN(auto bound_huge, huge.Bind(*kBoringSchema, &ctx));
+  auto before = pool.total_bytes_allocated();
+  ASSERT_OK_AND_ASSIGN(auto simplified,
+                       SimplifyWithGuarantee(bound_huge, greater(i32, literal(170000))));
+  EXPECT_EQ(simplified, literal(false));
+  EXPECT_LT(pool.total_bytes_allocated() - before,
+            chunks->length() * int32()->byte_width());
+  Simplify{huge}
+      .WithGuarantee(and_(greater(i32, literal(70000)), less(i32, literal(100001))))
+      .ExpectUnchanged();
+  Simplify{huge}.WithGuarantee(greater_equal(i32, literal(170000))).ExpectUnchanged();
+  // ... unless they contain NaN, which the smallest and largest value ignore
+  auto huge_nan = call("is_in", {f64},
+                       SetLookupOptions{ArrayFromJSON(
+                           float64(), concat_json("[NaN]", make_range_json(1, 140000)))});
+  Simplify{huge_nan}.WithGuarantee(less(f64, literal(0.5))).ExpectUnchanged();
+
+  // Chunked value sets are concatenated before they are sorted
+  SetLookupOptions chunked_options{
+      ChunkedArrayFromJSON(int32(), {make_range_json(100, 150), make_range_json(1, 50)})};
+  Simplify{call("is_in", {i32}, chunked_options)}.WithGuarantee(in_gap).Expect(false);
+  Simplify{call("is_in", {i32}, chunked_options)}
+      .WithGuarantee(and_(greater_equal(i32, literal(50)), less(i32, literal(100))))
+      .ExpectUnchanged();
+
+  // The large value set is simplified in combination with other simplifications
+  auto is_in_gapped =
+      call("is_in", {i32}, SetLookupOptions{ArrayFromJSON(int32(), gapped)});
+  Simplify{and_(is_in_gapped, greater(u32, u32_literal(5)))}.WithGuarantee(in_gap).Expect(
+      false);
+  Simplify{or_(is_in_gapped, greater(u32, u32_literal(5)))}.WithGuarantee(in_gap).Expect(
+      greater(u32, u32_literal(5)));
+  // ... after them, so that a comparison is not offered what the call folds to
+  Simplify{greater(f64, cast(is_in_gapped, float64()))}
+      .WithGuarantee(and_(in_gap, greater_equal(f64, literal(1.0))))
+      .Expect(greater(f64, literal(0.0)));
+}
+
+TEST(Expression, SimplifyIsInLargeValueSetNullMatching) {
+  // Without possible matches the call is simplified to what it evaluates to: false,
+  // or null for the rows which the null matching behavior makes null. The field may
+  // be null if every inequality on it in the guarantee admits nulls.
+  auto i32 = field_ref("i32");
+  auto gapped = concat_json(make_range_json(1, 50), make_range_json(100, 150));
+  auto in_gap = and_(greater_equal(i32, literal(51)), less_equal(i32, literal(99)));
+  // The shape of Parquet statistics when a row group may contain nulls
+  auto nullable_in_gap = or_(in_gap, is_null(i32));
+  auto nullable_above = or_(greater(i32, literal(150)), is_null(i32));
+
+  struct Case {
+    Expression guarantee;
+    bool nullable;
+    std::string rows;  // rows satisfying the guarantee
+  };
+  const std::vector<Case> cases = {
+      {nullable_in_gap, true,
+       R"([{"i32": null}, {"i32": 51}, {"i32": 75}, {"i32": 99}])"},
+      {nullable_above, true, R"([{"i32": null}, {"i32": 151}])"},
+      {or_(equal(i32, literal(75)), is_null(i32)), true,
+       R"([{"i32": null}, {"i32": 75}])"},
+      {greater(i32, literal(150)), false, R"([{"i32": 151}])"},
+      // Another inequality elsewhere in the guarantee rules out nulls
+      {and_(nullable_above, less_equal(i32, literal(200))), false, R"([{"i32": 151}])"},
+      {and_(nullable_in_gap, greater(i32, literal(0))), false, R"([{"i32": 51}])"},
+  };
+  for (auto null_matching :
+       {SetLookupOptions::MATCH, SetLookupOptions::SKIP, SetLookupOptions::EMIT_NULL,
+        SetLookupOptions::INCONCLUSIVE}) {
+    for (bool value_set_has_null : {false, true}) {
+      for (const auto& c : cases) {
+        SCOPED_TRACE(null_matching);
+        SCOPED_TRACE(value_set_has_null);
+        auto value_set = value_set_has_null ? concat_json(gapped, "[null]") : gapped;
+        auto filter =
+            call("is_in", {i32},
+                 SetLookupOptions{ArrayFromJSON(int32(), value_set), null_matching});
+        auto expect = Simplify{filter}.WithGuarantee(c.guarantee);
+        if (null_matching == SetLookupOptions::MATCH && value_set_has_null &&
+            c.nullable) {
+          // A null in the value set matches the nulls in the data
+          expect.ExpectUnchanged();
+        } else if (null_matching == SetLookupOptions::INCONCLUSIVE &&
+                   value_set_has_null) {
+          // Any non-match is null
+          expect.Expect(null_literal(boolean()));
+        } else if (c.nullable && (null_matching == SetLookupOptions::EMIT_NULL ||
+                                  null_matching == SetLookupOptions::INCONCLUSIVE)) {
+          // Nulls in the data produce null
+          expect.Expect(not_(true_unless_null(i32)));
+        } else {
+          expect.Expect(false);
+        }
+        ExpectSimplifiedEvaluatesEqually(filter, c.guarantee, c.rows);
+      }
+    }
+  }
+}
+
+TEST(Expression, SimplifyIsInDeprecatedSkipNulls) {
+  // Cover both the filter-and-rebind and the large-value-set paths, including
+  // options whose deprecated field overrides a conflicting modern enum.
+  auto i32 = field_ref("i32");
+  auto rows = R"([{"i32": null}, {"i32": 1001}, {"i32": 1002}])";
+  for (int num_values : {10, 100}) {
+    for (auto behavior : {SetLookupOptions::MATCH, SetLookupOptions::SKIP,
+                          SetLookupOptions::EMIT_NULL, SetLookupOptions::INCONCLUSIVE}) {
+      for (bool skip_nulls : {false, true}) {
+        SCOPED_TRACE(num_values);
+        SCOPED_TRACE(behavior);
+        SCOPED_TRACE(skip_nulls);
+        SetLookupOptions options{
+            ArrayFromJSON(int32(), concat_json(make_range_json(1, num_values), "[null]")),
+            behavior};
+        options.skip_nulls = skip_nulls;
+        auto filter = call("is_in", {i32}, options);
+        for (int bound : {3, 1000}) {
+          ExpectSimplifiedEvaluatesEqually(
+              filter, or_(greater(i32, literal(bound)), is_null(i32)), rows);
+        }
+        // Without skip_nulls the null in the value set matches the null row
+        ASSERT_OK_AND_ASSIGN(auto bound_filter, filter.Bind(*kBoringSchema));
+        ASSERT_OK_AND_ASSIGN(
+            auto simplified,
+            SimplifyWithGuarantee(bound_filter,
+                                  or_(greater(i32, literal(1000)), is_null(i32))));
+        EXPECT_EQ(simplified.IsSatisfiable(), !skip_nulls);
+      }
+    }
+  }
 }
 
 TEST(Expression, SimplifyThenExecute) {

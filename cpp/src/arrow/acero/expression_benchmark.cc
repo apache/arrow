@@ -20,6 +20,8 @@
 #include <thread>
 
 #include "arrow/acero/test_util_internal.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/expression.h"
 #include "arrow/dataset/partition.h"
@@ -151,6 +153,30 @@ auto guarantee = and_(equal(field_ref("a"), literal(int64_t(99))),
 auto guarantee_dictionary = and_(equal(field_ref("a"), literal(ninety_nine_dict)),
                                  equal(field_ref("b"), literal(ninety_nine_dict)));
 
+// An is_in filter whose value set is too large to be narrowed for each guarantee:
+// 100000 multiples of 1000.
+Expression MakeLargeIsInFilter() {
+  Int64Builder builder;
+  for (int64_t i = 0; i < 100000; ++i) {
+    ABORT_NOT_OK(builder.Append(i * 1000));
+  }
+  ASSIGN_OR_ABORT(auto value_set, builder.Finish());
+  return call("is_in", {field_ref("a")}, compute::SetLookupOptions{value_set});
+}
+auto filter_large_is_in = MakeLargeIsInFilter();
+
+// The guarantee which the statistics of a Parquet row group give: its smallest and
+// largest value, here between two values of the set or including one.
+auto guarantee_range_negative =
+    and_(greater_equal(field_ref("a"), literal(int64_t(5001))),
+         less_equal(field_ref("a"), literal(int64_t(5999))));
+auto guarantee_range_positive =
+    and_(greater_equal(field_ref("a"), literal(int64_t(5000))),
+         less_equal(field_ref("a"), literal(int64_t(5999))));
+// ... and of a row group which may contain nulls.
+auto guarantee_nullable_range_negative =
+    or_(guarantee_range_negative, is_null(field_ref("a")));
+
 auto complex_expression =
     and_(less(field_ref("x"), literal(20)), greater(field_ref("x"), literal(0)));
 auto complex_integer_expression =
@@ -171,6 +197,12 @@ BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee,
                   guarantee_dictionary);
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, negative_filter_cast_guarantee_dictionary,
                   filter_cast_negative, guarantee_dictionary);
+BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee,
+                  negative_filter_large_is_in_guarantee_range, filter_large_is_in,
+                  guarantee_range_negative);
+BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee,
+                  negative_filter_large_is_in_guarantee_nullable_range,
+                  filter_large_is_in, guarantee_nullable_range_negative);
 // Positive queries (partition expressions that pass the filter)
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, positive_filter_simple_guarantee_simple,
                   filter_simple_positive, guarantee);
@@ -181,6 +213,9 @@ BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee,
                   guarantee_dictionary);
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, positive_filter_cast_guarantee_dictionary,
                   filter_cast_positive, guarantee_dictionary);
+BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee,
+                  positive_filter_large_is_in_guarantee_range, filter_large_is_in,
+                  guarantee_range_positive);
 
 BENCHMARK_CAPTURE(BindAndEvaluate, simple_array, field_ref("int_arr"));
 BENCHMARK_CAPTURE(BindAndEvaluate, simple_scalar, field_ref("int_scalar"));
