@@ -24,7 +24,6 @@ from pyarrow.lib import Array, ChunkedArray
 
 from pyarrow import lib
 
-ScalarLike: TypeAlias = Any
 Order: TypeAlias = Literal["ascending", "descending"]
 MapsAsPydicts: TypeAlias = Literal["lossy", "strict"]
 NullEncoding: TypeAlias = Literal["mask", "encode"]

@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import datetime as dt
+
 from collections.abc import Hashable
 from decimal import Decimal
 from types import EllipsisType
@@ -193,7 +195,6 @@ def test_array_wise_functions() -> None:
     check(assert_type(pc.partition_nth_indices([3, 1, 2], pivot=1),
                       pa.UInt64Array | pc.Expression),
           pa.UInt64Array)
-
     taken = pc.take(arr, [0, 2])
     check(assert_type(taken, pa.Array | pa.ChunkedArray | pa.RecordBatch | pa.Table),
           pa.Array)
@@ -211,11 +212,12 @@ def test_array_wise_functions() -> None:
 
 
 def test_element_wise_functions() -> None:
+    import numpy as np
     arr = pa.array([3, 1, 2])
 
     check(assert_type(pc.random(3), pa.DoubleArray), pa.DoubleArray)
 
-    # Arithmetic: Python literals, lists and tuples accepted
+    # Arithmetic: Python literals, lists and tuples
     check(pc.abs([1, 2]), pa.Int64Array)
     check(pc.abs((1.5, -2.5)), pa.DoubleArray)
     check(pc.abs(1), pa.Int64Scalar)
@@ -230,6 +232,10 @@ def test_element_wise_functions() -> None:
     check(pc.modulo([7, -7], [3, 3]), pa.Int64Array)
     check(pc.power(arr, 2), pa.Array)
     check(pc.sqrt(pa.chunked_array([[1], [2, 3]])), pa.ChunkedArray)
+    # decimal, datetime and numpy also accepted
+    check(pc.sqrt(Decimal("2.25")), pa.DoubleScalar)
+    check(pc.add(dt.datetime(2026, 1, 1), dt.timedelta(days=1)), pa.TimestampScalar)
+    check(pc.add(arr, np.int64(1)), pa.Int64Array)
 
     # Bit-wise functions
     check(pc.bit_wise_and([1, 1], [1, 1]), pa.Int64Array)
@@ -240,6 +246,8 @@ def test_element_wise_functions() -> None:
     check(pc.floor([1, 2]), pa.DoubleArray)
     check(pc.trunc(pa.scalar(Decimal("1.5"))), pa.Decimal128Scalar)
     check(pc.trunc(pa.array([Decimal("1.5")])), pa.Decimal128Array)
+    check(pc.round((1.5, 2.5)), pa.Array)
+    check(pc.round([1.5, 2.5]), pa.Array)
 
     # Logarithms return floats
     check(pc.ln(pa.array([Decimal("1.5")])), pa.DoubleArray)
@@ -250,24 +258,48 @@ def test_element_wise_functions() -> None:
     check(pc.acos(0.5), pa.DoubleScalar)
     check(pc.atan2(1.5, [1, 2]), pa.DoubleArray)
     check(pc.cosh(pa.array([Decimal("1.5")])), pa.DoubleArray)
-
-    # Python lists and tuples accepted
-    check(pc.round((1.5, 2.5)), pa.Array)
-    check(pc.round([1.5, 2.5]), pa.Array)
-    check(pc.binary_repeat(pa.array(["a"]), (2,)), pa.Array)
-    check(pc.binary_join_element_wise(["a", "b"], ["c", "d"], "-"), pa.Array)
-    check(pc.struct_field(pa.array([{"a": 1}]), ("a",)), pa.Array)
     check(pc.acos([1.1, 1.1]), pa.DoubleArray)
     check(pc.atan2([1.1, 1.1], [1.1, 1.1]), pa.DoubleArray)
 
-    # An Expression as the first argument gives an Expression
+    # Comparisons and selections accept Python literals of any type
+    check(pc.equal(pa.scalar("a"), "a"), pa.BooleanScalar)
+    check(pc.equal(True, False), pa.BooleanScalar)
+    check(pc.max_element_wise(pa.array(["a", "b"]), "c"), pa.StringArray)
+    check(pc.less(dt.datetime(2026, 1, 1), dt.datetime(2026, 1, 2)), pa.BooleanScalar)
+    check(pc.greater_equal(1.1, 2.2), pa.BooleanScalar)
+    check(pc.if_else(True, 1, 2), pa.Int64Scalar)
     selected = pc.if_else([True, False], [1, 2], [3, 4])
     check(assert_type(selected, pa.Scalar | pa.Array | pa.ChunkedArray | pc.Expression),
           pa.Array)
+    check(pc.choose(1, [1, 2], [3, 4]), pa.Int64Array)
+    check(pc.fill_null(pa.array([1, None]), 5), pa.Int64Array)
+    check(pc.equal([1, 2, 1], [1, 2, 3]), pa.BooleanArray)
+
+    # Logical functions
+    check(pc.and_not([True], [False]), pa.BooleanArray)
+
+    # String functions
+    check(pc.utf8_is_space([" "]), pa.BooleanArray)
+    check(pc.binary_repeat(pa.array(["a"]), (2,)), pa.Array)
+    check(pc.binary_repeat(b"foozfoo", [3]), pa.BinaryArray)
+    check(pc.replace_substring(b"foozfoo", "foo", "bar"), pa.BinaryScalar)
+    check(pc.ascii_ltrim(["foozfoo"], b"foo"), pa.StringArray)
+    check(pc.split_pattern([b"foozfoo"], b"t"), pa.ListArray)
+    check(pc.extract_regex(b"a1", rb"(?P<letter>[ab])(?P<digit>\d)"),
+          pa.StructScalar)
+    check(pc.binary_join([["a", "b"], ["c"]], "-"), pa.StringArray)
+    check(pc.binary_join(pc.field("a"), pc.field("sep")), pc.Expression)
+    check(pc.binary_join_element_wise(["a", "b"], ["c", "d"], "-"), pa.Array)
+
+    # Structural transforms
+    check(pc.struct_field(pa.array([{"a": 1}]), ("a",)), pa.Array)
+
+    # An Expression as the first argument gives an Expression
     check(pc.if_else(pc.field("a") > 1, 1, 2), pc.Expression)
 
     # TODO: test invalid code once the scalar stubs are annotated
     # pc.bit_wise_and(1.0, 1.0), pc.bit_wise_not(1.0)
+    # pc.add("a", 1), pc.sqrt(dt.timedelta(days=1)), pc.if_else("yes", 1, 2)
 
 
 def test_agg_functions() -> None:
@@ -281,7 +313,6 @@ def test_agg_functions() -> None:
     check(pc.count_distinct(scalar), pa.Int64Scalar)
     check(pc.first(scalar), pa.Int64Scalar)
     check(pc.last(scalar), pa.Int64Scalar)
-    check(pc.first_last((1, 2)), pa.StructScalar)
     check(pc.first_last(scalar), pa.StructScalar)
 
     # Quantile returns doubles, or the input type for "lower", "higher", "nearest"
@@ -295,7 +326,11 @@ def test_agg_functions() -> None:
     check(pc.variance([1, 2, 3]), pa.DoubleScalar)
     check(pc.variance((1, 2, 3)), pa.DoubleScalar)
     check(pc.variance(np.array([1.0, 2.0, 3.0])), pa.DoubleScalar)
+    check(pc.first_last((1, 2)), pa.StructScalar)
 
     # An Expression as input gives an Expression
     check(pc.mean(arr), pa.DoubleScalar)
     check(pc.mean(pc.field(0)), pc.Expression)
+
+    # A Python value accepted
+    check(pc.index(arr, 2), pa.Int64Scalar)
