@@ -3355,6 +3355,8 @@ TYPED_TEST(TestBinaryArithmeticFloating, Log) {
                     "[NaN, NaN, -Inf, Inf]");
   this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(2.),
                     "[NaN, NaN, -Inf, Inf]");
+  this->AssertBinop(Logb, "[0, -0.0, 0, 0, 0, 0, 0]", "[0.5, 0.25, Inf, NaN, 1, 0, -2]",
+                    "[Inf, Inf, NaN, NaN, -Inf, NaN, NaN]");
   this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", "[2, 10, 0, 0]", "[NaN, NaN, NaN, NaN]");
   this->AssertBinop(Logb, "[-Inf, -1, 0, Inf]", this->MakeScalar(0.),
                     "[NaN, NaN, NaN, NaN]");
