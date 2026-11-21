@@ -1,0 +1,54 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: AI disclosure enforcement
+
+on:
+  workflow_run:
+    workflows:
+      - PR trigger
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  enforce:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      # Check out trusted code from the default branch, not the PR branch.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Check AI disclosure
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const checkDisclosure = require(
+              "./.github/workflows/dev_pr/ai-check.js"
+            );
+
+            await checkDisclosure({github, context, core});
