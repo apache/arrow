@@ -25,6 +25,7 @@
 /// Version 1.4 - Add BinaryView, Utf8View, variadicBufferCounts, ListView, and
 /// LargeListView.
 /// Version 1.5 - Add 32-bit and 64-bit as allowed bit widths for Decimal
+/// Version 1.6 - Add custom_metadata to DictionaryEncoding.
 
 namespace org.apache.arrow.flatbuf;
 
@@ -511,6 +512,9 @@ table DictionaryEncoding {
   isOrdered: bool;
 
   dictionaryKind: DictionaryKind;
+
+  /// Metadata for the dictionary value type, e.g. the extension type of the values
+  custom_metadata: [ KeyValue ];
 }
 
 /// ----------------------------------------------------------------------
