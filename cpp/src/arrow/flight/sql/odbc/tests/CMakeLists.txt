@@ -57,21 +57,13 @@ elseif(WIN32)
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS
       arrow_odbc_spi_impl ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} arrow_flight_sql_odbc_static
       ${ARROW_TEST_STATIC_LINK_LIBS})
-elseif(APPLE)
-  # GH-49651: Link the ODBC driver dynamically on macOS.
+else()
+  # GH-49651: Link the ODBC driver dynamically on macOS and Linux. The tests call the
+  # driver functions directly, so they need the driver library.
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE STATIC_LINK_LIBS)
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS
       ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} arrow_flight_sql_odbc_shared
       ${ARROW_TEST_SHARED_LINK_LIBS})
-else()
-  # GH-49651: Link the ODBC driver statically on Linux to avoid a segfault.
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_MODE STATIC_LINK_LIBS)
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS
-      ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS}
-      arrow_flight_sql_odbc_static
-      ${ARROW_TEST_STATIC_LINK_LIBS}
-      arrow_odbc_spi_impl
-      ${ARROW_PROTOBUF_LIBPROTOBUF})
 endif()
 
 add_arrow_test(flight_sql_odbc_test
