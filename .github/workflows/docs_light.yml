@@ -18,6 +18,7 @@
 name: Docs
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - '.dockerignore'

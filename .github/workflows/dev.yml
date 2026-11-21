@@ -18,17 +18,19 @@
 name: Dev
 
 on:
+  workflow_call:
   # always trigger except Dependabot "push"
   push:
     branches:
       - '**'
       - '!dependabot/**'
+      - '!gh-readonly-queue/**'
     tags:
       - '**'
   pull_request:
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}-dev
   cancel-in-progress: true
 
 permissions:
