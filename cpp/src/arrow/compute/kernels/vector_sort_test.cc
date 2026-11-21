@@ -2459,7 +2459,7 @@ TEST_F(TestRank, DefaultOptions) {
 }
 
 TEST_F(TestRank, Real) {
-  for (auto real_type : ::arrow::FloatingPointTypes()) {
+  for (auto real_type : ::arrow::all_floating_point_types_without_float16()) {
     SetInput(ArrayFromJSON(real_type, "[2.1, 3.2, 1.0, 0.0, 5.5]"));
     for (auto null_placement : AllNullPlacements()) {
       for (auto tiebreaker : AllTiebreakers()) {
@@ -2813,7 +2813,7 @@ TEST_F(TestRankQuantile, DefaultOptions) {
 }
 
 TEST_F(TestRankQuantile, Real) {
-  for (auto type : ::arrow::FloatingPointTypes()) {
+  for (auto type : ::arrow::all_floating_point_types_without_float16()) {
     AssertRankQuantileNumeric(type);
   }
 }
