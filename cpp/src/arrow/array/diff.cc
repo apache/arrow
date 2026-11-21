@@ -93,12 +93,6 @@ struct UnitSlice {
   bool operator!=(const UnitSlice& other) const { return !(*this == other); }
 };
 
-// FIXME(bkietz) this is inefficient;
-// StructArray's fields can be diffed independently then merged
-UnitSlice GetView(const StructArray& array, int64_t index) {
-  return UnitSlice{&array, index};
-}
-
 UnitSlice GetView(const UnionArray& array, int64_t index) {
   return UnitSlice{&array, index};
 }
@@ -161,6 +155,45 @@ struct DefaultValueComparator : public ValueComparator {
       return GetView(base, base_index) == GetView(target, target_index);
     }
     return base_valid == target_valid;
+  }
+};
+
+class StructValueComparator : public ValueComparator {
+ private:
+  const StructArray& base_;
+  const StructArray& target_;
+  std::vector<std::unique_ptr<ValueComparator>> field_comparators_;
+
+ public:
+  StructValueComparator(const StructArray& base, const StructArray& target,
+                        std::vector<std::unique_ptr<ValueComparator>>&& field_comparators)
+      : base_(base), target_(target), field_comparators_(std::move(field_comparators)) {
+    DCHECK_EQ(*base_.type(), *target_.type());
+    DCHECK_EQ(base_.num_fields(), static_cast<int>(field_comparators_.size()));
+  }
+
+  ~StructValueComparator() override = default;
+
+  bool Equals(int64_t base_index, int64_t target_index) override {
+    const bool base_valid = base_.IsValid(base_index);
+    const bool target_valid = target_.IsValid(target_index);
+
+    if (base_valid != target_valid) {
+      return false;
+    }
+
+    if (!base_valid) {
+      return true;  // Both null
+    }
+
+    // Compare each field independently with early termination
+    for (const auto& field_comparator : field_comparators_) {
+      if (!field_comparator->Equals(base_index, target_index)) {
+        return false;
+      }
+    }
+
+    return true;
   }
 };
 
@@ -306,6 +339,26 @@ class ValueComparatorFactory {
 
   Status Visit(const DictionaryType&, const Array& base, const Array& target) {
     return Status::NotImplemented("dictionary type");
+  }
+
+  Status Visit(const StructType& struct_type, const Array& base, const Array& target) {
+    const auto& base_struct = checked_cast<const StructArray&>(base);
+    const auto& target_struct = checked_cast<const StructArray&>(target);
+
+    // Create comparators for each field
+    std::vector<std::unique_ptr<ValueComparator>> field_comparators;
+    field_comparators.reserve(struct_type.num_fields());
+
+    for (int i = 0; i < struct_type.num_fields(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(auto field_comparator,
+                            Create(*struct_type.field(i)->type(), *base_struct.field(i),
+                                   *target_struct.field(i)));
+      field_comparators.push_back(std::move(field_comparator));
+    }
+
+    comparator_ = std::make_unique<StructValueComparator>(base_struct, target_struct,
+                                                          std::move(field_comparators));
+    return Status::OK();
   }
 
   Status Visit(const RunEndEncodedType& ree_type, const Array& base,
