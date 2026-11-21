@@ -3352,12 +3352,8 @@ def _fully_loaded_dataframe_example():
 
 def test_roundtrip_fully_loaded_dataframe_example():
     df = _fully_loaded_dataframe_example()
-    expected = df.copy()
-    expected["col3"] = df["col3"].cat.rename_categories(
-        df["col3"].cat.categories.tz_convert(None))
-    _check_pandas_roundtrip(df, preserve_index=None, expected=expected)
-    _check_pandas_roundtrip(df, preserve_index=None,
-                            expected=expected, use_threads=True)
+    _check_pandas_roundtrip(df, preserve_index=None)
+    _check_pandas_roundtrip(df, preserve_index=None, use_threads=True)
 
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
@@ -4201,6 +4197,51 @@ def random_strings(n, item_size, pct_null=0, dictionary=None):
         result[np.random.rand(n) < pct_null] = None
 
     return result
+
+
+@pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
+@pytest.mark.parametrize('tz', ['UTC', 'Asia/Kolkata', None])
+@pytest.mark.parametrize('values', [[0, 0, None, 1000], [], [None, None]])
+def test_dictionary_timestamp_to_pandas(unit, tz, values):
+    # GH-55490: dictionary encoding must not discard the category timezone.
+    plain = pa.array(values, type=pa.timestamp(unit, tz=tz))
+    encoded = plain.dictionary_encode()
+    expected = pd.Series(pd.Categorical(plain.to_pandas()), name='t')
+    chunked = pa.chunked_array([
+        plain[:1].dictionary_encode(), plain[1:].dictionary_encode()])
+    for array in [encoded, chunked]:
+        result = array.to_pandas().rename('t')
+        tm.assert_series_equal(result, expected)
+        table_result = pa.table({'t': array}).to_pandas()['t']
+        tm.assert_series_equal(table_result, expected)
+
+
+@pytest.mark.parametrize('options', [
+    {'timestamp_as_object': True}, {'coerce_temporal_nanoseconds': True}, {}])
+def test_dictionary_timestamp_to_pandas_options(options):
+    dictionary = pa.array([0, 1000], type=pa.timestamp('ms', tz='Europe/Berlin'))
+    encoded = pa.DictionaryArray.from_arrays(
+        pa.array([0, None, 1, 0]), dictionary, ordered=True)
+    categories = dictionary.to_pandas(**options)
+    if options.get('timestamp_as_object'):
+        categories = categories.to_numpy()
+    expected = pd.Series(pd.Categorical.from_codes(
+        [0, -1, 1, 0], categories=categories, ordered=True),
+        name='t')
+    tm.assert_series_equal(encoded.to_pandas(**options).rename('t'), expected)
+    tm.assert_series_equal(
+        pa.table({'t': encoded}).to_pandas(**options)['t'], expected)
+
+
+@pytest.mark.parametrize('tz', ['UTC', 'Asia/Kolkata'])
+def test_dictionary_timestamp_to_pandas_no_chunks(tz):
+    dtype = pa.dictionary(pa.int32(), pa.timestamp('ns', tz=tz))
+    array = pa.chunked_array([], type=dtype)
+    expected = pd.Series(pd.Categorical.from_codes(
+        [], categories=pd.DatetimeIndex([], dtype=f'datetime64[ns, {tz}]')),
+        name='t')
+    tm.assert_series_equal(array.to_pandas().rename('t'), expected)
+    tm.assert_series_equal(pa.table({'t': array}).to_pandas()['t'], expected)
 
 
 def test_variable_dictionary_to_pandas():
