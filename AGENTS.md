@@ -65,7 +65,8 @@ you cannot build the component, tell the contributor. They can enable
 GitHub Actions on their fork and wait for the jobs the change touches
 to pass there before opening the PR.
 
-Run pre-commit on the files you changed:
+Run pre-commit on the files you changed. If it is not installed, ask
+the contributor before installing it:
 
 ```bash
 pre-commit run --files <paths you changed>
