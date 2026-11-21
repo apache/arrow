@@ -515,7 +515,12 @@ class RawBuilderSet {
           RETURN_NOT_OK(MakeBuilder(*f->type(), leading_nulls, &field_builder));
           field_builder.nullable = f->nullable();
 
-          Cast<Kind::kObject>(*builder)->AddField(f->name(), field_builder);
+          auto* object_builder = Cast<Kind::kObject>(*builder);
+          const auto next_index = object_builder->num_fields();
+          if (object_builder->AddField(f->name(), field_builder) != next_index) {
+            return Status::Invalid("JSON parse error: duplicate field '", f->name(),
+                                   "' in explicit schema");
+          }
         }
         return Status::OK();
       }

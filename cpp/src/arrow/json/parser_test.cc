@@ -210,6 +210,35 @@ TEST_P(BlockParserTypeError, FailOnDuplicateKeysNoSchema) {
       testing::StartsWith("JSON parse error: Column(/a) was specified twice in row 0"));
 }
 
+TEST_P(BlockParserTypeError, FailOnDuplicateSchemaFields) {
+  for (const auto& name : {"a", ""}) {
+    for (const auto& other_type : {boolean(), utf8()}) {
+      auto duplicate_fields = struct_(
+          {field(name, boolean()), field("other", int32()), field(name, other_type)});
+      for (const auto& explicit_schema :
+           {schema(duplicate_fields->fields()),
+            schema({field("nested", duplicate_fields)}),
+            schema({field("nested", list(duplicate_fields))})}) {
+        SCOPED_TRACE(explicit_schema->ToString());
+        std::unique_ptr<BlockParser> parser;
+        ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                                   "Invalid: JSON parse error: duplicate field '" +
+                                       std::string(name) + "' in explicit schema",
+                                   BlockParser::Make(Options(explicit_schema), &parser));
+      }
+    }
+  }
+}
+
+TEST_P(BlockParserTypeError, AllowSameFieldNameInDifferentObjects) {
+  auto nested_type = struct_({field("a", boolean())});
+  auto fields = FieldVector{field("a", boolean()), field("nested", nested_type),
+                            field("items", list(nested_type))};
+  AssertParseColumns(Options(schema(fields)),
+                     R"({"a":true,"nested":{"a":false},"items":[{"a":true}]})", fields,
+                     {"[true]", R"([{"a":false}])", R"([[{"a":true}]])"});
+}
+
 INSTANTIATE_TEST_SUITE_P(BlockParserTypeError, BlockParserTypeError,
                          ::testing::Values(UnexpectedFieldBehavior::Ignore,
                                            UnexpectedFieldBehavior::Error,
