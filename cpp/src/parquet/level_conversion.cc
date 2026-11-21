@@ -29,7 +29,7 @@
 #endif
 
 #define PARQUET_IMPL_NAMESPACE standard
-#include "parquet/level_conversion_inc.h"
+#include "parquet/level_conversion_inc_internal.h"
 #undef PARQUET_IMPL_NAMESPACE
 
 namespace parquet::internal {
