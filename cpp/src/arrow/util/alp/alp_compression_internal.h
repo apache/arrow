@@ -66,7 +66,7 @@ class ARROW_EXPORT AlpCompression {
 
   /// Creates an encoding preset from the collected samples.
   ///
-  /// Each element is one strided sample from a sampling chunk.
+  /// Each element is the sample of one vector and casts one vote.
   static AlpEncodingPreset MakePreset(const std::vector<std::vector<T>>& samples);
 
   /// Decompresses a view into caller-provided outputs and reusable scratch space.

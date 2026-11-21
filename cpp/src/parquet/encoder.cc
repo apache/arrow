@@ -1002,12 +1002,12 @@ class ByteStreamSplitEncoder<FLBAType> : public ByteStreamSplitEncoderBase<FLBAT
 // ----------------------------------------------------------------------
 // ALP encoder (Adaptive Lossless floating-Point)
 
-// TODO(GH-48701): encode incrementally and sample once per column chunk.
+// TODO(GH-48701): encode incrementally instead of buffering each page.
 //
-// TODO(GH-48701): fall back to PLAIN where ALP does not pay off. msg_sp in the
-// ALP paper's datasets encodes to 113% of plain. FallbackToPlainEncoding() acts
-// only on dictionary-index encodings, and the sampled estimate is a minimum over
-// vectors rather than a whole-column ratio, so both pieces are missing.
+// A page of values whose ALP encoding would be larger than its PLAIN encoding is
+// flushed as PLAIN instead, and flushed_encoding() tells the column writer which
+// one the page holds. The buffered values are already in PLAIN layout, so this
+// costs no extra copy.
 template <typename DType>
 class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
@@ -1047,11 +1047,20 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
             kVectorSize,
             {compressed_buffer->mutable_data(), static_cast<size_t>(max_comp_size)}));
 
+    if (num_elements > 0 && compressed_size > sink_.length()) {
+      flushed_encoding_ = Encoding::PLAIN;
+      std::shared_ptr<Buffer> plain_buffer;
+      PARQUET_THROW_NOT_OK(sink_.Finish(&plain_buffer));
+      return plain_buffer;
+    }
+
     PARQUET_THROW_NOT_OK(compressed_buffer->Resize(compressed_size));
     sink_.Reset();
-
+    flushed_encoding_ = Encoding::ALP;
     return compressed_buffer;
   }
+
+  Encoding::type flushed_encoding() const override { return flushed_encoding_; }
 
   void Put(const T* buffer, int num_values) override {
     if (num_values > 0) {
@@ -1087,6 +1096,7 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
  private:
   ::arrow::BufferBuilder sink_;
+  Encoding::type flushed_encoding_{Encoding::ALP};
 };
 
 // ----------------------------------------------------------------------
