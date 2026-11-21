@@ -17,11 +17,13 @@
 
 from types import SimpleNamespace
 
+from github import GithubException
 import pytest
 
 from archery.release.core import (
     Release, MajorRelease, MinorRelease, PatchRelease,
-    IssueTracker, Version, Issue, CommitTitle, Commit, count_committers
+    IssueTracker, Version, Issue, CommitTitle, Commit,
+    count_committers, update_milestones,
 )
 
 
@@ -411,3 +413,205 @@ def test_count_committers():
                  for number in range(11, 17)) +
         '}}'
     ]
+
+
+class _FakeRepo:
+
+    def __init__(self, tags, refs, commits_by_range):
+        self.tags = tags
+        self.refs = {name: SimpleNamespace(name=name) for name in refs}
+        self._commits_by_range = commits_by_range
+
+    def iter_commits(self, commit_range):
+        return iter(self._commits_by_range[commit_range])
+
+
+def _make_milestone(title, number, state="open"):
+    return SimpleNamespace(
+        title=title, number=number, state=state, due_on=None
+    )
+
+
+def _make_github_repo(milestones, issue_nodes, not_found=()):
+    edited = []
+
+    def graphql_query(query, variables):
+        data = {}
+        errors = []
+        for number, node in issue_nodes.items():
+            alias = f"issue{number}"
+            if f"{alias}:" in query:
+                data[alias] = node
+                if number in not_found:
+                    errors.append({
+                        "type": "NOT_FOUND",
+                        "path": ["repository", alias],
+                        "message": f"Not found: {number}",
+                    })
+        payload = {"data": {"repository": data}}
+        if errors:
+            payload["errors"] = errors
+            raise GithubException(404, payload, {})
+        return {}, payload
+
+    def get_issue(number):
+        def edit(**kwargs):
+            edited.append((number, kwargs["milestone"].title))
+        return SimpleNamespace(edit=edit)
+
+    repo = SimpleNamespace(
+        full_name="apache/arrow",
+        get_milestones=lambda state="all": milestones,
+        get_issue=get_issue,
+        requester=SimpleNamespace(graphql_query=graphql_query),
+    )
+    return repo, edited
+
+
+def test_update_milestones_with_maintenance_branch():
+    # Commits are newest-first, matching git.Repo.iter_commits().
+    c_before_cut = SimpleNamespace(
+        hexsha="aaa111", summary="GH-101: [C++] Before branch cut (#1)"
+    )
+    c_partial_before = SimpleNamespace(
+        hexsha="aaa222", summary="GH-102: [C++] Partial fix (#2)"
+    )
+    c_cherry_main = SimpleNamespace(
+        hexsha="bbb111", summary="GH-103: [Python] Cherry-picked fix (#3)"
+    )
+    c_cherry_maint = SimpleNamespace(
+        hexsha="ccc111", summary="GH-103: [Python] Cherry-picked fix (#3)"
+    )
+    c_closing_after = SimpleNamespace(
+        hexsha="bbb222", summary="GH-102: [C++] Complete fix (#4)"
+    )
+    c_after_cut = SimpleNamespace(
+        hexsha="bbb333", summary="GH-104: [R] After branch cut (#5)"
+    )
+    c_open = SimpleNamespace(
+        hexsha="bbb444", summary="GH-105: [Docs] Still open (#6)"
+    )
+    c_existing = SimpleNamespace(
+        hexsha="bbb555", summary="GH-106: [Dev] Already milestoned (#7)"
+    )
+    c_not_planned = SimpleNamespace(
+        hexsha="bbb666", summary="GH-107: [Dev] Closed not planned (#8)"
+    )
+    c_is_pr = SimpleNamespace(
+        hexsha="bbb777", summary="GH-108: [Dev] Actually a PR (#9)"
+    )
+    c_missing = SimpleNamespace(
+        hexsha="bbb888", summary="GH-109: [Dev] Typo issue number (#10)"
+    )
+    c_minor = SimpleNamespace(
+        hexsha="bbb999", summary="MINOR: [Release] Bump version"
+    )
+    c_direct_maint = SimpleNamespace(
+        hexsha="ccc222", summary="GH-110: [CI] Direct maint commit (#11)"
+    )
+
+    repo = _FakeRepo(
+        tags=["apache-arrow-26.0.0"],
+        refs=["main", "origin/maint-27.0.0"],
+        commits_by_range={
+            "apache-arrow-26.0.0..main": [
+                c_minor, c_missing, c_is_pr, c_not_planned, c_existing,
+                c_open, c_after_cut, c_closing_after, c_cherry_main,
+                c_partial_before, c_before_cut,
+            ],
+            "apache-arrow-26.0.0..origin/maint-27.0.0": [
+                c_direct_maint, c_cherry_maint, c_partial_before, c_before_cut,
+            ],
+        },
+    )
+    milestones = [
+        _make_milestone("JS-0.4.0", 1, state="closed"),
+        _make_milestone("26.0.0", 75, state="closed"),
+        _make_milestone("26.0.1", 76, state="open"),
+        _make_milestone("27.0.0", 77, state="open"),
+        _make_milestone("28.0.0", 78, state="open"),
+    ]
+    issue_nodes = {
+        101: {"state": "CLOSED", "stateReason": "COMPLETED",
+              "milestone": None},
+        102: {"state": "CLOSED", "stateReason": "COMPLETED",
+              "milestone": None},
+        103: {"state": "CLOSED", "stateReason": "COMPLETED",
+              "milestone": None},
+        104: {"state": "CLOSED", "stateReason": "COMPLETED",
+              "milestone": None},
+        105: {"state": "OPEN", "stateReason": None, "milestone": None},
+        106: {"state": "CLOSED", "stateReason": "COMPLETED",
+              "milestone": {"number": 76}},
+        107: {"state": "CLOSED", "stateReason": "NOT_PLANNED",
+              "milestone": None},
+        108: {},
+        109: None,
+        110: {"state": "CLOSED", "stateReason": "COMPLETED",
+              "milestone": None},
+    }
+    github_repo, edited = _make_github_repo(
+        milestones, issue_nodes, not_found=(109,)
+    )
+
+    with pytest.warns(UserWarning, match="#109 not found"):
+        updates = update_milestones(
+            repo, github_repo, dry_run=False, batch_size=4
+        )
+
+    expected = [
+        (101, "27.0.0"),
+        (102, "28.0.0"),
+        (103, "27.0.0"),
+        (104, "28.0.0"),
+        (110, "27.0.0"),
+    ]
+    assert updates == expected
+    assert edited == expected
+
+
+def test_update_milestones_dry_run():
+    repo = _FakeRepo(
+        tags=["apache-arrow-26.0.0"],
+        refs=["main"],
+        commits_by_range={
+            "apache-arrow-26.0.0..main": [
+                SimpleNamespace(hexsha="aaa111", summary="GH-201: [Dev] Fix"),
+            ],
+        },
+    )
+    milestones = [
+        _make_milestone("26.0.0", 75, state="closed"),
+        _make_milestone("27.0.0", 77, state="open"),
+    ]
+    issue_nodes = {
+        201: {"state": "CLOSED", "stateReason": "COMPLETED",
+              "milestone": None},
+    }
+    github_repo, edited = _make_github_repo(milestones, issue_nodes)
+
+    updates = update_milestones(repo, github_repo, dry_run=True)
+
+    assert updates == [(201, "27.0.0")]
+    assert edited == []
+
+
+def test_update_milestones_missing_next_major():
+    repo = _FakeRepo(
+        tags=["apache-arrow-26.0.0"],
+        refs=["main", "origin/maint-27.0.0"],
+        commits_by_range={
+            "apache-arrow-26.0.0..main": [
+                SimpleNamespace(hexsha="bbb111", summary="GH-301: [Dev] Fix"),
+            ],
+            "apache-arrow-26.0.0..origin/maint-27.0.0": [],
+        },
+    )
+    milestones = [
+        _make_milestone("26.0.0", 75, state="closed"),
+        _make_milestone("27.0.0", 77, state="open"),
+    ]
+    github_repo, _ = _make_github_repo(milestones, {})
+
+    with pytest.raises(ValueError, match="No open major release milestone"):
+        update_milestones(repo, github_repo, dry_run=True)

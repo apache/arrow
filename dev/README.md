@@ -50,17 +50,18 @@ you merge, check that:
   because the app is down, change it or close the issue yourself.
 * The pull request description is what you want as the commit
   message. Remove leftovers of the pull request template in the
-  merge dialog if needed. You should remove CI directives such as
-  `[skip ci]`: GitHub doesn't run the workflow below for a commit
-  with them.
+  merge dialog if needed.
 
-After the merge, the "Dev PR merged" GitHub Actions workflow reads
-`GH-XXX` from the commit title. If GitHub closed the issue, the
-workflow assigns it to the pull request author if it isn't assigned to
-anyone and sets its milestone. The existing issue milestone is
-retained: set it before merging if the pull request isn't targeted for
-the next major release. If the issue doesn't have a milestone, the next
-major release is used. This is only done for pull requests to `main`.
+A scheduled GitHub Actions workflow (`Update issue milestones`,
+`.github/workflows/dev_update_milestones.yml`) runs
+`archery release update-milestones --execute` to set the milestone on
+closed issues referenced by `GH-XXX` commits since the previous major
+release. Existing issue milestones are retained, so set a milestone
+before or after merging if the pull request isn't targeted for the next
+major release. If the issue doesn't have a milestone, the workflow sets
+the major release matching the commit's branch (`maint-X.0.0` if
+already branched, otherwise the next major release). The workflow can
+also be triggered manually via `workflow_dispatch`.
 
 ### Merge script
 

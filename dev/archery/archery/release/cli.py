@@ -21,7 +21,12 @@ import click
 from git import Repo
 
 from ..utils.cli import validate_arrow_sources
-from .core import IssueTracker, Release, count_committers
+from .core import (
+    IssueTracker,
+    Release,
+    count_committers,
+    update_milestones,
+)
 
 
 @click.group('release')
@@ -64,6 +69,25 @@ def release_committers(obj, previous_version, version):
     committers = count_committers(commits, obj['issue_tracker'].github_repo)
     for name, count in committers:
         click.echo(f"{count:6d}\t{name}")
+
+
+@release.command('update-milestones')
+@click.option('--branch', default='main',
+              help="Branch to inspect for merged commits.")
+@click.option('--dry-run/--execute', default=True,
+              help="Display milestone updates instead of applying them.")
+@click.pass_obj
+def release_update_milestones(obj, branch, dry_run):
+    """Set milestones on closed issues merged since the last major release."""
+    updates = update_milestones(
+        Repo(obj['repo']),
+        obj['issue_tracker'].github_repo,
+        branch=branch,
+        dry_run=dry_run,
+    )
+    for issue_number, milestone in updates:
+        action = "Would set" if dry_run else "Set"
+        click.echo(f"{action} milestone {milestone} on #{issue_number}")
 
 
 @release.group('changelog')
