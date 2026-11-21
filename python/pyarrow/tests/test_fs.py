@@ -1238,6 +1238,35 @@ def test_gcs_options(pickle_with_and_without_subtree_filesystem):
 
 
 @pytest.mark.s3
+def test_s3fs_endpoint_from_env(s3_server, monkeypatch):
+    from pyarrow.fs import S3FileSystem
+
+    host, port, access_key, secret_key = s3_server['connection']
+    endpoint = f'http://{host}:{port}'
+    bucket = 'pyarrow-endpoint-from-env'
+    kwargs = dict(access_key=access_key, secret_key=secret_key,
+                  allow_bucket_creation=True, allow_bucket_deletion=True)
+
+    monkeypatch.setenv('AWS_ENDPOINT_URL', endpoint)
+    fs = S3FileSystem(**kwargs)
+    fs.create_dir(bucket)
+    assert fs.get_file_info(bucket).type == FileType.Directory
+
+    # The service-specific variable takes precedence
+    monkeypatch.setenv('AWS_ENDPOINT_URL', 'http://localhost:1')
+    monkeypatch.setenv('AWS_ENDPOINT_URL_S3', endpoint)
+    fs = S3FileSystem(**kwargs)
+    assert fs.get_file_info(bucket).type == FileType.Directory
+
+    # An explicit endpoint_override takes precedence over the environment
+    monkeypatch.setenv('AWS_ENDPOINT_URL_S3', 'http://localhost:1')
+    fs = S3FileSystem(endpoint_override=f'{host}:{port}', scheme='http',
+                      **kwargs)
+    assert fs.get_file_info(bucket).type == FileType.Directory
+    fs.delete_dir(bucket)
+
+
+@pytest.mark.s3
 def test_s3_options(pickle_with_and_without_subtree_filesystem):
     pickle_module = pickle_with_and_without_subtree_filesystem
     from pyarrow.fs import (AwsDefaultS3RetryStrategy,
