@@ -90,3 +90,11 @@ cp "${ARROW_ROOT}"/testing/data/csv/*.csv "${CORPUS_DIR}"
 # Add examples from Pandas test suite
 find "${PANDAS_DIR}/" -name "*.csv" -exec cp --backup=numbered '{}' "${CORPUS_DIR}" \;
 "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/arrow-csv-fuzz_seed_corpus.zip"
+
+# JSON reader. The generator executable is only built when JSON support is
+# enabled (ARROW_JSON), so skip this section for builds without it.
+if [ -x "${OUT}/arrow-json-generate-fuzz-corpus" ]; then
+  rm -rf "${CORPUS_DIR}"
+  "${OUT}/arrow-json-generate-fuzz-corpus" "${CORPUS_DIR}"
+  "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/arrow-json-fuzz_seed_corpus.zip"
+fi
