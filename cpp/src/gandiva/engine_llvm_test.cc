@@ -133,4 +133,19 @@ TEST_F(TestEngine, TestAddOptimised) {
   EXPECT_EQ(add_func(my_array, 5), 17);
 }
 
+TEST_F(TestEngine, TestAddWithoutHostCpu) {
+  // target_host_cpu=false compiles for the generic CPU of the host triple
+  auto conf = TestConfiguration();
+  conf->target_host_cpu(false);
+  ASSERT_OK_AND_ASSIGN(engine, Engine::Make(conf, false));
+
+  std::string fn_name = BuildVecAdd(engine.get());
+  ASSERT_OK(engine->FinalizeModule());
+  ASSERT_OK_AND_ASSIGN(auto fn_ptr, engine->CompiledFunction(fn_name));
+  auto add_func = reinterpret_cast<add_vector_func_t>(fn_ptr);
+
+  int64_t my_array[] = {1, 3, -5, 8, 10};
+  EXPECT_EQ(add_func(my_array, 5), 17);
+}
+
 }  // namespace gandiva

@@ -31,6 +31,11 @@
 #include <unordered_set>
 #include <utility>
 
+#if defined(__APPLE__)
+#  include <sys/sysctl.h>
+#  include <cerrno>
+#endif
+
 #include <arrow/util/io_util.h>
 #include <arrow/util/logging_internal.h>
 
@@ -124,8 +129,9 @@ namespace {
 
 std::once_flag llvm_init_once_flag;
 bool llvm_init = false;
-llvm::StringRef cpu_name;
-std::vector<std::string> cpu_attrs;
+// The host target (triple, CPU and features), detected once in Engine::InitOnce().
+Result<llvm::orc::JITTargetMachineBuilder> host_target =
+    Status::Invalid("LLVM host target not initialized");
 std::once_flag register_exported_funcs_flag;
 
 template <typename T>
@@ -139,23 +145,52 @@ arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
   return std::move(expected.get());
 }
 
+#if defined(__APPLE__) && LLVM_VERSION_MAJOR < 24
+// The host triple names the OS "darwin<kernel version>", but before LLVM 24 the macOS
+// libcalls (e.g. __exp10 for llvm.exp10) are only enabled for the "macosx" OS.
+// clang's driver rewrites the triple; the JIT does not, so do it here.
+// https://github.com/llvm/llvm-project/pull/210674 fixes this in LLVM.
+Status UseMacOSXTriple(llvm::Triple* triple) {
+  if (triple->getOS() != llvm::Triple::Darwin) {
+    return Status::OK();
+  }
+  char version[64]{};
+  size_t size = sizeof(version);
+  if (sysctlbyname("kern.osproductversion", version, &size, nullptr, 0) != 0) {
+    return arrow::internal::IOErrorFromErrno(
+        errno, "sysctlbyname failed for 'kern.osproductversion'");
+  }
+  triple->setOSName(std::string("macosx") + version);
+  return Status::OK();
+}
+#endif
+
+Result<llvm::orc::JITTargetMachineBuilder> DetectHostTarget() {
+  auto detected = llvm::orc::JITTargetMachineBuilder::detectHost();
+  ARROW_ASSIGN_OR_RAISE(auto jtmb, AsArrowResult(detected, "Could not detect host: "));
+#if defined(__APPLE__) && LLVM_VERSION_MAJOR < 24
+  ARROW_RETURN_NOT_OK(UseMacOSXTriple(&jtmb.getTargetTriple()));
+#endif
+  return jtmb;
+}
+
 Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
     const Configuration& conf) {
-  llvm::orc::JITTargetMachineBuilder jtmb(
-      (llvm::Triple(llvm::sys::getDefaultTargetTriple())));
-  jtmb.setRelocationModel(llvm::Reloc::PIC_);
-  if (conf.target_host_cpu()) {
-    jtmb.setCPU(cpu_name.str());
-    jtmb.addFeatures(cpu_attrs);
+  ARROW_RETURN_NOT_OK(host_target.status());
+  // Copy: host_target is shared by all engines.
+  llvm::orc::JITTargetMachineBuilder jtmb = *host_target;
+  if (!conf.target_host_cpu()) {
+    jtmb.setCPU("");
+    jtmb.setFeatures("");
   }
+  jtmb.setRelocationModel(llvm::Reloc::PIC_);
 #if LLVM_VERSION_MAJOR >= 18
   using CodeGenOptLevel = llvm::CodeGenOptLevel;
 #else
   using CodeGenOptLevel = llvm::CodeGenOpt::Level;
 #endif
-  const auto opt_level =
-      conf.optimize() ? CodeGenOptLevel::Aggressive : CodeGenOptLevel::None;
-  jtmb.setCodeGenOptLevel(opt_level);
+  jtmb.setCodeGenOptLevel(conf.optimize() ? CodeGenOptLevel::Aggressive
+                                          : CodeGenOptLevel::None);
   return jtmb;
 }
 
@@ -330,25 +365,15 @@ void Engine::InitOnce() {
   llvm::InitializeNativeTargetDisassembler();
   llvm::sys::DynamicLibrary::LoadLibraryPermanently(nullptr);
 
-  cpu_name = llvm::sys::getHostCPUName();
-#if LLVM_VERSION_MAJOR >= 19
-  auto host_features = llvm::sys::getHostCPUFeatures();
-  const bool have_host_features = true;
-#else
-  llvm::StringMap<bool> host_features;
-  const auto have_host_features = llvm::sys::getHostCPUFeatures(host_features);
-#endif
-  std::string cpu_attrs_str;
-  if (have_host_features) {
-    for (auto& f : host_features) {
-      std::string attr = f.second ? std::string("+") + f.first().str()
-                                  : std::string("-") + f.first().str();
-      cpu_attrs.push_back(attr);
-      cpu_attrs_str += " " + attr;
-    }
+  host_target = DetectHostTarget();
+  if (host_target.ok()) {
+    ARROW_LOG(INFO) << "Detected target triple: " << host_target->getTargetTriple().str();
+    ARROW_LOG(INFO) << "Detected CPU Name : " << host_target->getCPU();
+    ARROW_LOG(INFO) << "Detected CPU Features: ["
+                    << host_target->getFeatures().getString() << "]";
+  } else {
+    ARROW_LOG(WARNING) << host_target.status().ToString();
   }
-  ARROW_LOG(INFO) << "Detected CPU Name : " << cpu_name.str();
-  ARROW_LOG(INFO) << "Detected CPU Features: [" << cpu_attrs_str << "]";
   llvm_init = true;
 }
 
