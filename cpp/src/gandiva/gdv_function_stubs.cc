@@ -21,6 +21,7 @@
 
 #include <boost/crc.hpp>
 #include <cstdio>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -43,6 +44,9 @@
 extern "C" {
 
 ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
+
+// AES operates on 16 byte blocks for every supported key length.
+static constexpr int64_t kAesBlockSize = 16;
 
 static char mask_array[256] = {
     (char)0,  (char)1,  (char)2,  (char)3,   (char)4,   (char)5,   (char)6,   (char)7,
@@ -366,10 +370,7 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
     return "";
   }
 
-  int64_t kAesBlockSize = 0;
-  if (key_data_len == 16 || key_data_len == 24 || key_data_len == 32) {
-    kAesBlockSize = static_cast<int64_t>(key_data_len);
-  } else {
+  if (key_data_len != 16 && key_data_len != 24 && key_data_len != 32) {
     std::ostringstream oss;
     oss << "invalid key length: " << key_data_len;
     gdv_fn_context_set_error_msg(context, oss.str().c_str());
@@ -377,8 +378,15 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
     return nullptr;
   }
 
-  *out_len =
-      static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
+  int64_t alloc_len =
+      arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize) + kAesBlockSize;
+  if (ARROW_PREDICT_FALSE(alloc_len > std::numeric_limits<int32_t>::max())) {
+    gdv_fn_context_set_error_msg(context,
+                                 "AES_ENCRYPT: would overflow maximum output size");
+    *out_len = 0;
+    return nullptr;
+  }
+  *out_len = static_cast<int32_t>(alloc_len);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     std::string err_msg = "AES_ENCRYPT: could not allocate memory for ciphertext output";
@@ -412,10 +420,7 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
     return "";
   }
 
-  int64_t kAesBlockSize = 0;
-  if (key_data_len == 16 || key_data_len == 24 || key_data_len == 32) {
-    kAesBlockSize = static_cast<int64_t>(key_data_len);
-  } else {
+  if (key_data_len != 16 && key_data_len != 24 && key_data_len != 32) {
     std::ostringstream oss;
     oss << "invalid key length: " << key_data_len;
     gdv_fn_context_set_error_msg(context, oss.str().c_str());
@@ -423,8 +428,15 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
     return nullptr;
   }
 
-  *out_len =
-      static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
+  int64_t alloc_len =
+      arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize) + kAesBlockSize;
+  if (ARROW_PREDICT_FALSE(alloc_len > std::numeric_limits<int32_t>::max())) {
+    gdv_fn_context_set_error_msg(context,
+                                 "AES_DECRYPT: would overflow maximum output size");
+    *out_len = 0;
+    return nullptr;
+  }
+  *out_len = static_cast<int32_t>(alloc_len);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     std::string err_msg = "Could not allocate memory for returning aes decrypt plaintext";
