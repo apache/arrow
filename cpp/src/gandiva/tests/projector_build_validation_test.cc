@@ -284,4 +284,67 @@ TEST_F(ValidationTestProjector, TestAndBooleanArgType) {
   EXPECT_TRUE(status.IsExpressionValidationError());
 }
 
+TEST_F(ValidationTestProjector, TestCachedOutputTypeValidation) {
+  auto schema = arrow::schema({field("cached_output_type", int32())});
+  auto configuration = TestConfiguration();
+  auto node = TreeExprBuilder::MakeLiteral(int32_t{1});
+
+  // Same expression tree, compiled once with its own output type.
+  std::shared_ptr<Projector> projector;
+  auto valid = TreeExprBuilder::MakeExpression(node, field("res", int32()));
+  ASSERT_OK(Projector::Make(schema, {valid}, configuration, &projector));
+
+  // A different output type must not reuse the cached code and skip validation.
+  auto invalid = TreeExprBuilder::MakeExpression(node, field("res", arrow::int64()));
+  auto status = Projector::Make(schema, {invalid}, configuration, &projector);
+  EXPECT_TRUE(status.IsExpressionValidationError()) << status.ToString();
+}
+
+// Validation compares a field node with the schema field, including nullability. The
+// key has to keep that difference, or a cache hit skips the validation error.
+TEST_F(ValidationTestProjector, TestCachedFieldNullabilityValidation) {
+  auto configuration = TestConfiguration();
+  // A unique field name, so that no other test seeds the cache for these expressions.
+  auto make_expression = [](const FieldPtr& node_field) {
+    auto node = TreeExprBuilder::MakeFunction(
+        "add", {TreeExprBuilder::MakeField(node_field), TreeExprBuilder::MakeLiteral(1)},
+        int32());
+    return TreeExprBuilder::MakeExpression(node, field("res", int32()));
+  };
+
+  // Cold: nothing is cached yet, so validation runs and rejects the mismatch.
+  auto cold_schema = arrow::schema({field("cold_nullability_field", int32(), true)});
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(
+      cold_schema, {make_expression(field("cold_nullability_field", int32(), false))},
+      configuration, &projector);
+  EXPECT_TRUE(status.IsExpressionValidationError()) << status.ToString();
+
+  // Warm: the matching expression is compiled and cached first.
+  auto nullable_field = field("warm_nullability_field", int32(), true);
+  auto required_field = field("warm_nullability_field", int32(), false);
+  auto schema = arrow::schema({nullable_field});
+  ASSERT_OK(Projector::Make(schema, {make_expression(nullable_field)}, configuration,
+                            &projector));
+
+  // The same schema with a field node of the other nullability must still be rejected.
+  // Ask twice, so a hit on a cached entry is possible on both calls.
+  for (int i = 0; i < 2; ++i) {
+    status = Projector::Make(schema, {make_expression(required_field)}, configuration,
+                             &projector);
+    EXPECT_TRUE(status.IsExpressionValidationError())
+        << "call " << i << ": " << status.ToString();
+  }
+
+  // The matching expression still builds, and the other direction is rejected too.
+  ASSERT_OK(Projector::Make(schema, {make_expression(nullable_field)}, configuration,
+                            &projector));
+  auto required_schema = arrow::schema({required_field});
+  ASSERT_OK(Projector::Make(required_schema, {make_expression(required_field)},
+                            configuration, &projector));
+  status = Projector::Make(required_schema, {make_expression(nullable_field)},
+                           configuration, &projector);
+  EXPECT_TRUE(status.IsExpressionValidationError()) << status.ToString();
+}
+
 }  // namespace gandiva

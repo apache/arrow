@@ -19,9 +19,10 @@
 
 #include <stddef.h>
 
-#include <thread>
+#include <memory>
+#include <string>
+#include <vector>
 
-#include "arrow/util/hash_util.h"
 #include "gandiva/arrow.h"
 #include "gandiva/configuration.h"
 #include "gandiva/expression.h"
@@ -30,52 +31,16 @@
 
 namespace gandiva {
 
-class ExpressionCacheKey {
+/// \brief Key of the compiled expression cache, built from the expression tree.
+class GANDIVA_EXPORT ExpressionCacheKey {
  public:
   ExpressionCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                     ExpressionVector expression_vector, SelectionVector::Mode mode)
-      : schema_(schema), mode_(mode), uniquifier_(0), configuration_(configuration) {
-    static const int kSeedValue = 4;
-    size_t result = kSeedValue;
-    for (auto& expr : expression_vector) {
-      std::string expr_as_string = expr->ToString();
-      expressions_as_strings_.push_back(expr_as_string);
-      arrow::internal::hash_combine(result, expr_as_string);
-      UpdateUniquifier(expr_as_string);
-    }
-    arrow::internal::hash_combine(result, static_cast<size_t>(mode));
-    arrow::internal::hash_combine(result, configuration->Hash());
-    arrow::internal::hash_combine(result, schema_->ToString());
-    arrow::internal::hash_combine(result, uniquifier_);
-    hash_code_ = result;
-  }
+                     ExpressionVector expression_vector, SelectionVector::Mode mode);
 
   ExpressionCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
-                     Expression& expression)
-      : schema_(schema),
-        mode_(SelectionVector::MODE_NONE),
-        uniquifier_(0),
-        configuration_(configuration) {
-    static const int kSeedValue = 4;
-    size_t result = kSeedValue;
-    expressions_as_strings_.push_back(expression.ToString());
-    UpdateUniquifier(expression.ToString());
+                     Expression& expression);
 
-    arrow::internal::hash_combine(result, configuration->Hash());
-    arrow::internal::hash_combine(result, schema_->ToString());
-    arrow::internal::hash_combine(result, uniquifier_);
-    hash_code_ = result;
-  }
-
-  void UpdateUniquifier(const std::string& expr) {
-    if (uniquifier_ == 0) {
-      // caching of expressions with re2 patterns causes lock contention. So, use
-      // multiple instances to reduce contention.
-      if (expr.find(" like(") != std::string::npos) {
-        uniquifier_ = std::hash<std::thread::id>()(std::this_thread::get_id()) % 16;
-      }
-    }
-  }
+  void UpdateUniquifier(bool has_like);
 
   size_t Hash() const { return hash_code_; }
 
