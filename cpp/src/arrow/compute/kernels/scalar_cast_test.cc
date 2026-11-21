@@ -3133,6 +3133,23 @@ TEST(Cast, StringToDecimal) {
   }
 }
 
+TEST(Cast, StringToDecimalOverflow) {
+  // GH-55606: values that do not fit in the storage integer must not wrap around
+  const std::vector<std::pair<std::string, std::shared_ptr<DataType>>> cases = {
+      {"18446744073709551621", decimal32(9, 0)},   // 2**64 + 5
+      {"18446744073709551616", decimal64(18, 0)},  // 2**64
+      {std::string(39, '9'), decimal128(38, 0)},
+      {"340282366920938463463374607431768211455", decimal128(38, 0)},  // 2**128 - 1
+      {"115792089237316195423570985008687907853269984665640564039457584007913129639943",
+       decimal256(76, 0)},  // 2**256 + 7
+  };
+  for (const auto& [value, decimal_type] : cases) {
+    ARROW_SCOPED_TRACE("value = ", value, ", type = ", *decimal_type);
+    CheckCastFails(ArrayFromJSON(utf8(), "[\"" + value + "\"]"),
+                   CastOptions::Safe(decimal_type));
+  }
+}
+
 TEST(Cast, StringToTimestamp) {
   for (auto string_type : {utf8(), large_utf8()}) {
     auto strings = ArrayFromJSON(string_type, R"(["1970-01-01", null, "2000-02-29"])");
