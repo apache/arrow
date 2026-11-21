@@ -244,9 +244,11 @@ def test_list_functions():
 
 
 def test_call_tabular_function_rejects_invalid_registry():
+    # Pass a minimal valid args (an empty list) rather than None, so this test
+    # fails only on registry validation and not on how args is handled.
     with pytest.raises(TypeError,
                        match="func_registry must be a FunctionRegistry"):
-        pc.call_tabular_function("", None, 1)
+        pc.call_tabular_function("", [], 1)
 
 
 @pytest.mark.parametrize("register_function", [
