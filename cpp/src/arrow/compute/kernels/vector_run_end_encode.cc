@@ -17,6 +17,7 @@
 
 #include <utility>
 
+#include "arrow/array/array_dict.h"
 #include "arrow/array/array_run_end.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/array/builder_primitive.h"
@@ -573,6 +574,24 @@ struct RunEndDecodeExec {
     DCHECK(span.values[0].is_array());
     const auto& input_array = span.values[0].array;
     const auto& ree_type = checked_cast<const RunEndEncodedType*>(input_array.type);
+    if (ree_type->value_type()->id() == Type::DICTIONARY) {
+      // Expand dictionary indices, retaining the original dictionary and index type.
+      // The existing primitive decoder handles run ends, slices, and null indices.
+      auto encoded = std::static_pointer_cast<RunEndEncodedArray>(input_array.ToArray());
+      auto values = std::static_pointer_cast<DictionaryArray>(encoded->values());
+      ARROW_ASSIGN_OR_RAISE(auto encoded_indices,
+                            RunEndEncodedArray::Make(encoded->length(),
+                                                     encoded->run_ends(), values->indices(),
+                                                     encoded->offset()));
+      ARROW_ASSIGN_OR_RAISE(auto decoded_indices,
+                            RunEndDecode(encoded_indices, ctx->exec_context()));
+      ARROW_ASSIGN_OR_RAISE(auto decoded,
+                            DictionaryArray::FromArrays(values->type(),
+                                                        decoded_indices.make_array(),
+                                                        values->dictionary()));
+      result->value = decoded->data();
+      return Status::OK();
+    }
     switch (ree_type->run_end_type()->id()) {
       case Type::INT16:
         return DoExecNested<Int16Type>(ctx, input_array, result);
@@ -778,6 +797,7 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   add_nested_kernel(Type::LARGE_LIST_VIEW);
   add_nested_kernel(Type::MAP);
   add_nested_kernel(Type::STRUCT);
+  add_nested_kernel(Type::DICTIONARY);
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
