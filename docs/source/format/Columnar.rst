@@ -1253,8 +1253,9 @@ The complete serialized message must be a multiple of 8 bytes so that messages
 can be relocated between streams. Otherwise the amount of padding between the
 metadata and the message body could be non-deterministic.
 
-The ``metadata_size`` includes the size of the ``Message`` plus
-padding. The ``metadata_flatbuffer`` contains a Flatbuffers-serialized
+The ``metadata_size`` includes the size of the ``Message`` flatbuffer plus
+padding, but excludes the continuation indicator and the metadata length prefix.
+The ``metadata_flatbuffer`` contains a Flatbuffers-serialized
 ``Message`` value, which internally includes:
 
 * A version number
@@ -1530,6 +1531,15 @@ the schema (which is a part of the streaming format) plus memory offsets and
 sizes for each of the data blocks in the file. This enables random access to
 any record batch in the file. See `File.fbs`_ for the precise details of the
 file footer.
+
+Each ``Block`` in the footer describes a dictionary or record batch IPC message.
+Its ``offset`` points to the start of the encapsulated IPC message, including
+the continuation indicator and metadata length prefix. Its ``metaDataLength``
+includes that prefix, the ``Message`` flatbuffer, and padding, so the message
+body starts at ``offset + metaDataLength``. Thus, ``metaDataLength`` is
+``8 + metadata_size`` for the encapsulated message format described above,
+rather than ``metadata_size`` alone. For the legacy format without a continuation
+indicator, the prefix is 4 bytes and ``metaDataLength`` is ``4 + metadata_size``.
 
 Schematically we have: ::
 
