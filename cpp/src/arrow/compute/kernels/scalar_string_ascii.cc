@@ -668,7 +668,7 @@ const auto ascii_is_decimal_doc =
 const auto ascii_is_lower_doc =
     StringClassifyDoc("ASCII lowercase", "lowercase ASCII characters", true);
 const auto ascii_is_printable_doc =
-    StringClassifyDoc("ASCII printable", "printable ASCII characters", true);
+    StringClassifyDoc("ASCII printable", "printable ASCII characters", false);
 const auto ascii_is_space_doc =
     StringClassifyDoc("ASCII whitespace", "whitespace ASCII characters", true);
 const auto ascii_is_upper_doc =
