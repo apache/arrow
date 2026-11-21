@@ -426,30 +426,59 @@ class Lz4HadoopCodec : public Lz4Codec {
 
   int64_t MaxCompressedLen(int64_t input_len,
                            const uint8_t* ARROW_ARG_UNUSED(input)) override {
-    return kPrefixLength + Lz4Codec::MaxCompressedLen(input_len, nullptr);
+    // Each block gets its own 8-byte prefix and is compressed independently,
+    // so we sum LZ4_compressBound per block (not for the whole input at once,
+    // since LZ4_compressBound has a small per-call overhead).
+    const int64_t num_full_blocks = input_len / kBlockSize;
+    const int64_t tail = input_len % kBlockSize;
+    int64_t max_len = num_full_blocks *
+                      (kPrefixLength + Lz4Codec::MaxCompressedLen(kBlockSize, nullptr));
+    if (tail > 0) {
+      max_len += kPrefixLength + Lz4Codec::MaxCompressedLen(tail, nullptr);
+    }
+    return max_len;
   }
 
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
                            int64_t output_buffer_len, uint8_t* output_buffer) override {
-    if (output_buffer_len < kPrefixLength) {
-      return Status::Invalid("Output buffer too small for Lz4HadoopCodec compression");
+    // Hadoop's BlockCompressorStream splits data into blocks of at most
+    // kBlockSize uncompressed bytes, each prefixed with [decompressed_size,
+    // compressed_size] in big-endian uint32.  Hadoop's Lz4Decompressor
+    // allocates a fixed output buffer of the same size, so a single block
+    // that decompresses to more than kBlockSize will overflow that buffer
+    // and fail.  We must split large inputs the same way Hadoop does.
+    int64_t total_output_len = 0;
+
+    while (input_len > 0) {
+      const int64_t block_input_len = input_len < kBlockSize ? input_len : kBlockSize;
+
+      if (output_buffer_len < kPrefixLength) {
+        return Status::Invalid("Output buffer too small for Lz4HadoopCodec compression");
+      }
+
+      ARROW_ASSIGN_OR_RAISE(
+          int64_t block_compressed_len,
+          Lz4Codec::Compress(block_input_len, input, output_buffer_len - kPrefixLength,
+                             output_buffer + kPrefixLength));
+
+      // Prepend decompressed size in bytes and compressed size in bytes
+      // to be compatible with Hadoop Lz4Codec
+      const uint32_t decompressed_size =
+          bit_util::ToBigEndian(static_cast<uint32_t>(block_input_len));
+      const uint32_t compressed_size =
+          bit_util::ToBigEndian(static_cast<uint32_t>(block_compressed_len));
+      SafeStore(output_buffer, decompressed_size);
+      SafeStore(output_buffer + sizeof(uint32_t), compressed_size);
+
+      const int64_t block_total_len = kPrefixLength + block_compressed_len;
+      total_output_len += block_total_len;
+      output_buffer += block_total_len;
+      output_buffer_len -= block_total_len;
+      input += block_input_len;
+      input_len -= block_input_len;
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        int64_t output_len,
-        Lz4Codec::Compress(input_len, input, output_buffer_len - kPrefixLength,
-                           output_buffer + kPrefixLength));
-
-    // Prepend decompressed size in bytes and compressed size in bytes
-    // to be compatible with Hadoop Lz4Codec
-    const uint32_t decompressed_size =
-        bit_util::ToBigEndian(static_cast<uint32_t>(input_len));
-    const uint32_t compressed_size =
-        bit_util::ToBigEndian(static_cast<uint32_t>(output_len));
-    SafeStore(output_buffer, decompressed_size);
-    SafeStore(output_buffer + sizeof(uint32_t), compressed_size);
-
-    return kPrefixLength + output_len;
+    return total_output_len;
   }
 
   Result<std::shared_ptr<Compressor>> MakeCompressor() override {
@@ -469,6 +498,17 @@ class Lz4HadoopCodec : public Lz4Codec {
  protected:
   // Offset starting at which page data can be read/written
   static const int64_t kPrefixLength = sizeof(uint32_t) * 2;
+
+  // Maximum uncompressed block size per Hadoop-framed LZ4 block.
+  // Hadoop's IO_COMPRESSION_CODEC_LZ4_BUFFERSIZE is configurable at
+  // runtime (default 256 KiB).  Both its BlockCompressorStream and
+  // Lz4Decompressor use that value: the compressor splits data into
+  // blocks of this size, and the decompressor allocates a fixed output
+  // buffer of the same size.  We use the default here since we cannot
+  // read Hadoop's runtime configuration from C++.
+  static constexpr int64_t kBlockSize = 256 * 1024;
+  static_assert(kBlockSize <= std::numeric_limits<uint32_t>::max(),
+                "kBlockSize must fit in uint32_t for Hadoop framing prefix");
 
   static const int64_t kNotHadoop = -1;
 
