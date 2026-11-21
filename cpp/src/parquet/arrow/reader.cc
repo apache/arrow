@@ -604,8 +604,8 @@ class ListReader : public ColumnReaderImpl {
              ::parquet::internal::LevelInfo level_info,
              std::unique_ptr<ColumnReaderImpl> child_reader)
       : ctx_(std::move(ctx)),
-        field_(std::move(field)),
         level_info_(level_info),
+        field_(std::move(field)),
         item_reader_(std::move(child_reader)) {}
 
   Status GetDefLevels(const int16_t** data, int64_t* length) override {
@@ -691,10 +691,10 @@ class ListReader : public ColumnReaderImpl {
 
  protected:
   std::shared_ptr<ReaderContext> ctx_;
+  ::parquet::internal::LevelInfo level_info_;
 
  private:
   std::shared_ptr<Field> field_;
-  ::parquet::internal::LevelInfo level_info_;
   std::unique_ptr<ColumnReaderImpl> item_reader_;
 };
 
@@ -802,11 +802,15 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
         return ::arrow::internal::VisitBitRuns(data->buffers[0]->data(), data->offset,
                                                data->length, visit_run);
       }));
-    } else if (!field()->nullable() && data->length > 0) {
-      // This field is schema non-nullable, so it never has a validity buffer
-      // at all, with or without nulls: a null non-repeated ancestor (e.g. a
-      // struct) still leaves no physical child values for its row, and that
-      // gap can only be detected from the offsets directly.
+    } else if (!field()->nullable() && data->length > 0 &&
+               level_info_.def_level > level_info_.rep_level) {
+      // This field is schema non-nullable, so it never has a validity
+      // buffer of its own. Since every repeated step raises def_level and
+      // rep_level equally, def_level > rep_level means some ancestor
+      // between the schema root and this list is itself optional, and that
+      // ancestor (e.g. a struct) being null still leaves no physical child
+      // values written for its row. That gap can only be detected from the
+      // offsets directly.
       bool any_gap = false;
       auto scan_offsets = [&](auto&& visit) -> Status {
         int64_t run_start = 0;
@@ -836,12 +840,15 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
         RETURN_NOT_OK(rebuild_from_runs(scan_offsets));
       }
     } else {
-      // Either this field is nullable but every row in this batch happens to
-      // be valid (so its validity buffer was discarded, the same as a
-      // genuinely non-nullable field), or the batch is empty. A nullable
-      // field's own null count already reflects any non-repeated ancestor's
-      // absence, so a zero null count means there is no gap anywhere: a
-      // single pass validating the whole range is enough, with no padding.
+      // No ancestor between the schema root and this list can ever be null,
+      // since def_level == rep_level means there is no optional step
+      // anywhere in the path. Alternatively, this field is nullable but
+      // every row in this batch happens to be valid, so its validity
+      // buffer was discarded the same as a genuinely non-nullable field, or
+      // the batch is simply empty. In every one of these cases a
+      // zero-length span cannot be a legitimate gap, so a single pass
+      // validating the whole range is enough, with no padding: an
+      // unexpected span is rejected as corrupt data.
       RETURN_NOT_OK(validate_offsets(/*start=*/0, data->length, /*has_elements=*/true));
     }
     data->buffers.resize(1);
