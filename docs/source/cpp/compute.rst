@@ -493,6 +493,12 @@ appropriately. Mixed decimal and floating-point arguments will cast all
 arguments to floating-point, while mixed decimal and integer arguments will
 cast all arguments to decimals.
 Mixed time resolution temporal inputs will be cast to finest input resolution.
+A duration multiplied or divided by a floating-point number is computed in
+float64 and then truncated toward zero, like numpy. Durations beyond 2^53 lose
+precision in the conversion to float64, and the truncation can make round trips
+lossy: ``multiply(divide(d, u), u)`` gives 0s for ``d = 1s`` and ``u = 49s``.
+NaN, overflow and division by zero are errors in all variants, whereas the
+unchecked integer kernels wrap around on overflow and numpy returns NaT.
 
 +-------------------+--------+-------------------------+-------------------------------+-------+
 | Function name     | Arity  | Input types             | Output type                   | Notes |

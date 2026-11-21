@@ -785,7 +785,7 @@ struct ArithmeticFunction : ScalarFunction {
 
       if (name_ == "multiply" || name_ == "multiply_checked" || name_ == "divide" ||
           name_ == "divide_checked") {
-        PromoteIntegerForDurationArithmetic(types);
+        PromoteNumericForDurationArithmetic(types);
       }
     }
 
@@ -1126,6 +1126,44 @@ void AddArithmeticFunctionDurationTime(std::shared_ptr<ScalarFunction> func) {
                             std::move(exec_4)));
 }
 
+// Apply Op in double precision and truncate toward zero, like numpy. Durations
+// beyond 2^53 lose precision in the conversion to double.
+// NaN and out of range results are errors, also in the unchecked functions, where
+// integer overflow wraps around instead. numpy returns NaT for these, but Arrow has
+// no NaT, and casting an out of range double to int64 is undefined behaviour.
+template <typename Op>
+struct DurationByFloat {
+  template <typename T, typename Arg0, typename Arg1>
+  static T Call(KernelContext* ctx, Arg0 left, Arg1 right, Status* st) {
+    double value = Op::template Call<double, double, double>(
+        ctx, static_cast<double>(left), static_cast<double>(right), st);
+    double truncated = std::trunc(value);
+    // The int64 range is [-2^63, 2^63); the comparison is false for NaN
+    if (ARROW_PREDICT_FALSE(!(truncated >= -0x1p63 && truncated < 0x1p63))) {
+      *st = Status::Invalid(std::isnan(truncated) ? "result is NaN" : "overflow");
+      return 0;
+    }
+    return static_cast<T>(truncated);
+  }
+};
+
+// Add Op(duration, float64) -> duration, and Op(float64, duration) -> duration for
+// Multiply. The same kernels are used for the checked and unchecked functions.
+// Other floating point types are cast to float64 in DispatchBest.
+template <typename Op>
+void AddDurationByFloatKernels(ScalarFunction* func) {
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ScalarBinaryNotNull<Int64Type, Int64Type, DoubleType, DurationByFloat<Op>>::Exec;
+    DCHECK_OK(func->AddKernel({duration(unit), float64()}, duration(unit), exec));
+    if constexpr (std::is_same_v<Op, Multiply>) {
+      exec = ScalarBinaryNotNull<Int64Type, DoubleType, Int64Type,
+                                 DurationByFloat<Op>>::Exec;
+      DCHECK_OK(func->AddKernel({float64(), duration(unit)}, duration(unit), exec));
+    }
+  }
+}
+
 const FunctionDoc absolute_value_doc{
     "Calculate the absolute value of the argument element-wise",
     ("Results will wrap around on integer overflow.\n"
@@ -1166,7 +1204,10 @@ const FunctionDoc sub_checked_doc{
 const FunctionDoc mul_doc{"Multiply the arguments element-wise",
                           ("Results will wrap around on integer overflow.\n"
                            "Use function \"multiply_checked\" if you want overflow\n"
-                           "to return an error."),
+                           "to return an error.\n"
+                           "A duration multiplied by a floating-point number is\n"
+                           "computed in float64 and truncated toward zero, and\n"
+                           "overflow and NaN always return an error."),
                           {"x", "y"}};
 
 const FunctionDoc mul_checked_doc{
@@ -1180,7 +1221,10 @@ const FunctionDoc div_doc{
     ("Integer division by zero returns an error. However, integer overflow\n"
      "wraps around, and floating-point division by zero returns an infinite.\n"
      "Use function \"divide_checked\" if you want to get an error\n"
-     "in all the aforementioned cases."),
+     "in all the aforementioned cases.\n"
+     "A duration divided by a floating-point number is computed in float64\n"
+     "and truncated toward zero, and division by zero, overflow and NaN\n"
+     "always return an error."),
     {"dividend", "divisor"}};
 
 const FunctionDoc div_checked_doc{
@@ -1711,6 +1755,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(multiply->AddKernel({duration(unit), int64()}, duration(unit), exec));
     DCHECK_OK(multiply->AddKernel({int64(), duration(unit)}, duration(unit), exec));
   }
+  AddDurationByFloatKernels<Multiply>(multiply.get());
 
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
 
@@ -1727,6 +1772,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(
         multiply_checked->AddKernel({int64(), duration(unit)}, duration(unit), exec));
   }
+  AddDurationByFloatKernels<Multiply>(multiply_checked.get());
 
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
 
@@ -1740,6 +1786,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(
         divide->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
   }
+  AddDurationByFloatKernels<DivideChecked>(divide.get());
 
   // Add divide(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
@@ -1761,6 +1808,7 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
     DCHECK_OK(divide_checked->AddKernel({duration(unit), int64()}, duration(unit),
                                         std::move(exec)));
   }
+  AddDurationByFloatKernels<DivideChecked>(divide_checked.get());
 
   // Add divide_checked(duration, duration) -> float64
   for (auto unit : TimeUnit::values()) {
