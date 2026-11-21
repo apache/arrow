@@ -90,15 +90,16 @@ struct RoundUtil {
   // Calculate powers of ten with arbitrary integer exponent
   template <typename T>
   static enable_if_floating_value<T> Pow10(int64_t power) {
-    static constexpr T lut[] = {1e0F, 1e1F, 1e2F,  1e3F,  1e4F,  1e5F,  1e6F,  1e7F,
-                                1e8F, 1e9F, 1e10F, 1e11F, 1e12F, 1e13F, 1e14F, 1e15F};
+    static constexpr T lut[] = {T(1e0),  T(1e1),  T(1e2),  T(1e3), T(1e4),  T(1e5),
+                                T(1e6),  T(1e7),  T(1e8),  T(1e9), T(1e10), T(1e11),
+                                T(1e12), T(1e13), T(1e14), T(1e15)};
     int64_t lut_size = (sizeof(lut) / sizeof(*lut));
     int64_t abs_power = std::abs(power);
     auto pow10 = lut[std::min(abs_power, lut_size - 1)];
     while (abs_power-- >= lut_size) {
-      pow10 *= 1e1F;
+      pow10 *= T(1e1);
     }
-    return (power >= 0) ? pow10 : (1 / pow10);
+    return (power >= 0) ? pow10 : (T(1) / pow10);
   }
 
   // Calculate powers of ten with arbitrary integer exponent
@@ -548,7 +549,7 @@ struct RoundToMultiple {
       return arg;
     }
     auto round_val = arg / multiple;
-    auto frac = round_val - std::floor(round_val);
+    auto frac = std::abs(round_val - std::trunc(round_val));
     if (frac != T(0)) {
       // Use std::round() if in tie-breaking mode and scaled value is not 0.5.
       if ((kRoundMode >= RoundMode::HALF_DOWN) && (frac != T(0.5))) {
@@ -741,7 +742,7 @@ struct Round {
       return arg;
     }
     auto round_val = ndigits >= 0 ? (arg * pow10) : (arg / pow10);
-    auto frac = round_val - std::floor(round_val);
+    auto frac = std::abs(round_val - std::trunc(round_val));
     if (frac != T(0)) {
       // Use std::round() if in tie-breaking mode and scaled value is not 0.5.
       if ((RndMode >= RoundMode::HALF_DOWN) && (frac != T(0.5))) {
@@ -887,7 +888,7 @@ struct RoundBinary {
     double pow10 = RoundUtil::Pow10<double>(std::abs(arg1));
 
     auto round_val = arg1 >= 0 ? (arg0 * pow10) : (arg0 / pow10);
-    auto frac = round_val - std::floor(round_val);
+    auto frac = std::abs(round_val - std::trunc(round_val));
     if (frac != T(0)) {
       // Use std::round() if in tie-breaking mode and scaled value is not 0.5.
       if ((RndMode >= RoundMode::HALF_DOWN) && (frac != T(0.5))) {
