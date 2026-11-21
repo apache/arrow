@@ -60,7 +60,6 @@
 
 %define have_grpc (%{_rhel} >= 10 || %{is_amazon_linux})
 %define have_orc (%{_rhel} >= 10)
-%define have_rapidjson (%{_rhel} != 8)
 %define have_thrift (!%{is_amazon_linux})
 %define have_uriparser (!%{is_amazon_linux})
 %define have_utf8proc (%{_rhel} >= 9 || %{is_amazon_linux})
@@ -107,9 +106,6 @@ BuildRequires:	ncurses-devel
 BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
-%if %{have_rapidjson}
-BuildRequires:	rapidjson-devel
-%endif
 BuildRequires:	re2-devel
 BuildRequires:	snappy-devel
 %if %{have_thrift}
@@ -287,9 +283,6 @@ Requires:	lz4-devel %{lz4_requirement}
 Requires:	openssl-devel
 %if %{have_orc}
 Requires:	liborc-devel
-%endif
-%if %{have_rapidjson}
-Requires:	rapidjson-devel
 %endif
 Requires:	re2-devel
 Requires:	snappy-devel

@@ -345,15 +345,6 @@ if needs_csv
     arrow_testing_srcs += ['csv/test_common.cc']
 endif
 
-if needs_json or needs_integration
-    rapidjson_dep = dependency(
-        'RapidJSON',
-        fallback: ['rapidjson', 'rapidjson_dep'],
-    )
-else
-    rapidjson_dep = disabler()
-endif
-
 azure_dep = disabler()
 gcs_dep = disabler()
 s3_dep = disabler()
@@ -557,7 +548,7 @@ if needs_json
                 'json/parser.cc',
                 'json/reader.cc',
             ],
-            'dependencies': [rapidjson_dep, simdjson_dep],
+            'dependencies': [simdjson_dep],
         },
     }
 endif

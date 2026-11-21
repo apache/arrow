@@ -43,7 +43,6 @@ case "${target}" in
     packages+=("${MINGW_PACKAGE_PREFIX}-ninja")
     packages+=("${MINGW_PACKAGE_PREFIX}-nlohmann-json")
     packages+=("${MINGW_PACKAGE_PREFIX}-protobuf")
-    packages+=("${MINGW_PACKAGE_PREFIX}-rapidjson")
     packages+=("${MINGW_PACKAGE_PREFIX}-re2")
     packages+=("${MINGW_PACKAGE_PREFIX}-simdjson")
     packages+=("${MINGW_PACKAGE_PREFIX}-snappy")

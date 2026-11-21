@@ -43,7 +43,6 @@ nodejs>=16
 orc<2.1.0
 pkg-config
 python
-rapidjson
 re2
 simdjson
 snappy

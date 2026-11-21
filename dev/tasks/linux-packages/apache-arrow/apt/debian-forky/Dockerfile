@@ -83,7 +83,6 @@ RUN \
     protobuf-compiler-grpc \
     python3-dev \
     python3-pip \
-    rapidjson-dev \
     tzdata \
     valac \
     zlib1g-dev && \

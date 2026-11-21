@@ -95,11 +95,6 @@ ARROW_ORC_BUILD_VERSION=2.2.1
 ARROW_ORC_BUILD_SHA256_CHECKSUM=52fc762332442e8b05d7182f8c035f9e04d945b9a52be22ab69f28b3f37d4500
 ARROW_PROTOBUF_BUILD_VERSION=v36.2
 ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM=3d9642a662d10e68ebae5e53f14dcce5105684212d5078f8e0d47d1ab3ae6b64
-# Because of https://github.com/Tencent/rapidjson/pull/1323, we require
-# a pre-release version of RapidJSON to build with GCC 8 without
-# warnings.
-ARROW_RAPIDJSON_BUILD_VERSION=232389d4f1012dddec4ef84861face2d2ba85709
-ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM=b9290a9a6d444c8e049bd589ab804e0ccf2b05dc5984a19ed5ae75d090064806
 # RE2 2023-03-01 is pinned to avoid Abseil dependency. Versions after 2023-06-01
 # require Abseil, which would add significant build time and complexity, particularly
 # for CRAN builds. This version includes musl libc support (GH-48010).
@@ -170,7 +165,6 @@ DEPENDENCIES=(
   "ARROW_OPENTELEMETRY_PROTO_URL opentelemetry-proto-${ARROW_OPENTELEMETRY_PROTO_BUILD_VERSION}.tar.gz https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/${ARROW_OPENTELEMETRY_PROTO_BUILD_VERSION}.tar.gz"
   "ARROW_ORC_URL orc-${ARROW_ORC_BUILD_VERSION}.tar.gz https://www.apache.org/dyn/closer.lua/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz?action=download"
   "ARROW_PROTOBUF_URL protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz https://github.com/google/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-${ARROW_PROTOBUF_BUILD_VERSION:1}.tar.gz"
-  "ARROW_RAPIDJSON_URL rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
   "ARROW_SIMDJSON_URL simdjson-${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz https://github.com/simdjson/simdjson/archive/refs/tags/${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz"
   "ARROW_RE2_URL re2-${ARROW_RE2_BUILD_VERSION}.tar.gz https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
   "ARROW_S2N_TLS_URL s2n-${ARROW_S2N_TLS_BUILD_VERSION}.tar.gz https://github.com/aws/s2n-tls/archive/${ARROW_S2N_TLS_BUILD_VERSION}.tar.gz"
