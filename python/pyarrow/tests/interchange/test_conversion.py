@@ -319,14 +319,13 @@ def test_pandas_to_pyarrow_with_missing(np_float_str):
 
 @pytest.mark.pandas
 def test_pandas_to_pyarrow_float16_with_missing():
-    # np.float16 errors if ps.is_nan is used
-    # pyarrow.lib.ArrowNotImplementedError: Function 'is_nan' has no kernel
-    # matching input types (halffloat)
     np_array = np.array([0, np.nan, 2], dtype=np.float16)
     df = pd.DataFrame({"a": np_array})
 
-    with pytest.raises(NotImplementedError):
-        pi.from_dataframe(df)
+    expected = pa.table({"a": pa.array([0, None, 2], type=pa.float16())})
+    result = pi.from_dataframe(df)
+
+    assert result.equals(expected)
 
 
 @pytest.mark.numpy
