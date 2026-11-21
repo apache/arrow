@@ -725,6 +725,13 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
     return std::numeric_limits<FixedSizeListType::offset_type>::max() - 1;
   }
 
+  /// \brief UnsafeAppend a valid fixed length list.
+  ///
+  /// This function affects only the validity bitmap; the child values must be appended
+  /// using the child array builder. The caller must ensure that sufficient capacity is
+  /// available.
+  void UnsafeAppend() { UnsafeAppendToBitmap(true); }
+
  protected:
   std::shared_ptr<Field> value_field_;
   const int32_t list_size_;
