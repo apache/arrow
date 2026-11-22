@@ -5652,6 +5652,15 @@ def test_union_dataset_filter(tempdir, dstype):
         "col2": ["x", "z", "y"]
     })
 
+    # A UnionDataset constructed directly from filtered children also works:
+    union_of_filtered_direct = ds.UnionDataset(ds1.schema, [filtered_ds1, filtered_ds2])
+    assert union_of_filtered_direct.to_table() == pa.table({
+        "colA": [1, 2, 9],
+        "col2": ["a", "b", "h"]
+    })
+    assert all(isinstance(child, ds.FilteredDataset)
+               for child in union_of_filtered_direct.children)
+
 
 @pytest.mark.parquet
 def test_filtered_dataset(tempdir, pickle_module):

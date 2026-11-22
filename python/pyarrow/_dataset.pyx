@@ -1090,6 +1090,8 @@ cdef class UnionDataset(Dataset):
             shared_ptr[CUnionDataset] union_dataset
 
         for child in children:
+            # Any filter applied with Dataset.filter() needs to be moved to the C++ child Dataset
+            child = child._with_filter_attached()
             c_children.push_back(child.wrapped)
 
         union_dataset = GetResultValue(CUnionDataset.Make(
