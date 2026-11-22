@@ -278,13 +278,14 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   ChunkedStructArrayBuilder(
       const std::shared_ptr<TaskGroup>& task_group, MemoryPool* pool,
       const PromotionGraph* promotion_graph,
-      std::vector<std::pair<std::string, std::shared_ptr<ChunkedArrayBuilder>>>
-          name_builders)
+      std::vector<std::pair<std::shared_ptr<Field>, std::shared_ptr<ChunkedArrayBuilder>>>
+          field_builders)
       : ChunkedArrayBuilder(task_group), pool_(pool), promotion_graph_(promotion_graph) {
-    for (auto&& name_builder : name_builders) {
+    for (auto&& field_builder : field_builders) {
       auto index = static_cast<int>(name_to_index_.size());
-      name_to_index_.emplace(std::move(name_builder.first), index);
-      child_builders_.emplace_back(std::move(name_builder.second));
+      name_to_index_.emplace(field_builder.first->name(), index);
+      child_builders_.emplace_back(std::move(field_builder.second));
+      child_nullability_.push_back(field_builder.first->nullable());
     }
   }
 
@@ -362,7 +363,8 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
       RETURN_NOT_OK(child_builder->Finish(&child_array));
 
       child_arrays[name_index.second] = child_array;
-      fields[name_index.second] = field(name_index.first, child_array->type());
+      fields[name_index.second] = field(name_index.first, child_array->type(),
+                                        child_nullability_[name_index.second]);
     }
 
     auto type = struct_(std::move(fields));
@@ -413,6 +415,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
         RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group_, pool_, promotion_graph_, type,
                                               /*allow_promotion=*/true, &child_builder));
         child_builders_.emplace_back(std::move(child_builder));
+        child_nullability_.push_back(fields[i]->nullable());
       }
 
       auto unconverted_field = unconverted.type()->field(i);
@@ -431,6 +434,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   const PromotionGraph* promotion_graph_;
   std::unordered_map<std::string, int> name_to_index_;
   std::vector<std::shared_ptr<ChunkedArrayBuilder>> child_builders_;
+  std::vector<bool> child_nullability_;
   std::vector<std::vector<bool>> child_absent_;
   BufferVector null_bitmap_chunks_;
   std::vector<int64_t> chunk_lengths_;
@@ -450,13 +454,13 @@ Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
   // If a promotion graph is not provided, unexpected fields are always ignored and
   // type inference never occurs.
   if (type->id() == Type::STRUCT) {
-    std::vector<std::pair<std::string, std::shared_ptr<ChunkedArrayBuilder>>>
+    std::vector<std::pair<std::shared_ptr<Field>, std::shared_ptr<ChunkedArrayBuilder>>>
         child_builders;
     for (const auto& f : type->fields()) {
       std::shared_ptr<ChunkedArrayBuilder> child_builder;
       RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group, pool, promotion_graph, f->type(),
                                             allow_promotion, &child_builder));
-      child_builders.emplace_back(f->name(), std::move(child_builder));
+      child_builders.emplace_back(f, std::move(child_builder));
     }
     *out = std::make_shared<ChunkedStructArrayBuilder>(task_group, pool, promotion_graph,
                                                        std::move(child_builders));

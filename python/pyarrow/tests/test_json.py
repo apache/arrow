@@ -263,6 +263,31 @@ class BaseTestJSON(abc.ABC):
             assert table.schema == schema
             assert table.to_pydict() == expected
 
+    def test_explicit_schema_preserves_nullability(self):
+        rows = (b'{"required": 1, "optional": 2, '
+                b'"nested": {"required": 3, "optional": 4}}\n')
+        schema = pa.schema([
+            pa.field("required", pa.int32(), nullable=False),
+            pa.field("optional", pa.int32(), nullable=True),
+            pa.field(
+                "nested",
+                pa.struct([
+                    pa.field("required", pa.int32(), nullable=False),
+                    pa.field("optional", pa.int32(), nullable=True),
+                ]),
+                nullable=True,
+            ),
+        ])
+
+        table = self.read_bytes(
+            rows,
+            parse_options=ParseOptions(
+                explicit_schema=schema,
+                unexpected_field_behavior="error",
+            ),
+        )
+        assert table.schema == schema
+
     def test_explicit_schema_with_unexpected_behaviour(self):
         # infer by default
         rows = (b'{"foo": "bar", "num": 0}\n'
