@@ -418,6 +418,13 @@ Future<std::optional<int64_t>> FilteredFragment::CountRows(
   ARROW_ASSIGN_OR_RAISE(
       auto combined,
       compute::and_(std::move(predicate), filter).Bind(*options->dataset_schema));
+  // Simplify so the wrapped fragment can count from metadata where possible,
+  // matching FileFragment::CountRows.
+  ARROW_ASSIGN_OR_RAISE(combined, compute::SimplifyWithGuarantee(std::move(combined),
+                                                                 partition_expression_));
+  if (!combined.IsSatisfiable()) {
+    return Future<std::optional<int64_t>>::MakeFinished(0);
+  }
   return fragment_->CountRows(std::move(combined), options);
 }
 

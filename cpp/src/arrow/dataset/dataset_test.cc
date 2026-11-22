@@ -460,6 +460,32 @@ TEST_F(TestFilteredDataset, ScanFragmentDirectly) {
                                   count.result());
 }
 
+TEST_F(TestFilteredDataset, CountRowsWithPartitionExpression) {
+  SetSchema({field("part", int32()), field("i", int32())});
+  auto batch = RecordBatchFromJSON(schema_, R"([[1, 1], [1, 2]])");
+  auto fragment = std::make_shared<InMemoryFragment>(
+      schema_, RecordBatchVector{batch},
+      compute::equal(compute::field_ref("part"), compute::literal(1)));
+  auto options = std::make_shared<ScanOptions>();
+  options->dataset_schema = schema_;
+
+  auto count_rows = [&](compute::Expression filter) {
+    return std::make_shared<FilteredFragment>(fragment, std::move(filter))
+        ->CountRows(compute::literal(true), options);
+  };
+
+  // An unsatisfiable filter counts no rows.
+  ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(0),
+                            count_rows(compute::literal(false)));
+  ASSERT_FINISHES_OK_AND_EQ(
+      std::make_optional<int64_t>(0),
+      count_rows(compute::equal(compute::field_ref("part"), compute::literal(2))));
+  // A filter guaranteed by the partition expression counts all rows from metadata.
+  ASSERT_FINISHES_OK_AND_EQ(
+      std::make_optional<int64_t>(2),
+      count_rows(compute::equal(compute::field_ref("part"), compute::literal(1))));
+}
+
 TEST_F(TestFilteredDataset, FilterOnAugmentedField) {
   SetSchema({field("i", int32())});
   auto batch = RecordBatchFromJSON(schema_, R"([[1], [2]])");
