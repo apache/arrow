@@ -2628,28 +2628,30 @@ TEST(TestRunEncodedBuilder, MergeConsecutiveNaNs) {
   auto value_builder = std::make_shared<FloatBuilder>();
   RunEndEncodedBuilder builder(default_memory_pool(), run_end_builder, value_builder,
                                run_end_encoded_type);
-  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 1), 15));
-  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 1), 10));
-  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 2), 20));
-  ASSERT_OK(builder.AppendScalar(
-      **MakeScalar(float32(), std::numeric_limits<float>::quiet_NaN()), 25));
-  ASSERT_OK(builder.AppendScalar(
-      **MakeScalar(float32(), std::numeric_limits<float>::signaling_NaN()), 5));
-  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 3), 15));
-  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), std::nanf("")), 20));
-  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 4), 25));
-  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), +0.0), 10));
-  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), 5.0), 15));
-  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), -0.0), 25));
+
+  // Identical NaN bits should merge into one run.
+  const float nan = util::SafeCopy<float>(uint32_t{0x7FC00001});
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), nan), 3));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), nan), 3));
+
+  // Quiet NaNs with different payloads should remain separate.
+  const float nan_payload_1 = util::SafeCopy<float>(uint32_t{0x7FC00002});
+  const float nan_payload_2 = util::SafeCopy<float>(uint32_t{0x7FC00003});
+
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), nan_payload_1), 3));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), nan_payload_2), 3));
+
+  // Adjacent signed zeros should remain separate.
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), +0.0f), 3));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), -0.0f), 3));
+
   ASSERT_OK(builder.Finish(&result));
 
   std::shared_ptr<Array> expected_run_end_array;
   std::shared_ptr<Array> expected_value_array;
-  ArrayFromVector<Int32Type>({25, 45, 70, 75, 90, 110, 135, 145, 160, 185},
-                             &expected_run_end_array);
-  ArrayFromVector<FloatType>({1.0, 2.0, std::numeric_limits<float>::quiet_NaN(),
-                              std::numeric_limits<float>::signaling_NaN(), 3.0,
-                              std::nanf(""), 4.0, +0.0, 5, -0.0},
+
+  ArrayFromVector<Int32Type>({6, 9, 12, 15, 18}, &expected_run_end_array);
+  ArrayFromVector<FloatType>({nan, nan_payload_1, nan_payload_2, +0.0f, -0.0f},
                              &expected_value_array);
 
   AssertArraysEqual(*expected_run_end_array, *result->run_ends());
