@@ -5696,6 +5696,17 @@ def test_filtered_dataset(tempdir, pickle_module):
     assert len(list(on_part.get_fragments())) == 1
     assert on_part.to_table()["value"].to_pylist() == [3, 4]
 
+    # Fragments can be scanned without a schema,
+    # in which case partition fields are excluded from the returned batches.
+    (fragment,) = on_part.get_fragments()
+    assert fragment.to_table().to_pylist() == [{"value": 3}, {"value": 4}]
+    assert fragment.count_rows() == 2
+    on_part_and_value = ds.FilteredDataset(
+        dataset, (pc.field("part") == 2) & (pc.field("value") > 3))
+    (fragment,) = on_part_and_value.get_fragments()
+    assert fragment.to_table().to_pylist() == [{"value": 4}]
+    assert fragment.count_rows() == 1
+
     # A lazy filter on the child is folded into the FilteredDataset's filter.
     combined = ds.FilteredDataset(dataset.filter(pc.field("value") < 4),
                                   pc.field("value") > 1)

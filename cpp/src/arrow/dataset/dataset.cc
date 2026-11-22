@@ -504,10 +504,17 @@ Result<FragmentIterator> FilteredDataset::GetFragmentsImpl(
                         child_->GetFragments(std::move(combined_predicate)));
 
   // Convert the child's fragments to FilteredFragments that apply the additional filter.
-  auto filter = filter_;
-  return MakeMapIterator(
-      [filter](std::shared_ptr<Fragment> fragment) -> std::shared_ptr<Fragment> {
-        return std::make_shared<FilteredFragment>(std::move(fragment), filter);
+  // The filter is simplified using each fragment's partition expression, which removes
+  // references to partition fields, so a fragment can also be scanned with only its
+  // physical schema.
+  ARROW_ASSIGN_OR_RAISE(auto filter, filter_.Bind(*schema_));
+  return MakeMaybeMapIterator(
+      [filter](std::shared_ptr<Fragment> fragment) -> Result<std::shared_ptr<Fragment>> {
+        ARROW_ASSIGN_OR_RAISE(
+            auto fragment_filter,
+            compute::SimplifyWithGuarantee(filter, fragment->partition_expression()));
+        return std::make_shared<FilteredFragment>(std::move(fragment),
+                                                  std::move(fragment_filter));
       },
       std::move(fragments));
 }
