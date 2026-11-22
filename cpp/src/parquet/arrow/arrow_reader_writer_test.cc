@@ -2989,6 +2989,28 @@ TEST(TestArrowReadWrite, ReadCoalescedColumnSubset) {
   }
 }
 
+TEST(TestArrowReadWrite, CloseReleasesPreBufferedData) {
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(1, 100, 1, &table));
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, 100, default_arrow_writer_properties(), &buffer));
+
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ArrowReaderProperties properties;
+  properties.set_pre_buffer(true);
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK(builder.properties(properties)->Build(&reader));
+  const auto use_count = buffer.use_count();
+
+  // Pre-buffered data refers to the buffer because BufferReader is zero-copy.
+  ASSERT_OK(reader->ReadTable());
+  ASSERT_GT(buffer.use_count(), use_count);
+  reader->parquet_reader()->Close();
+  ASSERT_EQ(use_count, buffer.use_count());
+}
+
 TEST(TestArrowReadWrite, ListLargeRecords) {
   // PARQUET-1308: This test passed on Linux when num_rows was smaller
   const int num_rows = 2000;
