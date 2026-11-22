@@ -211,9 +211,7 @@ set(ARROW_FLIGHT_SRCS
 # 1.65 on (see transport/grpc/async_grpc_compat.h).  This floor is higher than
 # GRPC_ENABLE_ASYNC above, which only gates the async client.
 if(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.65")
-  list(APPEND
-       ARROW_FLIGHT_SRCS
-       transport/grpc/async_grpc_service.cc
+  list(APPEND ARROW_FLIGHT_SRCS transport/grpc/async_grpc_service.cc
        transport/grpc/async_grpc_handshake.cc)
 endif()
 
