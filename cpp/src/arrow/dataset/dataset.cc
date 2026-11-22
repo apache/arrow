@@ -20,6 +20,7 @@
 
 #include "arrow/acero/util.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/util.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/projector.h"
@@ -406,6 +407,37 @@ FilteredDataset::FilteredDataset(std::shared_ptr<Dataset> child,
       child_(std::move(child)),
       filter_(std::move(filter)) {}
 
+namespace {
+
+// Replace positional field references with references by name, so the expression
+// refers to the same fields if the schema is replaced with one that reorders them.
+Result<compute::Expression> FieldRefsToNames(compute::Expression expr,
+                                             const Schema& schema) {
+  return compute::ModifyExpression(
+      std::move(expr),
+      [&schema](compute::Expression e) -> Result<compute::Expression> {
+        const FieldRef* ref = e.field_ref();
+        if (ref == nullptr || ref->IsNameSequence()) {
+          return e;
+        }
+        ARROW_ASSIGN_OR_RAISE(auto path, ref->FindOne(schema));
+        std::vector<FieldRef> names;
+        const FieldVector* fields = &schema.fields();
+        for (int index : path.indices()) {
+          const auto& field = (*fields)[index];
+          names.emplace_back(field->name());
+          fields = &field->type()->fields();
+        }
+        FieldRef by_name(std::move(names));
+        // Fails if a name is ambiguous, e.g. due to duplicate field names
+        RETURN_NOT_OK(by_name.FindOne(schema));
+        return compute::field_ref(std::move(by_name));
+      },
+      [](compute::Expression e, compute::Expression*) { return e; });
+}
+
+}  // namespace
+
 Result<std::shared_ptr<FilteredDataset>> FilteredDataset::Make(
     std::shared_ptr<Dataset> child, compute::Expression filter) {
   // Verify the filter produces a bool
@@ -415,7 +447,9 @@ Result<std::shared_ptr<FilteredDataset>> FilteredDataset::Make(
                              *bound.type());
   }
   // Store the unbound filter so it can be bound on-demand on the unified schema of a
-  // UnionDataset.
+  // UnionDataset, with fields referenced by name so the filter refers to the same
+  // fields if they are reordered.
+  ARROW_ASSIGN_OR_RAISE(filter, FieldRefsToNames(std::move(filter), *child->schema()));
   return std::shared_ptr<FilteredDataset>(
       new FilteredDataset(std::move(child), std::move(filter)));
 }

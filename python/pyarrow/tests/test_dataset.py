@@ -5662,6 +5662,15 @@ def test_union_dataset_filter(tempdir, dstype):
                for child in union_of_filtered_direct.children)
 
 
+def test_union_dataset_filter_positional_field_ref():
+    # A positional field reference keeps referring to the same column
+    # when the union reorders the columns.
+    child = ds.dataset(pa.table({"x": [0, 1], "y": [1, 0]}))
+    reordered = pa.schema([("y", pa.int64()), ("x", pa.int64())])
+    union = ds.dataset([child.filter(pc.field(0) == 1)], schema=reordered)
+    assert union.to_table().to_pylist() == [{"y": 0, "x": 1}]
+
+
 @pytest.mark.parquet
 def test_filtered_dataset(tempdir, pickle_module):
     table = pa.table({"part": [1, 1, 2, 2], "value": [1, 2, 3, 4]})

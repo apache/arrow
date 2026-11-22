@@ -501,8 +501,10 @@ def _union_dataset(children, schema=None, **kwargs):
         # unify the children datasets' schemas
         schema = pa.unify_schemas([child.schema for child in children])
 
-    # create datasets with the requested schema
-    children = [child.replace_schema(schema) for child in children]
+    # create datasets with the requested schema, attaching any filter first so
+    # it's resolved against the child's own schema
+    children = [child._with_filter_attached().replace_schema(schema)
+                for child in children]
 
     return UnionDataset(schema, children)
 
