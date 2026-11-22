@@ -734,13 +734,14 @@ BENCHMARK(BM_AlpDecodingDouble)->Range(MIN_RANGE, MAX_RANGE);
 template <typename T>
 static std::vector<T> MakeAlpInput(int64_t length, int decimals, int exception_percent) {
   std::default_random_engine gen(/*seed=*/42);
-  std::uniform_int_distribution<int64_t> dist_digits(0, 100000);
+  const int64_t max_digits = static_cast<int64_t>(std::pow(10.0, 3 + decimals));
+  std::uniform_int_distribution<int64_t> dist_digits(0, max_digits - 1);
   std::uniform_real_distribution<T> dist_random(0, 1000);
   std::bernoulli_distribution dist_exception(exception_percent / 100.0);
-  const T scale = static_cast<T>(std::pow(10.0, decimals));
+  const T scale = static_cast<T>(std::pow(10.0, -decimals));
   std::vector<T> values(length);
   for (auto& v : values) {
-    v = dist_exception(gen) ? dist_random(gen) : static_cast<T>(dist_digits(gen)) / scale;
+    v = dist_exception(gen) ? dist_random(gen) : static_cast<T>(dist_digits(gen)) * scale;
   }
   return values;
 }
@@ -751,12 +752,15 @@ static void BM_AlpEncodingVaried(benchmark::State& state) {
   std::vector<T> values = MakeAlpInput<T>(
       state.range(0), static_cast<int>(state.range(1)), static_cast<int>(state.range(2)));
   auto encoder = MakeTypedEncoder<DType>(Encoding::ALP);
+  std::shared_ptr<Buffer> buf;
   for (auto _ : state) {
     encoder->Put(values.data(), static_cast<int>(values.size()));
-    encoder->FlushValues();
+    buf = encoder->FlushValues();
   }
   state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
   state.SetItemsProcessed(state.iterations() * values.size());
+  state.counters["compression_ratio"] =
+      static_cast<double>(values.size() * sizeof(T)) / buf->size();
 }
 
 template <typename DType>
@@ -782,14 +786,10 @@ static void BM_AlpDecodingVaried(benchmark::State& state) {
 }
 
 static void AlpCustomArguments(benchmark::internal::Benchmark* b) {
-  for (int num_values : {MIN_RANGE, MAX_RANGE}) {
-    for (int decimals : {1, 4}) {
-      for (int exception_percent : {0, 1, 10, 50, 100}) {
-        b->Args({num_values, decimals, exception_percent});
-      }
-    }
-  }
-  b->ArgNames({"num-values", "decimals", "exception-percent"});
+  b->ArgsProduct({benchmark::CreateRange(MIN_RANGE, MAX_RANGE, /*multi=*/8),
+                  {1, 4},
+                  {0, 1, 10, 50, 100}})
+      ->ArgNames({"num-values", "decimals", "exception-percent"});
 }
 
 BENCHMARK_TEMPLATE(BM_AlpEncodingVaried, FloatType)->Apply(AlpCustomArguments);
