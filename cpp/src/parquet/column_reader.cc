@@ -1794,12 +1794,12 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   }
 
   int16_t* def_levels() const final {
-    const_cast<TypedRecordReader*>(this)->MaterializeFixedLevels();
+    const_cast<TypedRecordReader*>(this)->PrepareLevels(LevelUse::kAccess);
     return def_levels_.data();
   }
 
   int16_t* rep_levels() const final {
-    const_cast<TypedRecordReader*>(this)->MaterializeFixedLevels();
+    const_cast<TypedRecordReader*>(this)->PrepareLevels(LevelUse::kAccess);
     return rep_levels_.data();
   }
 
@@ -1933,21 +1933,24 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   auto value_sink() const -> const ValueSink& { return value_sink_; }
 
  private:
-  // Rebuild the skipped markers only when the existing reader or a caller needs them
-  void MaterializeFixedLevels() {
-    if (fixed_levels_ == 0) return;
-    def_levels_.AppendFixed(fixed_levels_, this->max_def_level(), fixed_width_, false);
-    rep_levels_.AppendFixed(fixed_levels_, this->max_def_level(), fixed_width_, true);
-    levels_position_ += fixed_levels_;
-    fixed_levels_ = 0;
-  }
-  void UseGeneric() {
-    MaterializeFixedLevels();
+  enum class LevelUse { kAccess, kFallback, kRowGroupEnd };
+
+  void PrepareLevels(LevelUse use) {
+    // Rebuild markers that the fast path skipped
+    if (fixed_levels_ != 0) {
+      def_levels_.AppendFixed(fixed_levels_, this->max_def_level(), fixed_width_, false);
+      rep_levels_.AppendFixed(fixed_levels_, this->max_def_level(), fixed_width_, true);
+      levels_position_ += fixed_levels_;
+      fixed_levels_ = 0;
+    }
+    if (use == LevelUse::kAccess) return;
+
     generic_batch_ = true;
-    fixed_page_ = -1;
     fixed_phase_ = 0;
-    // Fast reads leave the level decoders untouched. Synchronize once before
-    // the generic path starts decoding the unconsumed suffix of this page.
+    if (use == LevelUse::kRowGroupEnd) return;
+
+    fixed_page_ = -1;
+    // Move the level decoders to the first unread value before reading normally
     const int32_t consumed =
         this->page_value_count() - this->available_values_current_page();
     const int32_t behind =
@@ -2028,9 +2031,7 @@ int64_t TypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
     if (!this->EnsureDataPage()) {
       if (fixed_phase_ != 0) {
         // Preserve the short list so the generic reader can report its length
-        MaterializeFixedLevels();
-        generic_batch_ = true;
-        fixed_phase_ = 0;
+        PrepareLevels(LevelUse::kRowGroupEnd);
       }
       if (!at_record_start_) {
         // We ended the row group while inside a record that we haven't seen
@@ -2077,7 +2078,7 @@ int64_t TypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
     }
     if (fixed_width_ > 0 &&
         (!generic_batch_ || fixed_levels_ != 0 || fixed_page_ != -1)) {
-      UseGeneric();
+      PrepareLevels(LevelUse::kFallback);
     }
 
     /// We perform multiple batch reads until we either exhaust the row group
@@ -2227,7 +2228,7 @@ void TypedRecordReader<DT, VS>::SkipValuesInPage(int64_t num_values) {
 template <typename DT, typename VS>
 int64_t TypedRecordReader<DT, VS>::SkipRecords(int64_t num_records) {
   if (num_records == 0) return 0;
-  if (fixed_width_ > 0) UseGeneric();
+  if (fixed_width_ > 0) PrepareLevels(LevelUse::kFallback);
 
   // Top level required field. Number of records equals number of levels,
   // and there is no read-ahead for levels.
