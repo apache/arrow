@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "arrow/array/builder_run_end.h"
+#include "arrow/array/statistics.h"
 #include "arrow/chunk_resolver.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -274,6 +275,36 @@ TEST_F(TestChunkedArray, SliceEquals) {
   ASSERT_EQ(slice5->length(), 0);
   ASSERT_EQ(slice5->num_chunks(), 1);
   ASSERT_TRUE(slice5->type()->Equals(one_->type()));
+}
+
+TEST_F(TestChunkedArray, SliceSharesPlainFullChunks) {
+  auto head = ArrayFromJSON(int32(), "[null, 2]");
+  auto middle = ArrayFromJSON(int32(), "[9, 3, null, 7]")->Slice(1, 2);
+  auto empty = middle->Slice(1, 0);
+  auto tail = ArrayFromJSON(int32(), "[5, 6]");
+  ChunkedArray input({head, empty, middle, tail});
+  auto result = input.Slice(1, 4);
+  ASSERT_EQ(result->num_chunks(), 4);
+  EXPECT_EQ(result->chunk(1), empty);
+  EXPECT_EQ(result->chunk(2), middle);
+  EXPECT_EQ(result->chunk(2)->offset(), 1);
+  AssertArraysEqual(*ArrayFromJSON(int32(), "[2]"), *result->chunk(0));
+  AssertArraysEqual(*ArrayFromJSON(int32(), "[3, null]"), *result->chunk(2));
+  AssertArraysEqual(*ArrayFromJSON(int32(), "[5]"), *result->chunk(3));
+}
+
+TEST_F(TestChunkedArray, SliceDropsStatisticsOnAlignedChunks) {
+  auto chunk_with_statistics = ArrayFromJSON(int32(), "[1, null]");
+  auto statistics = std::make_shared<ArrayStatistics>();
+  statistics->null_count = int64_t{1};
+  chunk_with_statistics->data()->statistics = statistics;
+  ChunkedArray input({chunk_with_statistics});
+
+  auto result = input.Slice(0, input.length());
+  ASSERT_EQ(result->num_chunks(), 1);
+  AssertArraysEqual(*chunk_with_statistics, *result->chunk(0));
+  EXPECT_EQ(chunk_with_statistics->data()->statistics, statistics);
+  EXPECT_EQ(result->chunk(0)->data()->statistics, nullptr);
 }
 
 TEST_F(TestChunkedArray, ZeroChunksIssues) {
