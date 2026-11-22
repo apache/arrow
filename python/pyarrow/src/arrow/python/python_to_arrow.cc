@@ -1007,6 +1007,11 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
 class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> {
  public:
   Status Append(PyObject* value) override {
+    return AppendWithCapacityRecovery([this, value]() { return AppendValue(value); });
+  }
+
+ protected:
+  Status AppendValue(PyObject* value) {
     if (PyValue::IsNull(this->options_, value)) {
       return this->struct_builder_->AppendNull();
     } else if (arrow::py::is_scalar(value)) {
@@ -1026,17 +1031,16 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
         return this->struct_builder_->Append();
       default:
         RETURN_NOT_OK(InferInputKind(value));
-        return Append(value);
+        return AppendValue(value);
     }
   }
 
- protected:
   Status Init(MemoryPool* pool) override {
     RETURN_NOT_OK((StructConverter<PyConverter, PyConverterTrait>::Init(pool)));
 
-    // This implementation will check the child values before appending itself,
-    // so no rewind is necessary
-    this->rewind_on_overflow_ = false;
+    // Child builders are appended one at a time. If a later child overflows,
+    // the chunker must discard the partially appended row before retrying.
+    this->rewind_on_overflow_ = true;
 
     // Store the field names as a PyObjects for dict matching
     num_fields_ = this->struct_type_->num_fields();
@@ -1054,6 +1058,29 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       PyList_SET_ITEM(unicode_field_names_.obj(), i, unicode);
     }
     return Status::OK();
+  }
+
+  template <typename AppendFunc>
+  Status AppendWithCapacityRecovery(AppendFunc&& append) {
+    const int64_t length_before = this->struct_builder_->length();
+    const Status status = append();
+    if (!status.IsCapacityError()) {
+      return status;
+    }
+
+    // If one child raises CapacityError, other children may already contain a
+    // partially appended row. Pad the missing children so the struct remains
+    // internally consistent; the chunker drops this placeholder row.
+    for (const auto& child : this->children_) {
+      const auto& builder = child->builder();
+      if (builder->length() == length_before) {
+        RETURN_NOT_OK(builder->AppendEmptyValue());
+      }
+    }
+    if (this->struct_builder_->length() == length_before) {
+      RETURN_NOT_OK(this->struct_builder_->Append());
+    }
+    return status;
   }
 
   Status InferInputKind(PyObject* value) {

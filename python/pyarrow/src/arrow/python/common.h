@@ -406,9 +406,9 @@ struct PyBytesView {
       size = PyByteArray_GET_SIZE(obj);
       is_utf8 = false;
     } else if (PyMemoryView_Check(obj)) {
-      PyObject* ref = PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C');
+      ref.reset(PyMemoryView_GetContiguous(obj, PyBUF_READ, 'C'));
       RETURN_IF_PYERROR();
-      Py_buffer* buffer = PyMemoryView_GET_BUFFER(ref);
+      Py_buffer* buffer = PyMemoryView_GET_BUFFER(ref.obj());
       bytes = reinterpret_cast<const char*>(buffer->buf);
       size = buffer->len;
       is_utf8 = false;
