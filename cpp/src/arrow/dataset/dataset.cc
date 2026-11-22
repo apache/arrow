@@ -344,14 +344,39 @@ std::string FilteredFragment::ToString() const {
   return fragment_->ToString();
 }
 
+namespace {
+
+// Bind a FilteredFragment's filter to the dataset schema of the scan options.
+// FilteredFragment can be constructed and scanned directly, so validate the inputs.
+Result<compute::Expression> BindFragmentFilter(const compute::Expression& filter,
+                                               const ScanOptions& options) {
+  if (options.dataset_schema == nullptr) {
+    return Status::Invalid("Scanning a FilteredFragment requires a dataset schema");
+  }
+  ARROW_ASSIGN_OR_RAISE(auto bound, filter.Bind(*options.dataset_schema));
+  if (!bound.type()->Equals(*boolean())) {
+    return Status::TypeError("FilteredFragment filter must be boolean, got ",
+                             *bound.type());
+  }
+  return bound;
+}
+
+}  // namespace
+
 Result<RecordBatchGenerator> FilteredFragment::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& options) {
   const auto& dataset_schema = options->dataset_schema;
-  ARROW_ASSIGN_OR_RAISE(auto filter, filter_.Bind(*dataset_schema));
+  ARROW_ASSIGN_OR_RAISE(auto filter, BindFragmentFilter(filter_, *options));
   ARROW_ASSIGN_OR_RAISE(filter,
                         SimplifyWithGuarantee(std::move(filter), partition_expression_));
   if (!filter.IsSatisfiable()) {
     return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
+  }
+
+  // The filter might simplify to true if it only references partition fields,
+  // in which case the wrapped fragment can be scanned unchanged.
+  if (filter == compute::literal(true)) {
+    return fragment_->ScanBatchesAsync(options);
   }
 
   // Combine any existing filter in the scan options with the fragment's filter,
@@ -360,12 +385,6 @@ Result<RecordBatchGenerator> FilteredFragment::ScanBatchesAsync(
   ARROW_ASSIGN_OR_RAISE(fragment_options->filter,
                         compute::and_(options->filter, filter).Bind(*dataset_schema));
   ARROW_ASSIGN_OR_RAISE(auto batches, fragment_->ScanBatchesAsync(fragment_options));
-
-  // The filter might simplify to true if it only references partition fields,
-  // in which case we can skip filtering batches.
-  if (filter == compute::literal(true)) {
-    return batches;
-  }
 
   // Apply the fragment's filter to scanned rows.
   // The filter in the scan options is only used for data pruning at this point
@@ -395,9 +414,10 @@ Result<RecordBatchGenerator> FilteredFragment::ScanBatchesAsync(
 
 Future<std::optional<int64_t>> FilteredFragment::CountRows(
     compute::Expression predicate, const std::shared_ptr<ScanOptions>& options) {
+  ARROW_ASSIGN_OR_RAISE(auto filter, BindFragmentFilter(filter_, *options));
   ARROW_ASSIGN_OR_RAISE(
       auto combined,
-      compute::and_(std::move(predicate), filter_).Bind(*options->dataset_schema));
+      compute::and_(std::move(predicate), filter).Bind(*options->dataset_schema));
   return fragment_->CountRows(std::move(combined), options);
 }
 

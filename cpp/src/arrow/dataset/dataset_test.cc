@@ -427,6 +427,56 @@ TEST_F(TestFilteredDataset, ScalarFilterResult) {
   ASSERT_OK_AND_EQ(2, scanner->CountRows());
 }
 
+TEST_F(TestFilteredDataset, ScanFragmentDirectly) {
+  SetSchema({field("i", int32()), field("n", null())});
+  auto batch = RecordBatchFromJSON(schema_, R"([[1, null], [2, null]])");
+  auto fragment = std::make_shared<InMemoryFragment>(schema_, RecordBatchVector{batch});
+  auto filtered = std::make_shared<FilteredFragment>(
+      fragment, compute::greater(compute::field_ref("i"), compute::literal(1)));
+
+  // The scan options must have a dataset schema.
+  auto options = std::make_shared<ScanOptions>();
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("requires a dataset schema"),
+                                  filtered->ScanBatchesAsync(options));
+  auto count = filtered->CountRows(compute::literal(true), options);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("requires a dataset schema"), count.result());
+
+  options->dataset_schema = schema_;
+  ASSERT_OK_AND_ASSIGN(auto batch_gen, filtered->ScanBatchesAsync(options));
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto batches, CollectAsyncGenerator(batch_gen));
+  ASSERT_EQ(1, batches.size());
+  AssertBatchesEqual(*RecordBatchFromJSON(schema_, R"([[2, null]])"), *batches[0]);
+
+  // The filter must be boolean. A null-typed filter would otherwise be implicitly
+  // cast when combined with other filters.
+  auto non_boolean =
+      std::make_shared<FilteredFragment>(fragment, compute::field_ref("n"));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, testing::HasSubstr("must be boolean"),
+                                  non_boolean->ScanBatchesAsync(options));
+  count = non_boolean->CountRows(compute::literal(true), options);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, testing::HasSubstr("must be boolean"),
+                                  count.result());
+}
+
+TEST_F(TestFilteredDataset, FilterOnAugmentedField) {
+  SetSchema({field("i", int32())});
+  auto batch = RecordBatchFromJSON(schema_, R"([[1], [2]])");
+  auto child = std::make_shared<InMemoryDataset>(schema_, RecordBatchVector{batch});
+  auto filter =
+      compute::equal(compute::field_ref("__filename"), compute::literal("in-memory"));
+
+  // Augmented fields can't be used in a scan filter, only in the projection.
+  ASSERT_OK_AND_ASSIGN(auto builder, child->NewScan());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("No match for FieldRef"),
+                                  builder->Filter(filter));
+
+  // So a FilteredDataset rejects them too.
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("No match for FieldRef"),
+                                  FilteredDataset::Make(child, filter));
+}
+
 TEST(TestProjector, CheckProjectable) {
   struct Assert {
     explicit Assert(FieldVector from) : from_(from) {}
