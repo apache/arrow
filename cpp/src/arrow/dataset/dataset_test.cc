@@ -460,6 +460,18 @@ TEST_F(TestFilteredDataset, ScanFragmentDirectly) {
                                   count.result());
 }
 
+TEST_F(TestFilteredDataset, MakeWithInvalidArguments) {
+  SetSchema({field("i", int32())});
+  auto child = std::make_shared<InMemoryDataset>(schema_, RecordBatchVector{});
+  auto filter = compute::greater(compute::field_ref("i"), compute::literal(1));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("child must not be null"),
+                                  FilteredDataset::Make(nullptr, filter));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("must be a valid expression"),
+                                  FilteredDataset::Make(child, compute::Expression()));
+}
+
 TEST_F(TestFilteredDataset, CountRowsWithPartitionExpression) {
   SetSchema({field("part", int32()), field("i", int32())});
   auto batch = RecordBatchFromJSON(schema_, R"([[1, 1], [1, 2]])");

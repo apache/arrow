@@ -467,6 +467,12 @@ Result<compute::Expression> FieldRefsToNames(compute::Expression expr,
 
 Result<std::shared_ptr<FilteredDataset>> FilteredDataset::Make(
     std::shared_ptr<Dataset> child, compute::Expression filter) {
+  if (child == nullptr) {
+    return Status::Invalid("FilteredDataset child must not be null");
+  }
+  if (!filter.is_valid()) {
+    return Status::Invalid("FilteredDataset filter must be a valid expression");
+  }
   // Verify the filter produces a bool
   ARROW_ASSIGN_OR_RAISE(auto bound, filter.Bind(*child->schema()));
   if (!bound.type()->Equals(*boolean())) {
