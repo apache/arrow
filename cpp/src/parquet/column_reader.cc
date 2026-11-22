@@ -1977,6 +1977,7 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
   int32_t fixed_phase_ = 0;
   int64_t fixed_levels_ = 0;
   int64_t fixed_page_ = -1;
+  // A mixed batch needs regular assembly, even when later pages can read fast
   bool generic_batch_ = false;
   ValueSink value_sink_;
   /// \brief Each bit corresponds to one element in 'values_' and specifies if it
@@ -2041,7 +2042,7 @@ int64_t TypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
       break;
     }
 
-    if (fixed_width_ > 0 && !generic_batch_ && !has_buffered_levels()) {
+    if (fixed_width_ > 0 && !has_buffered_levels()) {
       if (MatchFixedPage()) {
         // A completed row at a page end is only counted after the next page
         // proves its first marker is zero (or EOF completes the last row).
@@ -2073,8 +2074,9 @@ int64_t TypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
         }
         continue;
       }
-      UseGeneric();
-    } else if (fixed_width_ > 0 && !generic_batch_) {
+    }
+    if (fixed_width_ > 0 &&
+        (!generic_batch_ || fixed_levels_ != 0 || fixed_page_ != -1)) {
       UseGeneric();
     }
 

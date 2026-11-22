@@ -2197,6 +2197,77 @@ TEST(FixedSizeListLevels, DefinitionGate) {
   }
 }
 
+TEST(FixedSizeListRecordReader, ResumeFastReadsAfterFallbackPage) {
+  auto column = GroupNode::Make(
+      "p", Repetition::OPTIONAL,
+      {GroupNode::Make(
+          "list", Repetition::REPEATED,
+          {PrimitiveNode::Make("element", Repetition::OPTIONAL, Type::INT32)})});
+  SchemaDescriptor schema;
+  schema.Init(GroupNode::Make("root", Repetition::REQUIRED, {column}));
+  const auto* descr = schema.Column(0);
+  constexpr int width = 3;
+  constexpr int num_levels = 27;
+  constexpr int null_index = 10;
+
+  for (bool split_list : {false, true}) {
+    SCOPED_TRACE(split_list);
+    std::vector<std::shared_ptr<Page>> pages;
+    int start = 0;
+    for (int end : {9, split_list ? 17 : 18, num_levels}) {
+      std::vector<int16_t> defs, reps;
+      std::vector<int32_t> values;
+      for (int i = start; i < end; ++i) {
+        defs.push_back(i == null_index ? 2 : 3);
+        reps.push_back(i % width == 0 ? 0 : 1);
+        if (i != null_index) values.push_back(i);
+      }
+      pages.push_back(test::MakeDataPage<Int32Type>(
+          descr, values, end - start, Encoding::PLAIN, nullptr, 0, defs, 3, reps, 1));
+      start = end;
+    }
+
+    auto make_reader = [&]() {
+      auto reader = internal::RecordReader::Make(
+          {.descr = descr, .leaf_info = ComputeLevelInfo(descr)});
+      reader->SetPageReader(std::make_unique<test::MockPageReader>(pages));
+      return reader;
+    };
+    auto generic = make_reader();
+    auto fast = make_reader();
+    ASSERT_TRUE(fast->SetFixedSizeList(width));
+    ASSERT_EQ(fast->ReadRecords(7), 7);
+    ASSERT_EQ(generic->ReadRecords(7), 7);
+    ASSERT_FALSE(fast->dense_fixed_size_list());
+    ASSERT_EQ(fast->levels_position(), 21);
+    // A fast page only accounts for the levels it consumed
+    ASSERT_EQ(fast->levels_written(), split_list ? num_levels : 21);
+    ASSERT_EQ(generic->levels_written(), num_levels);
+    ASSERT_EQ(fast->values_written(), generic->values_written());
+    ASSERT_EQ(fast->null_count(), 1);
+    const auto* expected = reinterpret_cast<const int32_t*>(generic->values());
+    const auto* actual = reinterpret_cast<const int32_t*>(fast->values());
+    auto expected_valid = generic->ReleaseIsValid();
+    auto actual_valid = fast->ReleaseIsValid();
+    for (int i = 0; i < 21; ++i) {
+      const bool present = ::arrow::bit_util::GetBit(expected_valid->data(), i);
+      ASSERT_EQ(present, ::arrow::bit_util::GetBit(actual_valid->data(), i));
+      if (present) {
+        ASSERT_EQ(expected[i], actual[i]);
+      }
+    }
+    const auto* actual_defs = fast->def_levels();
+    const auto* actual_reps = fast->rep_levels();
+    ASSERT_TRUE(std::equal(actual_defs, actual_defs + 21, generic->def_levels()));
+    ASSERT_TRUE(std::equal(actual_reps, actual_reps + 21, generic->rep_levels()));
+
+    fast->Reset();
+    ASSERT_EQ(fast->ReadRecords(2), 2);
+    ASSERT_EQ(fast->dense_fixed_size_list(), !split_list);
+    ASSERT_EQ(fast->values_written(), 6);
+  }
+}
+
 TEST(FixedSizeListRecordReader, DifferentialPagesBatchesAndSkips) {
   for (int32_t width : {1, 3, 8, 9, 15, 16, 768}) {
     for (bool irregular : {false, true}) {
