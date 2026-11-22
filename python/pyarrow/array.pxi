@@ -929,6 +929,10 @@ cdef class _PandasConvertible(_Weakrefable):
         zero_copy_only : bool, default False
             Raise an ArrowException if this function call would require copying
             the underlying data.
+
+            When converting a Table or RecordBatch, the columns are converted
+            as separate pandas blocks (``split_blocks=True``) so that each
+            column can reference the original Arrow memory.
         integer_object_nulls : bool, default False
             Cast integers with nulls to objects
         date_as_object : bool, default True

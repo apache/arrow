@@ -3004,6 +3004,24 @@ class TestZeroCopyConversion:
         arr = np.array([1, None], dtype='timedelta64[ns]')
         self.check_zero_copy_failure(pa.array(arr))
 
+    def test_zero_copy_table_success(self):
+        # GH-39194: zero-copy conversion of a Table needs one block per
+        # column, which is enabled automatically for the DataFrame path
+        table = pa.table({'a': [0, 1, 2], 'b': [0.0, 1.0, 2.0]})
+        result = table.to_pandas(zero_copy_only=True)
+        expected = pd.DataFrame({'a': [0, 1, 2], 'b': [0.0, 1.0, 2.0]})
+        tm.assert_frame_equal(result, expected)
+
+    def test_zero_copy_table_failure_when_copy_needed(self):
+        table = pa.table({'a': [0, 1, None]})
+        with pytest.raises(pa.ArrowInvalid):
+            table.to_pandas(zero_copy_only=True)
+
+    def test_zero_copy_table_failure_with_strings_to_categorical(self):
+        table = pa.table({'a': ['A', 'B', 'C']})
+        with pytest.raises(pa.ArrowInvalid):
+            table.to_pandas(zero_copy_only=True, strings_to_categorical=True)
+
 
 def _non_threaded_conversion():
     df = _alltypes_example()
