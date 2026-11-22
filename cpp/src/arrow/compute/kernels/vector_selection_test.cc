@@ -35,6 +35,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -2964,6 +2965,67 @@ TEST(TestIndicesNonZero, IndicesNonZeroDecimal) {
                 R"(["765483.999999999","0.000000000",null,"-987645.000000001"])")}));
     result = actual.make_array();
     AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3]"), *result, /*verbose*/ true);
+  }
+}
+
+TEST_F(TestFilterKernel, PrimitiveWordAlignedAndSlicedExhaustive) {
+  random::RandomArrayGenerator rng(0x51C3);
+  const std::vector<std::shared_ptr<DataType>> types = {
+      boolean(),         int8(),
+      int16(),           int32(),
+      int64(),           decimal128(12, 2),
+      decimal256(38, 2), fixed_size_binary(3),
+  };
+
+  for (const auto& ty : types) {
+    ARROW_SCOPED_TRACE("type = ", *ty);
+    for (int64_t len : {0, 1, 7, 63, 64, 65, 127, 128, 129, 300, 1025}) {
+      for (double data_null_prob : {0.0, 0.2}) {
+        auto meta = KeyValueMetadata::Make({"null_probability"},
+                                           {std::to_string(data_null_prob)});
+        auto full_data = rng.ArrayOf(*field("", ty, meta), len + 17);
+        for (double filter_null_prob : {0.0, 0.15}) {
+          for (double true_prob : {0.0, 0.05, 0.5, 0.95, 1.0}) {
+            auto full_filter = rng.Boolean(len + 19, true_prob, filter_null_prob);
+            auto data = full_data->Slice(5, len);
+            auto filter = full_filter->Slice(7, len);
+
+            for (auto null_sel : {FilterOptions::DROP, FilterOptions::EMIT_NULL}) {
+              FilterOptions opts(null_sel);
+              ASSERT_OK_AND_ASSIGN(Datum actual_datum, Filter(data, filter, opts));
+              auto actual = actual_datum.make_array();
+              ASSERT_OK(actual->ValidateFull());
+
+              // Build reference via Take on expected indices (or direct scalar check).
+              std::vector<int64_t> expected_indices;
+              const auto& bool_filter = checked_cast<const BooleanArray&>(*filter);
+              for (int64_t i = 0; i < len; ++i) {
+                if (bool_filter.IsNull(i)) {
+                  if (null_sel == FilterOptions::EMIT_NULL) {
+                    expected_indices.push_back(-1);
+                  }
+                } else if (bool_filter.Value(i)) {
+                  expected_indices.push_back(i);
+                }
+              }
+              ASSERT_EQ(actual->length(), static_cast<int64_t>(expected_indices.size()));
+              for (size_t out_i = 0; out_i < expected_indices.size(); ++out_i) {
+                const int64_t src_i = expected_indices[out_i];
+                if (src_i < 0 || data->IsNull(src_i)) {
+                  ASSERT_TRUE(actual->IsNull(static_cast<int64_t>(out_i)));
+                } else {
+                  ASSERT_FALSE(actual->IsNull(static_cast<int64_t>(out_i)));
+                  ASSERT_OK_AND_ASSIGN(auto exp_scalar, data->GetScalar(src_i));
+                  ASSERT_OK_AND_ASSIGN(auto act_scalar,
+                                       actual->GetScalar(static_cast<int64_t>(out_i)));
+                  ASSERT_TRUE(exp_scalar->Equals(*act_scalar));
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
 
