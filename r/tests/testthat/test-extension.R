@@ -378,6 +378,12 @@ test_that("extension types defined outside of R can be used", {
   # The C++ guard is unreachable through r6_class(), so exercise it directly
   expect_error(ExtensionType__r6_class(type), "was not created from R")
 
+  # Storage arrays can be wrapped
+  wrapped <- type$WrapArray(storage)
+  expect_r6_class(wrapped, "ExtensionArray")
+  expect_true(wrapped$Equals(table$x$chunk(0)))
+  expect_true(new_extension_array(storage, type)$Equals(wrapped))
+
   # Conversion to R falls back to the storage array, including for slices,
   # multiple chunks, and columns nested in a struct or list
   expect_identical(as.vector(table$x), as.vector(storage))

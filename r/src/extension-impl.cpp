@@ -168,7 +168,10 @@ std::shared_ptr<arrow::DataType> ExtensionType__storage_type(
 std::shared_ptr<arrow::Array> ExtensionType__MakeArray(
     const std::shared_ptr<arrow::ExtensionType>& type,
     const std::shared_ptr<arrow::ArrayData>& data) {
-  return type->MakeArray(data);
+  // data has the storage type; shallow copy so we can set the extension type
+  std::shared_ptr<arrow::ArrayData> extension_data = data->Copy();
+  extension_data->type = type;
+  return type->MakeArray(std::move(extension_data));
 }
 
 // [[arrow::export]]
