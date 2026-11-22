@@ -38,14 +38,31 @@ def _tokenize_signature(s):
 
 
 def _convert_typehint(tokens):
+    tokens = list(tokens)
     names = []
     opening_bracket_reached = False
-    for token in tokens:
+    skip_annotation = False
+    annotation_depth = 0
+    for i, token in enumerate(tokens):
         # omit the tokens before the opening bracket
         if not opening_bracket_reached:
             if token.string == '(':
                 opening_bracket_reached = True
             else:
+                continue
+
+        if skip_annotation:
+            if token.string in ('(', '['):
+                annotation_depth += 1
+            elif token.string in (')', ']'):
+                annotation_depth -= 1
+            elif annotation_depth == 0 and token.string in (',', ')', '='):
+                # end of the annotation, keep the token itself and continue
+                # with the default value or the next parameter
+                skip_annotation = False
+            else:
+                # drop the annotation tokens, as annotations are not
+                # supported by _signature_fromstr
                 continue
 
         if token.type == 1:  # type 1 means NAME token
@@ -62,6 +79,19 @@ def _convert_typehint(tokens):
             elif len(names) > 2:
                 raise ValueError('More than two NAME tokens follow each other')
             names = []
+
+            if token.string == ':' and i + 1 < len(tokens):
+                # a parameter annotation follows, skip it until the default
+                # value or the end of the parameter
+                skip_annotation = True
+                continue
+
+            if (token.string == '*' and i + 1 < len(tokens)
+                    and tokens[i + 1].string == ')'):
+                # a trailing bare `*` marks keyword-only arguments in cython
+                # signatures but is not valid python syntax, so drop it
+                continue
+
             yield (token.type, token.string)
 
 
@@ -82,9 +112,61 @@ def inspect_signature(obj):
     """
     cython_signature = obj.__doc__.splitlines()[0]
     cython_tokens = _tokenize_signature(cython_signature)
-    python_tokens = _convert_typehint(cython_tokens)
+    python_tokens = list(_convert_typehint(cython_tokens))
     python_signature = tokenize.untokenize(python_tokens)
-    return inspect._signature_fromstr(inspect.Signature, obj, python_signature)
+    try:
+        return inspect._signature_fromstr(inspect.Signature, obj, python_signature)
+    except ValueError:
+        # _signature_fromstr can only evaluate constant default values, so
+        # retry without the defaults; the parameter names, kinds and their
+        # order are what matter for the docstring validation
+        python_signature = tokenize.untokenize(_strip_defaults(python_tokens))
+        return inspect._signature_fromstr(inspect.Signature, obj, python_signature)
+
+
+def _strip_defaults(tokens):
+    """
+    Remove the default values from a tokenized parameter list, e.g. turn
+    ``(a=1, b=SomeClass(2))`` into ``(a, b)``. Nested parentheses and
+    brackets within a default value are dropped as well.
+    """
+    depth = 0
+    skipping = False
+    for token in tokens:
+        string = token[1]
+        if skipping:
+            if string in ('(', '[', '{'):
+                depth += 1
+                continue
+            elif string in (')', ']', '}'):
+                if depth == 0:
+                    # end of the parameter, keep the closing parenthesis
+                    skipping = False
+                else:
+                    depth -= 1
+                    continue
+            elif depth == 0 and string == ',':
+                skipping = False
+            else:
+                continue
+        elif string == '=':
+            skipping = True
+            continue
+        yield token
+
+
+def _signature_determinable(obj):
+    """
+    Whether the signature of the object could be determined.
+
+    Must be called with the patched ``inspect.signature`` active, which
+    falls back to parsing the signature from the docstring of cython
+    generated callables.
+    """
+    try:
+        return inspect.signature(obj) is not None
+    except Exception:
+        return False
 
 
 class NumpyDoc:
@@ -212,6 +294,12 @@ class NumpyDoc:
                 if any(isinstance(obj, obj_type) and errcode in errcode_list
                        for obj_type, errcode_list
                        in NumpyDoc.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items()):
+                    continue
+                if errcode in ('PR01', 'PR02', 'PR03') and not _signature_determinable(obj):
+                    # numpydoc compares the documented parameters against an
+                    # empty signature when the signature could not be
+                    # determined, which would report every documented
+                    # parameter as unknown (PR02)
                     continue
                 errors.append((errcode, errmsg))
 

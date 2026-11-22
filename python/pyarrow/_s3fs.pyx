@@ -187,17 +187,6 @@ cdef class S3FileSystem(FileSystem):
         Whether to connect anonymously if access_key and secret_key are None.
         If true, will not attempt to look up credentials using standard AWS
         configuration methods.
-    role_arn : str, default None
-        AWS Role ARN.  If provided instead of access_key and secret_key,
-        temporary credentials will be fetched by assuming this role.
-    session_name : str, default None
-        An optional identifier for the assumed role session.
-    external_id : str, default None
-        An optional unique identifier that might be required when you assume
-        a role in another account.
-    load_frequency : int, default 900
-        The frequency (in seconds) with which temporary credentials from an
-        assumed role session will be refreshed.
     region : str, default None
         AWS region to connect to. If not set, the AWS SDK will attempt to
         determine the region using heuristics such as environment variables,
@@ -221,6 +210,17 @@ cdef class S3FileSystem(FileSystem):
     default_metadata : mapping or pyarrow.KeyValueMetadata, default None
         Default metadata for open_output_stream.  This will be ignored if
         non-empty metadata is passed to open_output_stream.
+    role_arn : str, default None
+        AWS Role ARN.  If provided instead of access_key and secret_key,
+        temporary credentials will be fetched by assuming this role.
+    session_name : str, default None
+        An optional identifier for the assumed role session.
+    external_id : str, default None
+        An optional unique identifier that might be required when you assume
+        a role in another account.
+    load_frequency : int, default 900
+        The frequency (in seconds) with which temporary credentials from an
+        assumed role session will be refreshed.
     proxy_options : dict or str, default None
         If a proxy is used, provide the options here. Supported options are:
         'scheme' (str: 'http' or 'https'; required), 'host' (str; required),

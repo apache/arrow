@@ -1083,6 +1083,9 @@ Examples
                  compression='snappy',
                  write_statistics=True,
                  use_deprecated_int96_timestamps=None,
+                 coerce_timestamps=None,
+                 allow_truncated_timestamps=False,
+                 data_page_size=None,
                  compression_level=None,
                  use_byte_stream_split=False,
                  column_encoding=None,
@@ -1141,6 +1144,9 @@ Examples
             use_dictionary=use_dictionary,
             write_statistics=write_statistics,
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
+            coerce_timestamps=coerce_timestamps,
+            allow_truncated_timestamps=allow_truncated_timestamps,
+            data_page_size=data_page_size,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
             column_encoding=column_encoding,
@@ -2027,16 +2033,33 @@ def read_pandas(source, columns=None, **kwargs):
     )
 
 
-read_pandas.__doc__ = _read_table_docstring.format(
-    'Read a Table from Parquet format, also reading DataFrame\n'
-    'index values if known in the file metadata',
-    "\n".join((_read_docstring_common,
-               """**kwargs
-    additional options for :func:`read_table`""")),
-    """pyarrow.Table
+read_pandas.__doc__ = """Read a Table from Parquet format, also reading DataFrame
+index values if known in the file metadata
+
+Parameters
+----------
+source : str, list of str, pyarrow.NativeFile, or file-like object
+    If a string is passed, can be a single file name or directory name. If a
+    list of strings is passed, should be file names. For file-like objects,
+    only read a single file. Use pyarrow.BufferReader to read a file contained
+    in a bytes or buffer-like object.
+columns : list
+    If not None, only these columns will be read from the file. A column
+    name may be a prefix of a nested field, e.g. 'a' will select 'a.b',
+    'a.c', and 'a.d.e'. If empty, no columns will be read. Note
+    that the table will still have the correct num_rows set despite having
+    no columns.
+**kwargs : optional
+    Additional keyword arguments passed to :func:`read_table`, refer to its
+    documentation for the available options, e.g. for reading DataFrame
+    indexes or applying filters.
+
+Returns
+-------
+pyarrow.Table
     Content of the file as a Table of Columns, including DataFrame
-    indexes as columns""",
-    _DNF_filter_doc, "")
+    indexes as columns
+"""
 
 
 def write_table(table, where, row_group_size=None, version='2.6',
