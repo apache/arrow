@@ -52,6 +52,7 @@ class EqualOptions {
   }
 
   /// Whether or not zeros with differing signs are considered equal.
+  /// Note that this option is not supported for sparse tensors.
   bool signed_zeros_equal() const { return signed_zeros_equal_; }
 
   /// Return a new EqualOptions object with the "signed_zeros_equal" property changed.
@@ -65,6 +66,7 @@ class EqualOptions {
   ///
   /// This option only affects the Equals methods
   /// and has no effect on ApproxEquals methods.
+  /// Note that this option is not supported for sparse tensors.
   /// \deprecated Deprecated in 25.0.0. Use arrow::EqualOptions::atol instead
   ARROW_DEPRECATED("Deprecated in 25.0.0. Use arrow::EqualOptions::atol instead")
   bool use_atol() const { return atol_.has_value(); }
@@ -83,6 +85,7 @@ class EqualOptions {
   }
 
   /// The absolute tolerance for approximate comparisons of floating-point values.
+  /// Note that this option is not supported for sparse tensors.
   std::optional<double> atol() const { return atol_; }
 
   /// Return a new EqualOptions object with the "atol" property changed.
@@ -96,6 +99,7 @@ class EqualOptions {
   }
 
   /// The ulp distance for approximate comparisons of floating-point values.
+  /// Note that this option is not supported for sparse tensors.
   std::optional<int32_t> ulp_distance() const { return ulp_distance_; }
 
   /// Return a new EqualOptions object with the "ulp_distance" property changed.
@@ -109,6 +113,7 @@ class EqualOptions {
   }
 
   /// Whether to compare floating-point values by their physical representation.
+  /// Note that this option is not supported for sparse tensors.
   bool physical_repr_equal() const { return physical_repr_equal_; }
 
   /// Return a copy of this EqualOptions object with the "physical_repr_equal"
