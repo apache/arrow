@@ -494,7 +494,7 @@ The build system supports a number of third-party dependencies
   * ``BZip2``: for data compression
   * ``c-ares``: a dependency of gRPC
   * ``gflags``: for command line utilities (formerly Googleflags)
-  * ``GLOG``: for logging
+  * ``GLOG``: for logging (deprecated)
   * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires
     system cURL and can use the ``BUNDLED`` method described below
   * ``gRPC``: for remote procedure calls
@@ -581,6 +581,10 @@ internet.
 To enable offline builds, you can download the source artifacts yourself and
 use environment variables of the form ``ARROW_$LIBRARY_URL`` to direct the
 build system to read from a local file rather than accessing the internet.
+Each archive is checked against the SHA256 checksum in
+``thirdparty/versions.txt``; if you use an archive that differs from the
+upstream one, you can set the matching ``ARROW_$LIBRARY_BUILD_SHA256_CHECKSUM``
+environment variable to its checksum.
 
 To make this easier for you, we have prepared a script
 ``thirdparty/download_dependencies.sh`` which will download the correct version

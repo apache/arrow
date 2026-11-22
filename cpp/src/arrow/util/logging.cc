@@ -187,6 +187,8 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
 #endif
 }
 
+ARROW_SUPPRESS_DEPRECATION_WARNING
+
 void ArrowLog::UninstallSignalAction() {
 #ifdef ARROW_USE_GLOG
   ARROW_LOG(DEBUG) << "Uninstall signal handlers.";
@@ -222,6 +224,8 @@ void ArrowLog::InstallFailureSignalHandler() {
   google::InstallFailureSignalHandler();
 #endif
 }
+
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 bool ArrowLog::IsLevelEnabled(ArrowLogLevel log_level) {
   return log_level >= severity_threshold_;

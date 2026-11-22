@@ -297,7 +297,7 @@ saved in the schema and the values of a specific field (key) are saved in
 the child array.
 
 Since child arrays are independent, Arrow does not enforce physical
-consistency between the struct's validity bitmap and those of it's children.
+consistency between the struct's validity bitmap and those of its children.
 Logically, a struct row is only valid if both the parent and the child
 bitmaps have a value of 1 for that slot (a logical AND operation).
 This allows for "hidden" data to exist in child arrays at null struct
