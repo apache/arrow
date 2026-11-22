@@ -2025,6 +2025,12 @@ int64_t TypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
   while (!at_record_start_ || records_read < num_records) {
     // Is there more data to read in this row group?
     if (!this->EnsureDataPage()) {
+      if (fixed_phase_ != 0) {
+        // Preserve the short list so the generic reader can report its length
+        MaterializeFixedLevels();
+        generic_batch_ = true;
+        fixed_phase_ = 0;
+      }
       if (!at_record_start_) {
         // We ended the row group while inside a record that we haven't seen
         // the end of yet. So increment the record count for the last record in

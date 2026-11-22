@@ -42,6 +42,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/extension/json.h"
 #include "arrow/io/api.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
@@ -52,6 +53,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"  // for ARROW_CSV and PARQUET_REQUIRE_ENCRYPTION
 #include "arrow/util/decimal.h"
@@ -3712,6 +3714,42 @@ TEST(ArrowReadWrite, FixedSizeListFastPathMixedNullPages) {
       ASSERT_OK(actual->ValidateFull());
       ASSERT_TRUE(table->Equals(*actual));
     }
+  }
+}
+
+TEST(ArrowReadWrite, FixedSizeListShortListsAcrossRowGroups) {
+  auto item = ::arrow::field("item", ::arrow::int32(), /*nullable=*/false);
+  auto list_type = ::arrow::list(item);
+  auto list_schema = ::arrow::schema({::arrow::field("root", list_type, false)});
+  auto fixed_schema =
+      ::arrow::schema({::arrow::field("root", ::arrow::fixed_size_list(item, 3), false)});
+  for (auto version : {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    SCOPED_TRACE(static_cast<int>(version));
+    auto sink = CreateOutputStream();
+    auto properties = WriterProperties::Builder().data_page_version(version)->build();
+    ASSERT_OK_AND_ASSIGN(
+        auto writer,
+        FileWriter::Open(*list_schema, default_memory_pool(), sink, properties));
+    for (const char* json :
+         {"[[1,2,3],[1,2,3],[1,2,3],[9,9]]", "[[1,2,3],[1,2,3],[1,2,3],[9]]"}) {
+      auto array = ArrayFromJSON(list_type, json);
+      ASSERT_OK(writer->WriteTable(*Table::Make(list_schema, {array}), array->length()));
+    }
+
+    // Declare a fixed width even though both row groups end with a short list
+    ASSERT_OK_AND_ASSIGN(auto schema_message,
+                         ::arrow::ipc::SerializeSchema(*fixed_schema));
+    ASSERT_OK(writer->AddKeyValueMetadata(::arrow::key_value_metadata(
+        {"ARROW:schema"}, {::arrow::util::base64_encode(schema_message->ToString())})));
+    ASSERT_OK(writer->Close());
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+    ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                               default_memory_pool()));
+    auto result = reader->ReadTable();
+    ASSERT_RAISES(Invalid, result);
+    EXPECT_THAT(result.status().message(),
+                ::testing::HasSubstr("Expected all lists to be of size=3"));
   }
 }
 
