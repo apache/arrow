@@ -5707,6 +5707,16 @@ def test_filtered_dataset(tempdir, pickle_module):
     assert fragment.to_table().to_pylist() == [{"value": 4}]
     assert fragment.count_rows() == 1
 
+    # The wrapped fragment and the simplified filter are accessible.
+    assert isinstance(fragment, ds.FilteredFragment)
+    assert isinstance(fragment.fragment, ds.ParquetFileFragment)
+    assert fragment.fragment.path.startswith(str(tempdir / "2"))
+    assert fragment.fragment.to_table()["value"].to_pylist() == [3, 4]
+    # The filter is bound, so compare string representations
+    assert str(fragment.filter_expression) == str(pc.field("value") > 3)
+    assert fragment.partition_expression.equals(
+        fragment.fragment.partition_expression)
+
     # A lazy filter on the child is folded into the FilteredDataset's filter.
     combined = ds.FilteredDataset(dataset.filter(pc.field("value") < 4),
                                   pc.field("value") > 1)

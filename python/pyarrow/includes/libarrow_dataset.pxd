@@ -163,6 +163,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const shared_ptr[CDataset]& child() const
         const CExpression& filter() const
 
+    cdef cppclass CFilteredFragment "arrow::dataset::FilteredFragment"(
+            CFragment):
+        const shared_ptr[CFragment]& fragment() const
+        const CExpression& filter() const
+
     cdef cppclass CInspectOptions "arrow::dataset::InspectOptions":
         int fragments
         CField.CMergeOptions field_merge_options

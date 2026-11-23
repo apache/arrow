@@ -1521,6 +1521,7 @@ cdef class Fragment(_Weakrefable):
             'json': FileFragment,
             'orc': FileFragment,
             'parquet': _get_parquet_symbol('ParquetFileFragment'),
+            'filtered': FilteredFragment,
         }
 
         class_ = classes.get(type_name, None)
@@ -2038,6 +2039,34 @@ cdef class Fragment(_Weakrefable):
             cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).count_rows()
+
+
+cdef class FilteredFragment(Fragment):
+    """
+    A Fragment of a FilteredDataset, which yields only the rows of a wrapped
+    Fragment that match a filter.
+    """
+
+    cdef:
+        CFilteredFragment* filtered_fragment
+
+    cdef void init(self, const shared_ptr[CFragment]& sp):
+        Fragment.init(self, sp)
+        self.filtered_fragment = <CFilteredFragment*> sp.get()
+
+    @property
+    def fragment(self):
+        """The unfiltered wrapped Fragment."""
+        return Fragment.wrap(self.filtered_fragment.fragment())
+
+    @property
+    def filter_expression(self):
+        """
+        The filter applied to the wrapped Fragment. This may be simplified
+        from the FilteredDataset's filter using the Fragment's partition
+        expression.
+        """
+        return Expression.wrap(self.filtered_fragment.filter())
 
 
 cdef class FileFragment(Fragment):

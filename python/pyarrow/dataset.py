@@ -49,6 +49,7 @@ try:
         TaggedRecordBatch,
         UnionDataset,
         FilteredDataset,
+        FilteredFragment,
         UnionDatasetFactory,
         WrittenFile,
         get_partition_keys,

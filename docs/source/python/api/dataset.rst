@@ -63,6 +63,7 @@ Classes
    UnionDataset
    FilteredDataset
    Fragment
+   FilteredFragment
    FragmentScanOptions
    TaggedRecordBatch
    Scanner
