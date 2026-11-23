@@ -3026,6 +3026,69 @@ def test_round_temporal_duration(unit, base_frequency, round_frequency):
         np.testing.assert_array_equal(result, expected)
 
 
+@pytest.mark.pandas
+@pytest.mark.timezone_data
+@pytest.mark.parametrize("unit", ("s", "ms", "us", "ns"))
+@pytest.mark.parametrize("tz", ("America/New_York", "Europe/London",
+                                "Australia/Lord_Howe", "UTC", None))
+def test_add_subtract_timestamp_interval(unit, tz):
+    # Days and months are added to the local time (like pandas.DateOffset),
+    # while the sub-day part of an interval is a fixed duration.
+    times = pd.to_datetime([
+        "2025-03-08 09:30", "2025-03-29 12:00", "2025-10-04 12:00",
+        "2025-01-31 23:00", "2024-02-29 12:00", "2025-11-01 18:00",
+        None]).as_unit(unit)
+    if tz is not None:
+        times = times.tz_localize(tz)
+    arr = pa.array(times, type=pa.timestamp(unit, tz))
+    hour = 3600 * 10**9
+    for months, days, nanos in [(0, 1, 0), (0, -1, 0), (1, 0, 0), (-12, 0, 0),
+                                (1, 1, 2 * hour), (0, 1, 24 * hour),
+                                (0, 0, 24 * hour), (0, 2, -hour)]:
+        interval = pa.scalar(pa.MonthDayNano([months, days, nanos]))
+        offset = pd.DateOffset(months=months, days=days)
+        delta = pd.Timedelta(nanos, "ns")
+
+        expected = pa.array((times + offset) + delta,
+                            type=pa.timestamp(unit, tz))
+        for func in (pc.add, pc.add_checked):
+            assert func(arr, interval).equals(expected)
+            assert func(interval, arr).equals(expected)
+
+        expected = pa.array((times - delta) - offset,
+                            type=pa.timestamp(unit, tz))
+        for func in (pc.subtract, pc.subtract_checked):
+            assert func(arr, interval).equals(expected)
+
+
+@pytest.mark.pandas
+@pytest.mark.timezone_data
+@pytest.mark.parametrize("tz,local,message", [
+    ("America/New_York", "2025-03-08 02:30", "does not exist"),
+    ("America/New_York", "2025-11-01 01:30", "is ambiguous"),
+    ("Europe/London", "2025-03-29 01:30", "does not exist"),
+    ("Australia/Lord_Howe", "2025-04-05 01:45", "is ambiguous"),
+])
+def test_add_timestamp_interval_dst_errors(tz, local, message):
+    # Adding a day lands in a DST gap or overlap: like pandas, raise.
+    times = pd.DatetimeIndex([local]).tz_localize(tz)
+    with pytest.raises(ValueError):
+        times + pd.DateOffset(days=1)
+    arr = pa.array(times)
+    with pytest.raises(pa.ArrowInvalid, match=message):
+        pc.add(arr, pa.scalar(pa.MonthDayNano([0, 1, 0])))
+
+
+def test_add_timestamp_interval_errors():
+    ts = pa.array([0], type=pa.timestamp("s"))
+    with pytest.raises(pa.ArrowInvalid, match="cannot be represented"):
+        pc.add(ts, pa.scalar(pa.MonthDayNano([0, 0, 1])))
+
+    ts = pa.array([datetime.datetime(2262, 4, 11)], type=pa.timestamp("ns"))
+    with pytest.raises(pa.ArrowInvalid, match="overflow"):
+        pc.add_checked(ts, pa.scalar(pa.MonthDayNano([1, 0, 0])))
+
+
 def test_count():
     arr = pa.array([1, 2, 3, None, None])
     assert pc.count(arr).as_py() == 3
