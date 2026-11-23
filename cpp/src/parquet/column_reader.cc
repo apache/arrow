@@ -1771,15 +1771,17 @@ struct TypedRecordReaderTraits {
 /// but makes optimizing simple cases harder.
 template <typename DType, typename ValueSink>
 class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType>>,
-                          virtual public RecordReader {
+                          public FixedSizeListRecordReader {
  public:
   using T = typename DType::c_type;
   using Base = ColumnChunkReader<TypedRecordReaderTraits<DType>>;
 
   TypedRecordReader(const ColumnDescriptor* descr, LevelInfo leaf_info, MemoryPool* pool,
-                    bool read_dense_for_nullable, ValueSink value_sink)
+                    bool read_dense_for_nullable, ValueSink value_sink,
+                    int32_t fixed_width = 0)
       : Base(descr, pool, PageLevelToIntDecoder(descr->max_definition_level()),
              PageLevelToIntDecoder(descr->max_repetition_level())),
+        fixed_width_(fixed_width),
         value_sink_(std::move(value_sink)),
         leaf_info_(leaf_info) {
     if (!read_dense_for_nullable && nullable_values()) {
@@ -1830,15 +1832,6 @@ class TypedRecordReader : public ColumnChunkReader<TypedRecordReaderTraits<DType
 
   int64_t ReadRecords(int64_t num_records) override;
 
-  bool SetFixedSizeList(int32_t width) override {
-    if constexpr (!std::is_same_v<DType, Int32Type> &&
-                  !std::is_same_v<DType, Int64Type> &&
-                  !std::is_same_v<DType, FloatType> && !std::is_same_v<DType, DoubleType>)
-      return false;
-    if (width <= 0 || this->max_rep_level() != 1 || read_dictionary()) return false;
-    fixed_width_ = width;
-    return true;
-  }
   bool dense_fixed_size_list() const override {
     return fixed_width_ > 0 && !generic_batch_ && fixed_phase_ == 0;
   }
@@ -3277,6 +3270,15 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(
 }
 
 template <typename DType>
+std::shared_ptr<FixedSizeListRecordReader> MakeGeneralRecordReader(
+    const RecordReader::MakeParams& params, int32_t fixed_width = 0) {
+  using ValueSink = ValueSinkBuffer<typename DType::c_type>;
+  return std::make_shared<TypedRecordReader<DType, ValueSink>>(
+      params.descr, params.leaf_info, params.pool, params.read_dense_for_nullable,
+      ValueSink(params.pool), fixed_width);
+}
+
+template <typename DType>
 std::shared_ptr<RecordReader> DispatchTypedRecordReader(
     const RecordReader::MakeParams& params) {
   if constexpr (std::is_same_v<DType, FLBAType>) {
@@ -3293,9 +3295,7 @@ std::shared_ptr<RecordReader> DispatchTypedRecordReader(
         return std::make_shared<FlatOptionalTypedRecordReader<DType, ValueSink>>(
             descr, pool, params.read_dense_for_nullable, ValueSink(pool));
       case RecordReaderSelector::General:
-        return std::make_shared<TypedRecordReader<DType, ValueSink>>(
-            descr, params.leaf_info, pool, params.read_dense_for_nullable,
-            ValueSink(pool));
+        return MakeGeneralRecordReader<DType>(params);
     }
     ::arrow::Unreachable();
   }
@@ -3316,6 +3316,25 @@ std::shared_ptr<RecordReader> RecordReader::Make(
       .arrow_type = arrow_type,
       .allow_levels_optimization = allow_levels_optimization,
   });
+}
+
+std::shared_ptr<FixedSizeListRecordReader> FixedSizeListRecordReader::Make(
+    const RecordReader::MakeParams& params, int32_t width) {
+  if (width <= 0 || params.descr->max_repetition_level() != 1 || params.read_dictionary) {
+    return nullptr;
+  }
+  switch (params.descr->physical_type()) {
+    case Type::INT32:
+      return MakeGeneralRecordReader<Int32Type>(params, width);
+    case Type::INT64:
+      return MakeGeneralRecordReader<Int64Type>(params, width);
+    case Type::FLOAT:
+      return MakeGeneralRecordReader<FloatType>(params, width);
+    case Type::DOUBLE:
+      return MakeGeneralRecordReader<DoubleType>(params, width);
+    default:
+      return nullptr;
+  }
 }
 
 std::shared_ptr<RecordReader> RecordReader::Make(const MakeParams& params) {

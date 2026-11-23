@@ -21,9 +21,22 @@
 #include <array>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <span>
 
+#include "parquet/column_reader.h"
+
 namespace parquet::internal {
+
+class FixedSizeListRecordReader : virtual public RecordReader {
+ public:
+  // Return nullptr if the column cannot use the fixed-size list fast path
+  static PARQUET_EXPORT std::shared_ptr<FixedSizeListRecordReader> Make(
+      const RecordReader::MakeParams& params, int32_t width);
+
+  // True if Arrow can build the batch directly from the values and list width
+  virtual bool dense_fixed_size_list() const = 0;
+};
 
 // Non-consuming recognition of the hybrid RLE/bit-packed streams used for a
 // single repeated leaf. Unrecognized layouts are handled by the normal decoder.

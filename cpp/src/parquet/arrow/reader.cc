@@ -51,6 +51,7 @@
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
+#include "parquet/fixed_size_list_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
@@ -130,7 +131,6 @@ class ColumnReaderImpl : public ColumnReader {
   virtual ::arrow::Status BuildArray(int64_t length_upper_bound,
                                      std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
   virtual bool IsOrHasRepeatedChild() const = 0;
-  virtual bool SetFixedSizeList(int32_t /*width*/) { return false; }
   virtual bool dense_fixed_size_list() const { return false; }
 };
 
@@ -467,7 +467,7 @@ class LeafReader : public ColumnReaderImpl {
  public:
   LeafReader(std::shared_ptr<ReaderContext> ctx, std::shared_ptr<Field> field,
              std::unique_ptr<FileColumnIterator> input,
-             ::parquet::internal::LevelInfo leaf_info)
+             ::parquet::internal::LevelInfo leaf_info, int32_t fixed_list_width)
       : ctx_(std::move(ctx)),
         field_(std::move(field)),
         input_(std::move(input)),
@@ -479,14 +479,18 @@ class LeafReader : public ColumnReaderImpl {
         (::arrow::is_base_binary_like(type_id) || ::arrow::is_binary_view_like(type_id))
             ? field_->type()
             : nullptr;
-    record_reader_ = RecordReader::Make({
+    RecordReader::MakeParams params{
         .descr = descr_,
         .leaf_info = leaf_info,
         .pool = ctx_->pool,
         .read_dictionary = field_->type()->id() == ::arrow::Type::DICTIONARY,
         .arrow_type = type_for_reading,
         .allow_levels_optimization = true,
-    });
+    };
+    auto fixed_reader =
+        ::parquet::internal::FixedSizeListRecordReader::Make(params, fixed_list_width);
+    fixed_list_reader_ = fixed_reader.get();
+    record_reader_ = fixed_reader ? std::move(fixed_reader) : RecordReader::Make(params);
     NextRowGroup();
   }
 
@@ -503,11 +507,8 @@ class LeafReader : public ColumnReaderImpl {
   }
 
   bool IsOrHasRepeatedChild() const final { return false; }
-  bool SetFixedSizeList(int32_t width) override {
-    return record_reader_->SetFixedSizeList(width);
-  }
   bool dense_fixed_size_list() const override {
-    return record_reader_->dense_fixed_size_list();
+    return fixed_list_reader_ && fixed_list_reader_->dense_fixed_size_list();
   }
 
   Status LoadBatch(int64_t records_to_read) final {
@@ -565,6 +566,8 @@ class LeafReader : public ColumnReaderImpl {
   std::unique_ptr<FileColumnIterator> input_;
   const ColumnDescriptor* descr_;
   std::shared_ptr<RecordReader> record_reader_;
+  // Points to the reader owned by record_reader_ when the column supports fast reads
+  const ::parquet::internal::FixedSizeListRecordReader* fixed_list_reader_ = nullptr;
 };
 
 // Column reader for extension arrays
@@ -743,11 +746,7 @@ class PARQUET_NO_EXPORT FixedSizeListReader : public ListReader<int32_t> {
                       ::parquet::internal::LevelInfo level_info,
                       std::unique_ptr<ColumnReaderImpl> child_reader)
       : ListReader(std::move(ctx), std::move(field), level_info,
-                   std::move(child_reader)) {
-    const auto& type =
-        checked_cast<const ::arrow::FixedSizeListType&>(*this->field()->type());
-    this->item_reader()->SetFixedSizeList(type.list_size());
-  }
+                   std::move(child_reader)) {}
 
   Status BuildArray(int64_t length_upper_bound,
                     std::shared_ptr<ChunkedArray>* out) override {
@@ -986,7 +985,7 @@ Status StructReader::BuildArray(int64_t length_upper_bound,
 
 Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_field,
                  const std::shared_ptr<ReaderContext>& ctx,
-                 std::unique_ptr<ColumnReaderImpl>* out) {
+                 std::unique_ptr<ColumnReaderImpl>* out, int32_t fixed_list_width = 0) {
   BEGIN_PARQUET_CATCH_EXCEPTIONS
 
   auto type_id = arrow_field->type()->id();
@@ -1018,16 +1017,21 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     std::unique_ptr<FileColumnIterator> input(
         ctx->iterator_factory(field.column_index, ctx->reader));
     *out = std::make_unique<LeafReader>(ctx, arrow_field, std::move(input),
-                                        field.level_info);
+                                        field.level_info, fixed_list_width);
   } else if (type_id == ::arrow::Type::LIST || type_id == ::arrow::Type::MAP ||
              type_id == ::arrow::Type::FIXED_SIZE_LIST ||
              type_id == ::arrow::Type::LARGE_LIST ||
              type_id == ::arrow::Type::LIST_VIEW ||
              type_id == ::arrow::Type::LARGE_LIST_VIEW) {
     auto list_field = arrow_field;
-    auto child = &field.children[0];
+    const auto& child = field.children[0];
+    const int32_t child_list_width =
+        type_id == ::arrow::Type::FIXED_SIZE_LIST
+            ? checked_cast<const ::arrow::FixedSizeListType&>(*list_field->type())
+                  .list_size()
+            : 0;
     std::unique_ptr<ColumnReaderImpl> child_reader;
-    RETURN_NOT_OK(GetReader(*child, ctx, &child_reader));
+    RETURN_NOT_OK(GetReader(child, child.field, ctx, &child_reader, child_list_width));
     if (child_reader == nullptr) {
       *out = nullptr;
       return Status::OK();

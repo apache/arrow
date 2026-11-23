@@ -77,6 +77,7 @@
 #include "parquet/arrow/writer.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
+#include "parquet/fixed_size_list_internal.h"
 #include "parquet/properties.h"
 #include "parquet/test_util.h"
 #include "parquet/types.h"
@@ -3649,9 +3650,11 @@ TEST(ArrowReadWrite, FixedSizeListFastPathPagesAndBatches) {
           if (!nullable && !dictionary && width == 3) {
             auto file = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
             const auto* column = file->metadata()->schema()->Column(0);
-            auto reader = ::parquet::internal::RecordReader::Make(
-                column, ::parquet::internal::LevelInfo::ComputeLevelInfo(column));
-            ASSERT_TRUE(reader->SetFixedSizeList(width));
+            auto reader = ::parquet::internal::FixedSizeListRecordReader::Make(
+                {.descr = column,
+                 .leaf_info = ::parquet::internal::LevelInfo::ComputeLevelInfo(column)},
+                width);
+            ASSERT_NE(reader, nullptr);
             reader->SetPageReader(file->RowGroup(0)->GetColumnPageReader(0));
 
             ASSERT_EQ(reader->ReadRecords(7), 7);

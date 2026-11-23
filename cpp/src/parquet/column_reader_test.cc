@@ -2163,9 +2163,9 @@ TEST(FixedSizeListLevels, ParquetJavaStreams) {
     SchemaDescriptor schema;
     schema.Init(GroupNode::Make("root", Repetition::REQUIRED, {column}));
     const auto* descr = schema.Column(0);
-    auto reader = internal::RecordReader::Make(
-        {.descr = descr, .leaf_info = ComputeLevelInfo(descr)});
-    ASSERT_TRUE(reader->SetFixedSizeList(c.width));
+    auto reader = internal::FixedSizeListRecordReader::Make(
+        {.descr = descr, .leaf_info = ComputeLevelInfo(descr)}, c.width);
+    ASSERT_NE(reader, nullptr);
     std::vector<std::shared_ptr<Page>> pages{page};
     reader->SetPageReader(std::make_unique<test::MockPageReader>(pages));
     int32_t value_offset = 0;
@@ -2227,15 +2227,13 @@ TEST(FixedSizeListRecordReader, ResumeFastReadsAfterFallbackPage) {
       start = end;
     }
 
-    auto make_reader = [&]() {
-      auto reader = internal::RecordReader::Make(
-          {.descr = descr, .leaf_info = ComputeLevelInfo(descr)});
-      reader->SetPageReader(std::make_unique<test::MockPageReader>(pages));
-      return reader;
-    };
-    auto generic = make_reader();
-    auto fast = make_reader();
-    ASSERT_TRUE(fast->SetFixedSizeList(width));
+    const internal::RecordReader::MakeParams params{.descr = descr,
+                                                    .leaf_info = ComputeLevelInfo(descr)};
+    auto generic = internal::RecordReader::Make(params);
+    auto fast = internal::FixedSizeListRecordReader::Make(params, width);
+    ASSERT_NE(fast, nullptr);
+    generic->SetPageReader(std::make_unique<test::MockPageReader>(pages));
+    fast->SetPageReader(std::make_unique<test::MockPageReader>(pages));
     ASSERT_EQ(fast->ReadRecords(7), 7);
     ASSERT_EQ(generic->ReadRecords(7), 7);
     ASSERT_FALSE(fast->dense_fixed_size_list());
@@ -2307,9 +2305,9 @@ TEST(FixedSizeListRecordReader, DifferentialPagesBatchesAndSkips) {
       for (bool skip : {false, true}) {
         auto generic = internal::RecordReader::Make(
             {.descr = descr, .leaf_info = ComputeLevelInfo(descr)});
-        auto fast = internal::RecordReader::Make(
-            {.descr = descr, .leaf_info = ComputeLevelInfo(descr)});
-        ASSERT_TRUE(fast->SetFixedSizeList(width));
+        auto fast = internal::FixedSizeListRecordReader::Make(
+            {.descr = descr, .leaf_info = ComputeLevelInfo(descr)}, width);
+        ASSERT_NE(fast, nullptr);
         generic->SetPageReader(std::make_unique<test::MockPageReader>(pages));
         fast->SetPageReader(std::make_unique<test::MockPageReader>(pages));
         for (int step = 0; step < 35; ++step) {
