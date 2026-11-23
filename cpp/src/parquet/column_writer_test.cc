@@ -1382,7 +1382,7 @@ TEST_F(TestFixedSizeListWriter, RejectsMixedWritingMethods) {
   EXPECT_EQ(4, writer_->rows_written());
 }
 
-// Check that the numeric shortcut rejects strings when called directly
+// Check that the shortcut rejects strings when called directly
 TEST_F(TestFixedSizeListWriter, RejectsUnsupportedType) {
   MakeWriter(Type::BYTE_ARRAY);
   auto values = ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["a", "b", "c"])");

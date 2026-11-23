@@ -3689,6 +3689,40 @@ TEST(ArrowReadWrite, FixedSizeListFastPathMatchesList) {
   ASSERT_NO_FATAL_FAILURE(CheckFixedSizeListFastPath<::arrow::DoubleType>());
 }
 
+// Check that more fixed-width types save the same bytes and read back correctly
+TEST(ArrowReadWrite, FixedSizeListFastPathMatchesListForMoreTypes) {
+  const std::pair<std::shared_ptr<DataType>, const char*> cases[] = {
+      {::arrow::int16(), "[[-1, 0, 1], [2, 3, 4], [5, 6, 7]]"},
+      {::arrow::boolean(),
+       "[[true, false, true], [false, true, false], [true, true, false]]"},
+      {::arrow::fixed_size_binary(2), R"([["ab", "cd", "ef"], ["gh", "ij", "kl"],
+                                        ["mn", "op", "qr"]])"},
+  };
+  for (const auto& [value_type, json] : cases) {
+    SCOPED_TRACE(value_type->ToString());
+    auto make_table = [&](const std::shared_ptr<DataType>& list_type) {
+      return Table::Make(::arrow::schema({::arrow::field("root", list_type)}),
+                         {ArrayFromJSON(list_type, json)});
+    };
+    auto fixed = make_table(::arrow::fixed_size_list(value_type, 3));
+    auto ordinary = make_table(::arrow::list(value_type));
+    for (auto version : {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+      SCOPED_TRACE(static_cast<int>(version));
+      auto properties = WriterProperties::Builder().data_page_version(version)->build();
+      ASSERT_OK_AND_ASSIGN(auto expected,
+                           WriteFixedListTestTable(*ordinary, properties, 3));
+      ASSERT_OK_AND_ASSIGN(auto actual, WriteFixedListTestTable(*fixed, properties, 3));
+      ASSERT_TRUE(expected->Equals(*actual));
+      ASSERT_OK_AND_ASSIGN(auto stored,
+                           WriteFixedListTestTable(*fixed, properties, 3, true));
+      ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(stored),
+                                                 default_memory_pool()));
+      ASSERT_OK_AND_ASSIGN(auto restored, reader->ReadTable());
+      ASSERT_TRUE(fixed->Equals(*restored));
+    }
+  }
+}
+
 // Measure the highest amount of writer memory tracked by Arrow during a write
 static Result<int64_t> MeasureFixedListWriterMemory(const Table& table) {
   ::arrow::ProxyMemoryPool pool(default_memory_pool());

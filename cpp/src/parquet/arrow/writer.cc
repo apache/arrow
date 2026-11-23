@@ -32,6 +32,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
@@ -145,14 +146,9 @@ bool CanWriteFixedSizeLists(const std::vector<std::shared_ptr<Array>>& arrays) {
   if (type.list_size() <= 0) {
     return false;
   }
-  switch (type.value_type()->id()) {
-    case ::arrow::Type::INT32:
-    case ::arrow::Type::INT64:
-    case ::arrow::Type::FLOAT:
-    case ::arrow::Type::DOUBLE:
-      break;
-    default:
-      return false;
+  const auto value_type = type.value_type()->id();
+  if (!::arrow::is_fixed_width(value_type) || ::arrow::is_dictionary(value_type)) {
+    return false;
   }
   for (const auto& array : arrays) {
     if (!array->type()->Equals(arrays.front()->type())) {

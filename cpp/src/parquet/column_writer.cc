@@ -1529,17 +1529,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (ctx->fixed_size_list_size > 0) {
       const int32_t list_size = ctx->fixed_size_list_size;
       const auto arrow_type = leaf_array.type_id();
-      const bool supported_type = (std::is_same_v<ParquetType, Int32Type> &&
-                                   arrow_type == ::arrow::Type::INT32) ||
-                                  (std::is_same_v<ParquetType, Int64Type> &&
-                                   arrow_type == ::arrow::Type::INT64) ||
-                                  (std::is_same_v<ParquetType, FloatType> &&
-                                   arrow_type == ::arrow::Type::FLOAT) ||
-                                  (std::is_same_v<ParquetType, DoubleType> &&
-                                   arrow_type == ::arrow::Type::DOUBLE);
-      if (!supported_type) {
+      if (!::arrow::is_fixed_width(arrow_type) || ::arrow::is_dictionary(arrow_type)) {
         return Status::Invalid(
-            "Fixed-size-list writing requires a matching numeric type");
+            "Fixed-size-list writing requires a non-dictionary fixed-width type");
       }
       if (closed_ || content_defined_chunker_ != nullptr ||
           descr_->max_repetition_level() != 1 || def_levels != nullptr ||
