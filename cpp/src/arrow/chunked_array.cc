@@ -189,9 +189,10 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length
   ARROW_CHECK_LE(offset, length_) << "Slice offset greater than array length";
   bool offset_equals_length = offset == length_;
   int curr_chunk = 0;
-  while (curr_chunk < num_chunks() && offset >= chunk(curr_chunk)->length()) {
-    offset -= chunk(curr_chunk)->length();
-    curr_chunk++;
+  if (offset >= 0) {
+    const auto location = chunk_resolver_.Resolve(offset);
+    curr_chunk = static_cast<int>(location.chunk_index);
+    offset = location.index_in_chunk;
   }
 
   ArrayVector new_chunks;
@@ -201,8 +202,10 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length
     new_chunks.push_back(chunk(std::min(curr_chunk, num_chunks() - 1))->Slice(0, 0));
   } else {
     while (curr_chunk < num_chunks() && length > 0) {
-      new_chunks.push_back(chunk(curr_chunk)->Slice(offset, length));
-      length -= chunk(curr_chunk)->length() - offset;
+      const auto& current_chunk = chunk(curr_chunk);
+      const auto chunk_length = current_chunk->length();
+      new_chunks.push_back(current_chunk->Slice(offset, length));
+      length -= chunk_length - offset;
       offset = 0;
       curr_chunk++;
     }
