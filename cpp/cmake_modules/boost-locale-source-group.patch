@@ -1,0 +1,40 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# https://github.com/boostorg/locale/pull/273
+
+From f51b58cd34a2a0e3a1ce974287ec0ede0fc9d1fe Mon Sep 17 00:00:00 2001
+From: aouxwoux <81102668+aouxwoux@users.noreply.github.com>
+Date: Sun, 25 Oct 2026 17:42:54 +0000
+Subject: [PATCH] cmake: use remove_item for locale.hpp
+
+diff --git a/libs/locale/CMakeLists.txt b/libs/locale/CMakeLists.txt
+index c0b4e6932a..efae306234 100644
+--- a/libs/locale/CMakeLists.txt
++++ b/libs/locale/CMakeLists.txt
+@@ -232,9 +232,10 @@
+ list(FILTER sources_src INCLUDE REGEX "^src/")
+ set(sources_inc ${sources})
+ list(FILTER sources_inc EXCLUDE REGEX "^src/")
++list(REMOVE_ITEM sources_inc "${CMAKE_CURRENT_SOURCE_DIR}/include/boost/locale.hpp")
++source_group("headers" FILES "include/boost/locale.hpp")
+ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src" PREFIX "sources" FILES ${sources_src})
+ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/include/boost/locale" PREFIX "headers" FILES ${sources_inc})
+-source_group("headers" FILES "include/boost/locale.hpp")
+ 
+ message(STATUS "Boost.Locale: "
+   "iconv ${BOOST_LOCALE_ENABLE_ICONV}, "

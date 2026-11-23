@@ -1097,8 +1097,22 @@ function(build_boost)
   list(APPEND CMAKE_MESSAGE_INDENT "Boost: ")
   message(STATUS "Building from source")
 
+  # Boost.Locale 1.92.0 fails to configure with CMake 4.5.0.
+  #
+  # TODO: Once we use a Boost release that includes
+  # https://github.com/boostorg/locale/pull/273,
+  # remove this workaround and boost-locale-source-group.patch.
+  # https://github.com/boostorg/boost/issues/1162
+  find_program(PATCH patch)
+  set(BOOST_PATCH_COMMAND)
+  if(PATCH)
+    set(BOOST_PATCH_COMMAND ${PATCH} -p1 -i
+                            ${CMAKE_CURRENT_LIST_DIR}/boost-locale-source-group.patch)
+  endif()
+
   fetchcontent_declare(boost
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       PATCH_COMMAND ${BOOST_PATCH_COMMAND}
                        URL ${BOOST_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
 
