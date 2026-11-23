@@ -152,6 +152,22 @@ if [ ! -f "${SRC}/tools/cmake/include/BoostRoot.cmake" ]; then
   exit 1
 fi
 
+# Boost.Locale 1.92.0 fails to configure with CMake 4.5.0, so patch it for
+# the configure step below. 
+# The patch is reverted right after configuring, because the trimmed
+# tarball must stay unpatched to allow build_boost() to apply the patch when
+# libarrow is built.
+# TODO: Remove this once we use a Boost release that includes
+# https://github.com/boostorg/locale/pull/273
+BOOST_PATCH=""
+for dir in "${SCRIPT_DIR}/../cpp" "${SCRIPT_DIR}/../../../cpp"; do
+  if [ -f "${dir}/cmake_modules/boost-locale-source-group.patch" ]; then
+    BOOST_PATCH="$(cd "${dir}/cmake_modules" && pwd)/boost-locale-source-group.patch"
+    break
+  fi
+done
+(cd "${SRC}" && patch -p1 -N -s -i "${BOOST_PATCH}")
+
 # Let Boost's CMake resolve the transitive dependencies. With
 # --log-level=VERBOSE, BoostRoot.cmake logs "Adding Boost library 'x'" for
 # each requested library and "Adding Boost dependency 'x'" for each
@@ -167,6 +183,7 @@ cmake -S "${SRC}" -B "${WORK}/build" \
   echo "Configuring Boost failed" >&2
   exit 1
 }
+(cd "${SRC}" && patch -R -p1 -s -i "${BOOST_PATCH}")
 if grep -q "has not been found" "${WORK}/cmake.log"; then
   grep "has not been found" "${WORK}/cmake.log" >&2
   echo "A library in BOOST_INCLUDE_LIBRARIES doesn't exist in ${SRC_NAME}" >&2
