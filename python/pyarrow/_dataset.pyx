@@ -1121,7 +1121,8 @@ cdef class FileSystemDataset(Dataset):
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, fragments, Schema schema, FileFormat format,
+    def __init__(self, fragments, Schema schema not None,
+                 FileFormat format not None,
                  FileSystem filesystem=None, root_partition=None):
         cdef:
             FileFragment fragment=None
@@ -1138,6 +1139,8 @@ cdef class FileSystemDataset(Dataset):
             )
 
         for fragment in fragments:
+            if fragment is None:
+                raise TypeError("Fragment must not be None")
             c_fragments.push_back(
                 static_pointer_cast[CFileFragment, CFragment](
                     fragment.unwrap()))
@@ -2758,8 +2761,8 @@ cdef class DirectoryPartitioning(KeyValuePartitioning):
         every value which may be taken by the corresponding column or an
         error will be raised in parsing.
     segment_encoding : str, default "uri"
-        After splitting paths into segments, decode the segments. Valid
-        values are "uri" (URI-decode segments) and "none" (leave as-is).
+        Method to use to encode and decode path segments. Valid values are
+        "uri" (URI-encode and decode segments) and "none" (leave as-is).
 
     Returns
     -------
@@ -3037,8 +3040,8 @@ cdef class FilenamePartitioning(KeyValuePartitioning):
         every value which may be taken by the corresponding column or an
         error will be raised in parsing.
     segment_encoding : str, default "uri"
-        After splitting paths into segments, decode the segments. Valid
-        values are "uri" (URI-decode segments) and "none" (leave as-is).
+        Method to use to encode and decode path segments. Valid values are
+        "uri" (URI-encode and decode segments) and "none" (leave as-is).
 
     Returns
     -------
@@ -4052,7 +4055,7 @@ cdef class Scanner(_Weakrefable):
         return reader
 
 
-def get_partition_keys(Expression partition_expression):
+def get_partition_keys(Expression partition_expression not None):
     """
     Extract partition keys (equality constraints between a field and a scalar)
     from an expression as a dict mapping the field's name to its value.
@@ -4236,5 +4239,5 @@ class ScanNodeOptions(_ScanNodeOptions):
         Preserve implicit ordering of data.
     """
 
-    def __init__(self, Dataset dataset, **kwargs):
+    def __init__(self, Dataset dataset not None, **kwargs):
         self._set_options(dataset, kwargs)

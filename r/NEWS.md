@@ -21,6 +21,12 @@
 
 # arrow 26.0.1
 
+## Minor improvements and fixes
+
+- Fix building from source on macOS with SDKs older than 13.3 (#55267).
+- Update bundled Brotli to 1.2.1, and use it in Windows binaries instead of
+  the version from Rtools (#55165).
+
 # arrow 26.0.0
 
 ## Breaking changes

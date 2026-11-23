@@ -225,20 +225,32 @@ void AssertColumnEq(const BlockParser& parser, int32_t col_index,
   ASSERT_EQ(quoted, expected_quoted);
 }
 
-void AssertColumnsEq(const BlockParser& parser,
-                     const std::vector<std::vector<std::string>>& expected) {
-  ASSERT_EQ(parser.num_cols(), expected.size());
-  for (int32_t col_index = 0; col_index < parser.num_cols(); ++col_index) {
-    AssertColumnEq(parser, col_index, expected[col_index]);
-  }
+// Check values and missing flags in an unquoted column.
+void AssertColumnEqWithMissing(const BlockParser& parser, int32_t col_index,
+                               const std::vector<std::string>& expected,
+                               const std::vector<bool>& expected_missing) {
+  std::vector<std::string> values;
+  std::vector<bool> missing;
+  ASSERT_OK(parser.VisitColumn(
+      col_index,
+      [&](const uint8_t* data, uint32_t size, bool quoted, bool is_missing) -> Status {
+        values.emplace_back(reinterpret_cast<const char*>(data), size);
+        missing.push_back(is_missing);
+        EXPECT_FALSE(quoted);
+        return Status::OK();
+      }));
+  ASSERT_EQ(parser.num_rows(), expected.size());
+  ASSERT_EQ(values, expected);
+  ASSERT_EQ(missing, expected_missing);
 }
 
-void AssertColumnsEq(const BlockParser& parser,
-                     const std::vector<std::vector<std::string>>& expected,
-                     const std::vector<std::vector<bool>>& quoted) {
+template <typename ColumnChecker>
+void AssertColumnsEqImpl(const BlockParser& parser,
+                         const std::vector<std::vector<std::string>>& expected,
+                         ColumnChecker&& check_column) {
   ASSERT_EQ(parser.num_cols(), expected.size());
   for (int32_t col_index = 0; col_index < parser.num_cols(); ++col_index) {
-    AssertColumnEq(parser, col_index, expected[col_index], quoted[col_index]);
+    check_column(col_index);
   }
   uint32_t total_bytes = 0;
   for (const auto& col : expected) {
@@ -247,6 +259,32 @@ void AssertColumnsEq(const BlockParser& parser,
     }
   }
   ASSERT_EQ(total_bytes, parser.num_bytes());
+}
+
+void AssertColumnsEq(const BlockParser& parser,
+                     const std::vector<std::vector<std::string>>& expected) {
+  AssertColumnsEqImpl(parser, expected, [&](int32_t col_index) {
+    AssertColumnEq(parser, col_index, expected[col_index]);
+  });
+}
+
+void AssertColumnsEq(const BlockParser& parser,
+                     const std::vector<std::vector<std::string>>& expected,
+                     const std::vector<std::vector<bool>>& quoted) {
+  ASSERT_EQ(expected.size(), quoted.size());
+  AssertColumnsEqImpl(parser, expected, [&](int32_t col_index) {
+    AssertColumnEq(parser, col_index, expected[col_index], quoted[col_index]);
+  });
+}
+
+void AssertColumnsEqWithMissing(const BlockParser& parser,
+                                const std::vector<std::vector<std::string>>& expected,
+                                const std::vector<std::vector<bool>>& expected_missing) {
+  ASSERT_EQ(expected.size(), expected_missing.size());
+  AssertColumnsEqImpl(parser, expected, [&](int32_t col_index) {
+    AssertColumnEqWithMissing(parser, col_index, expected[col_index],
+                              expected_missing[col_index]);
+  });
 }
 
 TEST(BlockParser, Basics) {
@@ -268,67 +306,145 @@ TEST(BlockParser, Basics) {
   }
 }
 
-TEST(BlockParser, PadShortRows) {
+TEST(BlockParser, MultiDelimiter) {
   auto options = ParseOptions::Defaults();
-  options.pad_short_rows = true;
+  options.delimiter_string = "||";
 
-  BlockParser parser(options, /*num_cols=*/3);
-  AssertParseOk(parser, "1,2\n3,4,5\n");
-  AssertColumnEq(parser, 0, {"1", "3"});
-  AssertColumnEq(parser, 1, {"2", "4"});
-  std::vector<std::string> values;
-  std::vector<bool> missing;
-  ASSERT_OK(parser.VisitColumn(
-      2, [&](const uint8_t* data, uint32_t size, bool, bool is_missing) -> Status {
-        values.emplace_back(reinterpret_cast<const char*>(data), size);
-        missing.push_back(is_missing);
-        return Status::OK();
-      }));
-  ASSERT_EQ(values, std::vector<std::string>({"", "5"}));
-  ASSERT_EQ(missing, std::vector<bool>({true, false}));
+  {
+    // Parse multiple input views with unmatched pipes, a quoted delimiter, and
+    // a final row without a newline.
+    BlockParser parser(options);
+    AssertParseFinal(parser, Views({"|a||b|c||d|\n", "e||\"f||g\"||h"}));
+    AssertColumnsEq(parser, {{"|a", "e"}, {"b|c", "f||g"}, {"d|", "h"}},
+                    {{false, false}, {false, true}, {false, false}});
+  }
+  {
+    // Recognize a quoted field with an embedded newline after a delimiter mismatch.
+    BlockParser parser(options);
+    AssertParseFinal(parser, "a|b||\"c\n d\"||e\n");
+    AssertColumnsEq(parser, {{"a|b"}, {"c\n d"}, {"e"}}, {{false}, {true}, {false}});
+  }
+  {
+    // Leading, consecutive, and trailing delimiters produce empty fields at EOF.
+    BlockParser parser(options);
+    AssertParseFinal(parser, "||a|b||||c||");
+    AssertColumnsEq(parser, {{""}, {"a|b"}, {""}, {"c"}, {""}});
+  }
 
-  BlockParser last_row_parser(options, /*num_cols=*/3);
-  AssertParseOk(last_row_parser, "1,2\n");
-  std::vector<bool> last_row_missing;
-  ASSERT_OK(last_row_parser.VisitLastRow(
-      [&](const uint8_t*, uint32_t, bool, bool is_missing) -> Status {
-        last_row_missing.push_back(is_missing);
-        return Status::OK();
-      }));
-  ASSERT_EQ(last_row_missing, std::vector<bool>({false, false, true}));
+  options.escaping = true;
+  {
+    BlockParser parser(options);
+    AssertParseFinal(parser, R"(a\|||b|c||"d\||e")");
+    AssertColumnsEq(parser, {{"a|"}, {"b|c"}, {"d||e"}}, {{false}, {false}, {true}});
+  }
+}
+
+TEST(BlockParser, DelimiterPrefix) {
+  auto options = ParseOptions::Defaults();
+  options.delimiter_string = "||";
+
+  BlockParser parser(options, /*num_cols=*/2);
+  AssertParsePartial(parser, "a||b|", 0);
+  AssertParseFinal(parser, "a||b|");
+  AssertColumnsEq(parser, {{"a"}, {"b|"}});
+}
+
+TEST(BlockParser, SingleCharacterDelimiterString) {
+  auto options = ParseOptions::Defaults();
+  options.delimiter = ',';
+  options.delimiter_string = "|";
+
+  BlockParser parser(options);
+  AssertParseFinal(parser, "a|b\n");
+  AssertColumnsEq(parser, {{"a"}, {"b"}});
+}
+
+TEST(BlockParser, PadShortRows) {
+  for (const std::string delimiter : {",", "||"}) {
+    ARROW_SCOPED_TRACE("delimiter = ", delimiter);
+    auto options = ParseOptions::Defaults();
+    options.delimiter_string = delimiter == "," ? "" : delimiter;
+    const std::string short_row = "1" + delimiter + "2\n";
+
+    options.pad_short_rows = true;
+    BlockParser parser(options, /*num_cols=*/3);
+    AssertParseOk(parser, short_row + "3" + delimiter + "4" + delimiter + "5\n6" +
+                              delimiter + "7" + delimiter + "\n");
+    AssertColumnsEqWithMissing(
+        parser, {{"1", "3", "6"}, {"2", "4", "7"}, {"", "5", ""}},
+        {{false, false, false}, {false, false, false}, {true, false, false}});
+
+    BlockParser final_parser(options, /*num_cols=*/3);
+    AssertParseFinal(final_parser, "6" + delimiter + "7" + delimiter);
+    AssertColumnsEqWithMissing(final_parser, {{"6"}, {"7"}, {""}},
+                               {{false}, {false}, {false}});
+
+    // Padding short rows must not accept extra columns.
+    BlockParser wide_parser(options, /*num_cols=*/2);
+    uint32_t parsed_size;
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("Expected 2 columns, got 4"),
+        ParseFinal(wide_parser,
+                   "a" + delimiter + "b" + delimiter + "\"extra" + delimiter + "field\"" +
+                       delimiter,
+                   &parsed_size));
+
+    BlockParser last_row_parser(options, /*num_cols=*/3);
+    AssertParseOk(last_row_parser, short_row);
+    std::vector<bool> last_row_missing;
+    ASSERT_OK(last_row_parser.VisitLastRow(
+        [&](const uint8_t*, uint32_t, bool, bool is_missing) -> Status {
+          last_row_missing.push_back(is_missing);
+          return Status::OK();
+        }));
+    ASSERT_EQ(last_row_missing, std::vector<bool>({false, false, true}));
+  }
 }
 
 TEST(BlockParser, IgnoreExtraColumns) {
-  auto options = ParseOptions::Defaults();
-  options.ignore_extra_columns = true;
+  for (const std::string delimiter : {",", "||"}) {
+    ARROW_SCOPED_TRACE("delimiter = ", delimiter);
+    auto options = ParseOptions::Defaults();
+    options.delimiter_string = delimiter == "," ? "" : delimiter;
+    options.ignore_extra_columns = true;
+    const std::string wide_row =
+        "a" + delimiter + "b" + delimiter + "\"extra" + delimiter + "field\"";
 
-  BlockParser parser(options, /*num_cols=*/2);
-  AssertParseOk(parser, "a,\"b\",c,\nd,e\n");
-  AssertColumnsEq(parser, {{"a", "d"}, {"b", "e"}}, {{false, false}, {true, false}});
+    BlockParser parser(options, /*num_cols=*/2);
+    AssertParseOk(parser, "a" + delimiter + "\"b\"" + delimiter + "c" + delimiter +
+                              "\nd" + delimiter + "e\n");
+    AssertColumnsEq(parser, {{"a", "d"}, {"b", "e"}}, {{false, false}, {true, false}});
 
-  BlockParser final_parser(options, /*num_cols=*/2);
-  AssertParseFinal(final_parser, "a,b,");
-  AssertColumnsEq(final_parser, {{"a"}, {"b"}});
+    BlockParser final_parser(options, /*num_cols=*/2);
+    AssertParseFinal(final_parser, wide_row + delimiter);
+    AssertColumnsEq(final_parser, {{"a"}, {"b"}});
+
+    // Ignoring extra columns must not accept short rows.
+    uint32_t parsed_size;
+    BlockParser short_parser(options, /*num_cols=*/2);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("Expected 2 columns, got 1: c"),
+        ParseFinal(short_parser, wide_row + "\nc\n", &parsed_size));
+  }
 }
 
 TEST(BlockParser, PadAndIgnore) {
-  auto options = ParseOptions::Defaults();
-  options.pad_short_rows = true;
-  options.ignore_extra_columns = true;
+  for (const std::string delimiter : {",", "||"}) {
+    ARROW_SCOPED_TRACE("delimiter = ", delimiter);
+    auto options = ParseOptions::Defaults();
+    options.delimiter_string = delimiter == "," ? "" : delimiter;
+    options.pad_short_rows = true;
+    options.ignore_extra_columns = true;
 
-  BlockParser parser(options, /*num_cols=*/2);
-  AssertParseFinal(parser, "a,b,c\nd");
-  AssertColumnEq(parser, 0, {"a", "d"});
-  std::vector<std::string> values;
-  std::vector<bool> missing;
-  ASSERT_OK(parser.VisitColumn(
-      1, [&](const uint8_t* data, uint32_t size, bool, bool is_missing) -> Status {
-        values.emplace_back(reinterpret_cast<const char*>(data), size);
-        missing.push_back(is_missing);
-        return Status::OK();
-      }));
-  ASSERT_EQ(values, std::vector<std::string>({"b", ""}));
-  ASSERT_EQ(missing, std::vector<bool>({false, true}));
+    BlockParser parser(options, /*num_cols=*/2);
+    AssertParseFinal(parser, "a" + delimiter + "b" + delimiter + "\"extra" + delimiter +
+                                 "field\"\nd\ne" + delimiter);
+    AssertColumnsEqWithMissing(parser, {{"a", "d", "e"}, {"b", "", ""}},
+                               {{false, false, false}, {false, true, false}});
+
+    AssertParseFinal(parser, "d");
+    AssertColumnsEqWithMissing(parser, {{"d"}, {""}}, {{false}, {true}});
+  }
 }
 
 TEST(BlockParser, EmptyHeader) {

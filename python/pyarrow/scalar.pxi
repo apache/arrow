@@ -28,7 +28,7 @@ cdef class Scalar(_Weakrefable):
     Notes
     -----
     This class supports Python's standard operators
-    for element-wise operations, i.e. arithmetic (`+`, `-`, `/`, `%`, `**`),
+    for element-wise operations, i.e. arithmetic (`+`, `-`, `*`, `/`, `**`),
     bitwise (`&`, `|`, `^`, `>>`, `<<`) and others.
     They can be used directly instead of calling underlying
     `pyarrow.compute` functions explicitly.

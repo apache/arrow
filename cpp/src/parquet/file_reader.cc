@@ -321,7 +321,10 @@ class SerializedFile : public ParquetFileReader::Contents {
     PARQUET_ASSIGN_OR_THROW(source_size_, source_->GetSize());
   }
 
-  void Close() override {}
+  void Close() override {
+    cached_source_.reset();
+    prebuffered_column_chunks_.clear();
+  }
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap;

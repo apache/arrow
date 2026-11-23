@@ -42,7 +42,7 @@ int64_t LogicalNullCount(const ArraySpan& span) {
       indices_valid_bitmap, span.offset, span.length,
       [=, &null_count](int64_t position, int64_t length, bool valid) {
         if (valid) {
-          // This is a run of valid indicies, so we need to look each of them up
+          // This is a run of valid indices, so we need to look each of them up
           // in the dictionary array to see if they are null
           for (int64_t i = position; i < position + length; i++) {
             CType index = indices_data[i];
@@ -74,7 +74,7 @@ void SetLogicalNullBits(const ArraySpan& span, uint8_t* out_bitmap, int64_t out_
       indices_valid_bitmap, span.offset, span.length,
       [=](int64_t position, int64_t length, bool valid) {
         if (valid) {
-          // This is a run of valid indicies, so we need to look each of them up
+          // This is a run of valid indices, so we need to look each of them up
           // in the dictionary array to see if they are null
           for (int64_t i = position; i < position + length; i++) {
             CType index = indices_data[i];

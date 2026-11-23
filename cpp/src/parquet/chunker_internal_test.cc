@@ -62,7 +62,7 @@ using ::testing::Bool;
 using ::testing::Combine;
 using ::testing::Values;
 
-// generate determinisic and platform-independent data
+// generate deterministic and platform-independent data
 inline uint64_t hash(uint64_t seed, uint64_t index) {
   uint64_t h = (index + seed) * 0xc4ceb9fe1a85ec53ull;
   h ^= h >> 33;
@@ -396,6 +396,7 @@ ParquetInfo GetColumnParquetInfo(const std::shared_ptr<Buffer>& data, int column
     while (auto page = page_reader->NextPage()) {
       if (page->type() == PageType::DATA_PAGE || page->type() == PageType::DATA_PAGE_V2) {
         auto data_page = static_cast<DataPage*>(page.get());
+        EXPECT_GT(data_page->num_values(), 0) << "empty data page";
         column_info.page_sizes.push_back(data_page->uncompressed_size());
         column_info.page_lengths.push_back(data_page->num_values());
       } else if (page->type() == PageType::DICTIONARY_PAGE) {
@@ -658,7 +659,7 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
   // exact_number_of_larger_diffs, and exact_number_of_smaller_diffs parameters specify
   // the expected number of differences with equal, larger, and smaller sums of the page
   // lengths respectively. The edit_length parameter is used to verify that the page
-  // lenght differences are exactly equal to the edit_length.
+  // length differences are exactly equal to the edit_length.
   auto diffs = FindDifferences(original.page_lengths, modified.page_lengths);
 
   // Note, the assertion function assumes that all edits are made using the same edit
@@ -684,7 +685,7 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
   if (diffs.size() != expected_number_of_diffs) {
     PrintDifferences(original.page_lengths, modified.page_lengths, diffs);
   }
-  if (diffs.size() == 0) {
+  if (diffs.empty()) {
     // no differences found, the arrays are equal
     ASSERT_TRUE(original.page_lengths == modified.page_lengths);
   }
@@ -734,7 +735,7 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
     ASSERT_EQ(left_sum, right_sum);
   }
 
-  if (diffs.size() == 0) {
+  if (diffs.empty()) {
     // no differences found, the arrays are equal
     ASSERT_TRUE(original.page_lengths == modified.page_lengths);
   }
@@ -804,14 +805,13 @@ void AssertContentDefinedChunkSizes(const std::shared_ptr<::arrow::ChunkedArray>
     ASSERT_FALSE(column_info.has_dictionary_page);
   } else {
     ASSERT_EQ(column_info.has_dictionary_page, expect_dictionary_page);
-    ASSERT_EQ(column_info.has_dictionary_page, expect_dictionary_page);
   }
 
   if (::arrow::is_fixed_width(type_id) || ::arrow::is_base_binary_like(type_id) ||
       ::arrow::is_binary_view_like(type_id)) {
     int64_t offset = 0;
 
-    auto page_lengths = column_info.page_lengths;
+    const auto& page_lengths = column_info.page_lengths;
     for (size_t i = 0; i < page_lengths.size() - 1; i++) {
       // since CDC chunking is applied on the logical values before any parquet encoding
       // we first slice the array to get the logical array and then calculate the CDC
@@ -1466,6 +1466,27 @@ TEST_P(TestCDCSingleRowGroup, ArrayOffsets) {
     auto sliced_info = GetColumnParquetInfo(sliced_parquet, /*column_index=*/0);
     ASSERT_EQ(sliced_info.size(), 1);
   }
+}
+
+TEST_P(TestCDCSingleRowGroup, IndependentOfArrayChunks) {
+  // Content-defined chunking should produce the same pages
+  // for logically equal inputs, regardless of the inputs' own
+  // in-memory chunking.
+  const auto& param = GetParam();
+  ASSERT_OK_AND_ASSIGN(auto chunked, ConcatenateTables({part1_, part2_, part3_}));
+  ASSERT_OK_AND_ASSIGN(auto combined, chunked->CombineChunks());
+  ASSERT_EQ(chunked->column(0)->num_chunks(), 3);
+  ASSERT_EQ(combined->column(0)->num_chunks(), 1);
+  ASSERT_OK_AND_ASSIGN(
+      auto chunked_parquet,
+      WriteTableToBuffer(chunked, kMinChunkSize, kMaxChunkSize, kRowGroupLength, false,
+                         param.data_page_version));
+  ASSERT_OK_AND_ASSIGN(
+      auto combined_parquet,
+      WriteTableToBuffer(combined, kMinChunkSize, kMaxChunkSize, kRowGroupLength, false,
+                         param.data_page_version));
+  ASSERT_EQ(GetPageEnds(chunked_parquet, /*column_index=*/0),
+            GetPageEnds(combined_parquet, /*column_index=*/0));
 }
 
 #if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)

@@ -2816,7 +2816,8 @@ void AddNestedCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_func
   AddNestedCoalesceKernel<StructType>(scalar_function);
   AddNestedCoalesceKernel<DenseUnionType>(scalar_function);
   AddNestedCoalesceKernel<SparseUnionType>(scalar_function);
-  AddNestedCoalesceKernel<DictionaryType>(scalar_function);
+  AddCoalesceKernel(scalar_function, Type::DICTIONARY,
+                    CoalesceFunctor<DictionaryType>::Exec, AllTypesAreIdentical());
 }
 
 void AddChooseKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
