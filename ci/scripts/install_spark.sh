@@ -27,7 +27,5 @@ fi
 spark=$1
 target=$2
 
-# TEMPORARY: test SPARK-62139 fix from fork
-spark=SPARK-62139
-git clone https://github.com/raulcd/spark "${target}"
+git clone https://github.com/apache/spark "${target}"
 git -C "${target}" checkout "${spark}"

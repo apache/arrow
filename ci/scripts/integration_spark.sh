@@ -50,7 +50,10 @@ pushd "${spark_dir}"
   # See: https://github.com/apache/arrow/issues/44986
   spark_python_tests=(
     "pyspark.sql.tests.arrow.test_arrow"
-    "pyspark.sql.tests.arrow.test_arrow_map"
+    # Skip test_arrow_map for now due to known issues with PyArrow API changes.
+    # Remove skip once Spark fixes:
+    # https://issues.apache.org/jira/browse/SPARK-62139
+    #"pyspark.sql.tests.arrow.test_arrow_map"
     "pyspark.sql.tests.arrow.test_arrow_python_udf")
 
   case "${spark_version}" in
