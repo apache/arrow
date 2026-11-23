@@ -4591,7 +4591,7 @@ def test_write_dataset_min_rows_per_group(tempdir):
 @pytest.mark.parquet
 def _row_group_sizes_per_file(base_dir):
     return {
-        os.path.relpath(path, base_dir): [
+        pathlib.Path(os.path.relpath(path, base_dir)).as_posix(): [
             md.row_group(i).num_rows for i in range(md.num_row_groups)]
         for path in sorted(ds.dataset(base_dir, format="parquet").files)
         for md in [pq.ParquetFile(path).metadata]
