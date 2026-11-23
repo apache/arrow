@@ -41,8 +41,8 @@ github:
     - rustyconover
 
   # Automatic Copilot reviews are disabled because they consume the
-  # pull request author's Copilot quota. Maintainers can still request a
-  # Copilot review manually. See GH-52357.
+  # pull request author's Copilot quota with no way to disable them. 
+  # Anyone can still request a copilot review manually. See GH-52357.
   copilot_code_review:
     enabled: false
 
