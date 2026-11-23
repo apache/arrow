@@ -208,8 +208,8 @@ identify_binary <- function(
 ) {
   if (on_windows) {
     if (VERSION_22_OR_LATER) {
-      # The binary built with Rtools45 can't be linked by the older Rtools
-      # that R < 4.4 uses, so those get the one built with Rtools40.
+      # The binary built with Rtools45 can't be linked by Rtools43 or earlier,
+      # which R < 4.4 uses, so those get the one built with Rtools40.
       if (package_version(r_version) < "4.4") {
         return("windows-x86_64-rtools40")
       } else {

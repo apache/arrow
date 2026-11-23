@@ -43,10 +43,13 @@ CPP_BUILD_DIR="${BUILD_DIR}/cpp"
 INSTALL_DIR="${BUILD_DIR}/install"
 INSTALL_DIR_WIN="$(cygpath -am "${INSTALL_DIR}")"
 
-# Prefer the runner's CMake: the one in older Rtools can be too old for Arrow
-CMAKE="cmake"
-if [ -x "${PROGRAMFILES}/CMake/bin/cmake.exe" ]; then
-  CMAKE="${PROGRAMFILES}/CMake/bin/cmake.exe"
+# Rtools42 has CMake 3.24.1 and Arrow needs 3.25, so use ${CMAKE} if set,
+# then the runner's CMake, then whatever is on PATH.
+if [ -z "${CMAKE:-}" ]; then
+  CMAKE="cmake"
+  if [ -x "${PROGRAMFILES}/CMake/bin/cmake.exe" ]; then
+    CMAKE="${PROGRAMFILES}/CMake/bin/cmake.exe"
+  fi
 fi
 
 printenv
@@ -69,8 +72,8 @@ pushd "${CPP_BUILD_DIR}"
 # * Bundled because Rtools45 doesn't ship them: AWS SDK, Thrift,
 #   google-cloud-cpp, snappy, utf8proc.
 # * re2 bundled: the Rtools45 re2 would pull abseil onto the R link line.
-# * abseil, protobuf bundled: the Rtools45 versions are too old for the
-#   bundled google-cloud-cpp.
+# * abseil, protobuf bundled: Rtools45 has abseil 20250127 and protobuf
+#   29.5.0, which are too old for the bundled google-cloud-cpp.
 # * Brotli bundled: Rtools45 has 1.2.0, without the 1.2.1 security fix
 #   (GH-55165). cURL's Brotli symbols resolve from the bundled copy too.
 # * ARROW_USE_STD_CHRONO=0: the R package supplies the time zone database

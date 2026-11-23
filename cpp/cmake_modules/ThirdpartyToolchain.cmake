@@ -3752,7 +3752,8 @@ function(build_google_cloud_cpp_storage)
       PARENT_SCOPE)
 
   # Workaround missing BCRYPT_RSA_ALG_HANDLE and BCRYPT_MD5_ALG_HANDLE macros
-  # in older MinGW-w64 headers. google-cloud-cpp v3+ uses them without guards.
+  # in the MinGW-w64 headers of RTools 40 to 45 (MinGW-w64 11.0 in RTools 45).
+  # google-cloud-cpp v3+ uses them without guards.
   set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
   find_program(PATCH patch)
   if(MINGW)
