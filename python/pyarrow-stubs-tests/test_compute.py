@@ -88,9 +88,12 @@ def test_expression_substrait() -> None:
         def SerializeToString(self) -> bytes:
             return bytes(message)
 
-    check(pc.Expression.from_substrait(bytes(message)), pc.Expression)
-    check(pc.Expression.from_substrait(pa.py_buffer(message)), pc.Expression)
-    check(pc.Expression.from_substrait(Message()), pc.Expression)
+    check(assert_type(pc.Expression.from_substrait(bytes(message)), pc.Expression),
+          pc.Expression)
+    from_buffer = pc.Expression.from_substrait(pa.py_buffer(message))
+    check(assert_type(from_buffer, pc.Expression), pc.Expression)
+    check(assert_type(pc.Expression.from_substrait(Message()), pc.Expression),
+          pc.Expression)
 
 
 def test_functions() -> None:
@@ -200,6 +203,9 @@ def test_array_wise_functions() -> None:
     check(assert_type(taken, pa.Array | pa.ChunkedArray | pa.RecordBatch | pa.Table),
           pa.Array)
 
+    # Structural transforms
+    check(pc.struct_field(pa.array([{"a": 1}]), ("a",)), pa.Array)
+
     # Replacements as an array or a Python list
     check(pc.replace_with_mask(arr, mask, pa.array([10, 30])), pa.Int64Array)
     check(pc.replace_with_mask(arr, mask, [10, 30]), pa.Int64Array)
@@ -218,7 +224,7 @@ def test_element_wise_functions() -> None:
 
     check(assert_type(pc.random(3), pa.DoubleArray), pa.DoubleArray)
 
-    # Arithmetic: Python literals, lists and tuples
+    # Python literals, lists and tuples accepted
     check(pc.abs([1, 2]), pa.Int64Array)
     check(pc.abs((1.5, -2.5)), pa.DoubleArray)
     check(pc.abs(1), pa.Int64Scalar)
@@ -233,6 +239,9 @@ def test_element_wise_functions() -> None:
     check(pc.modulo([7, -7], [3, 3]), pa.Int64Array)
     check(pc.power(arr, 2), pa.Array)
     check(pc.sqrt(pa.chunked_array([[1], [2, 3]])), pa.ChunkedArray)
+    check(pc.is_valid([1.1]), pa.BooleanArray)
+    check(pc.true_unless_null(1.1), pa.BooleanScalar)
+
     # decimal, datetime and numpy also accepted
     check(pc.sqrt(Decimal("2.25")), pa.DoubleScalar)
     check(pc.add(dt.datetime(2026, 1, 1), dt.timedelta(days=1)), pa.TimestampScalar)
@@ -272,9 +281,21 @@ def test_element_wise_functions() -> None:
     selected = pc.if_else([True, False], [1, 2], [3, 4])
     check(assert_type(selected, pa.Scalar | pa.Array | pa.ChunkedArray | pc.Expression),
           pa.Array)
+    # An Expression as the first argument gives an Expression
+    check(pc.if_else(pc.field("a") > 1, 1, 2), pc.Expression)
+    check(pc.if_else(np.bool_(True), 1, 2), pa.Int64Scalar)
     check(pc.choose(1, [1, 2], [3, 4]), pa.Int64Array)
     check(pc.fill_null(pa.array([1, None]), 5), pa.Int64Array)
     check(pc.equal([1, 2, 1], [1, 2, 3]), pa.BooleanArray)
+
+    cond = pc.make_struct([True, False], [False, None])
+    check(pc.case_when(cond, [1, 2], [12, 13]), pa.Int64Array)
+    cond = pa.scalar({"a": False, "b": True})
+    check(pc.case_when(cond, ["foo"], ["bar"]), pa.StringArray)
+    check(pc.case_when(cond, 1, 2), pa.Int64Scalar)
+    check(pc.case_when(cond, "a", "b"), pa.StringScalar)
+    check(pc.case_when([{"a": True, "b": False}], [1.1], [3.3]), pa.DoubleArray)
+    check(pc.choose([1, 2, 1], "a", "b", "c"), pa.StringArray)
 
     # Logical functions
     check(pc.and_not([True], [False]), pa.BooleanArray)
@@ -301,17 +322,30 @@ def test_element_wise_functions() -> None:
     check(pc.is_in_meta_binary([1, 2, 3], [1, 2]), pa.BooleanArray)
 
     # Structural transforms
-    check(pc.struct_field(pa.array([{"a": 1}]), ("a",)), pa.Array)
+    check(pc.list_value_length([[1], [1, 2]]), pa.Int32Array)
 
-    # An Expression as the first argument gives an Expression
-    check(pc.if_else(pc.field("a") > 1, 1, 2), pc.Expression)
+    # Conversions
+    check(pc.ceil_temporal([dt.datetime(2026, 11, 23, 10, 17)]), pa.TimestampArray)
+    check(pc.cast(1, pa.float32()), pa.FloatScalar)
+    check(pc.strftime(dt.datetime(2026, 11, 23), format="%Y-%m-%d"), pa.StringScalar)
+    check(pc.strftime(pc.field("ts"), format=b"%Y-%m-%d"), pc.Expression)
+    check(pc.strptime(["5/1/2020", None, "12/13/1900"], format='%m/%d/%Y', unit='s'),
+          pa.TimestampArray)
+    check(pc.strptime("5/1/2020", format=b'%m/%d/%Y', unit='s'), pa.TimestampScalar)
+    ree = pc.run_end_encode([1, 1, None, None, None, 2, 2, 3])
+    check(assert_type(ree, pa.RunEndEncodedArray | pa.ChunkedArray),
+          pa.RunEndEncodedArray)
+    check(assert_type(pc.run_end_decode(ree), pa.Array | pa.ChunkedArray), pa.Array)
 
     if TYPE_CHECKING:
         pc.is_in([1, 2, 3], pc.field("a"))  # type: ignore[arg-type]
+        # Fails when evaluated (ds.dataset(table).to_table(columns={"r": ...})):
+        pc.run_end_encode(pc.field("a"))  # type: ignore[arg-type]
         # TODO: test invalid code once the scalar stubs are annotated
         # pc.bit_wise_and(1.0, 1.0), pc.bit_wise_not(1.0)
         # pc.add("a", 1), pc.sqrt(dt.timedelta(days=1)), pc.if_else("yes", 1, 2)
         # pc.index_in([1, 2, 3], options=pc.SetLookupOptions(pa.scalar(2)))
+        # pc.cast(pa.table({"a": [1]}), pa.float32()), pc.cast(pc.field("a"), "int64")
 
 
 def test_agg_functions() -> None:
@@ -327,13 +361,13 @@ def test_agg_functions() -> None:
     check(pc.last(scalar), pa.Int64Scalar)
     check(pc.first_last(scalar), pa.StructScalar)
 
+    # Aggregations return no expression
+    check(assert_type(pc.mode(arr, n=2), pa.StructArray), pa.StructArray)
+
     # Quantile returns doubles, or the input type for "lower", "higher", "nearest"
     check(assert_type(pc.quantile(arr, q=[0.25, 0.75]), _Quantile), pa.DoubleArray)
     check(assert_type(pc.quantile(arr, interpolation="lower"), _Quantile),
           pa.Int64Array)
-
-    check(assert_type(pc.mode(arr, n=2), pa.StructArray), pa.StructArray)
-    check(pc.mean(arr), pa.DoubleScalar)
 
     # Python lists, tuples and NumPy arrays accepted
     check(pc.variance([1, 2, 3]), pa.DoubleScalar)
@@ -345,5 +379,6 @@ def test_agg_functions() -> None:
     check(pc.index(arr, 2), pa.Int64Scalar)
 
     # TODO: test invalid code once the scalar stubs are annotated
-    # Aggregations can't be evaluated as expressions
-    # ds.dataset(table).to_table(columns={"total": pc.sum(pc.field("a"))})
+    # Aggregations can't be evaluated as expressions, e.g. evaluating
+    # pc.sum(pc.field("a")) in ds.dataset(table).to_table(columns=...) fails:
+    # pc.sum(pc.field("a"))

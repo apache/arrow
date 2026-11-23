@@ -1089,7 +1089,7 @@ def is_in_meta_binary(
 
 # ========================= Categorizations =========================
 def is_finite(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1099,7 +1099,7 @@ is_inf = _clone_signature(is_finite)
 is_nan = _clone_signature(is_finite)
 
 def is_null(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput,
     /,
     *,
     nan_is_null: bool = False,
@@ -1107,7 +1107,7 @@ def is_null(
     memory_pool: MemoryPool | None = None,
 ) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 def is_valid(
-    values: _ScalarOrArray | _ArrayLike | Expression,
+    values: _ComputeInput,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1117,24 +1117,24 @@ true_unless_null = _clone_signature(is_valid)
 
 # ========================= Selecting / multiplexing =========================
 def case_when(
-    cond: _ScalarOrArray | Expression,
+    cond: _ComputeInput,
     /,
-    *cases: _ScalarOrArray | _ArrayLike,
+    *cases: _ComputeInput | _Literal,
     memory_pool: MemoryPool | None = None,
-) -> _ScalarOrArray | Array | Expression: ...
+) -> _ScalarOrArray | Expression: ...
 def choose(
     indices: _ComputeInput | int,
     /,
-    *values: _ScalarOrArray | _ArrayLike | _Literal,
+    *values: _ComputeInput | _Literal,
     memory_pool: MemoryPool | None = None,
 ) -> _ScalarOrArray | Expression: ...
 def coalesce(
-    *values: _ScalarOrArray | Expression, memory_pool: MemoryPool | None = None
+    *values: _ComputeInput | _Literal, memory_pool: MemoryPool | None = None
 ) -> _ScalarOrArray | Expression: ...
 def if_else(
     cond: _ComputeInput | bool | np.generic,
-    left: _ScalarOrArray | _ArrayLike | _Literal,
-    right: _ScalarOrArray | _ArrayLike | _Literal,
+    left: _ComputeInput | _Literal,
+    right: _ComputeInput | _Literal,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1146,7 +1146,7 @@ def fill_null(
 
 # ========================= Structural transforms =========================
 def list_value_length(
-    lists: _ArrayOrChunkedArray | Expression,
+    lists: _ComputeInput,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1154,7 +1154,7 @@ def list_value_length(
     Int32Scalar | Int64Scalar | Int32Array | Int64Array | ChunkedArray | Expression
 ): ...
 def make_struct(
-    *args: _ScalarOrArray | _ArrayLike | Expression,
+    *args: _ComputeInput,
     field_names: Sequence[str] = (),
     field_nullability: bool | None = None,
     field_metadata: Sequence[KeyValueMetadata] | None = None,
@@ -1164,7 +1164,7 @@ def make_struct(
 
 # ========================= Conversions =========================
 def ceil_temporal(
-    timestamps: _ScalarOrArray | Expression,
+    timestamps: _ComputeInput,
     /,
     multiple: int = 1,
     unit: _DateTimeUnit = "day",
@@ -1180,25 +1180,25 @@ floor_temporal = _clone_signature(ceil_temporal)
 round_temporal = _clone_signature(ceil_temporal)
 
 def cast(
-    arr: _ScalarOrArray | Table,
+    arr: _ScalarOrArray | _ArrayLike | _Literal,
     target_type: DataType | str | None = None,
     safe: bool | None = None,
     options: CastOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> Scalar | Array | ChunkedArray | Table: ...
+) -> Scalar | Array | ChunkedArray: ...
 def strftime(
-    timestamps: _ScalarOrArray | Expression,
+    timestamps: _ComputeInput | _TemporalLiteral,
     /,
-    format: str = "%Y-%m-%dT%H:%M:%S",
+    format: str | bytes = "%Y-%m-%dT%H:%M:%S",
     locale: str = "C",
     *,
     options: StrftimeOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> StringScalar | StringArray | ChunkedArray | Expression: ...
 def strptime(
-    strings: _ScalarOrArray | Expression,
+    strings: _ComputeInput | str,
     /,
-    format: str,
+    format: str | bytes,
     unit: TimeUnit,
     error_is_null: bool = False,
     *,
@@ -1206,19 +1206,19 @@ def strptime(
     memory_pool: MemoryPool | None = None,
 ) -> TimestampScalar | TimestampArray | ChunkedArray | Expression: ...
 def run_end_encode(
-    array: _ArrayOrChunkedArray | Expression,
+    array: _ArrayOrChunkedArray | _ArrayLike,
     /,
     run_end_type: DataType | str = ...,
     *,
     options: RunEndEncodeOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> RunEndEncodedArray | ChunkedArray | Expression: ...
+) -> RunEndEncodedArray | ChunkedArray: ...
 def run_end_decode(
-    array: _ArrayOrChunkedArray | Expression,
+    array: _ArrayOrChunkedArray | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _ArrayOrChunkedArray | Expression: ...
+) -> _ArrayOrChunkedArray: ...
 
 # ========================= Temporal component extraction =========================
 def day(
