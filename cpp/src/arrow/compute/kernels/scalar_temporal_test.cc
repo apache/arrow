@@ -927,6 +927,40 @@ TEST_F(ScalarTemporalTest, TestNonexistentTimezone) {
   }
 }
 
+// GH-55743: year_month_day must not write past its child builders
+// for inputs longer than the 32-element minimum builder capacity.
+TEST_F(ScalarTemporalTest, YearMonthDayLongInput) {
+  constexpr int32_t kLength = 100;
+  std::vector<int32_t> days(kLength);
+  std::vector<bool> is_valid(kLength);
+  for (int32_t i = 0; i < kLength; ++i) {
+    days[i] = i * 11;
+    is_valid[i] = (i % 7 != 3);
+  }
+  std::shared_ptr<Array> no_nulls, with_nulls;
+  ArrayFromVector<Date32Type>(days, &no_nulls);
+  ArrayFromVector<Date32Type>(is_valid, days, &with_nulls);
+
+  for (const auto& dates : {no_nulls, with_nulls}) {
+    for (const auto& type : {date32(), date64(), timestamp(TimeUnit::SECOND),
+                             timestamp(TimeUnit::NANO, "UTC")}) {
+      ARROW_SCOPED_TRACE("type = ", type->ToString(),
+                         ", null_count = ", dates->null_count());
+      ASSERT_OK_AND_ASSIGN(Datum input, Cast(dates, type));
+      ASSERT_OK_AND_ASSIGN(Datum year, Year(input));
+      ASSERT_OK_AND_ASSIGN(Datum month, Month(input));
+      ASSERT_OK_AND_ASSIGN(Datum day, Day(input));
+      ASSERT_OK_AND_ASSIGN(
+          auto expected,
+          StructArray::Make({year.make_array(), month.make_array(), day.make_array()},
+                            {"year", "month", "day"}, dates->data()->buffers[0]));
+      ASSERT_OK_AND_ASSIGN(Datum actual, YearMonthDay(input));
+      ASSERT_OK(actual.make_array()->ValidateFull());
+      AssertArraysEqual(*expected, *actual.make_array(), /*verbose=*/true);
+    }
+  }
+}
+
 TEST_F(ScalarTemporalTest, Week) {
   auto unit = timestamp(TimeUnit::NANO);
   std::string week_100 =
