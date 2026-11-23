@@ -38,6 +38,7 @@
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
+#include "parquet/column_writer_internal.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/geospatial/statistics.h"
@@ -1357,8 +1358,7 @@ class TestFixedSizeListWriter : public ::testing::Test {
 TEST_F(TestFixedSizeListWriter, RejectsMixedWritingMethods) {
   MakeWriter(Type::INT32);
   auto values = ::arrow::ArrayFromJSON(::arrow::int32(), "[1, 2, 3, 4, 5, 6]");
-  context_.fixed_size_list_size = 3;
-  ASSERT_OK(writer_->WriteArrow(nullptr, nullptr, 6, *values, &context_, true));
+  ASSERT_OK(internal::WriteArrowFixedSizeList(*writer_, 3, *values, &context_));
   EXPECT_EQ(2, writer_->rows_written());
   EXPECT_EQ(0, writer_->estimated_buffered_def_level_bytes());
   EXPECT_EQ(0, writer_->estimated_buffered_rep_level_bytes());
@@ -1373,12 +1373,10 @@ TEST_F(TestFixedSizeListWriter, RejectsMixedWritingMethods) {
   EXPECT_THROW(typed->WriteBatchSpaced(3, definitions, repetitions, &validity, 0, spaced),
                ParquetException);
   auto packed_array = ::arrow::ArrayFromJSON(::arrow::int32(), "[7, 9]");
-  context_.fixed_size_list_size = 0;
   EXPECT_TRUE(
       writer_->WriteArrow(definitions, repetitions, 3, *packed_array, &context_, true)
           .IsInvalid());
-  context_.fixed_size_list_size = 3;
-  ASSERT_OK(writer_->WriteArrow(nullptr, nullptr, 6, *values, &context_, true));
+  ASSERT_OK(internal::WriteArrowFixedSizeList(*writer_, 3, *values, &context_));
   EXPECT_EQ(4, writer_->rows_written());
 }
 
@@ -1386,21 +1384,19 @@ TEST_F(TestFixedSizeListWriter, RejectsMixedWritingMethods) {
 TEST_F(TestFixedSizeListWriter, RejectsUnsupportedType) {
   MakeWriter(Type::BYTE_ARRAY);
   auto values = ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["a", "b", "c"])");
-  context_.fixed_size_list_size = 3;
   EXPECT_TRUE(
-      writer_->WriteArrow(nullptr, nullptr, 3, *values, &context_, true).IsInvalid());
+      internal::WriteArrowFixedSizeList(*writer_, 3, *values, &context_).IsInvalid());
   EXPECT_EQ(0, writer_->rows_written());
 }
 
-// Check that callers cannot supply both marker arrays and a list-size shortcut
-TEST_F(TestFixedSizeListWriter, RejectsMarkersWithRecipe) {
+// Check that the shortcut needs a positive size and complete lists
+TEST_F(TestFixedSizeListWriter, RejectsInvalidListSizes) {
   MakeWriter(Type::INT32);
   auto values = ::arrow::ArrayFromJSON(::arrow::int32(), "[1, 2, 3]");
-  const int16_t definitions[] = {3, 3, 3};
-  const int16_t repetitions[] = {0, 1, 1};
-  context_.fixed_size_list_size = 3;
-  EXPECT_TRUE(writer_->WriteArrow(definitions, repetitions, 3, *values, &context_, true)
-                  .IsInvalid());
+  for (int32_t list_size : {-1, 0, 2}) {
+    EXPECT_TRUE(internal::WriteArrowFixedSizeList(*writer_, list_size, *values, &context_)
+                    .IsInvalid());
+  }
   EXPECT_EQ(0, writer_->rows_written());
 }
 

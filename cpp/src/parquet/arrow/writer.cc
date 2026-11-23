@@ -43,6 +43,7 @@
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/column_writer.h"
+#include "parquet/column_writer_internal.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
 #include "parquet/platform.h"
@@ -210,16 +211,13 @@ class ArrowColumnWriterV2 {
         } else {
           const auto& type = checked_cast<const ::arrow::FixedSizeListType&>(
               *fixed_size_lists_.front()->type());
-          auto fast_ctx = *ctx;
-          fast_ctx.fixed_size_list_size = type.list_size();
           for (const auto& array : fixed_size_lists_) {
             const auto& lists = checked_cast<const ::arrow::FixedSizeListArray&>(*array);
             // Take only the values belonging to this slice of lists
             auto values = lists.values()->Slice(lists.value_offset(0),
                                                 lists.length() * type.list_size());
-            RETURN_NOT_OK(column_writer->WriteArrow(nullptr, nullptr, values->length(),
-                                                    *values, &fast_ctx,
-                                                    type.value_field()->nullable()));
+            RETURN_NOT_OK(::parquet::internal::WriteArrowFixedSizeList(
+                *column_writer, type.list_size(), *values, ctx));
           }
         }
       }

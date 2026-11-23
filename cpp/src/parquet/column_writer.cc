@@ -52,6 +52,7 @@
 #include "parquet/bloom_filter_writer.h"
 #include "parquet/chunker_internal.h"
 #include "parquet/column_page.h"
+#include "parquet/column_writer_internal.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
@@ -820,6 +821,9 @@ class ColumnWriterImpl {
 
   int64_t Close();
 
+  virtual Status WriteArrowFixedSizeList(int32_t list_size, const Array& values,
+                                         ArrowWriteContext* ctx) = 0;
+
  protected:
   virtual std::shared_ptr<Buffer> GetValuesBuffer() = 0;
 
@@ -1539,37 +1543,37 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
                 WriteChunk, [this]() { return num_buffered_rows_; });
   }
 
+  Status WriteArrowFixedSizeList(int32_t list_size, const Array& values,
+                                 ArrowWriteContext* ctx) override {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    const auto arrow_type = values.type_id();
+    if (!::arrow::is_fixed_width(arrow_type) || ::arrow::is_dictionary(arrow_type)) {
+      return Status::Invalid(
+          "Fixed-size-list writing requires a non-dictionary fixed-width type");
+    }
+    const int64_t num_levels = values.length();
+    if (closed_ || content_defined_chunker_ != nullptr ||
+        descr_->max_repetition_level() != 1 || list_size <= 0 ||
+        num_levels % list_size != 0 || values.null_count() != 0) {
+      return Status::Invalid("Invalid input for fixed-size-list writing");
+    }
+    if ((fixed_size_list_size_ == 0 && num_buffered_values_ != 0) ||
+        (fixed_size_list_size_ != 0 && fixed_size_list_size_ != list_size)) {
+      return Status::Invalid("Cannot mix fixed-size-list writing paths");
+    }
+    if (num_levels == 0) {
+      return Status::OK();
+    }
+    fixed_size_list_size_ = list_size;
+    return WriteArrowDense(nullptr, nullptr, num_levels, values, ctx,
+                           /*maybe_parent_nulls=*/false);
+    END_PARQUET_CATCH_EXCEPTIONS
+  }
+
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
                     int64_t num_levels, const ::arrow::Array& leaf_array,
                     ArrowWriteContext* ctx, bool leaf_field_nullable) override {
     BEGIN_PARQUET_CATCH_EXCEPTIONS
-    if (ctx->fixed_size_list_size < 0) {
-      return Status::Invalid("Fixed-size-list size must not be negative");
-    }
-    if (ctx->fixed_size_list_size > 0) {
-      const int32_t list_size = ctx->fixed_size_list_size;
-      const auto arrow_type = leaf_array.type_id();
-      if (!::arrow::is_fixed_width(arrow_type) || ::arrow::is_dictionary(arrow_type)) {
-        return Status::Invalid(
-            "Fixed-size-list writing requires a non-dictionary fixed-width type");
-      }
-      if (closed_ || content_defined_chunker_ != nullptr ||
-          descr_->max_repetition_level() != 1 || def_levels != nullptr ||
-          rep_levels != nullptr || num_levels < 0 || num_levels % list_size != 0 ||
-          leaf_array.length() != num_levels || leaf_array.null_count() != 0) {
-        return Status::Invalid("Invalid input for fixed-size-list writing");
-      }
-      if ((fixed_size_list_size_ == 0 && num_buffered_values_ != 0) ||
-          (fixed_size_list_size_ != 0 && fixed_size_list_size_ != list_size)) {
-        return Status::Invalid("Cannot mix fixed-size-list writing paths");
-      }
-      if (num_levels == 0) {
-        return Status::OK();
-      }
-      fixed_size_list_size_ = list_size;
-      return WriteArrowDense(nullptr, nullptr, num_levels, leaf_array, ctx,
-                             /*maybe_parent_nulls=*/false);
-    }
     if (fixed_size_list_size_ != 0) {
       return Status::Invalid("Cannot mix fixed-size-list writing paths");
     }
@@ -2857,6 +2861,15 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
       break;
   }
   return Status::OK();
+}
+
+Status internal::WriteArrowFixedSizeList(ColumnWriter& writer, int32_t list_size,
+                                         const Array& values, ArrowWriteContext* ctx) {
+  auto* impl = dynamic_cast<ColumnWriterImpl*>(&writer);
+  if (impl == nullptr) {
+    return Status::Invalid("Column writer does not support fixed-size-list writing");
+  }
+  return impl->WriteArrowFixedSizeList(list_size, values, ctx);
 }
 
 // ----------------------------------------------------------------------
