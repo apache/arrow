@@ -136,6 +136,13 @@ if(ARROW_FLIGHT)
   endif()
   target_compile_options(flight-grpc-example PRIVATE ${FLIGHT_GRPC_EXAMPLE_FORCE_INCLUDE})
 
+  add_arrow_example(flight_async_server_example
+                    EXTRA_LINK_LIBS
+                    ${FLIGHT_EXAMPLES_LINK_LIBS}
+                    gRPC::grpc++
+                    ${ARROW_PROTOBUF_LIBPROTOBUF}
+                    ${GFLAGS_LIBRARIES})
+
   if(ARROW_FLIGHT_SQL)
     if(ARROW_BUILD_SHARED AND ARROW_GRPC_USE_SHARED)
       set(FLIGHT_SQL_EXAMPLES_LINK_LIBS arrow_flight_sql_shared)
