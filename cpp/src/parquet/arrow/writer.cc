@@ -214,7 +214,7 @@ class ArrowColumnWriterV2 {
           fast_ctx.fixed_size_list_size = type.list_size();
           for (const auto& array : fixed_size_lists_) {
             const auto& lists = checked_cast<const ::arrow::FixedSizeListArray&>(*array);
-            // Take only the numbers belonging to this slice of lists
+            // Take only the values belonging to this slice of lists
             auto values = lists.values()->Slice(lists.value_offset(0),
                                                 lists.length() * type.list_size());
             RETURN_NOT_OK(column_writer->WriteArrow(nullptr, nullptr, values->length(),
