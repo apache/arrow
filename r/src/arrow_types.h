@@ -133,7 +133,7 @@ bool can_reuse_memory(SEXP x, const std::shared_ptr<arrow::DataType>& type);
 // entirely in C++. Other types of objects are converted using the
 // infer_type() S3 generic and the as_arrow_array() S3 generic.
 // For data.frame, we need to recurse because the internal conversion
-// can't accomodate calling into R. If the user specifies a target type
+// can't accommodate calling into R. If the user specifies a target type
 // and that target type is an ExtensionType, we also can't convert
 // natively (but we check for this separately when it applies).
 static inline bool can_convert_native(SEXP x) {

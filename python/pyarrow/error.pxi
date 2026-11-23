@@ -19,15 +19,12 @@ from cpython.exc cimport PyErr_CheckSignals, PyErr_SetInterrupt
 
 from pyarrow.includes.libarrow cimport CStatus
 from pyarrow.includes.libarrow_python cimport IsPyError, RestorePyError
-from pyarrow.includes.common cimport c_string
 
-from contextlib import contextmanager
 import os
 import signal
 import threading
 
 from pyarrow.lib import is_threading_enabled
-from pyarrow.util import _break_traceback_cycle_from_frame
 
 
 class ArrowException(Exception):
@@ -188,11 +185,6 @@ def enable_signal_handlers(c_bool enable):
 
 # For internal use
 
-# Whether we need a workaround for https://bugs.python.org/issue42248
-have_signal_refcycle = (sys.version_info < (3, 8, 10) or
-                        (3, 9) <= sys.version_info < (3, 9, 5) or
-                        sys.version_info[:2] == (3, 10))
-
 cdef class SignalStopHandler:
     cdef:
         StopToken _stop_token
@@ -203,9 +195,6 @@ cdef class SignalStopHandler:
         self._enabled = False
 
         self._init_signals()
-        if have_signal_refcycle:
-            _break_traceback_cycle_from_frame(sys._getframe(0))
-
         self._stop_token = StopToken()
 
         if not self._signals.empty():

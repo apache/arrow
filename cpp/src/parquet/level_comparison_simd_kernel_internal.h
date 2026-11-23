@@ -24,7 +24,7 @@
 #include <limits>
 
 #include "arrow/util/endian.h"
-#include "parquet/level_comparison.h"
+#include "parquet/level_comparison_internal.h"
 
 namespace parquet::internal {
 
