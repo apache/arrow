@@ -1345,10 +1345,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
           "Content-defined chunking is not supported in WriteBatch() or "
           "WriteBatchSpaced(), use WriteArrow() instead.");
     }
-    if (closed_ || failed_) {
-      throw ParquetException("Cannot write to a closed or failed column writer");
-    }
-    failed_ = true;
+    PARQUET_THROW_NOT_OK(BeginWrite());
     const int64_t values_written =
         WriteBatchInternal(num_values, def_levels, rep_levels, values);
     failed_ = false;
@@ -1395,10 +1392,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
           "Content-defined chunking is not supported in WriteBatch() or "
           "WriteBatchSpaced(), use WriteArrow() instead.");
     }
-    if (closed_ || failed_) {
-      throw ParquetException("Cannot write to a closed or failed column writer");
-    }
-    failed_ = true;
+    PARQUET_THROW_NOT_OK(BeginWrite());
     WriteBatchSpacedInternal(num_values, def_levels, rep_levels, valid_bits,
                              valid_bits_offset, values);
     failed_ = false;
@@ -1446,15 +1440,11 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   Status WriteArrow(const int16_t* def_levels, const int16_t* rep_levels,
                     int64_t num_levels, const ::arrow::Array& leaf_array,
                     ArrowWriteContext* ctx, bool leaf_field_nullable) override {
-    if (closed_ || failed_) {
-      return Status::Invalid("Cannot write to a closed or failed column writer");
-    }
-    // Leave failed_ set for both exceptions and non-OK Status returns.
-    failed_ = true;
-    Status status = WriteArrowInternal(def_levels, rep_levels, num_levels, leaf_array,
-                                       ctx, leaf_field_nullable);
-    failed_ = !status.ok();
-    return status;
+    ARROW_RETURN_NOT_OK(BeginWrite());
+    ARROW_RETURN_NOT_OK(WriteArrowInternal(def_levels, rep_levels, num_levels, leaf_array,
+                                           ctx, leaf_field_nullable));
+    failed_ = false;
+    return Status::OK();
   }
 
   Status WriteArrowInternal(const int16_t* def_levels, const int16_t* rep_levels,
@@ -1699,6 +1689,15 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   }
 
  private:
+  Status BeginWrite() {
+    if (closed_ || failed_) {
+      return Status::Invalid("Cannot write to a closed or failed column writer");
+    }
+    // A failed write may have partially modified the encoder. Only clear on success.
+    failed_ = true;
+    return Status::OK();
+  }
+
   using ValueEncoderType = typename EncodingTraits<ParquetType>::Encoder;
   using TypedStats = TypedStatistics<ParquetType>;
   using BloomFilterWriter = TypedBloomFilterWriter<ParquetType>;
