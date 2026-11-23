@@ -1534,19 +1534,18 @@ inline int RleBitPackedEncoder::PutRepeated(uint64_t value, int count) {
   ARROW_DCHECK(bit_width_ == 64 || value < (1ULL << bit_width_));
 
   int encoded = 0;
-  while (encoded < count && !buffer_full_) {
-    if (current_value_ == value && repeat_count_ > 8) {
-      // Extend an existing repeat by adding to its count instead of visiting each value
-      const int added =
-          std::min(count - encoded, std::numeric_limits<int>::max() - repeat_count_);
-      repeat_count_ += added;
-      encoded += added;
-      break;
-    }
+  while (encoded < count && !(current_value_ == value && repeat_count_ > 8)) {
     if (!Put(value)) {
-      break;
+      return encoded;
     }
     ++encoded;
+  }
+  if (encoded < count && !buffer_full_) {
+    // Extend an existing repeat by adding to its count instead of visiting each value
+    const int added =
+        std::min(count - encoded, std::numeric_limits<int>::max() - repeat_count_);
+    repeat_count_ += added;
+    encoded += added;
   }
   return encoded;
 }
