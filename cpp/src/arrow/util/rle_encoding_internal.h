@@ -1531,7 +1531,7 @@ inline bool RleBitPackedEncoder::Put(uint64_t value) {
 
 inline int RleBitPackedEncoder::PutRepeated(uint64_t value, int count) {
   ARROW_DCHECK_GE(count, 0);
-  ARROW_DCHECK(bit_width_ == 64 || value < (uint64_t{1} << bit_width_));
+  ARROW_DCHECK(bit_width_ == 64 || value < (1ULL << bit_width_));
 
   int encoded = 0;
   while (encoded < count && !buffer_full_) {
