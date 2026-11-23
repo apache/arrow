@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include <mutex>
 #include <string>
+#include <unordered_map>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/record_batch.h"
@@ -31,6 +33,23 @@ namespace internal {
 
 // This lines up with our other defaults in the scanner and execution plan
 constexpr uint64_t kDefaultDatasetWriterMaxRowsQueued = 8 * 1024 * 1024;
+
+// Prepares partition destinations and shares the filename-partition snapshot.
+class DatasetWriteCleanup {
+ public:
+  Future<> Initialize(const FileSystemDatasetWriteOptions& options,
+                      const std::string& directory, const std::string& prefix);
+
+ private:
+  using FilesByPrefix = std::unordered_map<std::string, fs::FileInfoVector>;
+
+  Future<> DeleteFilenamePartition(const FileSystemDatasetWriteOptions& options,
+                                   const std::string& directory,
+                                   const std::string& prefix);
+
+  std::once_flag list_files_;
+  Future<FilesByPrefix> existing_files_;
+};
 
 /// \brief Utility class that manages a set of writers to different paths
 ///

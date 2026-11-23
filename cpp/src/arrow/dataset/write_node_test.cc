@@ -22,12 +22,16 @@
 
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/file_ipc.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/plan.h"
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/testing/generator.h"
@@ -35,7 +39,13 @@
 #include "arrow/testing/matchers.h"
 
 #include "arrow/table.h"
+#include "arrow/util/config.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
+
+#ifdef ARROW_PARQUET
+#  include "arrow/dataset/file_parquet.h"
+#endif
 
 namespace arrow {
 
@@ -58,6 +68,96 @@ class SimpleWriteNodeTest : public ::testing::Test {
   std::shared_ptr<fs::internal::MockFileSystem> mock_fs_;
   dataset::FileSystemDatasetWriteOptions fs_write_options_;
 };
+
+#ifdef ARROW_PARQUET
+TEST_F(SimpleWriteNodeTest, DeleteMatchingPartitions) {
+  const auto data_schema = schema({field("year", int32()), field("value", int32())});
+  const auto partition_schema = schema({data_schema->field(0)});
+  auto original = TableFromJSON(data_schema, {R"([[2019, -1], [20190, -2]])"});
+  auto updates = TableFromJSON(data_schema, {R"([[2019, 1], [2020, 2], [2021, 3]])",
+                                             R"([[2019, 4], [2021, 5], [2022, 6]])"});
+  auto expected = TableFromJSON(data_schema, {R"([
+      [20190, -2], [2019, 1], [2020, 2], [2021, 3], [2019, 4], [2021, 5],
+      [2022, 6]
+  ])"});
+  auto filesystem = std::make_shared<fs::LocalFileSystem>();
+  auto format = std::make_shared<ParquetFileFormat>();
+  auto write = [](const FileSystemDatasetWriteOptions& options,
+                  const std::shared_ptr<Table>& table) {
+    auto dataset = std::make_shared<InMemoryDataset>(table);
+    ARROW_ASSIGN_OR_RAISE(auto builder, dataset->NewScan());
+    ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
+    return FileSystemDataset::Write(options, scanner);
+  };
+
+  for (const auto& partitioning : std::vector<std::shared_ptr<Partitioning>>{
+           std::make_shared<DirectoryPartitioning>(partition_schema),
+           std::make_shared<FilenamePartitioning>(partition_schema)}) {
+    SCOPED_TRACE(partitioning->type_name());
+    ASSERT_OK_AND_ASSIGN(auto tempdir,
+                         ::arrow::internal::TemporaryDir::Make("delete-matching-"));
+    ASSERT_OK_AND_ASSIGN(auto path, tempdir->path().Join("data"));
+    auto options = fs_write_options_;
+    options.filesystem = filesystem;
+    options.base_dir = path.ToString();
+    options.file_write_options = format->DefaultWriteOptions();
+    options.partitioning = partitioning;
+    options.basename_template = "old_{i}.parquet";
+    options.existing_data_behavior = ExistingDataBehavior::kDeleteMatchingPartitions;
+    ASSERT_OK(write(options, original->Slice(0, 1)));
+    options.existing_data_behavior = ExistingDataBehavior::kOverwriteOrIgnore;
+    ASSERT_OK(write(options, original->Slice(1, 1)));
+
+    const bool filenames = partitioning->type_name() == "filename";
+    const auto join = [&](std::string_view part) {
+      return fs::internal::ConcatAbstractPath(options.base_dir, part);
+    };
+    const auto old_match = join(filenames ? "2019_old_0.parquet" : "2019/old_0.parquet");
+    const auto alias = join("02019_older.parquet");
+    const auto notes = join("2019_notes.txt");
+    if (filenames) {
+      ASSERT_OK(filesystem->Move(old_match, alias));
+      ASSERT_OK_AND_ASSIGN(auto stream, filesystem->OpenOutputStream(notes));
+      ASSERT_OK(stream->Write("Notes independent of this Parquet dataset"));
+      ASSERT_OK(stream->Close());
+    }
+
+    options.basename_template = "part{i}.parquet";
+    options.existing_data_behavior = ExistingDataBehavior::kDeleteMatchingPartitions;
+    options.max_rows_per_file = options.max_rows_per_group = 1;
+    ASSERT_OK(write(options, updates));
+
+    ASSERT_OK_AND_ASSIGN(auto stale,
+                         filesystem->GetFileInfo(filenames ? alias : old_match));
+    EXPECT_EQ(stale.type(), fs::FileType::NotFound);
+    if (filenames) {
+      ASSERT_OK_AND_ASSIGN(auto info, filesystem->GetFileInfo(notes));
+      EXPECT_EQ(info.type(), fs::FileType::File);
+    }
+
+    fs::FileSelector selector;
+    selector.base_dir = options.base_dir;
+    selector.recursive = true;
+    FileSystemFactoryOptions factory_options;
+    factory_options.partitioning = partitioning;
+    factory_options.partition_base_dir = options.base_dir;
+    factory_options.exclude_invalid_files = true;
+    ASSERT_OK_AND_ASSIGN(
+        auto factory,
+        FileSystemDatasetFactory::Make(filesystem, selector, format, factory_options));
+    ASSERT_OK_AND_ASSIGN(auto dataset, factory->Finish());
+    ASSERT_OK_AND_ASSIGN(auto builder, dataset->NewScan());
+    ASSERT_OK(builder->Project({"year", "value"}));
+    ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+    ASSERT_OK_AND_ASSIGN(auto readback, scanner->ToTable());
+    ASSERT_OK_AND_ASSIGN(
+        auto indices, compute::SortIndices(
+                          readback, compute::SortOptions({compute::SortKey("value")})));
+    ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(readback, indices));
+    AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
+  }
+}
+#endif
 
 TEST_F(SimpleWriteNodeTest, CustomNullability) {
   // Create an input table with a nullable and a non-nullable type

@@ -950,10 +950,9 @@ Table/RecordBatch, or iterable of RecordBatch
         with a unique basename_template for each write, will allow for
         an append workflow.
 
-        'delete_matching' is useful when you are writing a partitioned
-        dataset.  The first time each partition directory is encountered
-        the entire directory will be deleted.  This allows you to overwrite
-        old partitions completely.
+        'delete_matching' replaces each written partition. It clears
+        partition directories, or deletes matching files of the selected
+        format for filename partitioning. Use a dedicated dataset directory.
     create_dir : bool, default True
         If False, directories will not be created.  This can be useful for
         filesystems that do not require directories.

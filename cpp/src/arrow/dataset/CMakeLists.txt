@@ -31,6 +31,7 @@ endif()
 set(ARROW_DATASET_SRCS
     dataset.cc
     dataset_writer.cc
+    dataset_writer_cleanup.cc
     discovery.cc
     file_base.cc
     file_ipc.cc

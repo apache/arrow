@@ -120,6 +120,7 @@ struct DatasetWriterState {
   const uint64_t max_rows_staged;
   // Mutex to guard access to the file visitors in the writer options
   std::mutex visitors_mutex;
+  DatasetWriteCleanup cleanup;
 };
 
 Result<std::shared_ptr<FileWriter>> OpenWriter(
@@ -382,36 +383,17 @@ class DatasetWriterDirectoryQueue
       return;
     }
     init_future_ = Future<>::Make();
-    auto create_dir_cb = [this] {
-      return DeferNotOk(write_options_.filesystem->io_context().executor()->Submit(
-          [this]() { return write_options_.filesystem->CreateDir(directory_); }));
-    };
-    // We need to notify waiters whether the directory succeeded or failed.
-    auto notify_waiters_cb = [this] { init_future_.MarkFinished(); };
-    auto notify_waiters_on_err_cb = [this](const Status& err) {
-      // If there is an error the scheduler will abort but that takes some time
-      // and we don't want to start writing in the meantime so we send an error to the
-      // file writing queue and return the error.
-      init_future_.MarkFinished(err);
-      return err;
-    };
-    std::function<Future<>()> init_task;
-    if (write_options_.existing_data_behavior ==
-        ExistingDataBehavior::kDeleteMatchingPartitions) {
-      init_task = [this, create_dir_cb, notify_waiters_cb, notify_waiters_on_err_cb] {
-        return write_options_.filesystem
-            ->DeleteDirContentsAsync(directory_,
-                                     /*missing_dir_ok=*/true)
-            .Then(create_dir_cb)
-            .Then(notify_waiters_cb, notify_waiters_on_err_cb);
-      };
-    } else {
-      init_task = [create_dir_cb, notify_waiters_cb, notify_waiters_on_err_cb] {
-        return create_dir_cb().Then(notify_waiters_cb, notify_waiters_on_err_cb);
-      };
-    }
-    scheduler_->AddSimpleTask(std::move(init_task),
-                              "DatasetWriter::InitializeDirectory"sv);
+    scheduler_->AddSimpleTask(
+        [self = shared_from_this()] {
+          auto initialized = self->writer_state_->cleanup.Initialize(
+              self->write_options_, self->directory_, self->prefix_);
+          initialized.AddCallback(
+              [ready = self->init_future_](const Status& status) mutable {
+                ready.MarkFinished(status);
+              });
+          return initialized;
+        },
+        "DatasetWriter::InitializeDirectory"sv);
   }
 
   static Result<std::shared_ptr<DatasetWriterDirectoryQueue>> Make(

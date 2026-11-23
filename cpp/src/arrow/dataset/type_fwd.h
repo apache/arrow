@@ -56,7 +56,9 @@ class WriteNodeOptions;
 /// \brief Controls what happens if files exist in an output directory during a dataset
 /// write
 enum class ExistingDataBehavior : int8_t {
-  /// Deletes all files in a directory the first time that directory is encountered
+  /// Replaces each written partition. For directory partitioning, delete the
+  /// partition directory contents. For filename partitioning, delete files of
+  /// the selected format whose parsed keys match the partition.
   kDeleteMatchingPartitions,
   /// Ignores existing files, overwriting any that happen to have the same name as an
   /// output file
