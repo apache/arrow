@@ -1770,7 +1770,7 @@ class SetLookupOptions(_SetLookupOptions):
 
     Parameters
     ----------
-    value_set : Array, ChunkedArray or Scalar
+    value_set : Array or ChunkedArray
         Set of values to look for in the input.
     skip_nulls : bool, default False
         If False, nulls in the input are matched in the value_set just

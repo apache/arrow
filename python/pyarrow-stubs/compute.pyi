@@ -1021,9 +1021,9 @@ def utf8_slice_codeunits(
 
 # ========================= Containment tests =========================
 def count_substring(
-    strings: _ScalarOrArray | Expression,
+    strings: _ComputeInput | str | bytes,
     /,
-    pattern: str,
+    pattern: str | bytes,
     *,
     ignore_case: bool = False,
     options: MatchSubstringOptions | None = None,
@@ -1035,9 +1035,9 @@ def count_substring(
 count_substring_regex = _clone_signature(count_substring)
 
 def ends_with(
-    strings: _ScalarOrArray | Expression,
+    strings: _ComputeInput | str | bytes,
     /,
-    pattern: str,
+    pattern: str | bytes,
     *,
     ignore_case: bool = False,
     options: MatchSubstringOptions | None = None,
@@ -1048,18 +1048,18 @@ find_substring = _clone_signature(count_substring)
 find_substring_regex = _clone_signature(count_substring)
 
 def index_in(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput,
     /,
-    value_set: _ArrayOrChunkedArray | Expression,
+    value_set: _ArrayOrChunkedArray,
     *,
     skip_nulls: bool = False,
     options: SetLookupOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> Int32Scalar | Int32Array | ChunkedArray | Expression: ...
 def is_in(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput,
     /,
-    value_set: _ArrayOrChunkedArray | Expression,
+    value_set: _ArrayOrChunkedArray,
     *,
     skip_nulls: bool = False,
     options: SetLookupOptions | None = None,
@@ -1072,14 +1072,19 @@ match_substring_regex = _clone_signature(ends_with)
 starts_with = _clone_signature(ends_with)
 
 def index_in_meta_binary(
-    values: _ScalarOrArray | Expression,
-    value_set: _ArrayOrChunkedArray | Expression,
+    values: _ArrayOrChunkedArray | _ArrayLike,
+    value_set: _ArrayOrChunkedArray | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> Int32Scalar | Int32Array | ChunkedArray | Expression: ...
-
-is_in_meta_binary = _clone_signature(index_in_meta_binary)
+def is_in_meta_binary(
+    values: _ArrayOrChunkedArray | _ArrayLike,
+    value_set: _ArrayOrChunkedArray | _ArrayLike,
+    /,
+    *,
+    memory_pool: MemoryPool | None = None,
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 
 # ========================= Categorizations =========================
 def is_finite(

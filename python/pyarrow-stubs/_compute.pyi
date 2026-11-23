@@ -310,7 +310,7 @@ class ModeOptions(FunctionOptions):
 
 class SetLookupOptions(FunctionOptions):
     def __init__(
-        self, value_set: Array | ChunkedArray | Scalar, *, skip_nulls: bool = False
+        self, value_set: Array | ChunkedArray, *, skip_nulls: bool = False
     ) -> None: ...
 
 class StrptimeOptions(FunctionOptions):

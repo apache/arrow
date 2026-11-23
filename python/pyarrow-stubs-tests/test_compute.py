@@ -157,6 +157,8 @@ def test_options() -> None:
 
     if TYPE_CHECKING:
         pc.RoundOptions(2, round_mode="nearest")  # type: ignore[arg-type]
+        # TODO: test invalid code once the scalar stubs are annotated
+        # pc.SetLookupOptions(pa.scalar(2))
         pc.SearchSortedOptions(side="middle")  # type: ignore[arg-type]
         _: Hashable = options  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # noqa: E501
 
@@ -291,15 +293,26 @@ def test_element_wise_functions() -> None:
     check(pc.binary_join(pc.field("a"), pc.field("sep")), pc.Expression)
     check(pc.binary_join_element_wise(["a", "b"], ["c", "d"], "-"), pa.Array)
 
+    # Containment tests
+    check(pc.count_substring([b"abcab"], "ab"), pa.Int32Array)
+    check(pc.ends_with([b"abcab"], "ab"), pa.BooleanArray)
+    check(pc.index_in([1, 2, 3], pa.array([1, 2])), pa.Int32Array)
+    check(pc.is_in([1, 2, 3], pa.array([1, 2])), pa.BooleanArray)
+    check(pc.index_in_meta_binary([1, 2, 3], [1, 2]), pa.Int32Array)
+    check(pc.is_in_meta_binary([1, 2, 3], [1, 2]), pa.BooleanArray)
+
     # Structural transforms
     check(pc.struct_field(pa.array([{"a": 1}]), ("a",)), pa.Array)
 
     # An Expression as the first argument gives an Expression
     check(pc.if_else(pc.field("a") > 1, 1, 2), pc.Expression)
 
-    # TODO: test invalid code once the scalar stubs are annotated
-    # pc.bit_wise_and(1.0, 1.0), pc.bit_wise_not(1.0)
-    # pc.add("a", 1), pc.sqrt(dt.timedelta(days=1)), pc.if_else("yes", 1, 2)
+    if TYPE_CHECKING:
+        pc.is_in([1, 2, 3], pc.field("a"))  # type: ignore[arg-type]
+        # TODO: test invalid code once the scalar stubs are annotated
+        # pc.bit_wise_and(1.0, 1.0), pc.bit_wise_not(1.0)
+        # pc.add("a", 1), pc.sqrt(dt.timedelta(days=1)), pc.if_else("yes", 1, 2)
+        # pc.index_in([1, 2, 3], options=pc.SetLookupOptions(pa.scalar(2)))
 
 
 def test_agg_functions() -> None:
