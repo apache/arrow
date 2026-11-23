@@ -155,6 +155,9 @@ class ARROW_EXPORT BufferBuilder {
 
   // Unsafe methods don't check existing size
   void UnsafeAppend(const void* data, const int64_t length) {
+    if (length == 0) {
+      return;
+    }
     memcpy(data_ + size_, data, static_cast<size_t>(length));
     size_ += length;
   }
