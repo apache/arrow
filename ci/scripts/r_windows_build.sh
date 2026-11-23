@@ -18,7 +18,7 @@
 # under the License.
 
 # Build the static libarrow that r/configure.win downloads on Windows, using
-# Rtools42+ (libraries are a fixed set built with MXE): call CMake directly
+# Rtools45 (libraries are a fixed set built with MXE): call CMake directly
 # against the toolchain's static libraries.
 #
 # Rtools40 (MSYS2) is built by ci/scripts/r_windows_build_rtools40.sh instead.
@@ -43,19 +43,10 @@ CPP_BUILD_DIR="${BUILD_DIR}/cpp"
 INSTALL_DIR="${BUILD_DIR}/install"
 INSTALL_DIR_WIN="$(cygpath -am "${INSTALL_DIR}")"
 
-# Rtools42 has CMake 3.24.1 and Arrow needs 3.25, so use ${CMAKE} if set,
-# then the runner's CMake, then whatever is on PATH.
-if [ -z "${CMAKE:-}" ]; then
-  CMAKE="cmake"
-  if [ -x "${PROGRAMFILES}/CMake/bin/cmake.exe" ]; then
-    CMAKE="${PROGRAMFILES}/CMake/bin/cmake.exe"
-  fi
-fi
-
 printenv
 gcc --version
 g++ --version
-"${CMAKE}" --version
+cmake --version
 make --version | head -n 1
 ls "${TOOLCHAIN}/lib"
 cat "${TOOLCHAIN}/lib/pkgconfig/libcurl.pc"
@@ -78,7 +69,7 @@ pushd "${CPP_BUILD_DIR}"
 #   (GH-55165). cURL's Brotli symbols resolve from the bundled copy too.
 # * ARROW_USE_STD_CHRONO=0: the R package supplies the time zone database
 #   through tzdb, which only the vendored date library uses (GH-48593).
-"${CMAKE}" \
+cmake \
   "$(cygpath -am "${ARROW_HOME}/cpp")" \
   -G "MSYS Makefiles" \
   -DARROW_ACERO=ON \
