@@ -191,7 +191,7 @@ class ARROW_EXPORT ChunkResolver {
       // Negative logical indices can become large values when cast to unsigned, and
       // they are gracefully handled by ResolveManyImpl, but both the chunk index
       // and the index in chunk values will be undefined in these cases. This
-      // happend because int8_t(-1) == uint8_t(255) and 255 could be a valid
+      // happened because int8_t(-1) == uint8_t(255) and 255 could be a valid
       // logical index in the chunked array.
       using U = std::make_unsigned_t<IndexType>;
       ResolveManyImpl(n_indices, reinterpret_cast<const U*>(logical_index_vec),

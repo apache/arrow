@@ -1134,7 +1134,7 @@ TEST(TestColumnWriter, LARGE_MEMORY_TEST(WriteLargeDictEncodedPage)) {
     if (page_count == 0) {
       ASSERT_EQ(page->type(), PageType::DICTIONARY_PAGE);
     } else {
-      ASSERT_EQ(page->type(), PageType::DATA_PAGE);
+      ASSERT_EQ(page->type(), PageType::DATA_PAGE_V2);
     }
     page_count++;
   }

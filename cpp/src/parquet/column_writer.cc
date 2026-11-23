@@ -55,6 +55,7 @@
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
+#include "parquet/level_comparison_internal.h"
 #include "parquet/level_conversion.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
@@ -1698,11 +1699,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     int64_t values_to_write = 0;
     // If the field is required and non-repeated, there are no definition levels
     if (descr_->max_definition_level() > 0) {
-      for (int64_t i = 0; i < num_levels; ++i) {
-        if (def_levels[i] == descr_->max_definition_level()) {
-          ++values_to_write;
-        }
-      }
+      values_to_write =
+          internal::CountLevels(def_levels, num_levels, descr_->max_definition_level());
 
       WriteDefinitionLevels(num_levels, def_levels);
     } else {
@@ -1714,12 +1712,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (descr_->max_repetition_level() > 0) {
       // A row could include more than one value
       // Count the occasions where we start a new row
-      for (int64_t i = 0; i < num_levels; ++i) {
-        if (rep_levels[i] == 0) {
-          rows_written_++;
-          num_buffered_rows_++;
-        }
-      }
+      const int64_t records_written = internal::CountLevels(rep_levels, num_levels, 0);
+      rows_written_ += records_written;
+      num_buffered_rows_ += records_written;
 
       WriteRepetitionLevels(num_levels, rep_levels);
     } else {
@@ -1749,11 +1744,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         *out_spaced_values_to_write = batch_size;
         *null_count = 0;
       } else {
-        for (int x = 0; x < batch_size; x++) {
-          *out_values_to_write += def_levels[x] == level_info_.def_level ? 1 : 0;
-          *out_spaced_values_to_write +=
-              def_levels[x] >= level_info_.repeated_ancestor_def_level ? 1 : 0;
-        }
+        *out_values_to_write +=
+            internal::CountLevels(def_levels, batch_size, level_info_.def_level);
+        *out_spaced_values_to_write += internal::CountLevelsGreaterEqual(
+            def_levels, batch_size, level_info_.repeated_ancestor_def_level);
         *null_count = batch_size - *out_values_to_write;
       }
       return;
@@ -1809,12 +1803,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (descr_->max_repetition_level() > 0) {
       // A row could include more than one value
       // Count the occasions where we start a new row
-      for (int64_t i = 0; i < num_levels; ++i) {
-        if (rep_levels[i] == 0) {
-          rows_written_++;
-          num_buffered_rows_++;
-        }
-      }
+      const int64_t records_written = internal::CountLevels(rep_levels, num_levels, 0);
+      rows_written_ += records_written;
+      num_buffered_rows_ += records_written;
       WriteRepetitionLevels(num_levels, rep_levels);
     } else {
       // Each value is exactly one row
@@ -2023,8 +2014,13 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
     PARQUET_ASSIGN_OR_THROW(::arrow::Datum referenced_indices,
                             ::arrow::compute::Unique(*chunk_indices, &exec_ctx));
 
-    // On first run, we might be able to re-use the existing dictionary
-    if (referenced_indices.length() == dictionary->length()) {
+    // Use the original dictionary if we can detect that all indices are referenced,
+    // otherwise call Take to find referenced dictionary values.
+    const bool all_indices_referenced =
+        (referenced_indices.null_count() == 0)
+            ? referenced_indices.length() == dictionary->length()
+            : referenced_indices.length() == dictionary->length() + 1;
+    if (all_indices_referenced) {
       referenced_dictionary = dictionary;
     } else {
       PARQUET_ASSIGN_OR_THROW(
@@ -2064,12 +2060,12 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    if (page_statistics_ || bloom_filter_writer_) {
-      update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
-    }
     PARQUET_ASSIGN_OR_THROW(
         writeable_indices,
         MaybeReplaceValidity(writeable_indices, null_count, ctx->memory_pool));
+    if (page_statistics_ || bloom_filter_writer_) {
+      update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
+    }
     dict_encoder->PutIndices(*writeable_indices);
     // Update unencoded byte array data size to size statistics
     UpdateUnencodedDataBytes();

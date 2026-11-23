@@ -773,7 +773,7 @@ struct FillNullBackwardChunked {
       ArrayData* array_with_current =
           values.chunk(/*first_chunk=*/chunks_length - 1)->data().get();
       int64_t last_valid_value_offset = -1;
-      auto chunks = values.chunks();
+      const auto& chunks = values.chunks();
       for (int i = chunks_length - 1; i >= 0; --i) {
         const auto& chunk = chunks[i];
         if (is_fixed_width(out->type()->id())) {

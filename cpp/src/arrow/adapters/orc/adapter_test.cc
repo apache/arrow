@@ -746,6 +746,47 @@ TEST_F(TestORCWriterTrivialNoConversion, writeSlicedBatch) {
   AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize / 16);
 }
 
+TEST_F(TestORCWriterTrivialNoConversion, writeSlicedBatchWithStructNulls) {
+  std::shared_ptr<Schema> local_schema =
+      schema({field("id", int32()), field("s", struct_({field("a", int64())}))});
+  std::shared_ptr<Table> table = TableFromJSON(local_schema, {R"([
+    {"id": 0, "s": {"a": 0}}, {"id": 1, "s": null}, {"id": 2, "s": {"a": 2}},
+    {"id": 3, "s": {"a": 3}}, {"id": 4, "s": null}, {"id": 5, "s": {"a": 5}}])"});
+  table = table->Slice(1, 4);
+
+  AssertTableWriteReadEqual(table, table, kDefaultSmallMemStreamSize / 16);
+}
+
+TEST_F(TestORCWriterTrivialNoConversion, writeStructWithOffsetChild) {
+  // The child array carries its own offset (logical values are [13, 14, 15]),
+  // while the struct itself starts at offset 0 and has a struct-level null at
+  // row 1.
+  std::shared_ptr<Array> values =
+      ArrayFromJSON(int64(), "[10, 11, 12, 13, 14, 15]")->Slice(3, 3);
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, AllocateBuffer(1, default_memory_pool()));
+  // Bit i is set when row i is valid: rows 0 and 2 are valid, row 1 is null.
+  null_bitmap->mutable_data()[0] = 0b101;
+  ASSERT_OK_AND_ASSIGN(
+      auto struct_array,
+      StructArray::Make({values}, {"a"}, std::move(null_bitmap), /*null_count=*/1));
+
+  AssertArrayWriteReadEqual(struct_array, struct_array, kDefaultSmallMemStreamSize / 16);
+}
+
+TEST_F(TestORCWriterTrivialNoConversion, writeSlicedStructWithOffsetChild) {
+  // Combine a non-zero struct offset with an independently offset child.
+  std::shared_ptr<Array> values =
+      ArrayFromJSON(int64(), "[10, 11, 12, 13, 14, 15]")->Slice(3, 3);
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, AllocateBuffer(1, default_memory_pool()));
+  null_bitmap->mutable_data()[0] = 0b101;
+  ASSERT_OK_AND_ASSIGN(
+      auto struct_array,
+      StructArray::Make({values}, {"a"}, std::move(null_bitmap), /*null_count=*/1));
+  std::shared_ptr<Array> sliced = struct_array->Slice(1, 2);
+
+  AssertArrayWriteReadEqual(sliced, sliced, kDefaultSmallMemStreamSize / 16);
+}
+
 class TestORCWriterTrivialWithConversion : public ::testing::Test {
  public:
   TestORCWriterTrivialWithConversion() {

@@ -44,6 +44,7 @@
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
+#include "parquet/level_comparison_internal.h"
 #include "parquet/metadata.h"
 #include "parquet/page_index.h"
 #include "parquet/platform.h"
@@ -321,7 +322,10 @@ class SerializedFile : public ParquetFileReader::Contents {
     PARQUET_ASSIGN_OR_THROW(source_size_, source_->GetSize());
   }
 
-  void Close() override {}
+  void Close() override {
+    cached_source_.reset();
+    prebuffered_column_chunks_.clear();
+  }
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap;
@@ -977,11 +981,7 @@ int64_t ScanFileContents(std::vector<int> columns, const int32_t column_batch_si
             ScanAllValues(column_batch_size, def_levels.data(), rep_levels.data(),
                           values.data(), &values_read, col_reader.get());
         if (col_reader->descr()->max_repetition_level() > 0) {
-          for (size_t i = 0; i < static_cast<size_t>(levels_read); i++) {
-            if (rep_levels[i] == 0) {
-              total_rows[col]++;
-            }
-          }
+          total_rows[col] += internal::CountLevels(rep_levels.data(), levels_read, 0);
         } else {
           total_rows[col] += levels_read;
         }
