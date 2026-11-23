@@ -458,6 +458,15 @@ TEST_F(TestFilteredDataset, ScanFragmentDirectly) {
   count = non_boolean->CountRows(compute::literal(true), options);
   EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, testing::HasSubstr("must be boolean"),
                                   count.result());
+
+  // The filter must be a valid expression.
+  auto invalid = std::make_shared<FilteredFragment>(fragment, compute::Expression());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("must be a valid expression"),
+                                  invalid->ScanBatchesAsync(options));
+  count = invalid->CountRows(compute::literal(true), options);
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("must be a valid expression"), count.result());
 }
 
 TEST_F(TestFilteredDataset, MakeWithInvalidArguments) {

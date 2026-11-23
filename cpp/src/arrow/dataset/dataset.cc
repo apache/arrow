@@ -353,6 +353,9 @@ Result<compute::Expression> BindFragmentFilter(const compute::Expression& filter
   if (options.dataset_schema == nullptr) {
     return Status::Invalid("Scanning a FilteredFragment requires a dataset schema");
   }
+  if (!filter.is_valid()) {
+    return Status::Invalid("FilteredFragment filter must be a valid expression");
+  }
   ARROW_ASSIGN_OR_RAISE(auto bound, filter.Bind(*options.dataset_schema));
   if (!bound.type()->Equals(*boolean())) {
     return Status::TypeError("FilteredFragment filter must be boolean, got ",
