@@ -35,7 +35,8 @@ if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
 fi
 
 # Numba-CUDA 0.30.4 uses np.row_stack, which was removed in NumPy 2.5.
-# TODO: Remove after https://github.com/NVIDIA/numba-cuda/pull/916 is released.
+# Upstream recommends NumPy <=2.4, no plan to fix this:
+# https://github.com/NVIDIA/numba-cuda/issues/907#issuecomment-5620678407
 if [ "$#" -ge 2 ]; then
   pip install "numpy<2.5"
 fi

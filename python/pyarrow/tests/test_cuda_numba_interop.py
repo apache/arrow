@@ -54,6 +54,8 @@ def test_context(c):
     ctx, nb_ctx = context_choices[c]
     converted = ctx.to_numba()
     assert type(converted.handle) is type(nb_ctx.handle)
+    # Built-in Numba CUDA and numba-cuda <0.28 use ctypes.c_void_p (legacy),
+    # numba-cuda >=0.28 uses cuda.bindings.driver.CUcontext
     if isinstance(converted.handle, ctypes.c_void_p):
         assert converted.handle.value == ctx.handle
     else:

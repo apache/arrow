@@ -32,8 +32,10 @@ _NUMBA_CUDA_NATIVE_CONTEXT_VERSION = Version("0.28")
 
 def _numba_context_handle_value(handle):
     """Return the integer value of a legacy or native Numba context handle."""
+    # Legacy ctypes.c_void_p handle (built-in Numba CUDA or numba-cuda <0.28)
     if hasattr(handle, "value"):
         return handle.value
+    # Native cuda.bindings.driver.CUcontext handle (numba-cuda >=0.28)
     return int(handle)
 
 
@@ -50,6 +52,7 @@ def _make_numba_context_handle(uintptr_t handle):
             from cuda.bindings.driver import CUcontext
             return CUcontext(handle)
 
+    # Legacy handle for built-in Numba CUDA and numba-cuda <0.28
     return ctypes.c_void_p(handle)
 
 
