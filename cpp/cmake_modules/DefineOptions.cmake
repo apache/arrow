@@ -519,8 +519,8 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_ZSTD_USE_SHARED "Rely on zstd shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
-  define_option(ARROW_USE_GLOG "Build libraries with glog support for pluggable logging"
-                OFF)
+  define_option(ARROW_USE_GLOG "Build libraries with glog support for pluggable logging;\
+(This is a deprecated option and will be removed in a future release.)" OFF)
 
   define_option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
 
@@ -702,6 +702,11 @@ macro(config_summary_message)
 
   if(ARROW_PYTHON)
     message(WARNING "ARROW_PYTHON is deprecated. Use CMake presets instead.")
+  endif()
+
+  if(ARROW_USE_GLOG)
+    message(DEPRECATION "ARROW_USE_GLOG is deprecated and will be removed in a future release."
+    )
   endif()
 endmacro()
 

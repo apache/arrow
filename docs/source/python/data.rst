@@ -942,7 +942,7 @@ It can also be sent between languages using the :ref:`C stream interface <c-stre
 Conversion of RecordBatch to Tensor
 -----------------------------------
 
-Each array of the ``RecordBatch`` has it's own contiguous memory that is not necessarily
+Each array of the ``RecordBatch`` has its own contiguous memory that is not necessarily
 adjacent to other arrays. A different memory structure that is used in machine learning
 libraries is a two dimensional array (also called a 2-dim tensor or a matrix) which takes
 only one contiguous block of memory.

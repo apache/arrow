@@ -208,7 +208,7 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   # will force inlining as much as possible.
   # See also: ARROW-15664 and ARROW-15678
   if(ARROW_HAVE_RUNTIME_BMI2)
-    # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
+    # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc_internal.h to compile
     # the BMI2 path.
     set(BMI2_FLAGS ${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2)
     set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_OPTIONS

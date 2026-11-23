@@ -507,7 +507,7 @@ enough to support this is to check whether ``pa.Array`` has the
   # NEW METHOD
   def to_arrow(self) -> pa.Array:
       # PyArrow added support for constructing arrays from objects implementing
-      # __arrow_c_array__ in the same version it added the method for it's own
+      # __arrow_c_array__ in the same version it added the method for its own
       # arrays. So we can use hasattr to check if the method is available as
       # a proxy for checking the PyArrow version.
       if hasattr(pa.Array, "__arrow_c_array__"):

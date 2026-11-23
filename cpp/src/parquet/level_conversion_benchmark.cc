@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "benchmark/benchmark.h"
-#include "parquet/level_comparison.h"
+#include "parquet/level_comparison_internal.h"
 #include "parquet/level_conversion.h"
 
 constexpr int64_t kLevelCount = 2048;
