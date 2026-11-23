@@ -337,8 +337,21 @@ def test_element_wise_functions() -> None:
           pa.RunEndEncodedArray)
     check(assert_type(pc.run_end_decode(ree), pa.Array | pa.ChunkedArray), pa.Array)
 
+    # Temporal
+    date = dt.datetime(2026, 1, 1)
+    check(pc.day(date), pa.Int64Scalar)
+    check(pc.day([date]), pa.Int64Array)
+    check(pc.is_leap_year((date,)), pa.BooleanArray)
+    check(pc.days_between(date, date), pa.Int64Scalar)
+    check(pc.month_day_nano_interval_between([date], [date]),
+          pa.MonthDayNanoIntervalArray)
+    check(pc.years_between((date, ), (date, )), pa.Int64Array)
+    check(pc.assume_timezone([date], timezone=b"UTC"), pa.TimestampArray)
+    check(pc.local_timestamp(date), pa.TimestampScalar)
+
     if TYPE_CHECKING:
         pc.is_in([1, 2, 3], pc.field("a"))  # type: ignore[arg-type]
+        pc.random(3.14)  # type: ignore[arg-type]
         # Fails when evaluated (ds.dataset(table).to_table(columns={"r": ...})):
         pc.run_end_encode(pc.field("a"))  # type: ignore[arg-type]
         # TODO: test invalid code once the scalar stubs are annotated

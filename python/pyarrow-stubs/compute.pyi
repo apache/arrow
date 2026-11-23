@@ -1222,13 +1222,13 @@ def run_end_decode(
 
 # ========================= Temporal component extraction =========================
 def day(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput | _TemporalLiteral,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> Int64Scalar | Int64Array | ChunkedArray | Expression: ...
 def day_of_week(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput | _TemporalLiteral,
     /,
     *,
     count_from_zero: bool = True,
@@ -1240,19 +1240,19 @@ def day_of_week(
 day_of_year = _clone_signature(day)
 
 def hour(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput | _TemporalLiteral,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> Int64Scalar | Int64Array | ChunkedArray | Expression: ...
 def is_dst(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput | _TemporalLiteral,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 def iso_week(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput | _TemporalLiteral,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1261,7 +1261,7 @@ def iso_week(
 iso_year = _clone_signature(iso_week)
 
 def is_leap_year(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput | _TemporalLiteral,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1279,7 +1279,7 @@ us_week = _clone_signature(iso_week)
 us_year = _clone_signature(iso_week)
 
 def week(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput | _TemporalLiteral,
     /,
     *,
     week_starts_monday: bool = True,
@@ -1292,7 +1292,7 @@ def week(
 year = _clone_signature(iso_week)
 
 def year_month_day(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput | _TemporalLiteral,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1301,16 +1301,17 @@ def year_month_day(
 iso_calendar = _clone_signature(year_month_day)
 
 # ========================= Temporal difference =========================
-def day_time_interval_between(
-    start: _ScalarOrArray | Expression,
-    end: _ScalarOrArray | Expression,
-    /,
-    *,
-    memory_pool: MemoryPool | None = None,
-) -> _ScalarOrArray | Expression: ...
+# TODO(GH-29828): add once PyArrow supports DayTimeInterval type
+# def day_time_interval_between(
+#     start: _ComputeInput | _TemporalLiteral,
+#     end: _ComputeInput | _TemporalLiteral,
+#     /,
+#     *,
+#     memory_pool: MemoryPool | None = None,
+# ) -> _ScalarOrArray | Expression: ...
 def days_between(
-    start: _ScalarOrArray | Expression,
-    end: _ScalarOrArray | Expression,
+    start: _ComputeInput | _TemporalLiteral,
+    end: _ComputeInput | _TemporalLiteral,
     /,
     *,
     memory_pool: MemoryPool | None = None,
@@ -1322,29 +1323,31 @@ milliseconds_between = _clone_signature(days_between)
 minutes_between = _clone_signature(days_between)
 
 def month_day_nano_interval_between(
-    start: _ScalarOrArray | Expression,
-    end: _ScalarOrArray | Expression,
+    start: _ComputeInput | _TemporalLiteral,
+    end: _ComputeInput | _TemporalLiteral,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> (
     MonthDayNanoIntervalScalar | MonthDayNanoIntervalArray | ChunkedArray | Expression
 ): ...
-def month_interval_between(
-    start: _ScalarOrArray | Expression,
-    end: _ScalarOrArray | Expression,
-    /,
-    *,
-    memory_pool: MemoryPool | None = None,
-) -> _ScalarOrArray | Expression: ...
+
+# TODO(GH-29828): add once PyArrow supports MonthInterval type
+# def month_interval_between(
+#     start: _ComputeInput | _TemporalLiteral,
+#     end: _ComputeInput | _TemporalLiteral,
+#     /,
+#     *,
+#     memory_pool: MemoryPool | None = None,
+# ) -> _ScalarOrArray | Expression: ...
 
 nanoseconds_between = _clone_signature(days_between)
 quarters_between = _clone_signature(days_between)
 seconds_between = _clone_signature(days_between)
 
 def weeks_between(
-    start: _ScalarOrArray | Expression,
-    end: _ScalarOrArray | Expression,
+    start: _ComputeInput | _TemporalLiteral,
+    end: _ComputeInput | _TemporalLiteral,
     /,
     *,
     count_from_zero: bool = True,
@@ -1357,9 +1360,9 @@ years_between = _clone_signature(days_between)
 
 # ========================= Timezone handling =========================
 def assume_timezone(
-    timestamps: _ScalarOrArray | Expression,
+    timestamps: _ComputeInput | _TemporalLiteral,
     /,
-    timezone: str,
+    timezone: str | bytes,
     *,
     ambiguous: _TimezoneResolution = "raise",
     nonexistent: _TimezoneResolution = "raise",
@@ -1367,7 +1370,7 @@ def assume_timezone(
     memory_pool: MemoryPool | None = None,
 ) -> TimestampScalar | TimestampArray | ChunkedArray | Expression: ...
 def local_timestamp(
-    values: _ScalarOrArray | Expression,
+    values: _ComputeInput | _TemporalLiteral,
     /,
     *,
     memory_pool: MemoryPool | None = None,
