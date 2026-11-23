@@ -358,8 +358,9 @@ class ArrowColumnWriterV2 {
       }
       values_written += chunk_write_size;
     }
-    // Check every chunk before choosing one writing path for the column
     const bool from_extension = data.type()->id() == ::arrow::Type::EXTENSION;
+    // Buffered row groups accept more batches later, so we cannot check all their
+    // chunks up front and pick one writing path for the whole column
     if (row_group_writer->buffered() || !CanWriteFixedSizeLists(arrays, from_extension)) {
       for (const auto& array : arrays) {
         ARROW_ASSIGN_OR_RAISE(auto builder,
