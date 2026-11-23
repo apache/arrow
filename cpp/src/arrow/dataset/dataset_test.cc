@@ -354,6 +354,24 @@ TEST_F(TestFilteredDataset, ReplaceSchemaWithPositionalFieldRef) {
                     /*same_chunk_layout=*/false);
 }
 
+TEST_F(TestFilteredDataset, ReplaceSchemaWithBoundPositionalFieldRef) {
+  SetSchema({field("x", int32()), field("y", int32())});
+  auto batch = RecordBatchFromJSON(schema_, R"([[0, 1], [1, 0]])");
+  auto child = std::make_shared<InMemoryDataset>(schema_, RecordBatchVector{batch});
+  // An already bound filter is bound again against the current schema when used
+  auto filter = compute::equal(compute::field_ref(FieldRef(0)), compute::literal(1));
+  ASSERT_OK_AND_ASSIGN(auto bound_filter, filter.Bind(*schema_));
+  ASSERT_OK_AND_ASSIGN(auto filtered, FilteredDataset::Make(child, bound_filter));
+
+  auto reordered = schema({field("y", int32()), field("x", int32())});
+  ASSERT_OK_AND_ASSIGN(auto replaced, filtered->ReplaceSchema(reordered));
+  ASSERT_OK_AND_ASSIGN(auto builder, replaced->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  AssertTablesEqual(*TableFromJSON(reordered, {R"([[0, 1]])"}), *table,
+                    /*same_chunk_layout=*/false);
+}
+
 TEST_F(TestFilteredDataset, FilterOnPartitionField) {
   SetSchema({field("part", int32()), field("i", int32())});
   auto make_fragment = [this](int32_t part, const std::string& json) {

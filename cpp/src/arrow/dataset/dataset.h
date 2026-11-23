@@ -525,6 +525,8 @@ class ARROW_DS_EXPORT FilteredDataset : public Dataset {
   ///
   /// \param[in] child the Dataset to filter.
   /// \param[in] filter a boolean expression used to filter rows of the child Dataset.
+  /// It may be bound or unbound, and is always bound again against the current schema
+  /// when used.
   static Result<std::shared_ptr<FilteredDataset>> Make(std::shared_ptr<Dataset> child,
                                                        compute::Expression filter);
 
