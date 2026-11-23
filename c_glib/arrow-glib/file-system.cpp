@@ -551,9 +551,6 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
 
 static const gchar garrow_file_system_extension_point_name[] = "arrow-file-system";
 
-// GIO's extension lists need synchronization; lazy module loading may reenter.
-static GRecMutex garrow_file_system_extension_point_mutex;
-
 static GIOExtensionPoint *
 garrow_file_system_get_extension_point(void)
 {
@@ -664,7 +661,11 @@ garrow_file_system_class_init(GArrowFileSystemClass *klass)
  * Registering a name that is already registered is an error.
  * Each wrapper type can be registered under only one name.
  *
- * This function is thread-safe.
+ * Registration must be completed sequentially during initialization,
+ * before concurrent file system wrapper lookups begin. This function is
+ * not thread-safe. The same restriction applies to registration directly
+ * through GIO's `arrow-file-system` extension point, including any
+ * registration triggered by GIO module loading.
  *
  * Returns: %TRUE on success, %FALSE on error.
  *
@@ -692,7 +693,6 @@ garrow_file_system_register_type(const gchar *type_name, GType gtype, GError **e
   }
 
   auto extension_point = garrow_file_system_get_extension_point();
-  g_rec_mutex_lock(&garrow_file_system_extension_point_mutex);
   const auto duplicate =
     g_io_extension_point_get_extension_by_name(extension_point, type_name) != NULL;
   GIOExtension *extension = NULL;
@@ -702,8 +702,6 @@ garrow_file_system_register_type(const gchar *type_name, GType gtype, GError **e
                                                type_name,
                                                0);
   }
-  g_rec_mutex_unlock(&garrow_file_system_extension_point_mutex);
-
   if (duplicate) {
     g_set_error(error,
                 GARROW_ERROR,
@@ -1710,15 +1708,12 @@ garrow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_sy
 
   GType file_system_type = GARROW_TYPE_FILE_SYSTEM;
   auto extension_point = garrow_file_system_get_extension_point();
-  g_rec_mutex_lock(&garrow_file_system_extension_point_mutex);
   auto extension =
     g_io_extension_point_get_extension_by_name(extension_point, type_name.c_str());
   if (extension) {
     file_system_type = g_io_extension_get_type(extension);
   }
-  g_rec_mutex_unlock(&garrow_file_system_extension_point_mutex);
 
-  // Wrapper class initialization may register additional types.
   return GARROW_FILE_SYSTEM(
     g_object_new(file_system_type, "file-system", arrow_file_system, NULL));
 }

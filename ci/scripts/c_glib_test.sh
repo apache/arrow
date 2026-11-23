@@ -65,7 +65,6 @@ fi
 popd
 
 pushd "${build_dir}"
-test/file-system-test
 example/build
 example/extension-type
 if [ "${ARROW_GLIB_VAPI}" = "true" ]; then

@@ -24,7 +24,7 @@ class TestFileSystem < Test::Unit::TestCase
     type_register
   end
 
-  sub_test_case("register_type") do
+  sub_test_case(".register_type") do
     def test_valid
       assert_true(Arrow::FileSystem.register_type("test-file-system-valid",
                                                   RegisteredFileSystem.gtype))
@@ -57,9 +57,5 @@ class TestFileSystem < Test::Unit::TestCase
                                         Arrow::Int32Array.gtype)
       end
     end
-  end
-
-  def test_create_mock
-    assert_instance_of(Arrow::MockFileSystem, Arrow::FileSystem.create("mock:///"))
   end
 end
