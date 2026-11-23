@@ -217,7 +217,9 @@ arrow::Status RunScenario(arrow::flight::integration_tests::Scenario* scenario) 
 }
 
 int main(int argc, char** argv) {
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   arrow::util::ArrowLog::InstallFailureSignalHandler();
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
   gflags::SetUsageMessage("Integration testing client for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -240,6 +242,8 @@ int main(int argc, char** argv) {
   }
   ABORT_NOT_OK(status);
 
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   arrow::util::ArrowLog::UninstallSignalAction();
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
   return 0;
 }

@@ -29,7 +29,7 @@
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/ubsan.h"
 #include "parquet/exception.h"
-#include "parquet/level_comparison.h"
+#include "parquet/level_comparison_internal.h"
 #include "parquet/types.h"
 
 namespace parquet {

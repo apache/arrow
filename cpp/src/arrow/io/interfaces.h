@@ -89,6 +89,11 @@ struct ARROW_EXPORT IOContext {
 
   StopToken stop_token() const { return stop_token_; }
 
+  /// Return a copy of this IOContext with the given memory pool
+  IOContext with_pool(MemoryPool* pool) const {
+    return IOContext(pool, executor_, stop_token_, external_id_);
+  }
+
  private:
   MemoryPool* pool_;
   ::arrow::internal::Executor* executor_;
