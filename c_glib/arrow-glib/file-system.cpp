@@ -589,7 +589,7 @@ enum {
   PROP_FILE_SYSTEM = 1
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowFileSystem, garrow_file_system, G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowFileSystem, garrow_file_system, G_TYPE_OBJECT)
 
 #define GARROW_FILE_SYSTEM_GET_PRIVATE(obj)                                              \
   static_cast<GArrowFileSystemPrivate *>(                                                \
@@ -732,8 +732,8 @@ garrow_file_system_register_type(const gchar *type_name, GType gtype, GError **e
  * This is a factory function to create a specific #GArrowFileSystem
  * object.
  *
- * Returns: (nullable) (transfer full): The newly created #GArrowFileSystem
- *   or an object of one of its subclasses.
+ * Returns: (nullable) (transfer full): The newly created file system
+ *   that is an object of a subclass of #GArrowFileSystem.
  *
  * Since: 3.0.0
  */

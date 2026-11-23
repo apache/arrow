@@ -57,5 +57,12 @@ class TestFileSystem < Test::Unit::TestCase
                                         Arrow::Int32Array.gtype)
       end
     end
+
+    def test_abstract_type
+      assert_raise(Arrow::Error::Invalid) do
+        Arrow::FileSystem.register_type("test-file-system-abstract",
+                                        Arrow::FileSystem.gtype)
+      end
+    end
   end
 end
