@@ -901,6 +901,14 @@ class ColumnWriterImpl {
 
   int32_t fixed_size_list_size_ = 0;
 
+  // Track the levels still held in each buffer after the page copies its bytes
+  struct EncodedLevelsCache {
+    int num_levels = -1;
+    int64_t encoded_size = 0;
+  };
+  EncodedLevelsCache definition_levels_cache_;
+  EncodedLevelsCache repetition_levels_cache_;
+
   MemoryPool* allocator_;
 
   // The total number of values stored in the data page. This is the maximum of
@@ -982,6 +990,14 @@ int64_t ColumnWriterImpl::RleEncodeLevels(const void* src_buffer,
     throw ParquetException("Too many levels in a data page");
   }
   const int count = static_cast<int>(num_buffered_values_);
+  // List size, schema and page version stay fixed within this column writer
+  // Each page starts at a list boundary, so equal level counts give equal bytes
+  auto& cache = is_repetition ? repetition_levels_cache_ : definition_levels_cache_;
+  if (fixed_size_list_size_ > 0 && cache.num_levels == count) {
+    return cache.encoded_size;
+  }
+  cache.num_levels = -1;
+
   const int32_t prefix_size =
       include_length_prefix ? static_cast<int32_t>(sizeof(int32_t)) : 0;
   const int64_t capacity =
@@ -1009,7 +1025,11 @@ int64_t ColumnWriterImpl::RleEncodeLevels(const void* src_buffer,
     reinterpret_cast<int32_t*>(dest_buffer->mutable_data())[0] = level_encoder_.len();
   }
 
-  return level_encoder_.len() + prefix_size;
+  const int64_t encoded_size = level_encoder_.len() + prefix_size;
+  if (fixed_size_list_size_ > 0) {
+    cache = {count, encoded_size};
+  }
+  return encoded_size;
 }
 
 void ColumnWriterImpl::AddDataPage() {

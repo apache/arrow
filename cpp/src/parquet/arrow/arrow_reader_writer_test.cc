@@ -3624,6 +3624,8 @@ static void CheckFixedSizeListFastPath() {
       {1, 64, 1, 1, -1},
       {7, 128, 3, 17, 64},
       {1024, 1 << 20, 4096, 65, 1 << 20},
+      // Write two matching pages followed by a shorter page in each row group
+      {1024, 1 << 20, 2, 5, -1},
   };
   for (int32_t list_size : {1, 3, 8, 9, 16, 768}) {
     for (bool root_nullable : {false, true}) {
