@@ -37,6 +37,7 @@ fi
 # Numba-CUDA 0.30.4 uses np.row_stack, which was removed in NumPy 2.5.
 # Upstream recommends NumPy <=2.4, no plan to fix this:
 # https://github.com/NVIDIA/numba-cuda/issues/907#issuecomment-5620678407
+# Drop this pin when migrating to numba-cuda-mlir with GH-51204
 if [ "$#" -ge 2 ]; then
   pip install "numpy<2.5"
 fi
