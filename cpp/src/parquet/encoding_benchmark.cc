@@ -789,8 +789,7 @@ static void BM_AlpDecodingVaried(benchmark::State& state) {
 }
 
 static void AlpCustomArguments(benchmark::internal::Benchmark* b) {
-  b->ArgsProduct(
-       {benchmark::CreateRange(MIN_RANGE, MAX_RANGE, /*multi=*/8), {0, 1, 10, 100}})
+  b->ArgsProduct({{MIN_RANGE, MAX_RANGE}, {0, 1, 10}})
       ->ArgNames({"num-values", "exception-percent"});
 }
 
