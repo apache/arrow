@@ -65,6 +65,14 @@ class SimpleWriteNodeTest : public ::testing::Test {
     fs_write_options_.partitioning = dataset::Partitioning::Default();
   }
 
+  static Status WriteTable(const FileSystemDatasetWriteOptions& options,
+                           const std::shared_ptr<Table>& table) {
+    auto dataset = std::make_shared<InMemoryDataset>(table);
+    ARROW_ASSIGN_OR_RAISE(auto builder, dataset->NewScan());
+    ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
+    return FileSystemDataset::Write(options, scanner);
+  }
+
   std::shared_ptr<fs::internal::MockFileSystem> mock_fs_;
   dataset::FileSystemDatasetWriteOptions fs_write_options_;
 };
@@ -82,13 +90,6 @@ TEST_F(SimpleWriteNodeTest, DeleteMatchingPartitions) {
   ])"});
   auto filesystem = std::make_shared<fs::LocalFileSystem>();
   auto format = std::make_shared<ParquetFileFormat>();
-  auto write = [](const FileSystemDatasetWriteOptions& options,
-                  const std::shared_ptr<Table>& table) {
-    auto dataset = std::make_shared<InMemoryDataset>(table);
-    ARROW_ASSIGN_OR_RAISE(auto builder, dataset->NewScan());
-    ARROW_ASSIGN_OR_RAISE(auto scanner, builder->Finish());
-    return FileSystemDataset::Write(options, scanner);
-  };
 
   for (const auto& partitioning : std::vector<std::shared_ptr<Partitioning>>{
            std::make_shared<DirectoryPartitioning>(partition_schema),
@@ -104,9 +105,9 @@ TEST_F(SimpleWriteNodeTest, DeleteMatchingPartitions) {
     options.partitioning = partitioning;
     options.basename_template = "old_{i}.parquet";
     options.existing_data_behavior = ExistingDataBehavior::kDeleteMatchingPartitions;
-    ASSERT_OK(write(options, original->Slice(0, 1)));
+    ASSERT_OK(WriteTable(options, original->Slice(0, 1)));
     options.existing_data_behavior = ExistingDataBehavior::kOverwriteOrIgnore;
-    ASSERT_OK(write(options, original->Slice(1, 1)));
+    ASSERT_OK(WriteTable(options, original->Slice(1, 1)));
 
     const bool filenames = partitioning->type_name() == "filename";
     const auto join = [&](std::string_view part) {
@@ -115,8 +116,10 @@ TEST_F(SimpleWriteNodeTest, DeleteMatchingPartitions) {
     const auto old_match = join(filenames ? "2019_old_0.parquet" : "2019/old_0.parquet");
     const auto alias = join("02019_older.parquet");
     const auto notes = join("2019_notes.txt");
+    const auto unpartitioned = join(".unpartitioned.parquet");
     if (filenames) {
       ASSERT_OK(filesystem->Move(old_match, alias));
+      ASSERT_OK(filesystem->CopyFile(alias, unpartitioned));
       ASSERT_OK_AND_ASSIGN(auto stream, filesystem->OpenOutputStream(notes));
       ASSERT_OK(stream->Write("Notes independent of this Parquet dataset"));
       ASSERT_OK(stream->Close());
@@ -125,7 +128,7 @@ TEST_F(SimpleWriteNodeTest, DeleteMatchingPartitions) {
     options.basename_template = "part{i}.parquet";
     options.existing_data_behavior = ExistingDataBehavior::kDeleteMatchingPartitions;
     options.max_rows_per_file = options.max_rows_per_group = 1;
-    ASSERT_OK(write(options, updates));
+    ASSERT_OK(WriteTable(options, updates));
 
     ASSERT_OK_AND_ASSIGN(auto stale,
                          filesystem->GetFileInfo(filenames ? alias : old_match));
@@ -133,6 +136,9 @@ TEST_F(SimpleWriteNodeTest, DeleteMatchingPartitions) {
     if (filenames) {
       ASSERT_OK_AND_ASSIGN(auto info, filesystem->GetFileInfo(notes));
       EXPECT_EQ(info.type(), fs::FileType::File);
+      ASSERT_OK_AND_ASSIGN(auto unpartitioned_info,
+                           filesystem->GetFileInfo(unpartitioned));
+      EXPECT_EQ(unpartitioned_info.type(), fs::FileType::File);
     }
 
     fs::FileSelector selector;
@@ -156,6 +162,36 @@ TEST_F(SimpleWriteNodeTest, DeleteMatchingPartitions) {
     ASSERT_OK_AND_ASSIGN(auto sorted, compute::Take(readback, indices));
     AssertTablesEqual(*expected, *sorted.table(), /*same_chunk_layout=*/false);
   }
+}
+
+TEST_F(SimpleWriteNodeTest, DeleteMatchingEmptyFilenamePartition) {
+  auto data_schema = schema({field("value", int32())});
+  auto old = TableFromJSON(data_schema, {R"([[-1]])"});
+  auto updated = TableFromJSON(data_schema, {R"([[1], [2]])"});
+  auto format = std::make_shared<ParquetFileFormat>();
+  auto partitioning = std::make_shared<FilenamePartitioning>(schema({}));
+
+  auto options = fs_write_options_;
+  options.partitioning = partitioning;
+  options.file_write_options = format->DefaultWriteOptions();
+  options.existing_data_behavior = ExistingDataBehavior::kDeleteMatchingPartitions;
+  options.basename_template = "old{i}.parquet";
+  ASSERT_OK(WriteTable(options, old));
+  options.basename_template = "updated{i}.parquet";
+  ASSERT_OK(WriteTable(options, updated));
+
+  fs::FileSelector selector;
+  selector.base_dir = options.base_dir;
+  FileSystemFactoryOptions factory_options;
+  factory_options.partitioning = partitioning;
+  factory_options.selector_ignore_prefixes.clear();
+  ASSERT_OK_AND_ASSIGN(auto factory, FileSystemDatasetFactory::Make(
+                                         mock_fs_, selector, format, factory_options));
+  ASSERT_OK_AND_ASSIGN(auto dataset, factory->Finish());
+  ASSERT_OK_AND_ASSIGN(auto builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto readback, scanner->ToTable());
+  AssertTablesEqual(*updated, *readback, /*same_chunk_layout=*/false);
 }
 #endif
 

@@ -61,7 +61,10 @@ Future<> DatasetWriteCleanup::DeleteFilenamePartition(
       for (const auto& info : entries) {
         if (info.type() != fs::FileType::File) continue;
         auto expression = partitioning->Parse(info.path());
-        if (!expression.ok() || *expression == compute::literal(true)) continue;
+        if (!expression.ok() || (partitioning->schema()->num_fields() > 0 &&
+                                 *expression == compute::literal(true))) {
+          continue;
+        }
         auto path = partitioning->Format(*expression);
         if (path.ok()) {
           (*files)[path->filename].push_back(info);
