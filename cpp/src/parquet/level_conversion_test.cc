@@ -126,21 +126,6 @@ TEST(CountLevels, CountsMatchingLevels) {
   EXPECT_EQ(CountLevelsIf(levels.data(), /*num_levels=*/6, is_odd), 4);
   EXPECT_EQ(CountLevelsIf(levels.data(), /*num_levels=*/6, [](int16_t) { return false; }),
             0);
-
-  // Cross-check various prefix lengths across vector and scalar tail boundaries.
-  std::vector<int16_t> longer_levels(/*count=*/100, 0);
-  for (size_t i = 0; i < longer_levels.size(); i += 3) {
-    longer_levels[i] = 3;
-  }
-  for (int64_t n = 0; n <= static_cast<int64_t>(longer_levels.size()); ++n) {
-    int64_t expected = 0;
-    for (int64_t i = 0; i < n; ++i) {
-      expected += longer_levels[i] == 3 ? 1 : 0;
-    }
-    EXPECT_EQ(CountLevels(longer_levels.data(), n, 3), expected) << "num_levels: " << n;
-    EXPECT_EQ(CountLevelsGreaterEqual(longer_levels.data(), n, 3), expected)
-        << "num_levels: " << n;
-  }
 }
 
 TEST(CountLevels, HandlesChunkBoundaries) {
