@@ -3759,6 +3759,68 @@ TEST(ArrowReadWrite, FixedSizeListFastPathUsesLessMemory) {
   ASSERT_LE(fast_peak + one_marker_array, generic_peak);
 }
 
+class FixedSizeListTestExtensionType : public ::arrow::ExtensionType {
+ public:
+  explicit FixedSizeListTestExtensionType(std::shared_ptr<DataType> storage_type)
+      : ExtensionType(std::move(storage_type)) {}
+
+  std::string extension_name() const override { return "parquet.test.fixed_size_list"; }
+  std::string Serialize() const override { return ""; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override {
+    return other.extension_name() == extension_name() &&
+           other.storage_type()->Equals(*storage_type());
+  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+    return std::make_shared<::arrow::ExtensionArray>(data);
+  }
+
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> type, const std::string& serialized) const override {
+    if (!serialized.empty() || !type->Equals(*storage_type())) {
+      return Status::Invalid("Invalid fixed-size list test extension metadata");
+    }
+    return std::make_shared<FixedSizeListTestExtensionType>(std::move(type));
+  }
+};
+
+// Check that wrapped lists use the shortcut and keep their extension type on readback
+TEST(ArrowReadWrite, FixedSizeListFastPathSupportsExtensionArrays) {
+  constexpr int64_t rows = 65536;
+  constexpr int32_t list_size = 3;
+  ASSERT_OK_AND_ASSIGN(auto tables, MakeFixedListTestTables<::arrow::FloatType>(
+                                        list_size, false, false, rows, false));
+  const auto& field = tables.first->field(0);
+  auto type = std::make_shared<FixedSizeListTestExtensionType>(field->type());
+  ::arrow::ExtensionTypeGuard guard(type);
+  auto wrapped =
+      Table::Make(::arrow::schema({field->WithType(type)}),
+                  {::arrow::ExtensionType::WrapArray(type, tables.first->column(0))});
+
+  ASSERT_OK_AND_ASSIGN(const int64_t fast_peak, MeasureFixedListWriterMemory(*wrapped));
+  ASSERT_OK_AND_ASSIGN(const int64_t generic_peak,
+                       MeasureFixedListWriterMemory(*tables.second));
+  ASSERT_LE(fast_peak + rows * list_size * static_cast<int64_t>(sizeof(int16_t)),
+            generic_peak);
+
+  for (auto version : {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    SCOPED_TRACE(static_cast<int>(version));
+    auto properties = WriterProperties::Builder().data_page_version(version)->build();
+    ASSERT_OK_AND_ASSIGN(auto expected,
+                         WriteFixedListTestTable(*tables.second, properties, rows / 2));
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         WriteFixedListTestTable(*wrapped, properties, rows / 2));
+    ASSERT_TRUE(expected->Equals(*actual));
+    ASSERT_OK_AND_ASSIGN(auto stored,
+                         WriteFixedListTestTable(*wrapped, properties, rows / 2, true));
+    ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(stored),
+                                               default_memory_pool()));
+    ASSERT_OK_AND_ASSIGN(auto restored, reader->ReadTable());
+    ASSERT_TRUE(wrapped->Equals(*restored));
+  }
+}
+
 // Check that missing lists, missing values and unsupported settings keep correct output
 TEST(ArrowReadWrite, FixedSizeListFallbackMatchesList) {
   const std::vector<std::vector<std::string>> cases = {

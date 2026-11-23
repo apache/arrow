@@ -340,6 +340,13 @@ class ArrowColumnWriterV2 {
       std::shared_ptr<Array> array_to_write = chunk.Slice(chunk_offset, chunk_write_size);
 
       if (array_to_write->length() > 0) {
+        if (array_to_write->type_id() == ::arrow::Type::EXTENSION) {
+          const auto& storage =
+              checked_cast<const ::arrow::ExtensionArray&>(*array_to_write).storage();
+          if (storage->type_id() == ::arrow::Type::FIXED_SIZE_LIST) {
+            array_to_write = storage;
+          }
+        }
         arrays.emplace_back(std::move(array_to_write));
       }
 
