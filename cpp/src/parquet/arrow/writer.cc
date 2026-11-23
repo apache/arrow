@@ -137,7 +137,8 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
 }
 
 // Check that all chunks contain supported fixed-size lists with no missing values
-bool CanWriteFixedSizeLists(const std::vector<std::shared_ptr<Array>>& arrays) {
+bool CanWriteFixedSizeLists(const std::vector<std::shared_ptr<Array>>& arrays,
+                            bool from_extension) {
   if (arrays.empty() || arrays.front()->type_id() != ::arrow::Type::FIXED_SIZE_LIST) {
     return false;
   }
@@ -151,7 +152,8 @@ bool CanWriteFixedSizeLists(const std::vector<std::shared_ptr<Array>>& arrays) {
     return false;
   }
   for (const auto& array : arrays) {
-    if (!array->type()->Equals(arrays.front()->type())) {
+    // Chunks share a type, but extension types define their own equality
+    if (from_extension && !array->type()->Equals(type)) {
       return false;
     }
     const auto& lists = checked_cast<const ::arrow::FixedSizeListArray&>(*array);
@@ -357,7 +359,8 @@ class ArrowColumnWriterV2 {
       values_written += chunk_write_size;
     }
     // Check every chunk before choosing one writing path for the column
-    if (row_group_writer->buffered() || !CanWriteFixedSizeLists(arrays)) {
+    const bool from_extension = data.type()->id() == ::arrow::Type::EXTENSION;
+    if (row_group_writer->buffered() || !CanWriteFixedSizeLists(arrays, from_extension)) {
       for (const auto& array : arrays) {
         ARROW_ASSIGN_OR_RAISE(auto builder,
                               MultipathLevelBuilder::Make(*array, is_nullable));
