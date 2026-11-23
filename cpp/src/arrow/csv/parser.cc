@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <limits>
 #include <utility>
 
@@ -58,6 +59,22 @@ Status MismatchingColumns(const InvalidRow& row) {
 }
 
 inline bool IsControlChar(uint8_t c) { return c < ' '; }
+
+enum class DelimiterMatch { kNoMatch, kMatch, kPartial };
+
+inline DelimiterMatch MatchDelimiter(std::string_view delimiter, const char* data,
+                                     const char* data_end, bool is_final) {
+  DCHECK(!delimiter.empty());
+  const auto available = static_cast<size_t>(data_end - data);
+  const auto compared = std::min(available, delimiter.size());
+  if (std::memcmp(data, delimiter.data(), compared) != 0) {
+    return DelimiterMatch::kNoMatch;
+  }
+  if (available < delimiter.size()) {
+    return is_final ? DelimiterMatch::kNoMatch : DelimiterMatch::kPartial;
+  }
+  return DelimiterMatch::kMatch;
+}
 
 template <bool IgnoreExtraColumns>
 constexpr bool ShouldWrite([[maybe_unused]] bool ignoring_extra_field) {
@@ -317,6 +334,22 @@ class BlockParserImpl {
         values_writer->FinishField(parsed_writer);
       }
     };
+    auto ConsumeDelimiter = [&]() {
+      if constexpr (SpecializedOptions::multi_delimiter) {
+        const auto& delimiter = options_.delimiter_string;
+        const auto match = MatchDelimiter(delimiter, data, data_end, is_final);
+        if (match == DelimiterMatch::kMatch) {
+          data += delimiter.size();
+        }
+        return match;
+      } else {
+        if (*data == options_.delimiter) {
+          ++data;
+          return DelimiterMatch::kMatch;
+        }
+        return DelimiterMatch::kNoMatch;
+      }
+    };
 
     values_writer->BeginLine();
     parsed_writer->BeginLine();
@@ -341,16 +374,20 @@ class BlockParserImpl {
 
   FieldStart:
     // At the start of a field
-    if (*data == options_.delimiter) {
-      // Empty cells are very common in some files, shortcut them
-      StartField(false /* quoted */);
-      FinishField();
-      ++data;
-      ++num_cols;
-      if (ARROW_PREDICT_FALSE(data == data_end)) {
+    switch (ConsumeDelimiter()) {
+      case DelimiterMatch::kPartial:
         goto AbortLine;
-      }
-      goto FieldStart;
+      case DelimiterMatch::kMatch:
+        // Empty cells are very common in some files, shortcut them
+        StartField(false /* quoted */);
+        FinishField();
+        ++num_cols;
+        if (ARROW_PREDICT_FALSE(data == data_end)) {
+          goto AbortLine;
+        }
+        goto FieldStart;
+      case DelimiterMatch::kNoMatch:
+        break;
     }
 
     // Quoting is only recognized at start of field
@@ -382,8 +419,9 @@ class BlockParserImpl {
       }
     }
 
-    c = *data++;
+    c = *data;
     if (SpecializedOptions::escaping && ARROW_PREDICT_FALSE(c == options_.escape_char)) {
+      ++data;
       if (ARROW_PREDICT_FALSE(data == data_end)) {
         goto AbortLine;
       }
@@ -393,9 +431,15 @@ class BlockParserImpl {
       }
       goto InField;
     }
-    if (ARROW_PREDICT_FALSE(c == options_.delimiter)) {
-      goto FieldEnd;
+    switch (ConsumeDelimiter()) {
+      case DelimiterMatch::kPartial:
+        goto AbortLine;
+      case DelimiterMatch::kMatch:
+        goto FieldEnd;
+      case DelimiterMatch::kNoMatch:
+        break;
     }
+    ++data;
     if (ARROW_PREDICT_FALSE(IsControlChar(c))) {
       if (c == '\r') {
         // In the middle of a newline separator?
@@ -727,12 +771,14 @@ class BlockParserImpl {
   Status Parse(const std::vector<std::string_view>& data, bool is_final,
                uint32_t* out_size) {
     return internal::DispatchBool(
-        [&]<bool Quoting, bool Escaping, bool IgnoreExtraColumns>() {
-          using SpecializedOptions = internal::SpecializedOptions<Quoting, Escaping>;
+        [&]<bool Quoting, bool Escaping, bool IgnoreExtraColumns, bool MultiDelimiter>() {
+          using SpecializedOptions =
+              internal::SpecializedOptions<Quoting, Escaping, MultiDelimiter>;
           return ParseSpecialized<SpecializedOptions, IgnoreExtraColumns>(data, is_final,
                                                                           out_size);
         },
-        options_.quoting, options_.escaping, options_.ignore_extra_columns);
+        options_.quoting, options_.escaping, options_.ignore_extra_columns,
+        options_.delimiter_string.size() > 1);
   }
 
  protected:
@@ -756,9 +802,13 @@ BlockParser::BlockParser(ParseOptions options, int32_t num_cols, int64_t first_r
     : BlockParser(default_memory_pool(), options, num_cols, first_row, max_num_rows) {}
 
 BlockParser::BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols,
-                         int64_t first_row, int32_t max_num_rows)
-    : impl_(new BlockParserImpl(pool, std::move(options), num_cols, first_row,
-                                max_num_rows)) {}
+                         int64_t first_row, int32_t max_num_rows) {
+  if (options.delimiter_string.size() == 1) {
+    options.delimiter = options.delimiter_string.front();
+  }
+  impl_ = std::make_unique<BlockParserImpl>(pool, std::move(options), num_cols, first_row,
+                                            max_num_rows);
+}
 
 BlockParser::~BlockParser() {}
 

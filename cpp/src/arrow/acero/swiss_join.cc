@@ -1963,7 +1963,7 @@ Status JoinResidualFilter::FilterLeftSemi(const ExecBatch& keypayload_batch,
   match_iterator.SetLookupResult(num_batch_rows, batch_start_row, match_bitvector,
                                  key_ids, no_duplicate_keys, key_to_payload_);
   int num_matches_next = 0;
-  // Used to not only collect distinct row ids, but also skip unecessary matches in the
+  // Used to not only collect distinct row ids, but also skip unnecessary matches in the
   // next batch.
   //
   int row_id_last = JoinMatchIterator::kInvalidRowId;

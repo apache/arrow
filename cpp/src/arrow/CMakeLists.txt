@@ -970,10 +970,37 @@ if(ARROW_FILESYSTEM)
   endif()
   if(ARROW_GCS)
     set(ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+    if(ARROW_BUILD_STATIC AND ARROW_GCS_BUNDLED_STATIC_LIBS)
+      arrow_car(_FIRST_GCS_LIB ${ARROW_GCS_BUNDLED_STATIC_LIBS})
+      arrow_cdr(_OTHER_GCS_LIBS ${ARROW_GCS_BUNDLED_STATIC_LIBS})
+      arrow_create_merged_static_lib(arrow_gcs_bundled_dependencies
+                                     NAME
+                                     arrow_gcs_bundled_dependencies
+                                     ROOT
+                                     ${_FIRST_GCS_LIB}
+                                     TO_MERGE
+                                     ${_OTHER_GCS_LIBS})
+      get_target_property(arrow_gcs_bundled_dependencies_path
+                          arrow_gcs_bundled_dependencies IMPORTED_LOCATION)
+      install(FILES ${arrow_gcs_bundled_dependencies_path} ${INSTALL_IS_OPTIONAL}
+              DESTINATION ${CMAKE_INSTALL_LIBDIR})
+      string(PREPEND ARROW_GCS_PC_LIBS_PRIVATE " -larrow_gcs_bundled_dependencies")
+      # Resolve bundled Abseil after SDK
+      list(PREPEND ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS
+           ArrowGcs::arrow_gcs_bundled_dependencies)
+    endif()
     if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
       list(APPEND ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
     elseif(google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
       list(APPEND ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+      if(WIN32)
+        list(APPEND
+             ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS
+             ws2_32
+             bcrypt
+             crypt32)
+        string(APPEND ARROW_GCS_PC_LIBS_PRIVATE " -lws2_32 -lbcrypt -lcrypt32")
+      endif()
       if(absl_SOURCE STREQUAL "SYSTEM")
         # Bundled google-cloud-cpp with system Abseil needs these for static consumers.
         list(APPEND
