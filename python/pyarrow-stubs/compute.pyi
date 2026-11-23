@@ -263,6 +263,7 @@ _ScalarOrArray: TypeAlias = Scalar | Array | ChunkedArray
 # Python values that compute functions convert to arrays. Other values are
 # converted to scalars.
 _ArrayLike: TypeAlias = list[Any] | tuple[Any, ...] | NDArray[Any]
+# element-wise compute input (expressions only work with element-wise functions)
 _ComputeInput: TypeAlias = _ScalarOrArray | _ArrayLike | Expression
 # Python literals that compute functions convert to scalars. An int is
 # accepted where a float is. np.generic covers NumPy scalars.
@@ -293,60 +294,60 @@ _TemporalArray: TypeAlias = (
 
 # =============================== Aggregations ========================================
 def all(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     *,
     skip_nulls: bool = True,
     min_count: int = 1,
     options: ScalarAggregateOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | Expression: ...
+) -> BooleanScalar: ...
 
 any = _clone_signature(all)
 
 def approximate_median(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     *,
     skip_nulls: bool = True,
     min_count: int = 1,
     options: ScalarAggregateOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> DoubleScalar | Expression: ...
+) -> DoubleScalar: ...
 def count(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     mode: _CountMode = "only_valid",
     *,
     options: CountOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> Int64Scalar | Expression: ...
+) -> Int64Scalar: ...
 def count_distinct(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     mode: _CountMode = "only_valid",
     *,
     options: CountOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> Int64Scalar | Expression: ...
+) -> Int64Scalar: ...
 def first(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     *,
     skip_nulls: bool = True,
     min_count: int = 1,
     options: ScalarAggregateOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> Scalar | Expression: ...
+) -> Scalar: ...
 def first_last(
-    array: _ComputeInput,
+    array: _ScalarOrArray | _ArrayLike,
     /,
     *,
     skip_nulls: bool = True,
     min_count: int = 1,
     options: ScalarAggregateOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> StructScalar | Expression: ...
+) -> StructScalar: ...
 def index(
     data: _ArrayOrChunkedArray,
     value: Scalar | _Literal,
@@ -356,7 +357,7 @@ def index(
     memory_pool: MemoryPool | None = None,
 ) -> Int64Scalar: ...
 def kurtosis(
-    array: _ScalarOrArray | _ArrayLike | Expression,
+    array: _ScalarOrArray | _ArrayLike,
     /,
     *,
     skip_nulls: bool = True,
@@ -364,26 +365,26 @@ def kurtosis(
     min_count: int = 0,
     options: SkewOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> DoubleScalar | Expression: ...
+) -> DoubleScalar: ...
 
 last = _clone_signature(first)
 max = _clone_signature(first)
 
 def mean(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     *,
     skip_nulls: bool = True,
     min_count: int = 1,
     options: ScalarAggregateOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> DoubleScalar | _DecimalScalar | Expression: ...
+) -> DoubleScalar | _DecimalScalar: ...
 
 min = _clone_signature(first)
 min_max = _clone_signature(first_last)
 
 def mode(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     n: int = 1,
     *,
@@ -391,7 +392,7 @@ def mode(
     min_count: int = 0,
     options: ModeOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> StructArray | Expression: ...
+) -> StructArray: ...
 def pivot_wider(
     pivot_keys: _ArrayOrChunkedArray | Sequence[str],
     pivot_values: _ArrayOrChunkedArray | Sequence[Any],
@@ -403,16 +404,16 @@ def pivot_wider(
     memory_pool: MemoryPool | None = None,
 ) -> StructScalar: ...
 def product(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     *,
     skip_nulls: bool = True,
     min_count: int = 1,
     options: ScalarAggregateOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericScalar | Expression: ...
+) -> _NumericScalar: ...
 def quantile(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     q: float | Sequence[float] = 0.5,
     *,
@@ -421,9 +422,9 @@ def quantile(
     min_count: int = 0,
     options: QuantileOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> NumericArray | _DecimalArray | Expression: ...
+) -> NumericArray | _DecimalArray: ...
 def skew(
-    array: _ScalarOrArray | _ArrayLike | Expression,
+    array: _ScalarOrArray | _ArrayLike,
     /,
     *,
     skip_nulls: bool = True,
@@ -431,9 +432,9 @@ def skew(
     min_count: int = 0,
     options: SkewOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> DoubleScalar | Expression: ...
+) -> DoubleScalar: ...
 def stddev(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     *,
     ddof: float = 0,
@@ -441,18 +442,18 @@ def stddev(
     min_count: int = 0,
     options: VarianceOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> DoubleScalar | Expression: ...
+) -> DoubleScalar: ...
 def sum(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     *,
     skip_nulls: bool = True,
     min_count: int = 1,
     options: ScalarAggregateOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericScalar | Expression: ...
+) -> _NumericScalar: ...
 def tdigest(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray,
     /,
     q: float | Sequence[float] = 0.5,
     *,
@@ -462,9 +463,9 @@ def tdigest(
     min_count: int = 0,
     options: TDigestOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> DoubleArray | Expression: ...
+) -> DoubleArray: ...
 def variance(
-    array: _ScalarOrArray | _ArrayLike | Expression,
+    array: _ScalarOrArray | _ArrayLike,
     /,
     *,
     ddof: int = 0,
@@ -472,7 +473,7 @@ def variance(
     min_count: int = 0,
     options: VarianceOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> DoubleScalar | Expression: ...
+) -> DoubleScalar: ...
 
 # =============================== Element-wise ("scalar") functions ===================
 
@@ -1077,14 +1078,14 @@ def index_in_meta_binary(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> Int32Scalar | Int32Array | ChunkedArray | Expression: ...
+) -> Int32Scalar | Int32Array | ChunkedArray: ...
 def is_in_meta_binary(
     values: _ArrayOrChunkedArray | _ArrayLike,
     value_set: _ArrayOrChunkedArray | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray: ...
 
 # ========================= Categorizations =========================
 def is_finite(

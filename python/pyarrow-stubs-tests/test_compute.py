@@ -38,7 +38,6 @@ _Quantile: TypeAlias = (
     | pa.Decimal64Array
     | pa.Decimal128Array
     | pa.Decimal256Array
-    | pc.Expression
 )
 
 
@@ -66,9 +65,9 @@ def test_expression() -> None:
           pc.Expression)
     check(assert_type(field.equals(pc.field("a")), bool), bool)
 
-    # Compute functions on an expression build an expression
-    check(pc.count(field), pc.Expression)
-    check(pc.mean(field), pc.Expression)
+    # Element-wise compute functions on an expression build an expression
+    check(pc.abs(field), pc.Expression)
+    check(pc.utf8_upper(field), pc.Expression)
 
     if TYPE_CHECKING:
         # Expressions define __eq__ and are unhashable.
@@ -332,8 +331,9 @@ def test_agg_functions() -> None:
     check(assert_type(pc.quantile(arr, q=[0.25, 0.75]), _Quantile), pa.DoubleArray)
     check(assert_type(pc.quantile(arr, interpolation="lower"), _Quantile),
           pa.Int64Array)
-    check(assert_type(pc.mode(arr, n=2), pa.StructArray | pc.Expression),
-          pa.StructArray)
+
+    check(assert_type(pc.mode(arr, n=2), pa.StructArray), pa.StructArray)
+    check(pc.mean(arr), pa.DoubleScalar)
 
     # Python lists, tuples and NumPy arrays accepted
     check(pc.variance([1, 2, 3]), pa.DoubleScalar)
@@ -341,9 +341,9 @@ def test_agg_functions() -> None:
     check(pc.variance(np.array([1.0, 2.0, 3.0])), pa.DoubleScalar)
     check(pc.first_last((1, 2)), pa.StructScalar)
 
-    # An Expression as input gives an Expression
-    check(pc.mean(arr), pa.DoubleScalar)
-    check(pc.mean(pc.field(0)), pc.Expression)
-
     # A Python value accepted
     check(pc.index(arr, 2), pa.Int64Scalar)
+
+    # TODO: test invalid code once the scalar stubs are annotated
+    # Aggregations can't be evaluated as expressions
+    # ds.dataset(table).to_table(columns={"total": pc.sum(pc.field("a"))})
