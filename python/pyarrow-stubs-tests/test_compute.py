@@ -28,9 +28,7 @@ from pyarrow.lib import Buffer
 
 from _check import assert_type, check
 
-_Filtered: TypeAlias = (
-    pa.Array | pa.ChunkedArray | pa.RecordBatch | pa.Table | pc.Expression
-)
+_Filtered: TypeAlias = pa.Array | pa.ChunkedArray | pa.RecordBatch | pa.Table
 
 _Quantile: TypeAlias = (
     pa.NumericArray
@@ -39,6 +37,17 @@ _Quantile: TypeAlias = (
     | pa.Decimal128Array
     | pa.Decimal256Array
 )
+
+_Numeric: TypeAlias = (
+    pa.NumericArray
+    | pa.Decimal32Array
+    | pa.Decimal64Array
+    | pa.Decimal128Array
+    | pa.Decimal256Array
+    | pa.ChunkedArray
+)
+
+_NumericOrTemporal: TypeAlias = _Quantile | pa.MonthDayNanoIntervalArray
 
 
 def test_expression() -> None:
@@ -170,50 +179,108 @@ def test_array_wise_functions() -> None:
     table = pa.table({"a": [3, 1, 2]})
 
     # Sorts and selections
-    check(assert_type(pc.array_sort_indices(arr), pa.UInt64Array | pc.Expression),
+    check(assert_type(pc.array_sort_indices(arr), pa.UInt64Array | pa.ChunkedArray),
           pa.UInt64Array)
+    check(assert_type(pc.array_sort_indices(pa.chunked_array([[3, 1], [2]])),
+                      pa.UInt64Array | pa.ChunkedArray),
+          pa.ChunkedArray)
     check(assert_type(pc.sort_indices(table, [("a", "descending")]),
-                      pa.UInt64Array | pc.Expression),
+                      pa.UInt64Array),
           pa.UInt64Array)
     check(assert_type(pc.sort_indices(table, [(0, "descending")]),
-                      pa.UInt64Array | pc.Expression),
+                      pa.UInt64Array),
           pa.UInt64Array)
     check(assert_type(pc.top_k_unstable(arr, 2), pa.UInt64Array), pa.UInt64Array)
     check(assert_type(pc.bottom_k_unstable(table, 2, ["a"], ["at_end"]),
                       pa.UInt64Array),
           pa.UInt64Array)
-    check(assert_type(pc.indices_nonzero(arr), pa.UInt64Array | pc.Expression),
+    check(assert_type(pc.indices_nonzero(arr), pa.UInt64Array),
           pa.UInt64Array)
-    check(assert_type(pc.value_counts(arr), pa.StructArray | pc.Expression),
+    check(assert_type(pc.value_counts(arr), pa.StructArray),
           pa.StructArray)
 
-    # Filters keep the input kind: table, array or expression
+    # Filters keep the input kind: table or array
     mask = pa.array([True, False, True])
     check(assert_type(pc.filter(table, mask), _Filtered), pa.Table)
     check(assert_type(pc.drop_null(table), _Filtered), pa.Table)
-    check(assert_type(pc.filter(pc.field("a"), pc.field("b")),
-                      _Filtered),
-          pc.Expression)
 
     # Python lists and tuples accepted
-    check(assert_type(pc.partition_nth_indices([3, 1, 2], pivot=1),
-                      pa.UInt64Array | pc.Expression),
-          pa.UInt64Array)
+    check(assert_type(pc.winsorize([10, 4, 0], 0.1, 0.8), _Numeric), pa.Array)
+    dictionary = pc.dictionary_encode(["a", "b", "a"])
+    check(assert_type(dictionary, pa.DictionaryArray | pa.ChunkedArray),
+          pa.DictionaryArray)
+    check(assert_type(pc.dictionary_encode(pa.scalar("a")),
+                      pa.DictionaryArray | pa.ChunkedArray),
+          pa.DictionaryArray)
+    check(assert_type(pc.dictionary_decode(dictionary), pa.Array | pa.ChunkedArray),
+          pa.StringArray)
+    check(assert_type(pc.unique([1, 2, 1]), pa.Array), pa.Int64Array)
+    check(assert_type(pc.unique(pa.scalar("b")), pa.Array), pa.StringArray)
+    check(assert_type(pc.unique(pa.chunked_array([[1], [2]])), pa.Array), pa.Int64Array)
+    check(assert_type(pc.array_filter([1, 2, 3], [True, False, False]),
+                      pa.Array | pa.ChunkedArray), pa.Int64Array)
+    check(assert_type(pc.inverse_permutation([1, 2, 0]),
+                      pa.IntegerArray | pa.ChunkedArray), pa.Int64Array)
+    check(assert_type(pc.scatter([True, True, False, True], [0, 1, 3, 2]),
+                      pa.Array | pa.ChunkedArray), pa.BooleanArray)
     taken = pc.take(arr, [0, 2])
     check(assert_type(taken, pa.Array | pa.ChunkedArray | pa.RecordBatch | pa.Table),
           pa.Array)
+    check(assert_type(pc.partition_nth_indices([3, 1, 2], pivot=1),
+                      pa.UInt64Array | pa.ChunkedArray),
+          pa.UInt64Array)
+    check(assert_type(pc.partition_nth_indices(pa.chunked_array([[3, 1], [2]]),
+                                               pivot=1),
+                      pa.UInt64Array | pa.ChunkedArray),
+          pa.ChunkedArray)
+    check(assert_type(pc.search_sorted([1, 2, 3], [0, 1, 2]),
+                      pa.UInt64Scalar | pa.UInt64Array),
+          pa.UInt64Array)
+    # Chunked needles give a plain array
+    check(assert_type(pc.search_sorted([1, 2, 3], pa.chunked_array([[0], [2]])),
+                      pa.UInt64Scalar | pa.UInt64Array),
+          pa.UInt64Array)
+
+    # Containment tests
+    check(assert_type(pc.indices_nonzero(1), pa.UInt64Array), pa.UInt64Array)
 
     # Structural transforms
+    check(pc.list_contains([[1, 2, 3]], 1), pa.BooleanArray)
+    check(pc.list_element([[1, 2, 3]], 1), pa.Int64Array)
+    check(assert_type(pc.list_flatten([[1, 2], [3]]), pa.Array | pa.ChunkedArray),
+          pa.Int64Array)
+    check(assert_type(pc.list_flatten(pa.scalar([1, 2])), pa.Array | pa.ChunkedArray),
+          pa.Int64Array)
+    check(assert_type(pc.list_parent_indices(pa.chunked_array([[[1, 2], [3]]])),
+                      pa.Int64Array | pa.ChunkedArray),
+          pa.ChunkedArray)
     check(pc.struct_field(pa.array([{"a": 1}]), ("a",)), pa.Array)
 
-    # Replacements as an array or a Python list
-    check(pc.replace_with_mask(arr, mask, pa.array([10, 30])), pa.Int64Array)
+    # Replace functions always return arrays
+    check(assert_type(pc.fill_null_forward([1, None]), pa.Array | pa.ChunkedArray),
+          pa.Int64Array)
+    check(assert_type(pc.fill_null_backward([None, 1]), pa.Array | pa.ChunkedArray),
+          pa.Int64Array)
+    # Replacements as an array, a scalar or a Python list
+    check(assert_type(pc.replace_with_mask(arr, mask, pa.array([10, 30])),
+                      pa.Array | pa.ChunkedArray),
+          pa.Int64Array)
+    check(pc.replace_with_mask(arr, mask, pa.scalar(10)), pa.Int64Array)
     check(pc.replace_with_mask(arr, mask, [10, 30]), pa.Int64Array)
+
+    # Pairwise functions
+    check(assert_type(pc.pairwise_diff([1, 3, 6]), _NumericOrTemporal), pa.Int64Array)
 
     if TYPE_CHECKING:
         pc.top_k_unstable(arr, "2")  # type: ignore[arg-type]
+        pc.top_k_unstable([3, 1, 2], 2)  # type: ignore[arg-type]
         pc.sort_indices(table, [("a", "up")])  # type: ignore[list-item]
+        # Only lists, tuples and NumPy arrays are converted to arrays (_ArrayLike)
         pc.cumulative_sum(range(3))  # type: ignore[arg-type]
+        # Vector and meta functions can't be evaluated as expressions, e.g.
+        # ds.dataset(table).to_table(columns={"r": ...}) fails for them
+        pc.filter(pc.field("a"), pc.field("b"))  # type: ignore[arg-type]
+        pc.pairwise_diff(pa.chunked_array([[1, 3, 6]]))  # type: ignore[arg-type]
         # TODO: test invalid code once the scalar stubs are annotated
         # pc.variance(range(3)), pc.round("abc")
 

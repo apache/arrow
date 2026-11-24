@@ -184,6 +184,7 @@ from pyarrow.lib import (
     Decimal64Array,
     Decimal128Array,
     Decimal256Array,
+    DictionaryArray,
     DoubleArray,
     DurationArray,
     FixedSizeBinaryArray,
@@ -1389,14 +1390,14 @@ def random(
 
 # ========================= Cumulative Functions =========================
 def cumulative_sum(
-    values: _ArrayOrChunkedArray | _ArrayLike | Expression,
+    values: _ArrayOrChunkedArray | _ArrayLike,
     /,
     start: float | Scalar | None = None,
     *,
     skip_nulls: bool = False,
     options: CumulativeOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericArray | ChunkedArray | Expression: ...
+) -> _NumericArray | ChunkedArray: ...
 
 cumulative_sum_checked = _clone_signature(cumulative_sum)
 cumulative_prod = _clone_signature(cumulative_sum)
@@ -1407,97 +1408,97 @@ cumulative_mean = _clone_signature(cumulative_sum)
 
 # ========================= Statistical functions =========================
 def winsorize(
-    array: _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | _ArrayLike,
     /,
     lower_limit: float,
     upper_limit: float,
     *,
     options: WinsorizeOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericArray | ChunkedArray | Expression: ...
+) -> _NumericArray | ChunkedArray: ...
 
 # ========================= Associative transforms =========================
 def dictionary_encode(
-    array: _ScalarOrArray | Expression,
+    array: _ScalarOrArray | _ArrayLike,
     /,
     null_encoding: NullEncoding = "mask",
     *,
     options: DictionaryEncodeOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _ScalarOrArray | Expression: ...
+) -> DictionaryArray | ChunkedArray: ...
 def unique(
-    array: _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _ArrayOrChunkedArray | Expression: ...
+) -> Array: ...
 def value_counts(
-    array: _ArrayOrChunkedArray | Expression,
+    array: _ScalarOrArray | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> StructArray | Expression: ...
+) -> StructArray: ...
 def dictionary_decode(
-    dictionary_array: _ScalarOrArray | Expression,
+    dictionary_array: _ArrayOrChunkedArray,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _ScalarOrArray | Expression: ...
+) -> _ArrayOrChunkedArray: ...
 
 # ========================= Selections =========================
 def array_filter(
-    array: _ArrayOrChunkedArray | Expression,
-    selection_filter: Mask | Expression,
+    array: _ArrayOrChunkedArray | _ArrayLike,
+    selection_filter: Mask,
     /,
     null_selection_behavior: NullSelectionBehavior = "drop",
     *,
     options: FilterOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _ArrayOrChunkedArray | Expression: ...
+) -> _ArrayOrChunkedArray: ...
 def array_take(
-    array: _ArrayOrChunkedArray | RecordBatch | Table | Expression,
-    indices: Indices | Expression,
+    array: _ArrayOrChunkedArray | _ArrayLike,
+    indices: Indices,
     /,
     *,
     boundscheck: bool = True,
     options: TakeOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _ArrayOrChunkedArray | RecordBatch | Table | Expression: ...
+) -> _ArrayOrChunkedArray: ...
 def drop_null(
-    input: _ArrayOrChunkedArray | RecordBatch | Table | Expression,
+    input: _ArrayOrChunkedArray | _ArrayLike | RecordBatch | Table,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _ArrayOrChunkedArray | RecordBatch | Table | Expression: ...
+) -> _ArrayOrChunkedArray | RecordBatch | Table: ...
 def filter(
-    input: _ArrayOrChunkedArray | RecordBatch | Table | Expression,
-    selection_filter: Mask | Expression,
+    input: _ArrayOrChunkedArray | _ArrayLike | RecordBatch | Table,
+    selection_filter: Mask,
     /,
     null_selection_behavior: NullSelectionBehavior = "drop",
     *,
     options: FilterOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _ArrayOrChunkedArray | RecordBatch | Table | Expression: ...
+) -> _ArrayOrChunkedArray | RecordBatch | Table: ...
 def inverse_permutation(
-    indices: _ArrayOrChunkedArray | Expression,
+    indices: _ArrayOrChunkedArray | _ArrayLike,
     /,
     max_index: int = -1,
     output_type: DataType | str | None = None,
     *,
     options: InversePermutationOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> IntegerArray | ChunkedArray | Expression: ...
+) -> IntegerArray | ChunkedArray: ...
 def scatter(
-    values: _ArrayOrChunkedArray | Expression,
-    indices: _ArrayOrChunkedArray | Expression,
+    values: _ArrayOrChunkedArray | _ArrayLike,
+    indices: _ArrayOrChunkedArray | _ArrayLike,
     /,
     max_index: int = -1,
     *,
     options: ScatterOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _ArrayOrChunkedArray | Expression: ...
+) -> _ArrayOrChunkedArray: ...
 def take(
-    data: _ArrayOrChunkedArray | RecordBatch | Table,
+    data: _ArrayOrChunkedArray | _ArrayLike | RecordBatch | Table,
     indices: Indices,
     *,
     boundscheck: bool = True,
@@ -1506,33 +1507,33 @@ def take(
 
 # ========================= Containment tests =========================
 def indices_nonzero(
-    values: _ArrayOrChunkedArray | Expression,
+    values: _ArrayOrChunkedArray | _ArrayLike | int,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> UInt64Array | Expression: ...
+) -> UInt64Array: ...
 
 # ========================= Sorts and partitions =========================
 def array_sort_indices(
-    array: _ArrayOrChunkedArray | Expression,
+    array: _ArrayOrChunkedArray | _ArrayLike,
     /,
     order: Order = "ascending",
     *,
     null_placement: NullPlacement = "at_end",
     options: ArraySortOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> UInt64Array | Expression: ...
+) -> UInt64Array | ChunkedArray: ...
 def partition_nth_indices(
-    array: _ArrayOrChunkedArray | _ArrayLike | Expression,
+    array: _ArrayOrChunkedArray | _ArrayLike,
     /,
     pivot: int,
     *,
     null_placement: NullPlacement = "at_end",
     options: PartitionNthOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> UInt64Array | Expression: ...
+) -> UInt64Array | ChunkedArray: ...
 def rank(
-    input: _ArrayOrChunkedArray,
+    input: _ArrayOrChunkedArray | _ArrayLike,
     /,
     sort_keys: Order | Sequence[_SortKey] = "ascending",
     *,
@@ -1542,7 +1543,7 @@ def rank(
     memory_pool: MemoryPool | None = None,
 ) -> UInt64Array: ...
 def rank_normal(
-    input: _ArrayOrChunkedArray,
+    input: _ArrayOrChunkedArray | _ArrayLike,
     /,
     sort_keys: Order | Sequence[_SortKey] = "ascending",
     *,
@@ -1551,7 +1552,7 @@ def rank_normal(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleArray: ...
 def rank_quantile(
-    input: _ArrayOrChunkedArray,
+    input: _ArrayOrChunkedArray | _ArrayLike,
     /,
     sort_keys: Order | Sequence[_SortKey] = "ascending",
     *,
@@ -1560,32 +1561,32 @@ def rank_quantile(
     memory_pool: MemoryPool | None = None,
 ) -> DoubleArray: ...
 def select_k_unstable(
-    input: _ArrayOrChunkedArray | RecordBatch | Table | Expression,
+    input: _ArrayOrChunkedArray | _ArrayLike | RecordBatch | Table,
     /,
     k: int,
     sort_keys: Sequence[_SortKey],
     *,
     options: SelectKOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> UInt64Array | Expression: ...
+) -> UInt64Array: ...
 def sort_indices(
-    input: _ArrayOrChunkedArray | RecordBatch | Table | Expression,
+    input: _ArrayOrChunkedArray | _ArrayLike | RecordBatch | Table,
     /,
     sort_keys: Sequence[_SortKey] = (),
     *,
     null_placement: NullPlacement | None = None,
     options: SortOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> UInt64Array | Expression: ...
+) -> UInt64Array: ...
 def search_sorted(
-    values: _ArrayOrChunkedArray | Expression,
-    needles: _ScalarOrArray | _Literal | Expression,
+    values: _ArrayOrChunkedArray | _ArrayLike,
+    needles: _ScalarOrArray | _ArrayLike | _Literal,
     /,
     side: _Side = "left",
     *,
     options: SearchSortedOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> UInt64Scalar | UInt64Array | ChunkedArray | Expression: ...
+) -> UInt64Scalar | UInt64Array: ...
 def top_k_unstable(
     values: _ArrayOrChunkedArray | RecordBatch | Table,
     k: int,
@@ -1604,29 +1605,36 @@ def bottom_k_unstable(
 ) -> UInt64Array: ...
 
 # ========================= Structural transforms =========================
+def list_contains(
+    lists: _ComputeInput,
+    value: _ComputeInput | _Literal,
+    /,
+    *,
+    memory_pool: MemoryPool | None = None,
+) -> BooleanScalar | BooleanArray | Expression: ...
 def list_element(
-    lists: _ScalarOrArray | Expression,
-    index: int | Scalar | Expression,
+    lists: _ComputeInput,
+    index: _ComputeInput | int,
     /,
     *,
     memory_pool: MemoryPool | None = None,
 ) -> _ScalarOrArray | Expression: ...
 def list_flatten(
-    lists: _ArrayOrChunkedArray | Expression,
+    lists: _ScalarOrArray | _ArrayLike,
     /,
     recursive: bool = False,
     *,
     options: ListFlattenOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _ArrayOrChunkedArray | Expression: ...
+) -> _ArrayOrChunkedArray: ...
 def list_parent_indices(
-    lists: _ArrayOrChunkedArray | Expression,
+    lists: _ArrayOrChunkedArray | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> Int64Array | Expression: ...
+) -> Int64Array | ChunkedArray: ...
 def list_slice(
-    lists: _ArrayOrChunkedArray | Expression,
+    lists: _ComputeInput,
     /,
     start: int,
     stop: int | None = None,
@@ -1656,34 +1664,34 @@ def struct_field(
 
 # ========================= Replace functions =========================
 def fill_null_backward(
-    values: _ScalarOrArray | _Literal | Expression,
+    values: _ArrayOrChunkedArray | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _ScalarOrArray | Expression: ...
+) -> _ArrayOrChunkedArray: ...
 def fill_null_forward(
-    values: _ScalarOrArray | _Literal | Expression,
+    values: _ArrayOrChunkedArray | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _ScalarOrArray | Expression: ...
+) -> _ArrayOrChunkedArray: ...
 def replace_with_mask(
-    values: _ScalarOrArray | Expression,
+    values: _ArrayOrChunkedArray | _ArrayLike,
     mask: Mask,
-    replacements: _ArrayOrChunkedArray | _ArrayLike,
+    replacements: _ScalarOrArray | _ArrayLike,
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> _ScalarOrArray | Expression: ...
+) -> _ArrayOrChunkedArray: ...
 
 # ========================= Pairwise functions =========================
 def pairwise_diff(
-    input: _ArrayOrChunkedArray | Expression,
+    input: Array | _ArrayLike,
     /,
     period: int = 1,
     *,
     options: PairwiseOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> _NumericOrTemporalArray | ChunkedArray | Expression: ...
+) -> _NumericOrTemporalArray: ...
 
 pairwise_diff_checked = _clone_signature(pairwise_diff)
