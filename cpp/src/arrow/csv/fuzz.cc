@@ -53,9 +53,9 @@ FuzzCsvOptions MakeFuzzCsvOptions(const internal::FuzzCsvHeader& header) {
   // --- ParseOptions ---
   // The "id" fields store an index in the corresponding candidate arrays,
   // modulo the array length (see csv/fuzz_header_internal.h).
-  opts.parse.delimiter =
-      internal::kFuzzCsvDelimiters[header.parse_1.delimiter_id %
-                                   internal::kFuzzCsvDelimiters.size()];
+  opts.parse.delimiter_string =
+      std::string(internal::kFuzzCsvDelimiters[header.parse_1.delimiter_id %
+                                               internal::kFuzzCsvDelimiters.size()]);
   opts.parse.quoting = header.parse_1.quoting;
   opts.parse.quote_char =
       internal::kFuzzCsvQuoteChars[header.parse_1.quote_char_id %
@@ -71,10 +71,9 @@ FuzzCsvOptions MakeFuzzCsvOptions(const internal::FuzzCsvHeader& header) {
   opts.parse.ignore_extra_columns = header.parse_2.ignore_extra_columns;
 
   // --- ReadOptions ---
-  opts.read.block_size =
-      internal::kFuzzCsvBlockSizes[header.read.block_size_id %
-                                   internal::kFuzzCsvBlockSizes.size()];
-  opts.read.use_threads = header.read.use_threads;
+  // Block size and threading are deliberately not encoded in the header:
+  // they are read-side knobs that do not affect the CSV bytes being read,
+  // and the target varies them itself in ReadAllWays() below.
   opts.read.skip_rows = header.read.skip_rows;
   opts.read.autogenerate_column_names = header.read.autogenerate_column_names;
 
@@ -113,10 +112,13 @@ Status ReadAllWays(io::IOContext io_context, const FuzzCsvOptions& opts,
   // The tables read below are kept around for differential testing.
   std::shared_ptr<Table> serial_table, threaded_table, streaming_table;
 
-  // 1. Full table read, single-threaded
+  // 1. Full table read, single-threaded, with a small block size: chunking
+  //    is stressed harder, and the differential test below checks that the
+  //    block size and threading settings do not change the parsed output.
   auto read_table_serial = [&]() -> Status {
     auto read_options = opts.read;
     read_options.use_threads = false;
+    read_options.block_size = 64;
     ARROW_ASSIGN_OR_RAISE(auto table_reader,
                           TableReader::Make(io_context, make_input(), read_options,
                                             opts.parse, opts.convert));
@@ -124,10 +126,11 @@ Status ReadAllWays(io::IOContext io_context, const FuzzCsvOptions& opts,
     return serial_table->ValidateFull();
   };
 
-  // 2. Full table read, multi-threaded
+  // 2. Full table read, multi-threaded, with a larger block size
   auto read_table_threaded = [&]() -> Status {
     auto read_options = opts.read;
     read_options.use_threads = true;
+    read_options.block_size = 16384;
     ARROW_ASSIGN_OR_RAISE(auto table_reader,
                           TableReader::Make(io_context, make_input(), read_options,
                                             opts.parse, opts.convert));
@@ -172,9 +175,12 @@ Status ReadAllWays(io::IOContext io_context, const FuzzCsvOptions& opts,
     }
   }
 
-  // 5. Row counting, with both values for `newlines_in_values` (row counting
-  //    scans rows without conversion, so it exercises parsing on its own)
-  for (const bool newlines_in_values : {false, true}) {
+  // 5. Row counting, with the header's newlines_in_values value and its
+  //    opposite (row counting scans rows without conversion, so it
+  //    exercises parsing on its own)
+  const bool header_newlines_in_values = opts.parse.newlines_in_values;
+  for (const bool newlines_in_values :
+       {header_newlines_in_values, !header_newlines_in_values}) {
     auto parse_options = opts.parse;
     parse_options.newlines_in_values = newlines_in_values;
     auto fut = CountRowsAsync(io_context, make_input(), GetCpuThreadPool(), opts.read,

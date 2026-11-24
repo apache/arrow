@@ -48,12 +48,13 @@ inline constexpr std::array<char, 8> kFuzzCsvMagic = {'A', 'R', 'R', 'O',
 // Candidate values for the options encoded in FuzzCsvHeader below. The
 // corresponding option fields store an index in these arrays (modulo the
 // array length, so that all header values lead to a well-defined option set).
-inline constexpr std::array<char, 5> kFuzzCsvDelimiters = {',', '\t', ';', '|', ' '};
+inline constexpr std::array<std::string_view, 6> kFuzzCsvDelimiters = {
+    ",", "\t", ";", "|", " ", "@@"};
 inline constexpr std::array<char, 2> kFuzzCsvQuoteChars = {'"', '\''};
 inline constexpr std::array<char, 2> kFuzzCsvEscapeChars = {'\\', '"'};
-inline constexpr std::array<int32_t, 4> kFuzzCsvBlockSizes = {1024, 4096, 65536, 1 << 20};
-inline constexpr std::array<int32_t, 3> kFuzzCsvDictMaxCardinalities = {50, 1000,
-                                                                        1000000};
+// Small cardinality thresholds exercise dictionary truncation and fallback
+// more often than large ones.
+inline constexpr std::array<int32_t, 3> kFuzzCsvDictMaxCardinalities = {5, 20, 100};
 
 // NOTE: The option bit-fields are grouped into dedicated packed structures
 // of one byte each (verified by the static_asserts below), so that the
@@ -81,13 +82,10 @@ ARROW_PACKED_START(struct, FuzzCsvParseGroup2) {
 ARROW_PACKED_END
 
 ARROW_PACKED_START(struct, FuzzCsvReadGroup) {
-  // Index (modulo length) in kFuzzCsvBlockSizes
-  uint8_t block_size_id : 2;
-  uint8_t use_threads : 1;
   // 0 or 1
   uint8_t skip_rows : 1;
   uint8_t autogenerate_column_names : 1;
-  uint8_t reserved_2 : 3;
+  uint8_t reserved_2 : 6;
 };
 ARROW_PACKED_END
 

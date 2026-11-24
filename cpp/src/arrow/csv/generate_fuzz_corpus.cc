@@ -38,6 +38,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/csv/writer.h"
 #include "arrow/io/file.h"
+#include "arrow/util/logging.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/json/from_string.h"
@@ -177,8 +178,8 @@ internal::FuzzCsvHeader MakeDefaultFuzzCsvHeader() {
   header.parse_2.pad_short_rows = 0;
   header.parse_2.ignore_extra_columns = 0;
   // --- ReadOptions defaults ---
-  header.read.block_size_id = 3;  // 1 << 20 (the default block size)
-  header.read.use_threads = 1;
+  // Block size and threading are not part of the header: they do not affect
+  // the CSV bytes and the fuzz target varies them itself.
   header.read.skip_rows = 0;
   header.read.autogenerate_column_names = 0;
   // --- ConvertOptions defaults ---
@@ -192,10 +193,29 @@ internal::FuzzCsvHeader MakeDefaultFuzzCsvHeader() {
 }
 
 // Index of `delimiter` in the candidate delimiters of the fuzz header
-uint8_t FuzzDelimiterId(char delimiter) {
+uint8_t FuzzDelimiterId(std::string_view delimiter) {
   auto it = std::find(internal::kFuzzCsvDelimiters.begin(),
                       internal::kFuzzCsvDelimiters.end(), delimiter);
   return static_cast<uint8_t>(it - internal::kFuzzCsvDelimiters.begin());
+}
+// Build the fuzz header for a set of write options: the parse and convert
+// fields mirror the dialect that the writer will produce, and the read-side
+// fields keep their defaults (block size and threading are varied by the
+// fuzz target itself).
+internal::FuzzCsvHeader MakeFuzzCsvHeaderFromWriteOptions(
+    const WriteOptions& o) {
+  internal::FuzzCsvHeader header = MakeDefaultFuzzCsvHeader();
+  header.parse_1.delimiter_id = FuzzDelimiterId(std::string(1, o.delimiter));
+  if (!o.include_header) {
+    // No header row was written, so the reader must autogenerate the
+    // column names it will read back.
+    header.read.autogenerate_column_names = 1;
+  }
+  if (!o.null_string.empty()) {
+    // The reader must parse the written null spelling as nulls.
+    header.convert_1.strings_can_be_null = 1;
+  }
+  return header;
 }
 
 using WriteAndHeaderOptions = std::pair<WriteOptions, internal::FuzzCsvHeader>;
@@ -206,40 +226,27 @@ using WriteAndHeaderOptions = std::pair<WriteOptions, internal::FuzzCsvHeader>;
 // match the writing dialect.
 std::vector<WriteAndHeaderOptions> SampleVariants() {
   std::vector<WriteAndHeaderOptions> variants;
-  auto append_variant = [&](std::function<void(WriteOptions&)> write_fn,
-                            std::function<void(internal::FuzzCsvHeader&)> header_fn) {
+  auto append_variant = [&](std::function<void(WriteOptions&)> write_fn) {
     auto write_options = WriteOptions::Defaults();
     write_fn(write_options);
-    auto validation_st = write_options.Validate();
-    if (!validation_st.ok()) {
-      std::cerr << "Skipping invalid write options: " << validation_st.ToString()
-                << std::endl;
-      return;
-    }
-    auto header = MakeDefaultFuzzCsvHeader();
-    header_fn(header);
-    variants.emplace_back(std::move(write_options), std::move(header));
+    // An invalid set of write options is a bug in this generator, not
+    // something to skip silently.
+    ARROW_CHECK_OK(write_options.Validate());
+    variants.emplace_back(std::move(write_options),
+                          MakeFuzzCsvHeaderFromWriteOptions(write_options));
   };
   // Default dialect
-  append_variant([](WriteOptions&) {}, [](internal::FuzzCsvHeader&) {});
+  append_variant([](WriteOptions&) {});
   // Alternate delimiters
-  append_variant(
-      [](WriteOptions& o) { o.delimiter = ';'; },
-      [](internal::FuzzCsvHeader& h) { h.parse_1.delimiter_id = FuzzDelimiterId(';'); });
-  append_variant(
-      [](WriteOptions& o) { o.delimiter = '\t'; },
-      [](internal::FuzzCsvHeader& h) { h.parse_1.delimiter_id = FuzzDelimiterId('\t'); });
+  append_variant([](WriteOptions& o) { o.delimiter = ';'; });
+  append_variant([](WriteOptions& o) { o.delimiter = '\t'; });
   // Quote all values (the writer uses '"' as the quoting character)
-  append_variant([](WriteOptions& o) { o.quoting_style = QuotingStyle::AllValid; },
-                 [](internal::FuzzCsvHeader&) {});
+  append_variant([](WriteOptions& o) { o.quoting_style = QuotingStyle::AllValid; });
   // No header row, and let the reader autogenerate column names
-  append_variant(
-      [](WriteOptions& o) { o.include_header = false; },
-      [](internal::FuzzCsvHeader& h) { h.read.autogenerate_column_names = 1; });
+  append_variant([](WriteOptions& o) { o.include_header = false; });
   // Write nulls as "N/A", and let the reader parse them as nulls
   // ("N/A" is one of the default null spellings in ConvertOptions)
-  append_variant([](WriteOptions& o) { o.null_string = "N/A"; },
-                 [](internal::FuzzCsvHeader& h) { h.convert_1.strings_can_be_null = 1; });
+  append_variant([](WriteOptions& o) { o.null_string = "N/A"; });
   return variants;
 }
 
