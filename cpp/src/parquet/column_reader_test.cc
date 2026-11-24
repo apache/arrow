@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <limits>
 #include <memory>
+#include <random>
 #include <string>
 #include <utility>
 #include <vector>
@@ -2266,6 +2267,34 @@ TEST(FixedSizeListRecordReader, ResumeFastReadsAfterFallbackPage) {
   }
 }
 
+void AssertSameFixedListRecords(internal::RecordReader* generic,
+                                internal::RecordReader* fast) {
+  ASSERT_EQ(generic->values_written(), fast->values_written());
+  ASSERT_EQ(generic->null_count(), fast->null_count());
+  const auto* expected = reinterpret_cast<const int32_t*>(generic->values());
+  const auto* actual = reinterpret_cast<const int32_t*>(fast->values());
+  // Null slots have unspecified values, so compare only present values
+  auto expected_valid = generic->ReleaseIsValid();
+  auto actual_valid = fast->ReleaseIsValid();
+  for (int64_t i = 0; i < generic->values_written(); ++i) {
+    const bool present =
+        !expected_valid || ::arrow::bit_util::GetBit(expected_valid->data(), i);
+    ASSERT_EQ(present,
+              !actual_valid || ::arrow::bit_util::GetBit(actual_valid->data(), i));
+    if (present) {
+      ASSERT_EQ(expected[i], actual[i]);
+    }
+  }
+  const int64_t count = generic->levels_position();
+  ASSERT_EQ(count, fast->levels_position());
+  if (count > 0) {
+    const auto* expected_defs = generic->def_levels();
+    const auto* expected_reps = generic->rep_levels();
+    ASSERT_TRUE(std::equal(expected_defs, expected_defs + count, fast->def_levels()));
+    ASSERT_TRUE(std::equal(expected_reps, expected_reps + count, fast->rep_levels()));
+  }
+}
+
 TEST(FixedSizeListRecordReader, DifferentialPagesBatchesAndSkips) {
   for (int32_t width : {1, 3, 8, 9, 15, 16, 768}) {
     for (bool irregular : {false, true}) {
@@ -2320,37 +2349,117 @@ TEST(FixedSizeListRecordReader, DifferentialPagesBatchesAndSkips) {
             if (step == 0) {
               ASSERT_TRUE(fast->dense_fixed_size_list());
             }
-            ASSERT_EQ(generic->values_written(), fast->values_written());
-            ASSERT_EQ(generic->null_count(), fast->null_count());
-            const auto* expected = reinterpret_cast<const int32_t*>(generic->values());
-            const auto* actual = reinterpret_cast<const int32_t*>(fast->values());
-            // Nullable leaf slots have unspecified values; compare present slots.
-            auto expected_valid = generic->ReleaseIsValid();
-            auto actual_valid = fast->ReleaseIsValid();
-            for (int64_t i = 0; i < generic->values_written(); ++i) {
-              const bool present =
-                  !expected_valid || ::arrow::bit_util::GetBit(expected_valid->data(), i);
-              ASSERT_EQ(present, !actual_valid ||
-                                     ::arrow::bit_util::GetBit(actual_valid->data(), i));
-              if (present) {
-                ASSERT_EQ(expected[i], actual[i]);
-              }
-            }
-            ASSERT_EQ(generic->levels_position(), fast->levels_position());
-            const int64_t count = generic->levels_position();
-            ASSERT_EQ(
-                std::vector<int16_t>(generic->def_levels(),
-                                     generic->def_levels() + count),
-                std::vector<int16_t>(fast->def_levels(), fast->def_levels() + count));
-            ASSERT_EQ(
-                std::vector<int16_t>(generic->rep_levels(),
-                                     generic->rep_levels() + count),
-                std::vector<int16_t>(fast->rep_levels(), fast->rep_levels() + count));
+            ASSERT_NO_FATAL_FAILURE(
+                AssertSameFixedListRecords(generic.get(), fast.get()));
           }
           generic->Reset();
           fast->Reset();
         }
       }
+    }
+  }
+}
+
+TEST(FixedSizeListRecordReader, RandomizedReadAndSkipAcrossRowGroups) {
+  auto column = GroupNode::Make(
+      "p", Repetition::OPTIONAL,
+      {GroupNode::Make(
+          "list", Repetition::REPEATED,
+          {PrimitiveNode::Make("element", Repetition::OPTIONAL, Type::INT32)})});
+  SchemaDescriptor schema;
+  schema.Init(GroupNode::Make("root", Repetition::REQUIRED, {column}));
+  const auto* descr = schema.Column(0);
+  const internal::RecordReader::MakeParams params{.descr = descr,
+                                                  .leaf_info = ComputeLevelInfo(descr)};
+
+  constexpr int num_rows = 120;
+  for (int width : {1, 3, 8, 9, 15, 16, 768}) {
+    for (uint32_t seed = 0; seed < 12; ++seed) {
+      SCOPED_TRACE(::testing::Message() << "width=" << width << " seed=" << seed);
+      std::mt19937 rng(seed);
+      auto draw = [&](int low, int high) {
+        return std::uniform_int_distribution<int>(low, high)(rng);
+      };
+
+      std::vector<std::vector<std::shared_ptr<Page>>> row_groups;
+      int32_t next_value = 0;
+      for (int rows_left = num_rows; rows_left > 0;) {
+        const int rows = std::min(rows_left, draw(5, 30));
+        rows_left -= rows;
+        std::vector<int16_t> defs, reps;
+        for (int row = 0; row < rows; ++row) {
+          const int kind = draw(0, 23);
+          if (kind == 0) {
+            defs.push_back(0);
+            reps.push_back(0);
+            continue;
+          }
+          const bool short_list =
+              width > 1 && (kind == 1 || (row == rows - 1 && draw(0, 2) == 0));
+          const int length = short_list ? draw(1, width - 1) : width;
+          const int null_index = kind == 2 ? draw(0, length - 1) : -1;
+          for (int i = 0; i < length; ++i) {
+            defs.push_back(i == null_index ? 2 : 3);
+            reps.push_back(i == 0 ? 0 : 1);
+          }
+        }
+
+        auto& pages = row_groups.emplace_back();
+        for (size_t start = 0; start < defs.size();) {
+          // Cut V1 pages at arbitrary positions, including inside a list
+          const size_t length = std::min<size_t>(defs.size() - start, draw(1, 8 * width));
+          std::vector<int16_t> page_defs(defs.begin() + start,
+                                         defs.begin() + start + length);
+          std::vector<int16_t> page_reps(reps.begin() + start,
+                                         reps.begin() + start + length);
+          std::vector<int32_t> values;
+          for (const auto level : page_defs) {
+            if (level == descr->max_definition_level()) values.push_back(next_value++);
+          }
+          pages.push_back(test::MakeDataPage<Int32Type>(
+              descr, values, static_cast<int>(length), Encoding::PLAIN, nullptr, 0,
+              page_defs, 3, page_reps, 1));
+          start += length;
+        }
+      }
+
+      auto generic = internal::RecordReader::Make(params);
+      auto fast = internal::FixedSizeListRecordReader::Make(params, width);
+      ASSERT_NE(fast, nullptr);
+      size_t group = 0;
+      auto set_row_group = [&]() {
+        generic->SetPageReader(std::make_unique<test::MockPageReader>(row_groups[group]));
+        fast->SetPageReader(std::make_unique<test::MockPageReader>(row_groups[group]));
+      };
+      set_row_group();
+      int total = 0;
+      for (int step = 0; group < row_groups.size(); ++step) {
+        const bool skip = draw(0, 3) == 0;
+        const int batch_size = draw(1, 20);
+        SCOPED_TRACE(::testing::Message()
+                     << "step=" << step << " batch=" << batch_size << " skip=" << skip);
+        int64_t remaining = batch_size;
+        while (remaining > 0 && group < row_groups.size()) {
+          SCOPED_TRACE(::testing::Message() << "group=" << group);
+          const auto expected =
+              skip ? generic->SkipRecords(remaining) : generic->ReadRecords(remaining);
+          const auto actual =
+              skip ? fast->SkipRecords(remaining) : fast->ReadRecords(remaining);
+          ASSERT_EQ(expected, actual);
+          ASSERT_GE(actual, 0);
+          ASSERT_LE(actual, remaining);
+          remaining -= actual;
+          total += static_cast<int>(actual);
+          ASSERT_LE(total, num_rows);
+          if (actual == 0 && ++group < row_groups.size()) set_row_group();
+        }
+        if (!skip) {
+          ASSERT_NO_FATAL_FAILURE(AssertSameFixedListRecords(generic.get(), fast.get()));
+        }
+        generic->Reset();
+        fast->Reset();
+      }
+      ASSERT_EQ(total, num_rows);
     }
   }
 }
