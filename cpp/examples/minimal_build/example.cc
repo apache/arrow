@@ -16,6 +16,9 @@
 // under the License.
 
 #include <arrow/csv/api.h>
+#ifdef ARROW_EXAMPLE_AZURE_STATIC_CHECK
+#  include <arrow/filesystem/azurefs.h>
+#endif
 #ifdef ARROW_EXAMPLE_GCS_STATIC_CHECK
 #  include <arrow/filesystem/gcsfs.h>
 #endif
@@ -70,6 +73,14 @@ Status RunMain(int argc, char** argv) {
   std::cerr << "* Verify GCS filesystem construction" << std::endl;
   ARROW_RETURN_NOT_OK(
       arrow::fs::GcsFileSystem::Make(arrow::fs::GcsOptions::Anonymous()).status());
+#endif
+
+#ifdef ARROW_EXAMPLE_AZURE_STATIC_CHECK
+  std::cerr << "* Verify Azure filesystem construction" << std::endl;
+  arrow::fs::AzureOptions azure_options;
+  azure_options.account_name = "example";
+  ARROW_RETURN_NOT_OK(azure_options.ConfigureAnonymousCredential());
+  ARROW_RETURN_NOT_OK(arrow::fs::AzureFileSystem::Make(azure_options).status());
 #endif
 
   return Status::OK();
