@@ -3251,6 +3251,28 @@ def test_select_k_table():
         pc.select_k_unstable(table, k=k, sort_keys=[("unknown", "ascending", "at_end")])
 
 
+def test_top_k_bottom_k_sort_keys():
+    arr = pa.array([1, 2, None, 0])
+    table = pa.table({"a": [1, 2, 0], "b": [1, 0, 1]})
+
+    # null_placements defaults to "at_end" for every key
+    assert pc.top_k_unstable(table, k=2, sort_keys=["a"]).to_pylist() == [1, 0]
+    assert pc.bottom_k_unstable(
+        table, k=2, sort_keys=("a", "b")).to_pylist() == [2, 0]
+
+    for func in [pc.top_k_unstable, pc.bottom_k_unstable]:
+        sort_keys = ["a"]
+        with pytest.raises(ValueError, match="only supported for table-like"):
+            func(arr, k=2, sort_keys=sort_keys)
+        assert sort_keys == ["a"]  # list is not mutated
+        with pytest.raises(TypeError, match="must be list-like"):
+            func(table, k=2, sort_keys="a")
+        with pytest.raises(TypeError, match="must be list-like"):
+            func(table, k=2, sort_keys=["a"], null_placements="at_end")
+        with pytest.raises(ValueError, match="same length"):
+            func(table, k=2, sort_keys=["a", "b"], null_placements=["at_end"])
+
+
 def test_array_sort_indices():
     arr = pa.array([1, 2, None, 0])
     result = pc.array_sort_indices(arr)
