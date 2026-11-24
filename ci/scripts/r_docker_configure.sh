@@ -78,11 +78,13 @@ if [ -f "${ARROW_SOURCE_HOME}/ci/scripts/r_install_system_dependencies.sh" ]; th
 fi
 
 # Install rsync for bundling cpp source and curl to make sure it is installed on all images,
-# cmake is now a listed sys req.
+# cmake is now a listed sys req. patch is needed by r/tools/trim/boost.sh.
+# TODO: Remove patch once we use a Boost release that includes
+# https://github.com/boostorg/locale/pull/273
 if [ "$PACKAGE_MANAGER" = "apk" ]; then
-  "$PACKAGE_MANAGER" add rsync cmake curl
+  "$PACKAGE_MANAGER" add rsync cmake curl patch
 else
-  "$PACKAGE_MANAGER" install -y rsync cmake curl
+  "$PACKAGE_MANAGER" install -y rsync cmake curl patch
 fi
 
 # Newer Debian/Ubuntu require tzdata-legacy for our tests, install it if available.
