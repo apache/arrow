@@ -87,7 +87,11 @@ Authentication
    :toctree: ../generated/
 
     ClientAuthHandler
+    ClientAuthReader
+    ClientAuthSender
     ServerAuthHandler
+    ServerAuthReader
+    ServerAuthSender
 
 Errors
 ------
