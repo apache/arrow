@@ -20,6 +20,7 @@
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -53,9 +54,11 @@ class Throttle {
 
   bool Unthrottled() const { return max_value_ <= 0; }
 
+  // Returns std::nullopt if the values were acquired and otherwise a future that
+  // completes when the caller should try again
   std::optional<Future<>> Acquire(uint64_t values) {
     if (Unthrottled()) {
-      return Future<>::MakeFinished();
+      return std::nullopt;
     }
     std::lock_guard<std::mutex> lg(mutex_);
     if (current_value_ >= max_value_) {
@@ -511,6 +514,14 @@ Status ValidateOptions(const FileSystemDatasetWriteOptions& options) {
     return Status::Invalid(
         "max_rows_per_group must be less than or equal to max_rows_per_file");
   }
+  if (options.max_rows_queued > 0 &&
+      options.max_rows_queued < options.min_rows_per_group) {
+    // Rows staged to reach min_rows_per_group count as queued rows.  If they could
+    // fill the queue on their own the writer would pause forever.
+    return Status::Invalid("max_rows_queued (", options.max_rows_queued,
+                           ") must be 0 or at least min_rows_per_group (",
+                           options.min_rows_per_group, ")");
+  }
   return Status::OK();
 }
 
@@ -539,23 +550,15 @@ Status EnsureDestinationValid(const FileSystemDatasetWriteOptions& options) {
 // Feel free to replace with something more meaningful, this is just a random heuristic.
 //
 // A single file can only reach min_rows_per_group if that many rows can be staged so
-// the limit is never smaller than min_rows_per_group.
-uint64_t CalculateMaxRowsStaged(uint64_t max_rows_queued, uint64_t min_rows_per_group) {
-  return std::max(max_rows_queued / 4, min_rows_per_group);
-}
-
-// Staged rows count as queued rows.  If the staged rows alone could reach
-// max_rows_queued then the writer would pause forever so, if needed, max_rows_queued
-// is raised to leave room for both the staged rows and the rows being written.
-uint64_t CalculateMaxRowsQueued(uint64_t max_rows_queued, uint64_t max_rows_staged) {
-  if (max_rows_queued == 0) {
-    // Unthrottled
-    return max_rows_queued;
-  }
-  if (max_rows_staged > std::numeric_limits<uint64_t>::max() / 2) {
+// the limit is never smaller than min_rows_per_group.  Staged rows count as queued
+// rows so the limit must not exceed max_rows_queued or the writer would pause forever;
+// ValidateOptions guarantees that min_rows_per_group <= max_rows_queued.
+uint64_t CalculateMaxRowsStaged(const FileSystemDatasetWriteOptions& options) {
+  if (options.max_rows_queued == 0) {
+    // There is no limit on queued rows so there is no need to limit staged rows
     return std::numeric_limits<uint64_t>::max();
   }
-  return std::max(max_rows_queued, 2 * max_rows_staged);
+  return std::max(options.max_rows_queued / 4, options.min_rows_per_group);
 }
 
 }  // namespace
@@ -566,7 +569,7 @@ class DatasetWriter::DatasetWriterImpl {
                     util::AsyncTaskScheduler* scheduler,
                     std::function<void()> pause_callback,
                     std::function<void()> resume_callback,
-                    std::function<void()> finish_callback, uint64_t max_rows_queued)
+                    std::function<void()> finish_callback)
       : scheduler_(scheduler),
         write_tasks_(util::MakeThrottledAsyncTaskGroup(
             scheduler_, /*max_concurrent_cost=*/1, /*queue=*/nullptr,
@@ -576,11 +579,8 @@ class DatasetWriter::DatasetWriterImpl {
             })),
         write_options_(std::move(write_options)),
         writer_state_(std::make_shared<DatasetWriterState>(
-            CalculateMaxRowsQueued(
-                max_rows_queued, CalculateMaxRowsStaged(
-                                     max_rows_queued, write_options_.min_rows_per_group)),
-            write_options_.max_open_files,
-            CalculateMaxRowsStaged(max_rows_queued, write_options_.min_rows_per_group))),
+            write_options_.max_rows_queued, write_options_.max_open_files,
+            CalculateMaxRowsStaged(write_options_))),
         pause_callback_(std::move(pause_callback)),
         resume_callback_(std::move(resume_callback)) {}
 
@@ -688,29 +688,40 @@ class DatasetWriter::DatasetWriterImpl {
     return largest->FinishCurrentFile();
   }
 
+  // Keep track of how many rows a directory has staged so that the directory with the
+  // most staged rows can be found without looking at every directory.
+  void RecordStagedRows(const std::string& key, uint64_t rows_staged) {
+    auto recorded = staged_rows_by_directory_.find(key);
+    if (recorded != staged_rows_by_directory_.end()) {
+      if (recorded->second == rows_staged) {
+        return;
+      }
+      directories_by_staged_rows_.erase({recorded->second, key});
+      if (rows_staged == 0) {
+        staged_rows_by_directory_.erase(recorded);
+        return;
+      }
+      recorded->second = rows_staged;
+    } else if (rows_staged == 0) {
+      return;
+    } else {
+      staged_rows_by_directory_.emplace(key, rows_staged);
+    }
+    directories_by_staged_rows_.emplace(rows_staged, key);
+  }
+
   // If too many rows are staged then write out the staged rows of the file that has
   // the most of them, repeating until we are back under the limit.  This gives the
   // largest row groups we can still make.
   Status EvictStagedRowsIfNeeded() {
-    while (writer_state_->StagingFull()) {
-      const std::string* largest_key = nullptr;
-      DatasetWriterDirectoryQueue* largest = nullptr;
-      uint64_t largest_rows_staged = 0;
-      for (const auto& dir_queue : directory_queues_) {
-        uint64_t rows_staged = dir_queue.second->rows_staged();
-        // Break ties on the key so the choice does not depend on iteration order
-        if (rows_staged > largest_rows_staged ||
-            (rows_staged > 0 && rows_staged == largest_rows_staged &&
-             dir_queue.first < *largest_key)) {
-          largest_key = &dir_queue.first;
-          largest = dir_queue.second.get();
-          largest_rows_staged = rows_staged;
-        }
-      }
-      if (largest == nullptr) {
-        break;
-      }
-      RETURN_NOT_OK(largest->FlushStaged());
+    while (writer_state_->StagingFull() && !directories_by_staged_rows_.empty()) {
+      // Ties are broken on the key so the choice is deterministic.  The recorded count
+      // can be stale if the file was closed in the meantime, in which case there is
+      // nothing to write and the record is simply dropped.
+      const std::string key = directories_by_staged_rows_.rbegin()->second;
+      const auto& dir_queue = directory_queues_.at(key);
+      RETURN_NOT_OK(dir_queue->FlushStaged());
+      RecordStagedRows(key, dir_queue->rows_staged());
     }
     return Status::OK();
   }
@@ -769,10 +780,12 @@ class DatasetWriter::DatasetWriterImpl {
         writer_state_->rows_in_flight_throttle.Release(next_chunk->num_rows());
         return s;
       }
+      RecordStagedRows(dir_queue_itr->first, dir_queue->rows_staged());
       RETURN_NOT_OK(EvictStagedRowsIfNeeded());
       batch = std::move(remainder);
       if (batch) {
         RETURN_NOT_OK(dir_queue->FinishCurrentFile());
+        RecordStagedRows(dir_queue_itr->first, dir_queue->rows_staged());
       }
     }
 
@@ -795,6 +808,9 @@ class DatasetWriter::DatasetWriterImpl {
   // Map from directory + prefix to the queue for that directory
   std::unordered_map<std::string, std::shared_ptr<DatasetWriterDirectoryQueue>>
       directory_queues_;
+  // The directories that have staged rows, by key and ordered by staged rows
+  std::unordered_map<std::string, uint64_t> staged_rows_by_directory_;
+  std::set<std::pair<uint64_t, std::string>> directories_by_staged_rows_;
   std::mutex mutex_;
   bool paused_ = false;
   Status err_;
@@ -804,21 +820,20 @@ DatasetWriter::DatasetWriter(FileSystemDatasetWriteOptions write_options,
                              util::AsyncTaskScheduler* scheduler,
                              std::function<void()> pause_callback,
                              std::function<void()> resume_callback,
-                             std::function<void()> finish_callback,
-                             uint64_t max_rows_queued)
+                             std::function<void()> finish_callback)
     : impl_(std::make_unique<DatasetWriterImpl>(
           std::move(write_options), scheduler, std::move(pause_callback),
-          std::move(resume_callback), std::move(finish_callback), max_rows_queued)) {}
+          std::move(resume_callback), std::move(finish_callback))) {}
 
 Result<std::unique_ptr<DatasetWriter>> DatasetWriter::Make(
     FileSystemDatasetWriteOptions write_options, util::AsyncTaskScheduler* scheduler,
     std::function<void()> pause_callback, std::function<void()> resume_callback,
-    std::function<void()> finish_callback, uint64_t max_rows_queued) {
+    std::function<void()> finish_callback) {
   RETURN_NOT_OK(ValidateOptions(write_options));
   RETURN_NOT_OK(EnsureDestinationValid(write_options));
-  return std::unique_ptr<DatasetWriter>(new DatasetWriter(
-      std::move(write_options), scheduler, std::move(pause_callback),
-      std::move(resume_callback), std::move(finish_callback), max_rows_queued));
+  return std::unique_ptr<DatasetWriter>(
+      new DatasetWriter(std::move(write_options), scheduler, std::move(pause_callback),
+                        std::move(resume_callback), std::move(finish_callback)));
 }
 
 DatasetWriter::~DatasetWriter() = default;

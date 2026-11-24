@@ -4588,7 +4588,6 @@ def test_write_dataset_min_rows_per_group(tempdir):
                 assert rows_per_batch <= max_rows_per_group
 
 
-@pytest.mark.parquet
 def _row_group_sizes_per_file(base_dir):
     return {
         pathlib.Path(os.path.relpath(path, base_dir)).as_posix(): [
@@ -4631,6 +4630,16 @@ def test_write_dataset_min_rows_per_group_partitioned(tempdir):
         f"p={p}/part-0.parquet": [rows_per_group] * 3 for p in range(num_parts)}
 
 
+def test_write_dataset_max_rows_queued_too_small(tempdir):
+    # GH-55642: rows held back for min_rows_per_group count as queued rows
+    table = pa.table({"x": pa.array(range(100), type=pa.int32())})
+    with pytest.raises(pa.ArrowInvalid, match="max_rows_queued"):
+        ds.write_dataset(table, tempdir / "ds", format="ipc",
+                         min_rows_per_group=50, max_rows_per_group=50,
+                         max_rows_queued=49)
+
+
+@pytest.mark.parquet
 def test_write_dataset_max_rows_per_group(tempdir):
     directory = tempdir / 'ds'
     max_rows_per_group = 18

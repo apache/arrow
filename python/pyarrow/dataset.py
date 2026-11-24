@@ -920,7 +920,7 @@ Table/RecordBatch, or iterable of RecordBatch
         value. When the limit is reached, the file holding the most waiting
         rows has them written out as a smaller row group. A single file
         therefore always reaches this value, but a partitioned write may
-        not unless ``max_rows_queued`` is at least 4 times this value
+        not unless ``max_rows_queued`` is 0 or at least 4 times this value
         multiplied by the number of partitions being written at the same
         time.
     max_rows_per_group : int, default 1024 * 1024
@@ -970,10 +970,11 @@ Table/RecordBatch, or iterable of RecordBatch
     max_rows_queued : int, default 8 * 1024 * 1024
         The maximum number of rows the dataset writer will hold in memory,
         either waiting to form a row group or waiting to be written to
-        disk, before it applies backpressure. If 0 there is no limit.
-        Raise this to let a partitioned write reach min_rows_per_group in
-        more partitions at the same time, at the cost of memory. It is
-        raised automatically, if needed, to twice min_rows_per_group.
+        disk, before it applies backpressure. If 0 there is no limit, on
+        queued rows or on rows waiting to form a row group. Otherwise it
+        must be at least min_rows_per_group. Raise this to let a
+        partitioned write reach min_rows_per_group in more partitions at
+        the same time, at the cost of memory.
     """
     from pyarrow.fs import _resolve_filesystem_and_path
 

@@ -104,10 +104,11 @@ class DatasetWriterTestFixture : public testing::Test {
 
   std::unique_ptr<DatasetWriter> MakeDatasetWriter(
       uint64_t max_rows = kDefaultDatasetWriterMaxRowsQueued) {
+    write_options_.max_rows_queued = max_rows;
     EXPECT_OK_AND_ASSIGN(auto dataset_writer,
                          DatasetWriter::Make(
                              write_options_, scheduler_, [this] { paused_ = true; },
-                             [this] { paused_ = false; }, [] {}, max_rows));
+                             [this] { paused_ = false; }, [] {}));
     return dataset_writer;
   }
 
@@ -513,6 +514,36 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupManyFilesWithRoomToStage) {
     ASSERT_EQ(150, batch->num_rows());
     ASSERT_EQ(3, num_batches);
   }
+}
+
+TEST_F(DatasetWriterTestFixture, MinRowGroupUnlimitedRowsQueued) {
+  // GH-55642: with no limit on queued rows there is no limit on staged rows either
+  write_options_.min_rows_per_group = 50;
+  write_options_.max_rows_per_group = 50;
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/0);
+  for (int i = 0; i < 30; i++) {
+    for (int file = 0; file < 8; file++) {
+      dataset_writer->WriteRecordBatch(MakeBatch(0, 5), std::to_string(file));
+    }
+  }
+  EndWriterChecked(dataset_writer.get());
+  for (int file = 0; file < 8; file++) {
+    auto written = FindFile("testdir/" + std::to_string(file) + "/chunk-0.arrow");
+    ASSERT_TRUE(written.has_value());
+    int num_batches = 0;
+    auto batch = ReadAsBatch(written->data, &num_batches);
+    ASSERT_EQ(150, batch->num_rows());
+    ASSERT_EQ(3, num_batches);
+  }
+}
+
+TEST_F(DatasetWriterTestFixture, MinRowGroupLargerThanMaxRowsQueued) {
+  // GH-55642: rows staged to reach min_rows_per_group count as queued rows so
+  // max_rows_queued can not be smaller
+  write_options_.min_rows_per_group = 60;
+  write_options_.max_rows_queued = 59;
+  ASSERT_RAISES(Invalid,
+                DatasetWriter::Make(write_options_, scheduler_, [] {}, [] {}, [] {}));
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
