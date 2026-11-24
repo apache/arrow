@@ -80,7 +80,7 @@ struct FloatingEqualityFlags {
   static constexpr bool nans_equal = NansEqual;
   static constexpr bool signed_zeros_equal = SignedZerosEqual;
   static constexpr bool ulp_distance_equal = UlpDistanceEqual;
-  static constexpr bool physical_Value_Equal = PhysicalValueEqual;
+  static constexpr bool physical_value_equal = PhysicalValueEqual;
 };
 
 template <typename T, typename Flags>
@@ -90,7 +90,7 @@ struct FloatingEquality {
         ulp_distance(options.ulp_distance().value_or(-1)) {}
 
   bool operator()(T x, T y) const {
-    if constexpr (Flags::physical_Value_Equal) {
+    if constexpr (Flags::physical_value_equal) {
       using UIntType = std::conditional_t<sizeof(T) == 4, uint32_t, uint64_t>;
 
       auto uint_x = util::SafeCopy<UIntType>(x);
@@ -137,7 +137,7 @@ struct FloatingEquality<uint16_t, Flags> {
     Float16 f_x = Float16::FromBits(x);
     Float16 f_y = Float16::FromBits(y);
 
-    if constexpr (Flags::physical_Value_Equal) {
+    if constexpr (Flags::physical_value_equal) {
       if (x == y) {
         return true;
       }

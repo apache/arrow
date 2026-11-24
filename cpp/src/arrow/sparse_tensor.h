@@ -503,6 +503,8 @@ class ARROW_EXPORT SparseTensor {
   }
 
   /// \brief Return whether sparse tensors are equal
+  /// Note that sparse tensors do not support EqualOptions (ulp, signed_zero,
+  /// physical_repr, atol).
   bool Equals(const SparseTensor& other,
               const EqualOptions& = EqualOptions::Defaults()) const;
 
