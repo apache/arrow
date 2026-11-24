@@ -1381,12 +1381,16 @@ struct SplitWhitespaceUtf8Finder : public StringSplitFinderBase<SplitOptions> {
         return false;
       }
       if (IsSpaceCharacterUnicode(codepoint)) {
-        do {
-          *separator_end = i;
+        *separator_end = i;
+        while (i < end) {
           if (ARROW_PREDICT_FALSE(!arrow::util::UTF8Decode(&i, &codepoint))) {
             return false;
           }
-        } while (IsSpaceCharacterUnicode(codepoint) && i < end);
+          if (!IsSpaceCharacterUnicode(codepoint)) {
+            break;
+          }
+          *separator_end = i;
+        }
         return true;
       }
     }
@@ -1404,12 +1408,16 @@ struct SplitWhitespaceUtf8Finder : public StringSplitFinderBase<SplitOptions> {
         return false;
       }
       if (IsSpaceCharacterUnicode(codepoint)) {
-        do {
-          *separator_begin = i + 1;
+        *separator_begin = i + 1;
+        while (i >= begin) {
           if (ARROW_PREDICT_FALSE(!arrow::util::UTF8DecodeReverse(&i, &codepoint))) {
             return false;
           }
-        } while (IsSpaceCharacterUnicode(codepoint) && i >= begin);
+          if (!IsSpaceCharacterUnicode(codepoint)) {
+            break;
+          }
+          *separator_begin = i + 1;
+        }
         return true;
       }
     }

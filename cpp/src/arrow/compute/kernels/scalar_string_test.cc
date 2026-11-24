@@ -1962,6 +1962,25 @@ TYPED_TEST(TestBaseBinaryKernels, SplitMax) {
       R"([["foo", "bar"], ["foo"], ["foo---bar", "", "ar"]])", &options_reverse);
 }
 
+template <typename TestType>
+std::shared_ptr<Array> MakeArrayInExactBuffer(const std::vector<std::string>& values,
+                                              const std::string& prefix = "",
+                                              const std::string& suffix = "") {
+  using offset_type = typename TypeTraits<TestType>::OffsetType::c_type;
+  std::string data = prefix;
+  std::vector<offset_type> offsets = {static_cast<offset_type>(data.size())};
+  for (const auto& value : values) {
+    data += value;
+    offsets.push_back(static_cast<offset_type>(data.size()));
+  }
+  data += suffix;
+  return MakeArray(ArrayData::Make(
+      TypeTraits<TestType>::type_singleton(), static_cast<int64_t>(values.size()),
+      {nullptr, Buffer::FromVector(std::move(offsets)),
+       Buffer::FromVector(std::vector<uint8_t>(data.begin(), data.end()))},
+      /*null_count=*/0));
+}
+
 TYPED_TEST(TestStringKernels, SplitWhitespaceAscii) {
   SplitOptions options;
   SplitOptions options_max{1};
@@ -1984,6 +2003,16 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceAsciiReverse) {
   this->CheckUnary("ascii_split_whitespace", R"(["foo bar", "foo  bar \tba"])",
                    list(this->type()), R"([["foo", "bar"], ["foo  bar", "ba"]])",
                    &options_max);
+}
+
+TYPED_TEST(TestStringKernels, SplitWhitespaceAsciiStaysInBounds) {
+  SplitOptions options;
+  SplitOptions options_reverse{-1, /*reverse=*/true};
+  auto input = MakeArrayInExactBuffer<TypeParam>({"  foo  ", "  bar  "});
+  this->CheckUnary("ascii_split_whitespace", input, list(this->type()),
+                   R"([["", "foo", ""], ["", "bar", ""]])", &options);
+  this->CheckUnary("ascii_split_whitespace", input, list(this->type()),
+                   R"([["", "foo", ""], ["", "bar", ""]])", &options_reverse);
 }
 
 #ifdef ARROW_WITH_UTF8PROC
@@ -2010,6 +2039,48 @@ TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8Reverse) {
                    "[\"foo bar\", \"foo\xe2\x80\x88  bar \\tba\"]", list(this->type()),
                    "[[\"foo\", \"bar\"], [\"foo\xe2\x80\x88  bar\", \"ba\"]]",
                    &options_max);
+}
+
+TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8LeadingTrailing) {
+  SplitOptions options;
+  SplitOptions options_max{1};
+  SplitOptions options_reverse{-1, /*reverse=*/true};
+  SplitOptions options_reverse_max{1, /*reverse=*/true};
+  // \xe2\x80\x88 is punctuation space
+  const char* input =
+      "[\"foo  \", \"  foo\", \"  foo  \", \" \", \"   \", \"\", "
+      "\"foo\xe2\x80\x88\xe2\x80\x88\", \"\xe2\x80\x88 foo\"]";
+  this->CheckUnary("utf8_split_whitespace", input, list(this->type()),
+                   R"([["foo", ""], ["", "foo"], ["", "foo", ""], ["", ""], ["", ""],
+                       [""], ["foo", ""], ["", "foo"]])",
+                   &options);
+  this->CheckUnary("utf8_split_whitespace", input, list(this->type()),
+                   R"([["foo", ""], ["", "foo"], ["", "foo  "], ["", ""], ["", ""],
+                       [""], ["foo", ""], ["", "foo"]])",
+                   &options_max);
+  this->CheckUnary("utf8_split_whitespace", input, list(this->type()),
+                   R"([["foo", ""], ["", "foo"], ["", "foo", ""], ["", ""], ["", ""],
+                       [""], ["foo", ""], ["", "foo"]])",
+                   &options_reverse);
+  this->CheckUnary("utf8_split_whitespace", input, list(this->type()),
+                   R"([["foo", ""], ["", "foo"], ["  foo", ""], ["", ""], ["", ""],
+                       [""], ["foo", ""], ["", "foo"]])",
+                   &options_reverse_max);
+}
+
+TYPED_TEST(TestStringKernels, SplitWhitespaceUTF8StaysInBounds) {
+  SplitOptions options;
+  SplitOptions options_reverse{-1, /*reverse=*/true};
+  auto input = MakeArrayInExactBuffer<TypeParam>({"  foo  ", "  bar  "}, "\xff", "\xff");
+  this->CheckUnary("utf8_split_whitespace", input, list(this->type()),
+                   R"([["", "foo", ""], ["", "bar", ""]])", &options);
+  this->CheckUnary("utf8_split_whitespace", input, list(this->type()),
+                   R"([["", "foo", ""], ["", "bar", ""]])", &options_reverse);
+  input = MakeArrayInExactBuffer<TypeParam>({"  foo  ", "  bar  "});
+  this->CheckUnary("utf8_split_whitespace", input, list(this->type()),
+                   R"([["", "foo", ""], ["", "bar", ""]])", &options);
+  this->CheckUnary("utf8_split_whitespace", input, list(this->type()),
+                   R"([["", "foo", ""], ["", "bar", ""]])", &options_reverse);
 }
 #endif
 
