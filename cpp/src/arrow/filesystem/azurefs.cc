@@ -3561,4 +3561,15 @@ Result<std::string> AzureFileSystem::PathFromUri(const std::string& uri_string) 
   return path;
 }
 
+static Result<std::shared_ptr<FileSystem>> AzureFileSystemFactory(
+    const Uri& uri, const io::IOContext& io_context, std::string* out_path) {
+  ARROW_ASSIGN_OR_RAISE(auto options, AzureOptions::FromUri(uri, out_path));
+  return AzureFileSystem::Make(options, io_context);
+}
+
+FileSystemRegistrar kAzureFileSystemRegistrar[]{
+    ARROW_REGISTER_FILESYSTEM("abfs", AzureFileSystemFactory, {}),
+    ARROW_REGISTER_FILESYSTEM("abfss", AzureFileSystemFactory, {}),
+};
+
 }  // namespace arrow::fs
