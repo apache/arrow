@@ -3849,10 +3849,9 @@ class TestPrimitiveQuantileKernel : public ::testing::Test {
         for (int64_t j = 0; j < out_array->length(); ++j) {
           const auto& numeric_scalar =
               checked_pointer_cast<DoubleScalar>(expected[j][i].scalar());
-          ASSERT_TRUE((quantiles[j] == numeric_scalar->value) ||
-                      (std::isnan(quantiles[j]) && std::isnan(numeric_scalar->value)))
-              << "  Actual Value: " << quantiles[j] << "\n"
-              << "Expected Value: " << numeric_scalar->value;
+          // The results may not be rigorously equal to the "naive" results
+          // on some architecture and/or with some compiler flags (GH-12681).
+          AssertWithinUlp(quantiles[j], numeric_scalar->value, 1);
         }
       } else {
         AssertTypeEqual(out_array->type(), type_singleton());
