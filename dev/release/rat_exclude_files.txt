@@ -97,6 +97,7 @@ r/tests/testthat/_snaps/*.md
 r/inst/include/cpp11.hpp
 r/inst/include/cpp11/*.hpp
 r/tools/nixlibs-allowlist.txt
+r/inst/COPYRIGHTS
 .gitattributes
 ruby/red-arrow/.yardopts
 ruby/red-arrow-format/lib/arrow-format/org/*

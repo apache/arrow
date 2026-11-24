@@ -2992,6 +2992,28 @@ TEST(TestArrowReadWrite, ReadCoalescedColumnSubset) {
   }
 }
 
+TEST(TestArrowReadWrite, CloseReleasesPreBufferedData) {
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(1, 100, 1, &table));
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(
+      WriteTableToBuffer(table, 100, default_arrow_writer_properties(), &buffer));
+
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ArrowReaderProperties properties;
+  properties.set_pre_buffer(true);
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK(builder.properties(properties)->Build(&reader));
+  const auto use_count = buffer.use_count();
+
+  // Pre-buffered data refers to the buffer because BufferReader is zero-copy.
+  ASSERT_OK(reader->ReadTable());
+  ASSERT_GT(buffer.use_count(), use_count);
+  reader->parquet_reader()->Close();
+  ASSERT_EQ(use_count, buffer.use_count());
+}
+
 TEST(TestArrowReadWrite, ListLargeRecords) {
   // PARQUET-1308: This test passed on Linux when num_rows was smaller
   const int num_rows = 2000;
@@ -4832,8 +4854,7 @@ TEST(TestArrowReaderAdHoc, OldDataPageV2) {
     GTEST_SKIP() << "ARROW_TEST_DATA not set.";
   }
   std::stringstream ss;
-  ss << c_root << "/"
-     << "parquet/ARROW-17100.parquet";
+  ss << c_root << "/" << "parquet/ARROW-17100.parquet";
   std::string path = ss.str();
   TryReadDataFile(path);
 }
@@ -5364,6 +5385,130 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
     EXPECT_EQ("c", stats.max());
   }
   ASSERT_EQ(rg1_page_reader->NextPage(), nullptr);
+}
+
+TEST_P(TestArrowWriteDictionary, StatisticsWithNullsMatchingDictLength) {
+  // Check that dict-encoded inputs produce correct statistics (GH-55272)
+  auto dict_type = ::arrow::dictionary(::arrow::int32(), ::arrow::utf8());
+  auto schema = ::arrow::schema({::arrow::field("values", dict_type)});
+
+  struct DictionaryCase {
+    std::string dictionary_json;
+    std::string indices_json;
+    int expected_null_count;
+    std::string expected_min;
+    std::string expected_max;
+  };
+  const auto dict_cases = std::vector<DictionaryCase>{
+      {R"(["a", "b"])", R"([0, 0])", 0, "a", "a"},
+      {R"(["a", "b"])", R"([0, null, 0])", 1, "a", "a"},
+      {R"(["a", "b"])", R"([1, 0])", 0, "a", "b"},
+      {R"(["a", "b"])", R"([1, null, 0])", 1, "a", "b"},
+  };
+
+  for (const auto& dict_case : dict_cases) {
+    auto dictionary = ArrayFromJSON(::arrow::utf8(), dict_case.dictionary_json);
+    auto indices = ArrayFromJSON(::arrow::int32(), dict_case.indices_json);
+    ASSERT_OK_AND_ASSIGN(auto dict_array, ::arrow::DictionaryArray::FromArrays(
+                                              dict_type, indices, dictionary));
+    auto table = ::arrow::Table::Make(schema, {dict_array});
+
+    std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
+    auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
+
+    std::shared_ptr<WriterProperties> writer_properties =
+        WriterProperties::Builder()
+            .data_page_version(this->GetParquetDataPageVersion())
+            ->build();
+    std::unique_ptr<FileWriter> writer;
+    ASSERT_OK_AND_ASSIGN(
+        writer, FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
+                                 writer_properties, default_arrow_writer_properties()));
+    ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
+    ASSERT_OK(writer->Close());
+    ASSERT_OK(out_stream->Close());
+
+    auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
+    std::unique_ptr<ParquetFileReader> parquet_reader =
+        ParquetFileReader::Open(std::move(buffer_reader));
+
+    std::shared_ptr<FileMetaData> metadata = parquet_reader->metadata();
+    ASSERT_EQ(metadata->num_row_groups(), 1);
+    auto stats = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
+    ASSERT_NE(stats, nullptr);
+    EXPECT_EQ(stats->num_values(), 2);
+    EXPECT_EQ(stats->null_count(), dict_case.expected_null_count);
+    EXPECT_EQ(stats->EncodeMin(), dict_case.expected_min);
+    EXPECT_EQ(stats->EncodeMax(), dict_case.expected_max);
+  }
+}
+
+TEST_P(TestArrowWriteDictionary, NestedDictionaryParentNullStatistics) {
+  // Ensure statistics accurately reflect parent nulls for nested dictionary columns.
+  auto dict_type = ::arrow::dictionary(::arrow::int32(), ::arrow::utf8());
+  auto inner_field = ::arrow::field("inner", dict_type, /*nullable=*/false);
+  auto struct_type = ::arrow::struct_({inner_field});
+  auto schema = ::arrow::schema({::arrow::field("root", struct_type, /*nullable=*/true)});
+
+  auto dictionary = ArrayFromJSON(::arrow::utf8(), R"(["a", "b"])");
+  auto indices = ArrayFromJSON(::arrow::int32(), R"([0, 0, 1])");
+  ASSERT_OK_AND_ASSIGN(auto inner_dict, ::arrow::DictionaryArray::FromArrays(
+                                            dict_type, indices, dictionary));
+
+  // Parent struct validity bitmap: [valid, null, valid]
+  ::arrow::TypedBufferBuilder<bool> bitmap_builder;
+  ASSERT_OK(bitmap_builder.Append(true));
+  ASSERT_OK(bitmap_builder.Append(false));
+  ASSERT_OK(bitmap_builder.Append(true));
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, bitmap_builder.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto struct_array, ::arrow::StructArray::Make(
+                                              {inner_dict}, {inner_field}, null_bitmap));
+  auto table = ::arrow::Table::Make(schema, {struct_array});
+
+  std::shared_ptr<::arrow::ResizableBuffer> serialized_data = AllocateBuffer();
+  auto out_stream = std::make_shared<::arrow::io::BufferOutputStream>(serialized_data);
+
+  std::shared_ptr<WriterProperties> writer_properties =
+      WriterProperties::Builder()
+          .data_page_version(this->GetParquetDataPageVersion())
+          ->build();
+  std::unique_ptr<FileWriter> writer;
+  ASSERT_OK_AND_ASSIGN(
+      writer, FileWriter::Open(*schema, ::arrow::default_memory_pool(), out_stream,
+                               writer_properties, default_arrow_writer_properties()));
+  ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK(out_stream->Close());
+
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(serialized_data);
+  std::unique_ptr<ParquetFileReader> parquet_reader =
+      ParquetFileReader::Open(std::move(buffer_reader));
+
+  std::shared_ptr<FileMetaData> metadata = parquet_reader->metadata();
+  ASSERT_EQ(metadata->num_row_groups(), 1);
+  auto stats = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
+  ASSERT_NE(stats, nullptr);
+  // There are 2 valid inner values and 1 null (from the parent struct)
+  EXPECT_EQ(stats->num_values(), 2);
+  EXPECT_EQ(stats->null_count(), 1);
+  EXPECT_EQ(stats->EncodeMin(), "a");
+  EXPECT_EQ(stats->EncodeMax(), "b");
+
+  // In V2, verify that the data page header num_nulls matches page statistics
+  if (this->GetParquetDataPageVersion() == ParquetDataPageVersion::V2) {
+    auto rg_reader = parquet_reader->RowGroup(0)->GetColumnPageReader(0);
+    auto dict_page = rg_reader->NextPage();
+    ASSERT_NE(dict_page, nullptr);
+    ASSERT_EQ(dict_page->type(), PageType::DICTIONARY_PAGE);
+    auto page = rg_reader->NextPage();
+    ASSERT_NE(page, nullptr);
+    ASSERT_EQ(page->type(), PageType::DATA_PAGE_V2);
+    auto data_page_v2 = std::static_pointer_cast<DataPageV2>(page);
+    EXPECT_EQ(data_page_v2->num_nulls(), 1);
+    EXPECT_EQ(data_page_v2->num_rows(), 3);
+    EXPECT_EQ(data_page_v2->num_values(), 3);
+  }
 }
 
 // ----------------------------------------------------------------------

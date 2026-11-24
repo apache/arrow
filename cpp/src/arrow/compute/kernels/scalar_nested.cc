@@ -1146,7 +1146,7 @@ Result<TypeHolder> MakeStructResolve(KernelContext* ctx,
   auto nullable = OptionsWrapper<MakeStructOptions>::Get(ctx).field_nullability;
   auto metadata = OptionsWrapper<MakeStructOptions>::Get(ctx).field_metadata;
 
-  if (names.size() == 0) {
+  if (names.empty()) {
     names.resize(types.size());
     nullable.resize(types.size(), true);
     metadata.resize(types.size(), nullptr);

@@ -29,7 +29,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/simd.h"
 #include "parquet/exception.h"
-#include "parquet/level_comparison.h"
+#include "parquet/level_comparison_internal.h"
 
 #ifndef PARQUET_IMPL_NAMESPACE
 #  error "PARQUET_IMPL_NAMESPACE must be defined"

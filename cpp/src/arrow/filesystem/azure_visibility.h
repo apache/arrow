@@ -14,25 +14,36 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #pragma once
 
-#include <algorithm>
-#include <cstdint>
+#if defined(_WIN32) || defined(__CYGWIN__)
+#  if defined(_MSC_VER)
+#    pragma warning(push)
+#    pragma warning(disable : 4251)
+#  else
+#    pragma GCC diagnostic ignored "-Wattributes"
+#  endif
 
-#include "parquet/platform.h"
+#  ifdef ARROW_AZURE_STATIC
+#    define ARROW_AZURE_EXPORT
+#  elif defined(ARROW_AZURE_EXPORTING)
+#    define ARROW_AZURE_EXPORT __declspec(dllexport)
+#  else
+#    define ARROW_AZURE_EXPORT __declspec(dllimport)
+#  endif
 
-namespace parquet::internal {
+#  define ARROW_AZURE_NO_EXPORT
 
-/// Builds a  bitmap where each set bit indicates the corresponding level is greater
-/// than rhs.
-uint64_t PARQUET_EXPORT GreaterThanBitmap(const int16_t* levels, int64_t num_levels,
-                                          int16_t rhs);
+#  if defined(_MSC_VER)
+#    pragma warning(pop)
+#  endif
 
-struct MinMax {
-  int16_t min;
-  int16_t max;
-};
-
-MinMax PARQUET_EXPORT FindMinMax(const int16_t* levels, int64_t num_levels);
-
-}  // namespace parquet::internal
+#else  // Not Windows
+#  ifndef ARROW_AZURE_EXPORT
+#    define ARROW_AZURE_EXPORT __attribute__((visibility("default")))
+#  endif
+#  ifndef ARROW_AZURE_NO_EXPORT
+#    define ARROW_AZURE_NO_EXPORT __attribute__((visibility("hidden")))
+#  endif
+#endif

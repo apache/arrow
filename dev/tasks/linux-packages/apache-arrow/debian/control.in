@@ -155,6 +155,19 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for GCS filesystem module.
 
+Package: libarrow-azure-2700
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow2700 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for Azure filesystem module.
+
 Package: libarrow-flight2700
 Section: libs
 Architecture: any
@@ -288,6 +301,18 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for GCS filesystem module.
+
+Package: libarrow-azure-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-azure-2700 (= ${binary:Version}),
+  libarrow-dev (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for Azure filesystem module.
 
 Package: libarrow-flight-dev
 Section: libdevel
