@@ -4506,6 +4506,91 @@ TEST_F(TestHalfFloatBuilder, TestBulkAppend) {
   }
 }
 
+TEST_F(TestArray, ArangeInvalidInputs) {
+  // step == 0 is always invalid
+  ASSERT_RAISES(Invalid, Arange(0, 10, 0, pool_));
+
+  // Byte count overflows uint64 (size = 2^63 - 1)
+  ASSERT_RAISES(Invalid, Arange(0, INT64_MAX, 1, pool_));
+
+  // Byte count fits uint64 but exceeds INT64_MAX (size = 2^60 + 8)
+  ASSERT_RAISES(Invalid, Arange(0, (1LL << 60) + 8, 1, pool_));
+
+  // Negative step over the full domain (range = 2^64 - 1)
+  ASSERT_RAISES(Invalid, Arange(INT64_MAX, INT64_MIN, -1, pool_));
+}
+
+TEST_F(TestArray, ArangeBasicPositiveStep) {
+  auto expected = ArrayFromJSON(int64(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(0, 10, 1, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[0, 3, 6, 9]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(0, 10, 3, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[-5, -3, -1, 1, 3]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(-5, 5, 2, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+}
+
+TEST_F(TestArray, ArangeBasicNegativeStep) {
+  auto expected = ArrayFromJSON(int64(), "[10, 9, 8, 7, 6, 5, 4, 3, 2, 1]");
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(10, 0, -1, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[10, 7, 4, 1]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(10, 0, -3, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[5, 2, -1, -4]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(5, -7, -3, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+}
+
+TEST_F(TestArray, ArangeEmptyRanges) {
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(10, 5, 1, pool_));
+  ASSERT_EQ(result->length(), 0);
+
+  ASSERT_OK_AND_ASSIGN(result, Arange(5, 10, -1, pool_));
+  ASSERT_EQ(result->length(), 0);
+
+  ASSERT_OK_AND_ASSIGN(result, Arange(5, 5, 1, pool_));
+  ASSERT_EQ(result->length(), 0);
+}
+
+TEST_F(TestArray, ArangeBoundaryValues) {
+  // Positive-step, with range = 2^64 - 1
+  auto expected = ArrayFromJSON(
+      int64(), "[-9223372036854775808, -4611686018427387904, 0, 4611686018427387904]");
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(INT64_MIN, INT64_MAX, 1LL << 62, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  // Negative-step mirror, also with range = 2^64 - 1
+  expected = ArrayFromJSON(
+      int64(), "[9223372036854775807, 4611686018427387903, -1, -4611686018427387905]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(INT64_MAX, INT64_MIN, -(1LL << 62), pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  // step == INT64_MIN is valid: |step| is computed in unsigned arithmetic
+  expected = ArrayFromJSON(int64(), "[10]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(10, 0, INT64_MIN, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[9223372036854775807, -1]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(INT64_MAX, INT64_MIN, INT64_MIN, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  // Endpoints on the int64 rails
+  expected = ArrayFromJSON(int64(), "[-9223372036854775808, -9223372036854775807]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(INT64_MIN, INT64_MIN + 2, 1, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[9223372036854775805, 9223372036854775806]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(INT64_MAX - 2, INT64_MAX, 1, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+}
+
 class TestDayTimeIntervalBuilder : public ::testing::Test {
  public:
   void VerifyValue(const DayTimeIntervalBuilder& builder, int64_t index,
