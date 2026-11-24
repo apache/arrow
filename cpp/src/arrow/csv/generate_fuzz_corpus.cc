@@ -196,6 +196,13 @@ internal::FuzzCsvHeader MakeDefaultFuzzCsvHeader() {
 uint8_t FuzzDelimiterId(std::string_view delimiter) {
   auto it = std::find(internal::kFuzzCsvDelimiters.begin(),
                       internal::kFuzzCsvDelimiters.end(), delimiter);
+  // An unknown delimiter would silently desync the fuzz header from the
+  // written dialect (the id maps modulo the array length), so treat it as
+  // the generator bug it is.
+  if (it == internal::kFuzzCsvDelimiters.end()) {
+    ARROW_CHECK_OK(Status::Invalid("Delimiter missing from kFuzzCsvDelimiters: ",
+                                   std::string(delimiter)));
+  }
   return static_cast<uint8_t>(it - internal::kFuzzCsvDelimiters.begin());
 }
 // Build the fuzz header for a set of write options: the parse and convert
@@ -232,8 +239,10 @@ std::vector<WriteAndHeaderOptions> SampleVariants() {
     // An invalid set of write options is a bug in this generator, not
     // something to skip silently.
     ARROW_CHECK_OK(write_options.Validate());
-    variants.emplace_back(std::move(write_options),
-                          MakeFuzzCsvHeaderFromWriteOptions(write_options));
+    // Build the header before moving the options: argument evaluation order
+    // is unspecified, so moving first could read from a moved-from object.
+    auto header = MakeFuzzCsvHeaderFromWriteOptions(write_options);
+    variants.emplace_back(std::move(write_options), std::move(header));
   };
   // Default dialect
   append_variant([](WriteOptions&) {});

@@ -49,13 +49,18 @@ struct FuzzCsvOptions {
 
 FuzzCsvOptions MakeFuzzCsvOptions(const internal::FuzzCsvHeader& header) {
   FuzzCsvOptions opts;
+  // Start from the documented defaults and override the fields driven by the
+  // fuzz header, so that options added in the future keep their default
+  // values here.
+  opts.parse = ParseOptions::Defaults();
+  opts.read = ReadOptions::Defaults();
 
   // --- ParseOptions ---
   // The "id" fields store an index in the corresponding candidate arrays,
   // modulo the array length (see csv/fuzz_header_internal.h).
-  opts.parse.delimiter_string =
-      std::string(internal::kFuzzCsvDelimiters[header.parse_1.delimiter_id %
-                                               internal::kFuzzCsvDelimiters.size()]);
+  opts.parse.delimiter =
+      internal::kFuzzCsvDelimiters[header.parse_1.delimiter_id %
+                                   internal::kFuzzCsvDelimiters.size()][0];
   opts.parse.quoting = header.parse_1.quoting;
   opts.parse.quote_char =
       internal::kFuzzCsvQuoteChars[header.parse_1.quote_char_id %
@@ -158,7 +163,14 @@ Status ReadAllWays(io::IOContext io_context, const FuzzCsvOptions& opts,
   //    should return equal tables (comparison ignores chunking, and NaN
   //    values compare equal as they parse deterministically). Any mismatch
   //    is a reader bug, so abort, like the Parquet encoding fuzzer does.
-  if (serial_table && threaded_table && streaming_table) {
+  //    With automatic dictionary encoding enabled, though, different block
+  //    sizes and threading can produce different dictionary representations
+  //    (or dictionary-versus-string schemas) of the same values, and
+  //    Table::Equals compares dictionaries rather than decoded values - so
+  //    the cross-mode assertion only applies when dictionary encoding is
+  //    disabled.
+  if (serial_table && threaded_table && streaming_table &&
+      !opts.convert.auto_dict_encode) {
     auto equal_options = EqualOptions{}.nans_equal(true);
     if (!serial_table->Equals(*threaded_table, equal_options) ||
         !serial_table->Equals(*streaming_table, equal_options)) {

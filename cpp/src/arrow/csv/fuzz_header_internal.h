@@ -48,8 +48,11 @@ inline constexpr std::array<char, 8> kFuzzCsvMagic = {'A', 'R', 'R', 'O',
 // Candidate values for the options encoded in FuzzCsvHeader below. The
 // corresponding option fields store an index in these arrays (modulo the
 // array length, so that all header values lead to a well-defined option set).
-inline constexpr std::array<std::string_view, 6> kFuzzCsvDelimiters = {
-    ",", "\t", ";", "|", " ", "@@"};
+// Single-character delimiters only: ParseOptions::delimiter_string (which
+// supports multi-character delimiters) is not available on this branch yet,
+// so multi-character candidates can be added after rebasing onto it.
+inline constexpr std::array<std::string_view, 5> kFuzzCsvDelimiters = {
+    ",", "\t", ";", "|", " "};
 inline constexpr std::array<char, 2> kFuzzCsvQuoteChars = {'"', '\''};
 inline constexpr std::array<char, 2> kFuzzCsvEscapeChars = {'\\', '"'};
 // Small cardinality thresholds exercise dictionary truncation and fallback

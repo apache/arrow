@@ -37,7 +37,7 @@ def process_dir(corpus_dir, zip_output):
         arcname = hashlib.sha1(data).hexdigest()
         if arcname in seen_hashes:
             print(f"  WARNING: {child} has the same content as {seen_hashes[arcname]}, "
-                  "skipping it")
+                  "skipping it", file=sys.stderr)
             continue
         print(f"  {child} -> {arcname}")
         zip_output.writestr(str(arcname), data)
