@@ -17,27 +17,51 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Verify that every ODBC dylib in an expanded ODBC macOS installer PKG is
-# universal (ARM64 and AMD64), then flatten it back to a PKG.
+# Build a universal (ARM64 and AMD64) ODBC macOS installer PKG from an
+# ARM64 base PKG by replacing its dylib with a universal dylib.
 #
-# Usage: odbc_macos_flatten_universal_pkg.sh EXPANDED_DIR OUTPUT_PKG
+# Usage: odbc_macos_universal_pkg.sh BASE_PKG UNIVERSAL_DYLIB OUTPUT_PKG
 #
-#   EXPANDED_DIR: Directory created by `pkgutil --expand-full`
+#   BASE_PKG: ARM64 installer PKG built by CPack
+#   UNIVERSAL_DYLIB: Universal libarrow_flight_sql_odbc.<SOVERSION>.dylib. Its
+#                    name must match the dylib in BASE_PKG.
 #   OUTPUT_PKG: Path of the flat PKG to create
 
 set -euo pipefail
 
-if [ $# -ne 2 ]; then
-  echo "Usage: $0 EXPANDED_DIR OUTPUT_PKG" >&2
+if [ $# -ne 3 ]; then
+  echo "Usage: $0 BASE_PKG UNIVERSAL_DYLIB OUTPUT_PKG" >&2
   exit 1
 fi
 
-expanded_dir="${1}"
-output_pkg="${2}"
-work_dir="$(mktemp -d)"
+base_pkg="${1}"
+universal_dylib="${2}"
+output_pkg="${3}"
+work_dir="odbc_pkg_build_dir"
+expanded_dir="${work_dir}/expanded"
 
+mkdir "${work_dir}"
+trap 'sudo rm -rf "${work_dir}"' EXIT
+
+# Use sudo for every step that touches the expanded payload so the root-owned
+# files in the PKG keep their ownership instead of being re-stamped with the
+# runner user's uid/gid.
+sudo pkgutil --expand-full "${base_pkg}" "${expanded_dir}"
+
+# The unversioned name libarrow_flight_sql_odbc.dylib is a symlink to the
+# versioned dylib that the install name
+# (@rpath/libarrow_flight_sql_odbc.<SOVERSION>.dylib) resolves to.
+# Replace the real file so the symlinks stay intact.
 symlink_path="$(find "${expanded_dir}" -name libarrow_flight_sql_odbc.dylib)"
 lib_dir="$(dirname "${symlink_path}")"
+dylib_path="$(realpath "${symlink_path}")"
+if [ "$(basename "${universal_dylib}")" != "$(basename "${dylib_path}")" ]; then
+  echo "DYLIB $(basename "${universal_dylib}") doesn't match PKG DYLIB $(basename "${dylib_path}")"
+  exit 1
+fi
+echo "Replacing ${dylib_path} (via ${symlink_path}) with ${universal_dylib}"
+# cp onto an existing file keeps its owner and mode.
+sudo cp "${universal_dylib}" "${dylib_path}"
 
 # Verify every dylib (including the symlinks) is universal before re-packaging.
 # Check architecture with `grep` on `lipo -archs` to be compatible on macOS 27.

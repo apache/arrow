@@ -352,34 +352,16 @@ jobs:
           pkg_path="$(ls ArrowFlightSQLODBC-*_ARM64_base.pkg)"
           pkg_name="$(basename "${pkg_path}" _ARM64_base.pkg)"
 
-          # Use the ARM64 .pkg and swap in the signed universal ODBC dylib.
-          # Use sudo for every step that touches the expanded payload so the
-          # root-owned files in the PKG keep their ownership instead of being
-          # re-stamped with the runner user's uid/gid.
-          sudo pkgutil --expand-full "${pkg_path}" expanded
-
-          # The unversioned name libarrow_flight_sql_odbc.dylib is a symlink
-          # to the versioned dylib that the install name
-          # (@rpath/libarrow_flight_sql_odbc.<SOVERSION>.dylib) resolves to.
-          # Replace the real file so the symlinks stay intact.
-          symlink_path="$(find expanded -name libarrow_flight_sql_odbc.dylib)"
-          dylib_path="$(realpath "${symlink_path}")"
           signed_dylib="$(ls libarrow_flight_sql_odbc.*.dylib)"
-          if [ "${signed_dylib}" != "$(basename "${dylib_path}")" ]; then
-            echo "Signed DYLIB ${signed_dylib} doesn't match PKG DYLIB $(basename "${dylib_path}")"
-            exit 1
-          fi
-          echo "Replacing ${dylib_path} (via ${symlink_path}) with ${signed_dylib}"
-          # cp onto an existing file keeps its owner and mode.
-          sudo cp "${signed_dylib}" "${dylib_path}"
 
-          ci/scripts/odbc_macos_flatten_universal_pkg.sh expanded "universal/${pkg_name}.pkg"
+          # Use the ARM64 .pkg and swap in the signed universal ODBC dylib.
+          ci/scripts/odbc_macos_universal_pkg.sh \
+            "${pkg_path}" "${signed_dylib}" "universal/${pkg_name}.pkg"
       - name: Verify universal macOS installer
         run: |
           set -euo pipefail
 
           pkg_path="$(ls universal/ArrowFlightSQLODBC-*.pkg)"
-          pkgutil --check-signature "${pkg_path}" || true
           pkgutil --expand "${pkg_path}" verify
           # Installed files must not be owned by the runner user.
           runner_uid="$(id -u)"
