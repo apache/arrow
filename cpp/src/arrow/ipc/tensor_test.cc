@@ -637,6 +637,43 @@ TEST(TestSparseCSXIndex, RejectIndptrLengthOverflow) {
                                      /*non_zero_length=*/0, empty, empty));
 }
 
+TEST(TestSparseCSXIndex, RejectInvalidIpcAndAllowMixedIndexTypes) {
+  const std::vector<int64_t> indptr = {0, 1}, oob_indices = {8}, values = {42};
+  ASSERT_OK_AND_ASSIGN(
+      auto bad_index,
+      SparseCSRIndex::Make(int64(), std::vector<int64_t>{2}, std::vector<int64_t>{1},
+                           Buffer::Wrap(indptr), Buffer::Wrap(oob_indices)));
+  SparseCSRMatrix bad_tensor(bad_index, int64(), Buffer::Wrap(values), {1, 8}, {});
+
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  IpcPayload payload;
+  ASSERT_OK(GetSparseTensorPayload(bad_tensor, default_memory_pool(), &payload));
+  ASSERT_RAISES(Invalid, internal::ReadSparseTensorPayload(payload));
+
+  ASSERT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
+  int32_t metadata_length = 0;
+  int64_t body_length = 0;
+  ASSERT_OK(WriteSparseTensor(bad_tensor, sink.get(), &metadata_length, &body_length));
+  ASSERT_OK_AND_ASSIGN(auto serialized, sink->Finish());
+  io::BufferReader reader(serialized);
+  ASSERT_RAISES(Invalid, ReadSparseTensor(&reader));
+
+  const std::vector<int32_t> indptr_i32 = {0, 1};
+  const std::vector<int64_t> valid_indices = {7};
+  ASSERT_OK_AND_ASSIGN(
+      auto mixed_index,
+      SparseCSRIndex::Make(int32(), int64(), {1, 8}, 1, Buffer::Wrap(indptr_i32),
+                           Buffer::Wrap(valid_indices)));
+  ASSERT_OK_AND_ASSIGN(
+      auto mixed_tensor,
+      SparseCSRMatrix::Make(mixed_index, int64(), Buffer::Wrap(values), {1, 8}, {}));
+  IpcPayload mixed_payload;
+  ASSERT_OK(GetSparseTensorPayload(*mixed_tensor, default_memory_pool(), &mixed_payload));
+  ASSERT_OK_AND_ASSIGN(auto read_mixed, internal::ReadSparseTensorPayload(mixed_payload));
+  ASSERT_TRUE(read_mixed->Equals(*mixed_tensor));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+}
+
 TEST(TestSparseTensor, RejectNegativeShapeAndNonZeroLength) {
   // A negative non_zero_length must be rejected by GetSparseTensorMetadata,
   // otherwise the negative size product bypasses the index buffer-size guards.

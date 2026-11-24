@@ -177,16 +177,7 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
     return indices()->Equals(*other.indices());
   }
 
-  inline Status ValidateShape(const std::vector<int64_t>& shape) const override {
-    ARROW_RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
-
-    if (static_cast<size_t>(coords_->shape()[1]) == shape.size()) {
-      return Status::OK();
-    }
-
-    return Status::Invalid(
-        "shape length is inconsistent with the coords matrix in COO index");
-  }
+  Status ValidateShape(const std::vector<int64_t>& shape) const override;
 
  protected:
   std::shared_ptr<Tensor> coords_;
@@ -213,6 +204,13 @@ Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
                               const std::vector<int64_t>& indptr_shape,
                               const std::vector<int64_t>& indices_shape,
                               const char* type_name);
+
+ARROW_EXPORT
+Status ValidateSparseCSXIndexContents(SparseMatrixCompressedAxis compressed_axis,
+                                      const std::shared_ptr<Tensor>& indptr,
+                                      const std::shared_ptr<Tensor>& indices,
+                                      const std::vector<int64_t>& shape,
+                                      const char* type_name);
 
 ARROW_EXPORT
 void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
@@ -304,20 +302,8 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
 
   inline Status ValidateShape(const std::vector<int64_t>& shape) const override {
     ARROW_RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
-
-    if (shape.size() < 2) {
-      return Status::Invalid("shape length is too short");
-    }
-
-    if (shape.size() > 2) {
-      return Status::Invalid("shape length is too long");
-    }
-
-    if (indptr_->shape()[0] == shape[static_cast<int64_t>(kCompressedAxis)] + 1) {
-      return Status::OK();
-    }
-
-    return Status::Invalid("shape length is inconsistent with the ", ToString());
+    return ValidateSparseCSXIndexContents(kCompressedAxis, indptr_, indices_, shape,
+                                          SparseIndexType::kTypeName);
   }
 
  protected:
@@ -543,6 +529,10 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
                                   std::shared_ptr<SparseIndex>* out_sparse_index,
                                   std::shared_ptr<Buffer>* out_data);
 
+ARROW_EXPORT
+Status ValidateSparseTensorData(const SparseIndex* sparse_index, const DataType* type,
+                                const Buffer* data, const std::vector<int64_t>& shape);
+
 }  // namespace internal
 
 /// \brief EXPERIMENTAL: Concrete sparse tensor implementation classes with sparse index
@@ -570,11 +560,8 @@ class SparseTensorImpl : public SparseTensor {
       const std::shared_ptr<SparseIndexType>& sparse_index,
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
       const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names) {
-    if (!is_tensor_supported(type->id())) {
-      return Status::Invalid(type->ToString(),
-                             " is not valid data type for a sparse tensor");
-    }
-    ARROW_RETURN_NOT_OK(sparse_index->ValidateShape(shape));
+    ARROW_RETURN_NOT_OK(internal::ValidateSparseTensorData(sparse_index.get(), type.get(),
+                                                           data.get(), shape));
     if (dim_names.size() > 0 && dim_names.size() != shape.size()) {
       return Status::Invalid("dim_names length is inconsistent with shape");
     }

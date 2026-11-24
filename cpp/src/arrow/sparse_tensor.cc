@@ -22,12 +22,15 @@
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <type_traits>
 
 #include "arrow/compare.h"
+#include "arrow/extension/tensor_internal.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/ubsan.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -123,6 +126,78 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
 
 namespace {
 
+template <typename Visit>
+Status VisitSparseIndexType(const DataType& type, Visit&& visit) {
+  return VisitType(type, [&](const auto& index_type) -> Status {
+    using IndexType = std::decay_t<decltype(index_type)>;
+    if constexpr (is_integer(IndexType::type_id) && IndexType::type_id != Type::UINT64) {
+      return visit(index_type);
+    } else {
+      return Status::Invalid("Unsupported sparse index value type: ", type.ToString());
+    }
+  });
+}
+
+Status ValidateSparseIndexVector(const Tensor* tensor, const char* type_name) {
+  if (!tensor) {
+    return Status::Invalid(type_name, " index tensor is null");
+  }
+  if (tensor->ndim() != 1) {
+    return Status::Invalid(type_name, " index buffers must be vectors");
+  }
+  RETURN_NOT_OK(tensor->Validate());
+  // Compressed sparse converters read packed vectors, not arbitrary tensor views.
+  if (!tensor->is_contiguous()) {
+    return Status::Invalid(type_name, " index buffers must be contiguous");
+  }
+  return Status::OK();
+}
+
+Status ValidateSparseIndexBounds(const Tensor* indices, int64_t dimension_size,
+                                 const char* type_name) {
+  RETURN_NOT_OK(ValidateSparseIndexVector(indices, type_name));
+  const uint8_t* raw_data = indices->raw_data();
+  const int64_t length = indices->shape()[0];
+  return VisitSparseIndexType(*indices->type(), [&](const auto& index_type) -> Status {
+    using CType = typename std::decay_t<decltype(index_type)>::c_type;
+    for (int64_t i = 0; i < length; ++i) {
+      const int64_t index = util::SafeLoadAs<CType>(raw_data + i * sizeof(CType));
+      if (index < 0 || index >= dimension_size) {
+        return Status::Invalid(type_name, " index is out of bounds");
+      }
+    }
+    return Status::OK();
+  });
+}
+
+Status ValidateSparseIndptr(const Tensor* indptr, int64_t expected_length,
+                            int64_t indices_length, const char* type_name) {
+  RETURN_NOT_OK(ValidateSparseIndexVector(indptr, type_name));
+  const int64_t length = indptr->shape()[0];
+  if (length != expected_length) {
+    return Status::Invalid(type_name, " indptr length is inconsistent with its shape");
+  }
+  const uint8_t* raw_data = indptr->raw_data();
+  return VisitSparseIndexType(*indptr->type(), [&](const auto& index_type) -> Status {
+    using CType = typename std::decay_t<decltype(index_type)>::c_type;
+    int64_t prev = 0;
+    for (int64_t i = 0; i < length; ++i) {
+      const int64_t cur = util::SafeLoadAs<CType>(raw_data + i * sizeof(CType));
+      if (i == 0 && cur != 0) {
+        return Status::Invalid(type_name, " indptr must start at 0");
+      }
+      if (cur < prev) {
+        return Status::Invalid(type_name, " indptr values must be non-decreasing");
+      }
+      prev = cur;
+    }
+    if (prev != indices_length) {
+      return Status::Invalid(type_name, " indptr must end at the indices length");
+    }
+    return Status::OK();
+  });
+}
+
 inline Status CheckSparseCOOIndexValidity(const std::shared_ptr<DataType>& type,
                                           const std::vector<int64_t>& shape,
                                           const std::vector<int64_t>& strides) {
@@ -143,10 +218,6 @@ inline Status CheckSparseCOOIndexValidity(const std::shared_ptr<DataType>& type,
 
 void GetCOOIndexTensorRow(const std::shared_ptr<Tensor>& coords, const int64_t row,
                           std::vector<int64_t>* out_index) {
-  const auto& fw_index_value_type =
-      internal::checked_cast<const FixedWidthType&>(*coords->type());
-  const size_t indices_elsize = fw_index_value_type.bit_width() / CHAR_BIT;
-
   const auto& shape = coords->shape();
   const int64_t non_zero_length = shape[0];
   DCHECK(0 <= row && row < non_zero_length);
@@ -154,31 +225,16 @@ void GetCOOIndexTensorRow(const std::shared_ptr<Tensor>& coords, const int64_t r
   const int64_t ndim = shape[1];
   out_index->resize(ndim);
 
-  switch (indices_elsize) {
-    case 1:  // Int8, UInt8
+  VisitType(*coords->type(), [&](const auto& type) -> void {
+    using IndexType = std::decay_t<decltype(type)>;
+    if constexpr (is_integer(IndexType::type_id)) {
       for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt8Type>({row, i}));
+        (*out_index)[i] = static_cast<int64_t>(coords->Value<IndexType>({row, i}));
       }
-      break;
-    case 2:  // Int16, UInt16
-      for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt16Type>({row, i}));
-      }
-      break;
-    case 4:  // Int32, UInt32
-      for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = static_cast<int64_t>(coords->Value<UInt32Type>({row, i}));
-      }
-      break;
-    case 8:  // Int64
-      for (int64_t i = 0; i < ndim; ++i) {
-        (*out_index)[i] = coords->Value<Int64Type>({row, i});
-      }
-      break;
-    default:
+    } else {
       DCHECK(false) << "Must not reach here";
-      break;
-  }
+    }
+  });
 }
 
 bool DetectSparseCOOIndexCanonicality(const std::shared_ptr<Tensor>& coords) {
@@ -221,6 +277,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::shared_ptr<Tensor>& coords, bool is_canonical) {
   RETURN_NOT_OK(
       CheckSparseCOOIndexValidity(coords->type(), coords->shape(), coords->strides()));
+  RETURN_NOT_OK(coords->Validate());
   return std::make_shared<SparseCOOIndex>(coords, is_canonical);
 }
 
@@ -228,6 +285,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     const std::shared_ptr<Tensor>& coords) {
   RETURN_NOT_OK(
       CheckSparseCOOIndexValidity(coords->type(), coords->shape(), coords->strides()));
+  RETURN_NOT_OK(coords->Validate());
   auto is_canonical = DetectSparseCOOIndexCanonicality(coords);
   return std::make_shared<SparseCOOIndex>(coords, is_canonical);
 }
@@ -239,10 +297,10 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
     bool is_canonical) {
   RETURN_NOT_OK(
       CheckSparseCOOIndexValidity(indices_type, indices_shape, indices_strides));
-  return std::make_shared<SparseCOOIndex>(
-      std::make_shared<Tensor>(indices_type, indices_data, indices_shape,
-                               indices_strides),
-      is_canonical);
+  auto coords = std::make_shared<Tensor>(indices_type, indices_data, indices_shape,
+                                         indices_strides);
+  RETURN_NOT_OK(coords->Validate());
+  return std::make_shared<SparseCOOIndex>(coords, is_canonical);
 }
 
 Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
@@ -253,6 +311,7 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
       CheckSparseCOOIndexValidity(indices_type, indices_shape, indices_strides));
   auto coords = std::make_shared<Tensor>(indices_type, indices_data, indices_shape,
                                          indices_strides);
+  RETURN_NOT_OK(coords->Validate());
   auto is_canonical = DetectSparseCOOIndexCanonicality(coords);
   return std::make_shared<SparseCOOIndex>(coords, is_canonical);
 }
@@ -292,6 +351,35 @@ SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<Tensor>& coords, bool is_ca
 }
 
 std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOIndex"); }
+
+Status SparseCOOIndex::ValidateShape(const std::vector<int64_t>& shape) const {
+  RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
+  RETURN_NOT_OK(coords_->Validate());
+
+  if (coords_->ndim() != 2 || static_cast<size_t>(coords_->shape()[1]) != shape.size()) {
+    return Status::Invalid(
+        "shape length is inconsistent with the coords matrix in COO index");
+  }
+  const auto* raw_data = coords_->raw_data();
+  const int64_t row_stride = coords_->strides()[0];
+  const int64_t col_stride = coords_->strides()[1];
+  const int64_t num_coords = coords_->shape()[0];
+  const int64_t ndim = coords_->shape()[1];
+  return VisitSparseIndexType(*coords_->type(), [&](const auto& index_type) -> Status {
+    using CType = typename std::decay_t<decltype(index_type)>::c_type;
+    for (int64_t i = 0; i < num_coords; ++i) {
+      const uint8_t* row_ptr = raw_data + i * row_stride;
+      for (int64_t j = 0; j < ndim; ++j) {
+        const int64_t index = util::SafeLoadAs<CType>(row_ptr + j * col_stride);
+        if (index < 0 || index >= shape[j]) {
+          return Status::Invalid("SparseCOOIndex index is out of bounds for dimension ",
+                                 j);
+        }
+      }
+    }
+    return Status::OK();
+  });
+}
 
 // ----------------------------------------------------------------------
 // SparseCSXIndex
@@ -335,6 +423,19 @@ Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
   RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(indices_type, indices_shape));
 
   return Status::OK();
+}
+
+Status ValidateSparseCSXIndexContents(SparseMatrixCompressedAxis compressed_axis,
+                                      const std::shared_ptr<Tensor>& indptr,
+                                      const std::shared_ptr<Tensor>& indices,
+                                      const std::vector<int64_t>& shape,
+                                      const char* type_name) {
+  ARROW_ASSIGN_OR_RAISE(const int64_t expected_indptr_length,
+                        ComputeSparseCSXIndptrLength(compressed_axis, shape));
+  const int64_t minor_axis = compressed_axis == SparseMatrixCompressedAxis::ROW ? 1 : 0;
+  RETURN_NOT_OK(ValidateSparseIndexBounds(indices.get(), shape[minor_axis], type_name));
+  return ValidateSparseIndptr(indptr.get(), expected_indptr_length, indices->shape()[0],
+                              type_name);
 }
 
 void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
@@ -472,7 +573,43 @@ bool SparseTensor::Equals(const SparseTensor& other, const EqualOptions& opts) c
   return SparseTensorEquals(*this, other, opts);
 }
 
+namespace internal {
+
+Status ValidateSparseTensorData(const SparseIndex* sparse_index, const DataType* type,
+                                const Buffer* data, const std::vector<int64_t>& shape) {
+  if (!type || !is_tensor_supported(type->id())) {
+    return Status::Invalid(type ? type->ToString() : "null",
+                           " is not valid data type for a sparse tensor");
+  }
+  if (!sparse_index) {
+    return Status::Invalid("Sparse tensor has no sparse index");
+  }
+  if (!data) {
+    return Status::Invalid("Sparse tensor has no values buffer");
+  }
+  RETURN_NOT_OK(sparse_index->ValidateShape(shape));
+
+  const auto values_size = MultiplyWithOverflow<int64_t>(
+      {sparse_index->non_zero_length(), static_cast<int64_t>(type->byte_width())});
+  if (!values_size.has_value() || values_size.value() > data->size()) {
+    return Status::Invalid("Sparse tensor values buffer is too small");
+  }
+  return Status::OK();
+}
+
+}  // namespace internal
+
 Result<std::shared_ptr<Tensor>> SparseTensor::ToTensor(MemoryPool* pool) const {
+  RETURN_NOT_OK(internal::ValidateSparseTensorData(sparse_index_.get(), type_.get(),
+                                                   data_.get(), shape_));
+
+  ARROW_ASSIGN_OR_RAISE(const int64_t dense_size, internal::ComputeShapeProduct(shape_));
+  int64_t dense_byte_size = 0;
+  if (internal::MultiplyWithOverflow(
+          dense_size, static_cast<int64_t>(type_->byte_width()), &dense_byte_size)) {
+    return Status::Invalid("Sparse tensor size exceeds the maximum supported size");
+  }
+
   switch (format_id()) {
     case SparseTensorFormat::COO:
       return MakeTensorFromSparseCOOTensor(
