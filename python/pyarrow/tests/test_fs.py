@@ -34,6 +34,7 @@ from pyarrow.tests.util import (_filesystem_uri, ProxyHandler,
                                 running_on_musllinux)
 
 from pyarrow.fs import (FileType, FileInfo, FileSelector, FileSystem,
+                        FileInfoIterator,
                         LocalFileSystem, SubTreeFileSystem, _MockFileSystem,
                         FileSystemHandler, PyFileSystem, FSSpecHandler,
                         copy_files)
@@ -831,6 +832,289 @@ def test_get_file_info_with_selector(fs, pathfn):
         else:
             assert len(infos) == 4
 
+    finally:
+        fs.delete_dir(base_dir)
+
+
+@pytest.mark.parametrize('recursive', [False, True])
+def test_get_file_info_iterator(fs, pathfn, recursive):
+    base_dir = pathfn('iterator-dir')
+    nested_dir = pathfn('iterator-dir/nested')
+    paths = {
+        pathfn('iterator-dir/a.txt'),
+        pathfn('iterator-dir/b.txt'),
+        pathfn('iterator-dir/nested/c.txt'),
+    }
+
+    fs.create_dir(nested_dir)
+    try:
+        for path in paths:
+            with fs.open_output_stream(path):
+                pass
+
+        selector = FileSelector(base_dir, recursive=recursive)
+        expected = {
+            (info.path, info.type, info.size)
+            for info in fs.get_file_info(selector)
+        }
+        iterator = fs.get_file_info_iterator(selector)
+        assert isinstance(iterator, FileInfoIterator)
+        assert iter(iterator) is iterator
+        infos = list(iterator)
+        assert all(isinstance(info, FileInfo) for info in infos)
+        assert len(infos) == len(expected)
+        assert {(info.path, info.type, info.size) for info in infos} == expected
+        file_names = {'a.txt', 'b.txt'}
+        if recursive:
+            file_names.add('c.txt')
+        assert {info.base_name for info in infos
+                if info.type == FileType.File} == file_names
+        assert next(iterator, None) is None
+    finally:
+        fs.delete_dir(base_dir)
+
+
+def test_get_file_info_iterator_close(fs, pathfn):
+    base_dir = pathfn('iterator-close')
+    fs.create_dir(base_dir)
+    try:
+        with fs.open_output_stream(pathfn('iterator-close/file.txt')):
+            pass
+        iterator = fs.get_file_info_iterator(FileSelector(base_dir))
+        iterator.close()
+        iterator.close()
+        assert next(iterator, None) is None
+
+        # Closing after partially consuming the iterator also works.
+        iterator = fs.get_file_info_iterator(FileSelector(base_dir))
+        assert isinstance(next(iterator), FileInfo)
+        iterator.close()
+        assert next(iterator, None) is None
+    finally:
+        fs.delete_dir(base_dir)
+
+
+def test_get_file_info_iterator_is_lazy():
+    # Discovery must not start until the first next() call.
+    listed = []
+
+    class LazyHandler(DummyHandler):
+        def get_file_info_selector(self, selector):
+            listed.append(selector.base_dir)
+            return super().get_file_info_selector(selector)
+
+    fs = PyFileSystem(LazyHandler())
+    iterator = fs.get_file_info_iterator(FileSelector('somedir'))
+    assert listed == []
+    assert isinstance(next(iterator), FileInfo)
+    assert listed == ['somedir']
+    iterator.close()
+
+
+def test_get_file_info_iterator_errors(localfs):
+    fs = localfs['fs']
+    with pytest.raises(TypeError):
+        FileInfoIterator()
+    with pytest.raises(TypeError):
+        fs.get_file_info_iterator(None)
+    with pytest.raises(TypeError):
+        fs.get_file_info_iterator('not-a-selector')
+
+    missing = localfs['pathfn']('missing-iterator-dir')
+    iterator = fs.get_file_info_iterator(FileSelector(missing))
+    with pytest.raises(FileNotFoundError):
+        next(iterator)
+    assert next(iterator, None) is None
+    iterator.close()
+
+    iterator = fs.get_file_info_iterator(
+        FileSelector(missing, allow_not_found=True))
+    assert list(iterator) == []
+
+
+def test_get_file_info_iterator_spans_batches(tmp_path):
+    # More entries than the local filesystem's batch size, so the iterator
+    # has to pull several batches while yielding entries one by one.
+    paths = {str(tmp_path / f'{i}.txt') for i in range(2500)}
+    for path in paths:
+        pathlib.Path(path).touch()
+
+    fs = LocalFileSystem()
+    infos = list(fs.get_file_info_iterator(FileSelector(str(tmp_path))))
+    assert {info.path for info in infos} == paths
+    assert len(infos) == len(paths)
+
+    # Stopping early must not require consuming every entry.
+    iterator = fs.get_file_info_iterator(FileSelector(str(tmp_path)))
+    first = [next(iterator) for _ in range(5)]
+    assert len(first) == 5
+    iterator.close()
+    assert next(iterator, None) is None
+
+
+@pytest.mark.parametrize('finish', ['close', 'exhaust'])
+def test_get_file_info_iterator_concurrent(monkeypatch, finish):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event, Lock
+
+    from pyarrow import _fs
+
+    entered = Event()
+    resume = Event()
+
+    class PausingLock:
+        def __init__(self):
+            self.lock = Lock()
+
+        def acquire(self, blocking=True):
+            acquired = self.lock.acquire(blocking=blocking)
+            if acquired and not entered.is_set():
+                # Keep next() inside its critical section until both
+                # competing operations have been checked.
+                entered.set()
+                if not resume.wait(timeout=10):
+                    self.lock.release()
+                    raise AssertionError('Timed out waiting to resume iteration')
+            return acquired
+
+        def release(self):
+            self.lock.release()
+
+    monkeypatch.setattr(_fs, 'Lock', PausingLock)
+    iterator = PyFileSystem(DummyHandler()).get_file_info_iterator(
+        FileSelector('somedir'))
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        pending = executor.submit(next, iterator)
+        try:
+            assert entered.wait(timeout=10)
+            with pytest.raises(ValueError, match='iterator already executing'):
+                next(iterator)
+            with pytest.raises(ValueError, match='iterator already executing'):
+                iterator.close()
+        finally:
+            resume.set()
+        info = pending.result(timeout=10)
+
+    assert info.path == 'somedir/file1'
+    if finish == 'close':
+        iterator.close()
+    else:
+        assert [i.path for i in iterator] == ['somedir/subdir1']
+    iterator.close()
+    assert next(iterator, None) is None
+
+
+@pytest.mark.parametrize('finish', ['close', 'exhaust', 'error', 'delete'])
+def test_get_file_info_iterator_lifetime(tmp_path, finish):
+    fs = LocalFileSystem()
+    owner = weakref.ref(fs)
+    path = tmp_path / 'missing' if finish == 'error' else tmp_path
+    iterator = fs.get_file_info_iterator(FileSelector(str(path)))
+    del fs
+    assert owner() is not None
+
+    if finish == 'close':
+        iterator.close()
+    elif finish == 'exhaust':
+        assert list(iterator) == []
+    elif finish == 'error':
+        with pytest.raises(FileNotFoundError):
+            next(iterator)
+    else:
+        del iterator
+    assert owner() is None
+
+
+def test_get_file_info_iterator_pyfilesystem_fallback():
+    fs = PyFileSystem(DummyHandler())
+    iterator = fs.get_file_info_iterator(
+        FileSelector('somedir', recursive=True))
+    assert [info.path for info in iterator] == [
+        'somedir/file1',
+        'somedir/subdir1',
+        'somedir/subdir1/file2',
+    ]
+
+
+def test_get_file_info_iterator_pyfilesystem_errors():
+    fs = PyFileSystem(DummyHandler())
+    iterator = fs.get_file_info_iterator(FileSelector('otherdir'))
+    with pytest.raises(FileNotFoundError, match='otherdir'):
+        next(iterator)
+    assert next(iterator, None) is None
+    iterator.close()
+
+    iterator = fs.get_file_info_iterator(
+        FileSelector('otherdir', allow_not_found=True))
+    assert list(iterator) == []
+
+
+@pytest.mark.parametrize('error', [FileNotFoundError, RuntimeError, StopIteration])
+def test_get_file_info_iterator_handler_error_releases_owner(error):
+    class FailingHandler(DummyHandler):
+        def get_file_info_selector(self, selector):
+            raise error('handler failure')
+
+    fs = PyFileSystem(FailingHandler())
+    owner = weakref.ref(fs)
+    iterator = fs.get_file_info_iterator(FileSelector('somedir'))
+    del fs
+    with pytest.raises(error, match='handler failure'):
+        next(iterator)
+    assert owner() is None
+    assert next(iterator, None) is None
+    iterator.close()
+
+
+@pytest.mark.parametrize('finish', ['close', 'delete'])
+def test_get_file_info_iterator_unused_is_lazy(finish):
+    class UnusedHandler(DummyHandler):
+        def get_file_info_selector(self, selector):
+            pytest.fail('Closing or deleting an unused iterator must not list')
+
+    iterator = PyFileSystem(UnusedHandler()).get_file_info_iterator(
+        FileSelector('somedir'))
+    if finish == 'close':
+        iterator.close()
+        assert next(iterator, None) is None
+    else:
+        del iterator
+
+
+def test_get_file_info_iterator_failing_generator(localfs):
+    # SubTreeFileSystem rejects URIs before it can build a generator, which
+    # exercises the failing-generator code path.
+    subtree = SubTreeFileSystem(localfs['pathfn']('.'), localfs['fs'])
+    iterator = subtree.get_file_info_iterator(FileSelector('s3://bucket/key'))
+    with pytest.raises(pa.ArrowInvalid, match='got a URI'):
+        next(iterator)
+    assert next(iterator, None) is None
+    iterator.close()
+
+
+def test_get_file_info_iterator_delete_while_iterating(tmp_path):
+    for i in range(2500):
+        (tmp_path / f'{i}.txt').touch()
+
+    fs = LocalFileSystem()
+    iterator = fs.get_file_info_iterator(FileSelector(str(tmp_path)))
+    assert isinstance(next(iterator), FileInfo)
+    # Drop the iterator mid-stream so the C++ generator is released while
+    # background discovery may still be in flight.
+    del iterator
+
+
+def test_get_file_info_iterator_subtree(localfs):
+    fs = localfs['fs']
+    base_dir = localfs['pathfn']('iterator-subtree')
+    fs.create_dir(base_dir)
+    try:
+        with fs.open_output_stream(
+                localfs['pathfn']('iterator-subtree/file.txt')):
+            pass
+        subtree = SubTreeFileSystem(base_dir, fs)
+        infos = list(subtree.get_file_info_iterator(FileSelector('')))
+        assert [info.path for info in infos] == ['file.txt']
     finally:
         fs.delete_dir(base_dir)
 

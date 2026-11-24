@@ -29,6 +29,7 @@ Interface
    :toctree: ../generated/
 
    FileInfo
+   FileInfoIterator
    FileSelector
    FileSystem
 
