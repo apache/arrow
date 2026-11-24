@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <bit>
 #include <cstring>
 #include <memory>
 #include <type_traits>
@@ -82,11 +83,7 @@ ARROW_FORCE_INLINE
                      U>
     SafeCopy(T value) {
   using TypeU = std::remove_const_t<U>;
-  arrow::internal::AlignedStorage<TypeU> raw_data;
-  std::memcpy(raw_data.get(), static_cast<const void*>(&value), sizeof(T));
-  auto data = *raw_data.get();
-  raw_data.destroy();
-  return data;
+  return std::bit_cast<TypeU>(value);
 }
 
 template <typename T>
