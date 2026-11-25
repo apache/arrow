@@ -3202,7 +3202,7 @@ def test_buffers_primitive():
     # Slicing does not affect the buffers but the offset
     a_sliced = a[1:]
     buffers = a_sliced.buffers()
-    a_sliced.offset == 1
+    assert a_sliced.offset == 1
     assert len(buffers) == 2
     null_bitmap = buffers[0].to_pybytes()
     assert 1 <= len(null_bitmap) <= 64  # XXX this is varying

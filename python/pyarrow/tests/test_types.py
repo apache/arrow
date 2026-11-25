@@ -1098,7 +1098,7 @@ def test_timedelta_overflow():
         pa.scalar(d, type=pa.duration('ns'))
 
     # microsecond resolution, not overflow
-    pa.scalar(d, type=pa.duration('us')).as_py() == d
+    assert pa.scalar(d, type=pa.duration('us')).as_py() == d
 
     # second/millisecond resolution, not overflow
     for d in [datetime.timedelta.min, datetime.timedelta.max]:
