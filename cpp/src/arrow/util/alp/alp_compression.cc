@@ -331,7 +331,8 @@ AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
                                         AlpSamplingConstants::kSamplesPerChunk)));
   size_t sample_count = 0;
   for (size_t i = 0; i < inputs.size(); i += idx_increments) {
-    sample_storage[sample_count++] = inputs[i];
+    sample_storage[sample_count] = inputs[i];
+    ++sample_count;
   }
   const std::span<const T> sample(sample_storage.data(), sample_count);
 

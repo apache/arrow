@@ -89,11 +89,9 @@ TEST(TestWriterProperties, AlpOptions) {
     invalid_options.options.emplace(Encoding::ALP, AlpOptions{invalid_size});
     EXPECT_THROW(builder.encoding_options(invalid_options), ParquetException);
   }
-  for (const std::any& value : {std::any{}, std::any{1024}}) {
-    EncodingOptions invalid_options;
-    invalid_options.options.emplace(Encoding::ALP, value);
-    EXPECT_THROW(builder.encoding_options(invalid_options), ParquetException);
-  }
+  EncodingOptions unsupported_options;
+  unsupported_options.options.emplace(Encoding::PLAIN, alp_options);
+  EXPECT_THROW(builder.encoding_options(unsupported_options), ParquetException);
 }
 
 TEST(TestWriterProperties, DefaultCompression) {

@@ -23,13 +23,13 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <variant>
 
 #include "arrow/buffer.h"
 #include "arrow/io/caching.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/type_fwd.h"
-#include "parquet/encoding.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/exception.h"
 #include "parquet/parquet_version.h"
@@ -239,6 +239,42 @@ struct PARQUET_EXPORT BloomFilterOptions {
   /// | false | unset     | max row group row count  | do not fold    |
   /// | false | specified | specified ndv            | do not fold    |
   bool fold = true;
+};
+
+/// Configuration for ALP encoding.
+struct PARQUET_EXPORT AlpOptions {
+  static constexpr int32_t kDefaultVectorSize = 1024;
+
+  /// Values per encoded vector. Must be a power of two in [8, 32768].
+  int32_t vector_size{kDefaultVectorSize};
+
+  /// Throws ParquetException if a configuration value is invalid.
+  void Validate() const;
+};
+
+/// Options for the encodings that a column writer or encoder may use.
+struct PARQUET_EXPORT EncodingOptions {
+  /// Encoding-specific options. An ALP entry must contain AlpOptions.
+  std::unordered_map<Encoding::type, std::variant<AlpOptions>> options;
+
+  /// Return options for an encoding, or default value if absent.
+  template <typename T>
+  const T& Get(Encoding::type encoding) const {
+    const auto it = options.find(encoding);
+    if (it == options.end()) {
+      static const T kDefaultOptions{};
+      return kDefaultOptions;
+    }
+    const auto* encoding_options = std::get_if<T>(&it->second);
+    if (!encoding_options) {
+      throw ParquetException("Invalid options type for encoding ",
+                             EncodingToString(encoding));
+    }
+    return *encoding_options;
+  }
+
+  /// Throws ParquetException for invalid or unsupported options.
+  void Validate() const;
 };
 
 class PARQUET_EXPORT ColumnProperties {

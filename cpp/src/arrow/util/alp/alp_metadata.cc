@@ -107,18 +107,26 @@ Status ValidateVectorInfo(const AlpInfo& alp_info, const AlpForInfo<T>& for_info
 Result<bool> ValidateExceptionPositions(
     std::span<const AlpFormatConstants::PositionType> exception_positions,
     int32_t num_elements) {
-  bool strictly_increasing = true;
-  for (size_t i = 0; i < exception_positions.size(); ++i) {
-    const AlpFormatConstants::PositionType position = exception_positions[i];
-    if (position >= num_elements) {
-      return Status::Invalid("ALP exception position ", position,
-                             " is outside a vector of ", num_elements, " elements");
-    }
-    if (i > 0 && exception_positions[i] <= exception_positions[i - 1]) {
-      strictly_increasing = false;
+  if (exception_positions.empty()) {
+    return true;
+  }
+  // Keep the bounds and ordering checks in a branch-free loop.
+  auto max_pos = exception_positions.front();
+  uint8_t strictly_increasing = 1;
+  for (size_t i = 1; i < exception_positions.size(); ++i) {
+    const auto position = exception_positions[i];
+    max_pos = std::max(max_pos, position);
+    strictly_increasing &= static_cast<uint8_t>(position > exception_positions[i - 1]);
+  }
+  if (ARROW_PREDICT_FALSE(max_pos >= num_elements)) {
+    for (const auto position : exception_positions) {
+      if (position >= num_elements) {
+        return Status::Invalid("ALP exception position ", position,
+                               " is outside a vector of ", num_elements, " elements");
+      }
     }
   }
-  return strictly_increasing;
+  return strictly_increasing != 0;
 }
 
 template <typename T>
