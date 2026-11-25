@@ -276,6 +276,21 @@ TEST_F(TestChunkedArray, SliceEquals) {
   ASSERT_TRUE(slice5->type()->Equals(one_->type()));
 }
 
+TEST_F(TestChunkedArray, SliceWithEmptyChunks) {
+  auto empty = ArrayFromJSON(int32(), "[]");
+  auto first = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto second = ArrayFromJSON(int32(), "[3, 4]");
+  auto input = std::make_shared<ChunkedArray>(
+      ArrayVector{empty, first, empty, second, empty});
+  auto expected = std::make_shared<ChunkedArray>(ArrayFromJSON(int32(), "[0, 1, 2, 3, 4]"));
+
+  for (int64_t offset : {0, 1, 2, 3, 4, 5}) {
+    for (int64_t length : {0, 1, 2, 5}) {
+      ASSERT_TRUE(expected->Slice(offset, length)->Equals(*input->Slice(offset, length)));
+    }
+  }
+}
+
 TEST_F(TestChunkedArray, ZeroChunksIssues) {
   ArrayVector empty = {};
   auto no_chunks = std::make_shared<ChunkedArray>(empty, int8());
