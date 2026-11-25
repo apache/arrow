@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -1234,9 +1233,12 @@ struct GeneratorApplicator<Generator, Arg1, WithFirstTypeTwice, Args...> {
   using Type = GeneratorApplicator<Generator, Arg1, Arg1, Args...>::Type;
 };
 
+// std::is_invocable_v is used instead of the std::invocable concept because some
+// older standard library implementations (e.g., macOS 11.x libc++, used by CRAN)
+// have partial C++20 concepts support and lack std::invocable.
 template <auto Transform, auto TypeIdArray, size_t ArrayIndex,
           template <typename...> class Generator, typename... Args>
-  requires std::invocable<decltype(Transform), Type::type>
+  requires std::is_invocable_v<decltype(Transform), Type::type>
 auto GenerateKernelExecImpl(Type::type id) {
   constexpr auto kNumTypeIds = std::tuple_size_v<decltype(TypeIdArray)>;
   static_assert(ArrayIndex < kNumTypeIds);
@@ -1272,7 +1274,7 @@ auto GenerateKernelExecImpl(Type::type id) {
 
 template <auto Transform, auto TypeIdArray, template <typename...> class Generator,
           typename... Args>
-  requires std::invocable<decltype(Transform), Type::type>
+  requires std::is_invocable_v<decltype(Transform), Type::type>
 auto GenerateKernelExec(detail::GetTypeId get_id) {
   return detail::GenerateKernelExecImpl<Transform, TypeIdArray, /*ArrayIndex=*/0,
                                         Generator, Args...>(get_id.id);

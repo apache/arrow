@@ -771,8 +771,8 @@ _parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.6"
     maximizes file compatibility.
     UINT32 and some logical types are only available with version '2.4'.
     Nanosecond timestamps are only available with version '2.6'.
-    Other features such as compression algorithms or the new serialized
-    data page format must be enabled separately (see 'compression' and
+    Other features such as compression algorithms or the serialized
+    data page format are configured separately (see 'compression' and
     'data_page_version').
 use_dictionary : bool or list, default True
     Specify if we should use dictionary encoding in general or only for
@@ -841,9 +841,9 @@ column_encoding : string or dict, default None
     Certain encodings are only compatible with certain data types.
     Please refer to the encodings section of `Reading and writing Parquet
     files <https://arrow.apache.org/docs/cpp/parquet.html#encodings>`_.
-data_page_version : {"1.0", "2.0"}, default "1.0"
+data_page_version : {"1.0", "2.0"}, default "2.0"
     The serialized Parquet data page format version to write, defaults to
-    1.0. This does not impact the file schema logical types and Arrow to
+    2.0. This does not impact the file schema logical types and Arrow to
     Parquet type casting behavior; for that use the "version" option.
 use_compliant_nested_type : bool, default True
     Whether to write compliant Parquet nested type (lists) as defined
@@ -1000,8 +1000,8 @@ min_compression_savings : float, default 0.01
     Use a value from 0.0 to 1.0. For example, 0.1 requires at least 10% savings.
     Savings are measured on encoded values, excluding repetition and definition
     levels. The default is 0.01, so compression must save at least 1%.
-    Values above this default require ``data_page_version="2.0"``. Using
-    a larger value with V1 or a number outside the allowed range raises ``ValueError``.
+    Using a larger value with V1 data pages or a number outside
+    the allowed range raises ``ValueError``.
 """
 
 _parquet_writer_example_doc = """\
@@ -1088,7 +1088,7 @@ Examples
                  use_byte_stream_split=False,
                  column_encoding=None,
                  writer_engine_version=None,
-                 data_page_version='1.0',
+                 data_page_version='2.0',
                  use_compliant_nested_type=True,
                  encryption_properties=None,
                  write_batch_size=None,
@@ -2061,7 +2061,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 compression_level=None,
                 use_byte_stream_split=False,
                 column_encoding=None,
-                data_page_version='1.0',
+                data_page_version='2.0',
                 use_compliant_nested_type=True,
                 encryption_properties=None,
                 write_batch_size=None,

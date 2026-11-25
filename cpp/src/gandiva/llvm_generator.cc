@@ -394,6 +394,13 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
 
   // add jump to "loop block" at the end of the "setup block".
   builder->SetInsertPoint(loop_entry);
+  llvm::Value* arena_used_ptr = nullptr;
+  if (visitor.has_arena_allocs()) {
+    // Get the arena state pointer once per generated function instead of baking the
+    // ExecutionContext layout into the generated code.
+    arena_used_ptr = AddFunctionCall("gdv_fn_context_arena_used_ptr",
+                                     types()->i8_ptr_type(), {arg_context_ptr});
+  }
   builder->CreateBr(loop_body);
 
   // save the value in the output vector.
@@ -427,10 +434,23 @@ Status LLVMGenerator::CodeGenExprValue(DexPtr value_expr, int buffer_count,
   if (visitor.has_arena_allocs()) {
     // Reset allocations to avoid excessive memory usage. Once the result is copied to
     // the output vector (store instruction above), any memory allocations in this
-    // iteration of the loop are no longer needed.
-    std::vector<llvm::Value*> reset_args;
-    reset_args.push_back(arg_context_ptr);
-    AddFunctionCall("gdv_fn_context_arena_reset", types()->void_type(), reset_args);
+    // iteration of the loop are no longer needed. Skip the call when the row did not
+    // allocate, which keeps cheap functions that only report errors fast.
+    llvm::BasicBlock* arena_reset =
+        llvm::BasicBlock::Create(*context(), "arena_reset", fn, loop_exit);
+    llvm::BasicBlock* loop_latch =
+        llvm::BasicBlock::Create(*context(), "loop_latch", fn, loop_exit);
+    llvm::Value* arena_used =
+        builder->CreateLoad(types()->i8_type(), arena_used_ptr, "arena_used");
+    builder->CreateCondBr(
+        builder->CreateICmpNE(arena_used, types()->i8_constant(0), "arena_used?"),
+        arena_reset, loop_latch);
+    builder->SetInsertPoint(arena_reset);
+    AddFunctionCall("gdv_fn_context_arena_reset", types()->void_type(),
+                    {arg_context_ptr});
+    builder->CreateBr(loop_latch);
+    builder->SetInsertPoint(loop_latch);
+    loop_body_tail = loop_latch;
   }
 
   // check loop_var
@@ -1263,6 +1283,12 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
   auto llvm_return_type = types->IRType(arrow_return_type_id);
   DecimalIR decimalIR(generator_->engine_.get());
 
+  // Only functions that get the execution context can allocate from its arena (directly
+  // or through a function holder), so those need the arena released after each row.
+  if (func->NeedsContext()) {
+    has_arena_allocs_ = true;
+  }
+
   if (arrow_return_type_id == arrow::Type::DECIMAL) {
     // For decimal fns, the output precision/scale are passed along as parameters.
     //
@@ -1293,7 +1319,6 @@ LValuePtr LLVMGenerator::Visitor::BuildFunctionCall(const NativeFunction* func,
       result_len_ptr = new llvm::AllocaInst(generator_->types()->i32_type(), 0,
                                             "result_len", entry_block_);
       params->push_back(result_len_ptr);
-      has_arena_allocs_ = true;
     }
 
     // Make the function call

@@ -43,6 +43,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/visit_data_inline.h"
@@ -924,6 +925,53 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
   RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
   RETURN_NOT_OK(builder->Resize(0));
   return builder->Finish();
+}
+
+Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step,
+                                      MemoryPool* pool) {
+  if (step == 0) {
+    return Status::Invalid("Arange step cannot be zero");
+  }
+
+  auto error = [&]() {
+    return Status::Invalid("Arange: range [", start, ", ", stop, ") with step ", step,
+                           " would produce an array that is too large");
+  };
+
+  uint64_t size;
+  if (step > 0 && stop > start) {
+    const uint64_t range = static_cast<uint64_t>(stop) - static_cast<uint64_t>(start);
+    const auto step_u = static_cast<uint64_t>(step);
+    size = (range - 1) / step_u + 1;
+  } else if (step < 0 && stop < start) {
+    const uint64_t range = static_cast<uint64_t>(start) - static_cast<uint64_t>(stop);
+    const uint64_t step_u = 0 - static_cast<uint64_t>(step);
+    size = (range - 1) / step_u + 1;
+  } else {
+    return MakeEmptyArray(int64(), pool);
+  }
+
+  uint64_t buffer_size_u;
+  if (internal::MultiplyWithOverflow(size, sizeof(int64_t), &buffer_size_u) ||
+      buffer_size_u > static_cast<uint64_t>(std::numeric_limits<int64_t>::max())) {
+    return error();
+  }
+  const auto size_i64 = static_cast<int64_t>(size);
+  const auto buffer_size = static_cast<int64_t>(buffer_size_u);
+
+  ARROW_ASSIGN_OR_RAISE(auto data_buffer, AllocateBuffer(buffer_size, pool));
+
+  auto values = reinterpret_cast<int64_t*>(data_buffer->mutable_data());
+  int64_t value = start;
+  int64_t i = 0;
+  for (; i < size_i64 - 1; ++i) {
+    values[i] = value;
+    value += step;
+  }
+  values[i] = value;
+
+  auto data = ArrayData::Make(int64(), size_i64, {nullptr, std::move(data_buffer)}, 0);
+  return MakeArray(data);
 }
 
 namespace internal {

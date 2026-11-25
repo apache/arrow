@@ -2107,7 +2107,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       total_rows += row_group.num_rows;
     }
     metadata_->__set_num_rows(total_rows);
-    metadata_->__set_row_groups(row_groups_);
+    metadata_->row_groups = std::move(row_groups_);
 
     if (key_value_metadata) {
       ToThriftKeyValueMetadata(*key_value_metadata, metadata_.get());
@@ -2144,7 +2144,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
           ToThrift(file_encryption_properties->algorithm()));
       const std::string& footer_signing_key_metadata =
           file_encryption_properties->footer_key_metadata();
-      if (footer_signing_key_metadata.size() > 0) {
+      if (!footer_signing_key_metadata.empty()) {
         metadata_->__set_footer_signing_key_metadata(footer_signing_key_metadata);
       }
     }
@@ -2172,7 +2172,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
 
     crypto_metadata_->__set_encryption_algorithm(
         ToThrift(file_encryption_properties->algorithm()));
-    std::string key_metadata = file_encryption_properties->footer_key_metadata();
+    const std::string& key_metadata = file_encryption_properties->footer_key_metadata();
 
     if (!key_metadata.empty()) {
       crypto_metadata_->__set_key_metadata(key_metadata);

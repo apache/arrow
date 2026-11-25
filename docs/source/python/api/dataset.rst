@@ -61,7 +61,9 @@ Classes
    FileSystemFactoryOptions
    FileSystemDatasetFactory
    UnionDataset
+   FilteredDataset
    Fragment
+   FilteredFragment
    FragmentScanOptions
    TaggedRecordBatch
    Scanner

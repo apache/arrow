@@ -33,3 +33,5 @@ In accordance to the [AI generation guidelines](https://arrow.apache.org/docs/de
 - [ ] Human
 - [ ] AI
 - [ ] Not reviewed
+
+* GitHub Issue: (filled in automatically from the PR title)

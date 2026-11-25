@@ -1063,6 +1063,58 @@ TEST(Expression, ExecuteCoalesceOnMixedDecimalTypes) {
   AssertDatumsEqual(actual, ArrayFromJSON(decimal128(4, 3), R"(["1.230", "2.345"])"));
 }
 
+TEST(Expression, CoalesceDictionaryTypes) {
+  auto check = [](const ArrayVector& arguments,
+                  const std::shared_ptr<DataType>& output_type,
+                  const std::shared_ptr<Array>& expected) {
+    FieldVector fields;
+    std::vector<Expression> args, expected_args;
+    for (size_t i = 0; i < arguments.size(); ++i) {
+      auto name = "arg" + std::to_string(i);
+      fields.push_back(field(name, arguments[i]->type()));
+      args.push_back(field_ref(name));
+      expected_args.push_back(arguments[i]->type()->Equals(output_type)
+                                  ? args.back()
+                                  : cast(args.back(), output_type));
+    }
+    Schema input_schema(fields);
+    Expression bound;
+    ExpectBindsTo(call("coalesce", args), call("coalesce", expected_args), &bound,
+                  input_schema);
+    ASSERT_NE(bound.type(), nullptr);
+    EXPECT_TRUE(bound.type()->Equals(output_type));
+    ASSERT_OK_AND_ASSIGN(auto input, StructArray::Make(arguments, fields));
+    ASSERT_OK_AND_ASSIGN(auto actual,
+                         ExecuteScalarExpression(bound, input_schema, Datum(input)));
+    ASSERT_OK(actual.make_array()->ValidateFull());
+    // Also check logical values when the result stays dictionary-encoded.
+    ASSERT_OK_AND_ASSIGN(actual, Cast(actual, expected->type()));
+    AssertDatumsEqual(actual, expected);
+  };
+
+  auto type = dictionary(int8(), int32());
+  auto left = DictArrayFromJSON(type, "[0, null, 1, null, null]", "[10, 30]");
+  auto right = DictArrayFromJSON(type, "[null, 0, 1, null, null]", "[20, 40]");
+  auto third = DictArrayFromJSON(type, "[null, null, null, 0, null]", "[50]");
+  auto expected = ArrayFromJSON(int32(), "[10, 20, 30, null, null]");
+  check({left}, type, ArrayFromJSON(int32(), "[10, null, 30, null, null]"));
+  check({left, right}, type, expected);
+  check({left, right, third}, type, ArrayFromJSON(int32(), "[10, 20, 30, 50, null]"));
+
+  for (const auto& other : {dictionary(int16(), int32()), dictionary(int8(), int64()),
+                            dictionary(int8(), int32(), /*ordered=*/true)}) {
+    auto output_type = checked_cast<const DictionaryType&>(*other).value_type();
+    auto mixed_right = DictArrayFromJSON(other, "[null, 0, 1, null, null]", "[20, 40]");
+    check({left, mixed_right}, output_type,
+          ArrayFromJSON(output_type, "[10, 20, 30, null, null]"));
+    check({mixed_right, left}, output_type,
+          ArrayFromJSON(output_type, "[10, 20, 40, null, null]"));
+    auto mixed_third = DictArrayFromJSON(other, "[null, null, null, 0, null]", "[50]");
+    check({left, right, mixed_third}, output_type,
+          ArrayFromJSON(output_type, "[10, 20, 30, 50, null]"));
+  }
+}
+
 TEST(Expression, BindNestedCall) {
   auto expr = add(field_ref("a"),
                   call("subtract", {call("multiply", {field_ref("b"), field_ref("c")}),

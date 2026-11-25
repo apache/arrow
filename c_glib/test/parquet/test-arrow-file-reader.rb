@@ -30,12 +30,17 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
       chunk_size = 1
       writer.write_table(@table, chunk_size)
       writer.close
-      @reader = Parquet::ArrowFileReader.new(@file.path)
-      begin
-        yield
-      ensure
-        @reader.unref
-      end
+      yield
+    end
+  end
+
+  def open_reader(source=@file.path, *args)
+    reader = Parquet::ArrowFileReader.new(source, *args)
+    begin
+      yield(reader)
+    ensure
+      reader.close
+      reader.unref
     end
   end
 
@@ -51,15 +56,14 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
                else
                  Arrow::FileInputStream.new(@file.path)
                end
-      reader = Parquet::ArrowFileReader.new(source, properties)
       begin
-        assert_equal(@table, reader.read_table)
-        assert_equal(build_table("a" => @a_array.slice(1, 1),
-                                 "b" => @b_array.slice(1, 1)),
-                     reader.read_row_group(1))
+        open_reader(source, properties) do |reader|
+          assert_equal(@table, reader.read_table)
+          assert_equal(build_table("a" => @a_array.slice(1, 1),
+                                   "b" => @b_array.slice(1, 1)),
+                       reader.read_row_group(1))
+        end
       ensure
-        reader.close
-        reader.unref
         source.unref if source_type == :stream
       end
     end
@@ -94,37 +98,72 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
   end
 
   def test_schema
-    assert_equal(<<-SCHEMA.chomp, @reader.schema.to_s)
+    open_reader do |reader|
+      assert_equal(<<-SCHEMA.chomp, reader.schema.to_s)
 a: string
 b: int32
-    SCHEMA
+      SCHEMA
+    end
   end
 
   sub_test_case("#read_row_group") do
     test("with column indices") do
-      assert_equal(build_table("b" => @b_array.slice(0, 1)),
-                   @reader.read_row_group(0, [-1]))
+      open_reader do |reader|
+        assert_equal(build_table("b" => @b_array.slice(0, 1)),
+                     reader.read_row_group(0, [-1]))
+      end
     end
 
     test("without column indices") do
-      assert_equal(build_table("a" => @a_array.slice(1, 1),
-                               "b" => @b_array.slice(1, 1)),
-                   @reader.read_row_group(1))
+      open_reader do |reader|
+        assert_equal(build_table("a" => @a_array.slice(1, 1),
+                                 "b" => @b_array.slice(1, 1)),
+                     reader.read_row_group(1))
+      end
     end
   end
 
   def test_read_column
-    assert_equal([
-                   Arrow::ChunkedArray.new([@a_array]),
-                   Arrow::ChunkedArray.new([@b_array]),
-                 ],
-                 [
-                   @reader.read_column_data(0),
-                   @reader.read_column_data(-1),
-                 ])
+    open_reader do |reader|
+      assert_equal([
+                     Arrow::ChunkedArray.new([@a_array]),
+                     Arrow::ChunkedArray.new([@b_array]),
+                   ],
+                   [
+                     reader.read_column_data(0),
+                     reader.read_column_data(-1),
+                   ])
+    end
   end
 
   def test_n_rows
-    assert_equal(2, @reader.n_rows)
+    open_reader do |reader|
+      assert_equal(2, reader.n_rows)
+    end
+  end
+
+  sub_test_case("#close") do
+    test("opened file: closed") do
+      open_reader do |reader|
+        reader.close
+        message = "[parquet][arrow][file-reader][read-table]: " +
+                  "Invalid: Invalid operation on closed file"
+        assert_raise(Arrow::Error::Invalid.new(message)) do
+          reader.read_table
+        end
+      end
+    end
+
+    test("given source: not closed") do
+      source = Arrow::FileInputStream.new(@file.path)
+      begin
+        open_reader(source) do |reader|
+          reader.close
+        end
+        assert_equal("PAR1", source.read_at_bytes(0, 4).to_s)
+      ensure
+        source.unref
+      end
+    end
   end
 end

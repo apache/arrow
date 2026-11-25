@@ -199,7 +199,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     explicit index type will not be demoted even if it is wider than required.
 
     This class supports Python's standard operators
-    for element-wise operations, i.e. arithmetic (`+`, `-`, `/`, `%`, `**`),
+    for element-wise operations, i.e. arithmetic (`+`, `-`, `*`, `/`, `**`),
     bitwise (`&`, `|`, `^`, `>>`, `<<`) and others.
     They can be used directly instead of calling underlying
     `pyarrow.compute` functions explicitly.
@@ -1329,8 +1329,8 @@ cdef class Array(_PandasConvertible):
             (_reduce_array_data(self.sp_array.get().data().get()),)
 
     @staticmethod
-    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
-                     children=None):
+    def from_buffers(DataType type not None, length, buffers, null_count=-1,
+                     offset=0, children=None):
         """
         Construct an Array from a sequence of buffers.
 
@@ -1386,6 +1386,8 @@ cdef class Array(_PandasConvertible):
             c_buffers.push_back(pyarrow_unwrap_buffer(buf))
 
         for child in children:
+            if child is None:
+                raise TypeError("Array child must not be None")
             c_child_data.push_back(child.ap.data())
 
         array_data = CArrayData.MakeWithChildren(type.sp_type, length,
@@ -3936,7 +3938,7 @@ cdef class FixedSizeListArray(BaseListArray):
         Or create from a values array, list size and matching type:
 
         >>> typ = pa.list_(pa.field("values", pa.int64()), 2)
-        >>> arr = pa.FixedSizeListArray.from_arrays(values,type=typ)
+        >>> arr = pa.FixedSizeListArray.from_arrays(values, type=typ)
         >>> arr
         <pyarrow.lib.FixedSizeListArray object at ...>
         [
@@ -4328,8 +4330,9 @@ cdef class DictionaryArray(Array):
         return self._indices
 
     @staticmethod
-    def from_buffers(DataType type, int64_t length, buffers, Array dictionary,
-                     int64_t null_count=-1, int64_t offset=0):
+    def from_buffers(DataType type not None, int64_t length, buffers,
+                     Array dictionary not None, int64_t null_count=-1,
+                     int64_t offset=0):
         """
         Construct a DictionaryArray from buffers.
 
@@ -4745,8 +4748,8 @@ cdef class RunEndEncodedArray(Array):
                                                run_ends, values, 0)
 
     @staticmethod
-    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
-                     children=None):
+    def from_buffers(DataType type not None, length, buffers, null_count=-1,
+                     offset=0, children=None):
         """
         Construct a RunEndEncodedArray from all the parameters that make up an
         Array.
