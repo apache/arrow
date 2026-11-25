@@ -103,6 +103,7 @@ add_arrow_test(async-utility-test
 add_arrow_test(bit-utility-test
                SOURCES
                bit_block_counter_test.cc
+               bit_util_feature_test.cc
                bit_util_test.cc
                bitmap_test.cc
                bpacking_test.cc
