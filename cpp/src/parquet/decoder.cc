@@ -358,6 +358,21 @@ class PlainDecoder : public TypedDecoderImpl<DType> {
 
   int Decode(T* buffer, int max_values) override;
 
+  int Skip(int max_values) override {
+    if constexpr (std::is_same_v<DType, ByteArrayType>) {
+      return TypedDecoder<DType>::Skip(max_values);
+    } else {
+      const int count = std::min(max_values, this->num_values_);
+      if (count <= 0) return 0;
+      const int64_t bytes = static_cast<int64_t>(count) * this->type_length_;
+      if (bytes > this->len_) ParquetException::EofException();
+      this->data_ += bytes;
+      this->len_ -= static_cast<int>(bytes);
+      this->num_values_ -= count;
+      return count;
+    }
+  }
+
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::Accumulator* builder) override;
@@ -538,6 +553,14 @@ class PlainBooleanDecoder : public TypedDecoderImpl<BooleanType>, public Boolean
  public:
   explicit PlainBooleanDecoder(const ColumnDescriptor* descr);
   void SetData(int num_values, const uint8_t* data, int len) override;
+
+  int Skip(int max_values) override {
+    const int count = std::min(max_values, num_values_);
+    if (count <= 0) return 0;
+    if (!bit_reader_->Advance(count)) ParquetException::EofException();
+    num_values_ -= count;
+    return count;
+  }
 
   // Two flavors of bool decoding
   int Decode(uint8_t* buffer, int max_values) override;
@@ -1812,6 +1835,13 @@ class DeltaLengthByteArrayDecoder : public TypedDecoderImpl<ByteArrayType> {
     return max_values;
   }
 
+  int Skip(int max_values) override {
+    if (max_values <= 0) return 0;
+    const int32_t* lengths;
+    const uint8_t* data;
+    return NextBatch(max_values, &lengths, &data);
+  }
+
   // Advance over up to `max_values` values and expose them as a view: the
   // per-value lengths, and a pointer to the start of their (contiguous) data.
   // Returns the number of values available.
@@ -2442,6 +2472,13 @@ class ByteStreamSplitDecoderBase : public TypedDecoderImpl<DType> {
     stride_ = this->num_values_;
   }
 
+  int Skip(int max_values) final {
+    const int count = std::min(max_values, this->num_values_);
+    if (count <= 0) return 0;
+    Advance(count);
+    return count;
+  }
+
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::DictAccumulator* builder) override {
@@ -2484,11 +2521,16 @@ class ByteStreamSplitDecoderBase : public TypedDecoderImpl<DType> {
     if (ARROW_PREDICT_TRUE(values_to_decode > 0)) {
       ::arrow::util::internal::ByteStreamSplitDecode(
           this->data_, this->type_length_, values_to_decode, stride_, out_buffer);
-      this->data_ += values_to_decode;
-      this->num_values_ -= values_to_decode;
-      this->len_ -= this->type_length_ * values_to_decode;
+      Advance(values_to_decode);
     }
     return values_to_decode;
+  }
+
+  void Advance(int count) {
+    // Move within the first byte stream. The distance between streams stays constant.
+    this->data_ += count;
+    this->num_values_ -= count;
+    this->len_ -= this->type_length_ * count;
   }
 
   uint8_t* EnsureDecodeBuffer(int64_t min_values) {

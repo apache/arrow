@@ -257,6 +257,29 @@ class TestEncodingBase : public ::testing::Test {
 
   virtual void CheckRoundtrip() = 0;
 
+  void CheckSkip(Encoding::type encoding) {
+    InitData(2053, 1);
+    auto encoder =
+        MakeTypedEncoder<Type>(encoding, /*use_dictionary=*/false, descr_.get());
+    encoder->Put(draws_, num_values_);
+    auto encoded = encoder->FlushValues();
+    auto decoder = MakeTypedDecoder<Type>(encoding, descr_.get());
+    decoder->SetData(num_values_, encoded->data(), static_cast<int>(encoded->size()));
+
+    int pos = 0;
+    for (int skip : {0, 7, 1031}) {
+      ASSERT_EQ(skip, decoder->Skip(skip));
+      pos += skip;
+      ASSERT_EQ(num_values_ - pos, decoder->values_left());
+      ASSERT_EQ(3, decoder->Decode(decode_buf_, 3));
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_ + pos, 3));
+      pos += 3;
+    }
+    ASSERT_EQ(num_values_ - pos, decoder->Skip(std::numeric_limits<int>::max()));
+    ASSERT_EQ(0, decoder->Skip(1));
+    ASSERT_EQ(0, decoder->values_left());
+  }
+
   virtual void CheckRoundtripSpaced(const uint8_t* valid_bits,
                                     int64_t valid_bits_offset) {}
 
@@ -367,6 +390,10 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
 };
 
 TYPED_TEST_SUITE(TestPlainEncoding, ParquetTypes);
+
+TYPED_TEST(TestPlainEncoding, InterleaveSkipAndDecode) {
+  this->CheckSkip(Encoding::PLAIN);
+}
 
 TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(10000, 1));
@@ -1673,6 +1700,10 @@ using ByteStreamSplitTypes =
     ::testing::Types<Int32Type, Int64Type, FloatType, DoubleType, FLBAType>;
 TYPED_TEST_SUITE(TestByteStreamSplitEncoding, ByteStreamSplitTypes);
 
+TYPED_TEST(TestByteStreamSplitEncoding, InterleaveSkipAndDecode) {
+  this->CheckSkip(Encoding::BYTE_STREAM_SPLIT);
+}
+
 TYPED_TEST(TestByteStreamSplitEncoding, BasicRoundTrip) {
   for (int values = 0; values < 32; ++values) {
     ASSERT_NO_FATAL_FAILURE(this->Execute(values, 1));
@@ -2252,6 +2283,10 @@ class TestDeltaLengthByteArrayEncoding : public TestEncodingBase<Type> {
 typedef ::testing::Types<ByteArrayType> TestDeltaLengthByteArrayEncodingTypes;
 TYPED_TEST_SUITE(TestDeltaLengthByteArrayEncoding, TestDeltaLengthByteArrayEncodingTypes);
 
+TYPED_TEST(TestDeltaLengthByteArrayEncoding, InterleaveSkipAndDecode) {
+  this->CheckSkip(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+}
+
 TYPED_TEST(TestDeltaLengthByteArrayEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
   ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 200));
@@ -2518,6 +2553,10 @@ class TestDeltaByteArrayEncoding : public TestDeltaLengthByteArrayEncoding<Type>
 
 using TestDeltaByteArrayEncodingTypes = ::testing::Types<ByteArrayType, FLBAType>;
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
+
+TYPED_TEST(TestDeltaByteArrayEncoding, InterleaveSkipAndDecode) {
+  this->CheckSkip(Encoding::DELTA_BYTE_ARRAY);
+}
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/0));

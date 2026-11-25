@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -277,6 +278,21 @@ class TypedDecoder : virtual public Decoder {
   /// \return The number of values decoded. Should be identical to max_values except
   /// at the end of the current data page.
   virtual int Decode(T* buffer, int max_values) = 0;
+
+  /// \brief Skip up to max_values physical (non-null) values in this data page.
+  ///
+  /// Returns the number skipped. The next Decode starts at the first unskipped value.
+  virtual int Skip(int max_values) {
+    constexpr int kBatchSize = 1024 / sizeof(T);
+    T scratch[kBatchSize];
+    int skipped = 0;
+    while (skipped < max_values) {
+      const int count = Decode(scratch, std::min(kBatchSize, max_values - skipped));
+      if (count == 0) break;
+      skipped += count;
+    }
+    return skipped;
+  }
 
   /// \brief Decode the values in this data page but leave spaces for null entries.
   ///

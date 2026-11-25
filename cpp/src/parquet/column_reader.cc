@@ -634,83 +634,6 @@ std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> s
 
 namespace {
 
-/***************************
- *  SkippableTypedDecoder  *
- ***************************/
-
-/// Wrapper around a `TypedDecoder` pointer to skip values.
-///
-/// Use a scratch buffer to decode values into that buffer.
-/// This was migrated here from a historical implementation.
-/// Ideally all decoders would implement a `Skip` functionality that would at best
-/// avoid decoding, and at worst, decode without intermediary allocation.
-///
-/// @todo GH-50453
-template <typename DType>
-class SkippableTypedDecoder {
- public:
-  using Decoder = TypedDecoder<DType>;
-  using T = typename Decoder::T;
-
-  /// Size in bytes of a single value.
-  static constexpr int64_t kValueByteSize = type_traits<DType::type_num>::value_byte_size;
-  /// Batch size for reading and throwing away values during skip.
-  static constexpr int64_t kScratchValueCount = 1024;
-  /// Size in bytes of the scratch batch.
-  static constexpr int64_t kScratchByteSize = kScratchValueCount * kValueByteSize;
-
-  explicit SkippableTypedDecoder(::arrow::MemoryPool* pool = nullptr) : pool_(pool) {}
-
-  explicit SkippableTypedDecoder(Decoder* decoder) : decoder_(decoder) {}
-
-  void SetDecoder(Decoder* decoder) { decoder_ = decoder; }
-
-  const Decoder* get() const { return decoder_; }
-
-  Decoder* get() { return decoder_; }
-
-  const Decoder* operator->() const { return decoder_; }
-
-  Decoder* operator->() { return decoder_; }
-
-  explicit operator bool() const { return decoder_ != nullptr; }
-
-  /// Skip the number of values in the decoder.
-  ///
-  /// Initialize reusable buffer to decode the values into before throwing them away.
-  int64_t Skip(int64_t num_values) {
-    EnsureScratch();
-
-    int64_t total_read = 0;
-    int iter_read = 0;
-    do {
-      static_assert(kScratchValueCount <= std::numeric_limits<int>::max());
-      const int batch_size =
-          static_cast<int>(std::min(kScratchValueCount, num_values - total_read));
-
-      iter_read = get()->Decode(scratch_->mutable_data_as<T>(), batch_size);
-      total_read += iter_read;
-    } while (iter_read > 0 && total_read < num_values);
-
-    return total_read;
-  }
-
- private:
-  /// Scratch space to skip decode values that need skipping.
-  /// We actually do not need the whole shared_ptr machinery but it was historically
-  /// chosen for ease of use with ``AllocateBuffer`` and migrated here.
-  std::shared_ptr<ResizableBuffer> scratch_ = nullptr;
-  Decoder* decoder_ = nullptr;
-  ::arrow::MemoryPool* pool_ = nullptr;
-
-  void EnsureScratch() {
-    if (this->scratch_ == nullptr) {
-      this->scratch_ = AllocateBuffer(pool_, kScratchByteSize);
-    }
-    ARROW_DCHECK_NE(this->scratch_, nullptr);
-  }
-};
-
 /*********************
  *  ValueSinkCursor  *
  *********************/
@@ -1146,8 +1069,7 @@ class ColumnChunkReader {
   ColumnChunkReader(const ColumnDescriptor* descr, ::arrow::MemoryPool* pool,
                     DefLevelDecoder def_levels_decoder,
                     RepLevelDecoder rep_levels_decoder)
-      : current_decoder_(pool),
-        def_levels_decoder_(std::move(def_levels_decoder)),
+      : def_levels_decoder_(std::move(def_levels_decoder)),
         rep_levels_decoder_(std::move(rep_levels_decoder)),
         descr_(descr),
         pool_(pool) {}
@@ -1155,7 +1077,7 @@ class ColumnChunkReader {
   void SetPageReader(std::unique_ptr<PageReader> reader) {
     current_page_ = nullptr;
     pager_ = std::move(reader);
-    current_decoder_.SetDecoder(nullptr);
+    current_decoder_ = nullptr;
     decoders_.clear();
     new_dictionary_ = nullptr;
     current_encoding_ = Encoding::UNKNOWN;
@@ -1201,7 +1123,7 @@ class ColumnChunkReader {
 
   /// Return the current decoder as a dict decoder if page is dictionary encoded
   DictDecoder<DType>* current_dict_decoder() {
-    return dynamic_cast<DictDecoder<DType>*>(this->current_decoder_.get());
+    return dynamic_cast<DictDecoder<DType>*>(this->current_decoder_);
   }
 
   /// Return the dictionary decoder if a dictionary page was read since the last call.
@@ -1221,7 +1143,7 @@ class ColumnChunkReader {
   int64_t Skip(int64_t num_values_to_skip);
 
  protected:
-  SkippableTypedDecoder<DType> current_decoder_;
+  TypedDecoder<DType>* current_decoder_ = nullptr;
   DefLevelDecoder def_levels_decoder_;
   RepLevelDecoder rep_levels_decoder_;
   const ColumnDescriptor* descr_;
@@ -1367,7 +1289,7 @@ void ColumnChunkReader<Traits>::ConfigureDictionary(const DictionaryPage* page) 
     ParquetException::NYI("only plain dictionary encoding has been implemented");
   }
 
-  current_decoder_.SetDecoder(decoders_[encoding].get());
+  current_decoder_ = decoders_[encoding].get();
   ARROW_DCHECK(current_decoder_);
 }
 
@@ -1410,7 +1332,7 @@ void ColumnChunkReader<Traits>::InitializeDataDecoder(const DataPage& page,
   auto it = decoders_.find(static_cast<int>(encoding));
   if (it != decoders_.end()) {
     ARROW_DCHECK(it->second.get() != nullptr);
-    current_decoder_.SetDecoder(it->second.get());
+    current_decoder_ = it->second.get();
   } else {
     switch (encoding) {
       case Encoding::PLAIN:
@@ -1421,7 +1343,7 @@ void ColumnChunkReader<Traits>::InitializeDataDecoder(const DataPage& page,
       case Encoding::DELTA_BYTE_ARRAY:
       case Encoding::DELTA_LENGTH_BYTE_ARRAY: {
         auto decoder = MakeTypedDecoder<DType>(encoding, descr_, pool_);
-        current_decoder_.SetDecoder(decoder.get());
+        current_decoder_ = decoder.get();
         decoders_[static_cast<int>(encoding)] = std::move(decoder);
         break;
       }
@@ -1472,7 +1394,7 @@ int64_t ColumnChunkReader<Traits>::Skip(int64_t num_values_to_skip) {
 
       const int32_t non_null = AdvanceLevels(batch_size);
       // Skip the corresponding data values.
-      this->current_decoder_.Skip(non_null);
+      this->current_decoder_->Skip(non_null);
 
       this->MarkValuesAsConsumed(batch_size);
       values_to_skip -= batch_size;
@@ -1978,9 +1900,7 @@ int64_t TypedRecordReader<DT, VS>::SkipRecordsInBufferNonRepeated(int64_t num_re
   const int32_t skipped_records = narrow_min(num_records, remaining_records);
   const int64_t remaining_levels_pos = levels_position_ + skipped_records;
 
-  // We skipped the levels by incrementing 'levels_position_'. For values
-  // we do not have a buffer, so we need to read them and throw them away.
-  // First we need to figure out how many present/not-null values there are.
+  // Only present values advance the data decoder.
   const auto values_to_read = static_cast<int32_t>(
       CountLevels(def_levels() + levels_position_,
                   remaining_levels_pos - levels_position_, this->max_def_level()));
@@ -1989,8 +1909,6 @@ int64_t TypedRecordReader<DT, VS>::SkipRecordsInBufferNonRepeated(int64_t num_re
   // these levels anymore. We will remove these values from the buffer.
   def_levels_.Erase(levels_position_, remaining_levels_pos);
 
-  // For values, we do not have them in buffer, so we will read them and
-  // throw them away.
   SkipValuesInPage(values_to_read);
 
   // Mark the levels as read in the underlying column reader.
@@ -2077,10 +1995,10 @@ int64_t TypedRecordReader<DT, VS>::SkipRecordsRepeated(int64_t num_records) {
 
 template <typename DT, typename VS>
 void TypedRecordReader<DT, VS>::SkipValuesInPage(int64_t num_values) {
-  const int64_t values_read = this->current_decoder_.Skip(num_values);
+  const int64_t values_read = this->current_decoder_->Skip(clamp_to<int32_t>(num_values));
   if (values_read < num_values) {
     std::stringstream ss;
-    ss << "Could not read and throw away " << num_values << " values";
+    ss << "Could not skip " << num_values << " values";
     throw ParquetException(ss.str());
   }
 }
@@ -2207,7 +2125,7 @@ int64_t TypedRecordReader<DT, VS>::ReadRepeatedRecordsInBuffer(int64_t num_recor
   int64_t records_read = DelimitRecords(num_records, values_to_read);
   if (valid_bits_.is_void()) {  // not nullable or read_dense_for_nullable
     // This is only reading in the current page so this fits in an int32.
-    value_sink_.ReadValuesDense(*this->current_decoder_.get(),
+    value_sink_.ReadValuesDense(*this->current_decoder_,
                                 clamp_to<int32_t>(*values_to_read));
     // null_count is always 0 for required.
     ARROW_DCHECK_EQ(*null_count, 0);
@@ -2256,7 +2174,7 @@ void TypedRecordReader<DT, VS>::ReadDenseForOptionalInBuffer(
       CountLevels(def_levels + start_levels_position,
                   levels_position_ - start_levels_position, this->max_def_level());
   // This is only reading in the current page so this fits in an int32.
-  value_sink_.ReadValuesDense(*this->current_decoder_.get(),
+  value_sink_.ReadValuesDense(*this->current_decoder_,
                               clamp_to<int32_t>(*values_to_read));
 }
 
@@ -2274,7 +2192,7 @@ void TypedRecordReader<DT, VS>::ReadSpacedForOptionalOrRepeatedInBuffer(
   *null_count = result.null_count;
 
   // This is only reading in the current page so this fits in an int32.
-  value_sink_.ReadValuesSpaced(*this->current_decoder_.get(),
+  value_sink_.ReadValuesSpaced(*this->current_decoder_,
                                clamp_to<int32_t>(result.values_read),
                                clamp_to<int32_t>(*null_count),
                                /* valid_bits= */ valid_bits_.data(),
@@ -2311,7 +2229,7 @@ int64_t TypedRecordReader<DT, VS>::ReadRecordDataInBuffer(int64_t num_records) {
     ARROW_DCHECK(!nullable_values());
     values_to_read = num_records;
     // This is only reading in the current page so this fits in an int32.
-    value_sink_.ReadValuesDense(*this->current_decoder_.get(),
+    value_sink_.ReadValuesDense(*this->current_decoder_,
                                 clamp_to<int32_t>(values_to_read));
     records_read = num_records;
     // We don't need to update null_count, since it is 0.
@@ -2484,7 +2402,7 @@ int64_t RequiredTypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) {
 
     const int32_t batch_size =
         narrow_min(num_records - records_read, this->available_values_current_page());
-    value_sink_.ReadValuesDense(*this->current_decoder_.get(), batch_size);
+    value_sink_.ReadValuesDense(*this->current_decoder_, batch_size);
     this->MarkValuesAsConsumed(batch_size);
 
     records_read += batch_size;
@@ -2639,14 +2557,14 @@ int64_t FlatOptionalTypedRecordReader<DT, VS>::ReadRecords(int64_t num_records) 
     if (read_dense_for_nullable()) {
       const auto result = this->def_levels_decoder_.CountUpTo(1, batch_size);
       CheckValidLevelCount(result.processed_count == batch_size);
-      value_sink_.ReadValuesDense(*this->current_decoder_.get(), result.matching_count);
+      value_sink_.ReadValuesDense(*this->current_decoder_, result.matching_count);
       records_read += result.processed_count;
       this->MarkValuesAsConsumed(result.processed_count);
     } else {
       const auto old_valid_bits_start = valid_bits_.values_count();
       const auto null_count =
           valid_bits_.ReadFromDecoder(this->def_levels_decoder_, batch_size);
-      value_sink_.ReadValuesSpaced(*this->current_decoder_.get(), batch_size, null_count,
+      value_sink_.ReadValuesSpaced(*this->current_decoder_, batch_size, null_count,
                                    /* valid_bits= */ valid_bits_.data(),
                                    /* valid_bits_offset= */ old_valid_bits_start);
       if constexpr (VS::kCanDiscardValidity) {
