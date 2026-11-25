@@ -480,6 +480,23 @@ class DictionaryHashKernel : public HashKernel {
       auto in_array = arr.ToArray();
       const auto& in_dict_array =
           arrow::internal::checked_cast<const DictionaryArray&>(*in_array);
+      if (index_type_->bit_width() < 32) {
+        // The transposed indices keep the input index type, which may be too narrow
+        // for the unified dictionary.  Only the indices actually used (non-null)
+        // matter, not the size of the unified dictionary: check them before
+        // narrowing, as the transposition itself would silently wrap around.
+        ARROW_ASSIGN_OR_RAISE(
+            auto wide,
+            in_dict_array.Transpose(::arrow::dictionary(int32(), dictionary_value_type_),
+                                    in_dict_array.dictionary(), transpose));
+        ArraySpan wide_indices(
+            *checked_cast<const DictionaryArray&>(*wide).indices()->data());
+        if (!::arrow::internal::IntegersCanFit(wide_indices, *index_type_).ok()) {
+          return Status::Invalid(
+              "These dictionaries cannot be combined.  The unified dictionary requires "
+              "a larger index type.");
+        }
+      }
       ARROW_ASSIGN_OR_RAISE(
           auto tmp, in_dict_array.Transpose(arr.type->GetSharedPtr(),
                                             in_dict_array.dictionary(), transpose));
@@ -515,18 +532,9 @@ class DictionaryHashKernel : public HashKernel {
       return first_dictionary_;
     }
 
-    std::shared_ptr<DataType> out_dict_type;
+    auto out_dict_type = first_dictionary_->type();
     std::shared_ptr<Array> out_dict;
     RETURN_NOT_OK(dictionary_unifier_->GetResult(&out_dict_type, &out_dict));
-    // The output keeps the input index type, so the highest index into the unified
-    // dictionary (its length minus one) must fit in it
-    const Int64Scalar max_index(out_dict->length() - 1);
-    if (out_dict->length() > 0 &&
-        !::arrow::internal::IntegersCanFit(max_index, *index_type_).ok()) {
-      return Status::Invalid(
-          "These dictionaries cannot be combined.  The unified dictionary requires a "
-          "larger index type.");
-    }
     return out_dict;
   }
 

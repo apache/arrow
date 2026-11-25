@@ -31,6 +31,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_decimal.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/buffer.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
@@ -766,32 +767,70 @@ TEST_F(TestHashKernel, DictionaryUniqueAndValueCounts) {
 }
 
 TEST_F(TestHashKernel, DictionaryUniqueAndValueCountsIndexOverflow) {
-  // GH-45010: unifying the chunk dictionaries can produce more entries than the
-  // index type can address
+  // GH-45010: chunks with different dictionaries are unified and their indices
+  // transposed into the unified dictionary, but the output keeps the input index type.
+  // Only the indices actually used must fit in that type, not the whole unified
+  // dictionary.
   auto dict_ty = dictionary(int8(), int64());
-  auto make_chunk = [&](int64_t first_value, int64_t dict_length) {
-    std::vector<int64_t> values(dict_length);
+  // Dictionary [first_value, first_value + length)
+  auto make_dict = [](int64_t first_value, int64_t length) {
+    std::vector<int64_t> values(length);
     std::iota(values.begin(), values.end(), first_value);
     std::shared_ptr<Array> dict;
     ArrayFromVector<Int64Type, int64_t>(values, &dict);
-    auto indices = ArrayFromJSON(int8(), "[" + std::to_string(dict_length - 1) + "]");
-    return std::make_shared<DictionaryArray>(dict_ty, indices, dict);
+    return dict;
+  };
+  auto make_chunk = [&](const std::string& indices_json,
+                        const std::shared_ptr<Array>& dict) {
+    return std::make_shared<DictionaryArray>(dict_ty, ArrayFromJSON(int8(), indices_json),
+                                             dict);
+  };
+  // The unified dictionary: all of dict_1 followed by all of dict_2
+  auto unified_dict = [&](const std::shared_ptr<Array>& dict_1,
+                          const std::shared_ptr<Array>& dict_2) {
+    return *Concatenate({dict_1, dict_2});
   };
 
-  // 64 + 64 = 128 unified entries still fit in int8: the highest index is 127
-  auto fits = *ChunkedArray::Make({make_chunk(0, 64), make_chunk(100, 64)}, dict_ty);
-  ASSERT_OK_AND_ASSIGN(auto uniques, Unique(fits));
-  ASSERT_OK(uniques->ValidateFull());
-  ASSERT_EQ(checked_cast<const DictionaryArray&>(*uniques).dictionary()->length(), 128);
-  ASSERT_OK_AND_ASSIGN(auto counts, ValueCounts(fits));
-  ASSERT_OK(counts->ValidateFull());
+  auto dict_64 = make_dict(0, 64);
+  {
+    // Valid input: 64 + 65 = 129 unified entries (more than int8 can address), but the
+    // used indices are 0 and 64 which fit
+    auto dict_65 = make_dict(100, 65);
+    auto input = *ChunkedArray::Make(
+        {make_chunk("[0]", dict_64), make_chunk("[0]", dict_65)}, dict_ty);
+    auto ex_uniques = std::make_shared<DictionaryArray>(
+        dict_ty, ArrayFromJSON(int8(), "[0, 64]"), unified_dict(dict_64, dict_65));
+    CheckUnique(input, ex_uniques);
+    CheckValueCounts(input, ex_uniques, ArrayFromJSON(int64(), "[1, 1]"));
 
-  // 64 + 65 = 129 unified entries do not
-  auto overflows = *ChunkedArray::Make({make_chunk(0, 64), make_chunk(100, 65)}, dict_ty);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("larger index type"),
-                                  Unique(overflows));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("larger index type"),
-                                  ValueCounts(overflows));
+    // Masked nulls don't use any index
+    input = *ChunkedArray::Make(
+        {make_chunk("[0, null]", dict_64), make_chunk("[0, 0, null]", dict_65)}, dict_ty);
+    ex_uniques = std::make_shared<DictionaryArray>(
+        dict_ty, ArrayFromJSON(int8(), "[0, null, 64]"), unified_dict(dict_64, dict_65));
+    CheckUnique(input, ex_uniques);
+    CheckValueCounts(input, ex_uniques, ArrayFromJSON(int64(), "[1, 2, 2]"));
+  }
+  {
+    // Valid input: 64 + 64 = 128 unified entries, the highest index is 127
+    auto dict_64_b = make_dict(100, 64);
+    auto input = *ChunkedArray::Make(
+        {make_chunk("[63]", dict_64), make_chunk("[63]", dict_64_b)}, dict_ty);
+    auto ex_uniques = std::make_shared<DictionaryArray>(
+        dict_ty, ArrayFromJSON(int8(), "[63, 127]"), unified_dict(dict_64, dict_64_b));
+    CheckUnique(input, ex_uniques);
+    CheckValueCounts(input, ex_uniques, ArrayFromJSON(int64(), "[1, 1]"));
+  }
+  {
+    // Invalid input: a used index is transposed to 128, which doesn't fit in int8
+    auto dict_65 = make_dict(100, 65);
+    auto input = *ChunkedArray::Make(
+        {make_chunk("[0]", dict_64), make_chunk("[0, 64]", dict_65)}, dict_ty);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("larger index type"),
+                                    Unique(input));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("larger index type"),
+                                    ValueCounts(input));
+  }
 }
 
 /* TODO(ARROW-4124): Determine if we want to do something that is reproducible with
