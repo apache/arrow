@@ -18,11 +18,13 @@
 include(ProcessorCount)
 processorcount(NPROC)
 
-# Accumulate all bundled targets and we will splice them together later as
+# Accumulate core bundled targets and we will splice them together later as
 # libarrow_bundled_dependencies.a so that third party libraries have something
 # usable to create statically-linked builds with some BUNDLED dependencies,
 # including allocators like jemalloc and mimalloc
 set(ARROW_BUNDLED_STATIC_LIBS)
+set(ARROW_GCS_BUNDLED_STATIC_LIBS)
+set(ARROW_AZURE_BUNDLED_STATIC_LIBS)
 
 # Accumulate all system dependencies to provide suitable static link
 # parameters to the third party libraries.
@@ -371,7 +373,7 @@ endmacro()
 # ----------------------------------------------------------------------
 # Thirdparty versions, environment variables, source URLs
 
-set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
+set(THIRDPARTY_DIR "${ARROW_SOURCE_DIR}/thirdparty")
 
 add_library(arrow::flatbuffers INTERFACE IMPORTED)
 target_include_directories(arrow::flatbuffers
@@ -467,6 +469,12 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
   # Skip blank or malformed lines
   if(_VARIABLE_VALUE STREQUAL "")
     continue()
+  endif()
+
+  # Allow overriding checksums by environment variables, e.g. for a source
+  # archive given by ARROW_$LIBRARY_URL that differs from the upstream one
+  if(_VARIABLE_NAME MATCHES "_CHECKSUM$" AND DEFINED ENV{${_VARIABLE_NAME}})
+    set(_VARIABLE_VALUE "$ENV{${_VARIABLE_NAME}}")
   endif()
 
   # For debugging
@@ -676,6 +684,14 @@ else()
   set_urls(GRPC_SOURCE_URL
            "https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_GRPC_PROTO_URL})
+  set(GRPC_PROTO_SOURCE_URL "$ENV{ARROW_GRPC_PROTO_URL}")
+else()
+  set_urls(GRPC_PROTO_SOURCE_URL
+           "https://github.com/grpc/grpc-proto/archive/${ARROW_GRPC_PROTO_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/grpc-proto-${ARROW_GRPC_PROTO_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GTEST_URL})
@@ -1434,7 +1450,11 @@ endmacro()
 # pkg-config
 
 # SDK libraries (on macOS) may be available without .pc files
-macro(arrow_append_pc_system_library PC_PACKAGE PC_PREFIX FALLBACK)
+macro(arrow_append_pc_system_library
+      PC_PACKAGE
+      PC_PREFIX
+      FALLBACK
+      ARROW_PC_TARGET)
   find_package(PkgConfig QUIET)
   if(PkgConfig_FOUND)
     pkg_check_modules(${PC_PREFIX}
@@ -1444,10 +1464,10 @@ macro(arrow_append_pc_system_library PC_PACKAGE PC_PREFIX FALLBACK)
                       QUIET)
   endif()
   if(PkgConfig_FOUND AND ${PC_PREFIX}_FOUND)
-    string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${PC_PACKAGE}")
+    string(APPEND ${ARROW_PC_TARGET}_PC_REQUIRES_PRIVATE " ${PC_PACKAGE}")
   else()
-    message(STATUS "No .pc for ${PC_PACKAGE}. Using ${FALLBACK} in arrow.pc")
-    string(APPEND ARROW_PC_LIBS_PRIVATE " ${FALLBACK}")
+    message(STATUS "No .pc for ${PC_PACKAGE}. Using ${FALLBACK} for ${ARROW_PC_TARGET}")
+    string(APPEND ${ARROW_PC_TARGET}_PC_LIBS_PRIVATE " ${FALLBACK}")
   endif()
 endmacro()
 
@@ -1540,36 +1560,19 @@ macro(build_brotli)
   set(BROTLI_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/brotli_ep/src/brotli_ep-install")
   set(BROTLI_INCLUDE_DIR "${BROTLI_PREFIX}/include")
   set(BROTLI_LIB_DIR "${BROTLI_PREFIX}/lib")
+  # Brotli >= 1.1.0 names its static libraries without a "-static"
+  # suffix when BUILD_SHARED_LIBS=OFF.
   set(BROTLI_STATIC_LIBRARY_ENC
-      "${BROTLI_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   set(BROTLI_STATIC_LIBRARY_DEC
-      "${BROTLI_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   set(BROTLI_STATIC_LIBRARY_COMMON
-      "${BROTLI_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      "${BROTLI_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
-  set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}")
-
-  set(BROTLI_EP_OPTIONS)
-  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # "cmake install" is disabled for Brotli on Emscripten, so the
-    # default INSTALL_COMMAND fails. We need to disable the default
-    # INSTALL_COMMAND.
-    list(APPEND
-         BROTLI_EP_OPTIONS
-         INSTALL_COMMAND
-         ${CMAKE_COMMAND}
-         -E
-         true)
-
-    set(BROTLI_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep-build)
-    set(BROTLI_BUILD_LIBS
-        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
-        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  endif()
+  set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}"
+                        -DBROTLI_BUILD_TOOLS=OFF -DBROTLI_DISABLE_TESTS=ON)
 
   externalproject_add(brotli_ep
                       ${EP_COMMON_OPTIONS}
@@ -1578,22 +1581,8 @@ macro(build_brotli)
                       BUILD_BYPRODUCTS "${BROTLI_STATIC_LIBRARY_ENC}"
                                        "${BROTLI_STATIC_LIBRARY_DEC}"
                                        "${BROTLI_STATIC_LIBRARY_COMMON}"
-                                       ${BROTLI_BUILD_BYPRODUCTS}
                       CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
-                      STEP_TARGETS headers_copy ${BROTLI_EP_OPTIONS})
-
-  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # Copy the libraries to our install directory manually.
-    set(BROTLI_BUILD_INCLUDE_DIR
-        ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep/c/include/brotli)
-    add_custom_command(TARGET brotli_ep
-                       POST_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                               ${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}*${CMAKE_STATIC_LIBRARY_SUFFIX}
-                               ${BROTLI_LIB_DIR}
-                       COMMAND ${CMAKE_COMMAND} -E copy_directory
-                               ${BROTLI_BUILD_INCLUDE_DIR} ${BROTLI_INCLUDE_DIR}/brotli)
-  endif()
+                      STEP_TARGETS headers_copy)
 
   file(MAKE_DIRECTORY "${BROTLI_INCLUDE_DIR}")
 
@@ -1816,29 +1805,8 @@ function(build_thrift)
   if(CMAKE_VERSION VERSION_LESS 3.26)
     message(FATAL_ERROR "Require CMake 3.26 or later for building bundled Apache Thrift")
   endif()
-  set(THRIFT_PATCH_COMMAND)
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    find_program(PATCH patch)
-    if(PATCH)
-      list(APPEND
-           THRIFT_PATCH_COMMAND
-           ${PATCH}
-           -p1
-           -i)
-    else()
-      find_program(GIT git)
-      if(GIT)
-        list(APPEND THRIFT_PATCH_COMMAND ${GIT} apply)
-      endif()
-    endif()
-    if(THRIFT_PATCH_COMMAND)
-      # https://github.com/apache/thrift/pull/3187
-      list(APPEND THRIFT_PATCH_COMMAND ${CMAKE_CURRENT_LIST_DIR}/thrift-3187.patch)
-    endif()
-  endif()
   fetchcontent_declare(thrift
                        ${FC_DECLARE_COMMON_OPTIONS}
-                       PATCH_COMMAND ${THRIFT_PATCH_COMMAND}
                        URL ${THRIFT_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
 
@@ -1946,8 +1914,13 @@ function(build_absl)
       TRUE
       PARENT_SCOPE)
 
-  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
-    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
+  # Abseil 20260817.0 uses O_NONBLOCK that isn't available on MinGW.
+  #
+  # TODO: Remove this workaround once we upgrade to a newer Abseil
+  # version that includes
+  # https://github.com/abseil/abseil-cpp/commit/ddbdebc6c8 .
+  if(MINGW)
+    string(APPEND CMAKE_CXX_FLAGS " -DO_NONBLOCK=0")
   endif()
 
   fetchcontent_declare(absl
@@ -1977,14 +1950,15 @@ function(build_absl)
     # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
     # Cannot use set_property on alias targets (absl::time is an alias)
     target_link_libraries(time INTERFACE ${CoreFoundation})
+    set(ARROW_PC_LIBS_PRIVATE
+        "${ARROW_PC_LIBS_PRIVATE} -framework CoreFoundation"
+        PARENT_SCOPE)
   endif()
 
   list(PREPEND
        ARROW_BUNDLED_STATIC_LIBS
-       absl::bad_any_cast_impl
-       absl::bad_optional_access
-       absl::bad_variant_access
        absl::base
+       absl::base_cpu_detect
        absl::city
        absl::civil_time
        absl::cord
@@ -1995,7 +1969,6 @@ function(build_absl)
        absl::cordz_sample_token
        absl::crc32c
        absl::crc_cord_state
-       absl::crc_cpu_detect
        absl::crc_internal
        absl::debugging_internal
        absl::decode_rust_punycode
@@ -2017,11 +1990,13 @@ function(build_absl)
        absl::flags_usage
        absl::flags_usage_internal
        absl::graphcycles_internal
+       absl::hardening
        absl::hash
        absl::hashtablez_sampler
        absl::int128
        absl::kernel_timeout_internal
        absl::leak_check
+       absl::log_entry
        absl::log_globals
        absl::log_initialize
        absl::log_internal_check_op
@@ -2036,14 +2011,13 @@ function(build_absl)
        absl::log_internal_structured_proto
        absl::log_severity
        absl::log_sink
-       absl::low_level_hash
        absl::malloc_internal
        absl::periodic_sampler
        absl::poison
        absl::random_distributions
        absl::random_internal_distribution_test_util
+       absl::random_internal_entropy_pool
        absl::random_internal_platform
-       absl::random_internal_pool_urbg
        absl::random_internal_randen
        absl::random_internal_randen_hwaes
        absl::random_internal_randen_hwaes_impl
@@ -2054,6 +2028,7 @@ function(build_absl)
        absl::raw_hash_set
        absl::raw_logging_internal
        absl::scoped_set_env
+       absl::source_location
        absl::spinlock_wait
        absl::stacktrace
        absl::status
@@ -2067,6 +2042,7 @@ function(build_absl)
        absl::throw_delegate
        absl::time
        absl::time_zone
+       absl::tracing_internal
        absl::utf8_for_code_point
        absl::vlog_config_internal)
   set(ARROW_BUNDLED_STATIC_LIBS
@@ -2095,25 +2071,8 @@ function(build_protobuf)
       "${PROTOBUF_INCLUDE_DIR}"
       PARENT_SCOPE)
 
-  set(PROTOBUF_PATCH_COMMAND)
-  if(EMSCRIPTEN)
-    find_program(PATCH patch)
-    if(PATCH)
-      set(PROTOBUF_PATCH_COMMAND ${PATCH} -p1 -i)
-    else()
-      find_program(GIT git)
-      if(GIT)
-        set(PROTOBUF_PATCH_COMMAND ${GIT} apply)
-      endif()
-    endif()
-    if(PROTOBUF_PATCH_COMMAND)
-      list(APPEND PROTOBUF_PATCH_COMMAND
-           ${CMAKE_CURRENT_LIST_DIR}/protobuf-emscripten.patch)
-    endif()
-  endif()
   fetchcontent_declare(protobuf
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                       PATCH_COMMAND ${PROTOBUF_PATCH_COMMAND}
                        URL ${PROTOBUF_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
 
@@ -2223,6 +2182,10 @@ function(build_protobuf)
     set(PROTOBUF_HOST_CMAKE_ARGS
         "-DCMAKE_CXX_FLAGS="
         "-DCMAKE_C_FLAGS="
+        # Explicitly set the C++ standard for the host build. Without this,
+        # Abseil may be compiled with the host compiler's default standard,
+        # which can be older than C++17.
+        "-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}"
         "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
         -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=
@@ -2869,6 +2832,10 @@ function(build_simdjson)
 
   prepare_fetchcontent()
 
+  # Keep simdjson's threading configuration consistent with Arrow's,
+  # which is required for Emscripten where Arrow threading is disabled.
+  set(SIMDJSON_ENABLE_THREADS ${ARROW_ENABLE_THREADING})
+
   # simdjson enables precompiled headers unconditionally.
   # Recompiling simdjson.cpp against it produces differing artifacts
   # Disable precompiled headers to avoid reproducible build failures.
@@ -2878,10 +2845,19 @@ function(build_simdjson)
 
   target_compile_definitions(simdjson PUBLIC SIMDJSON_EXCEPTIONS=0)
 
-  # The macOS 11.3 SDK has incomplete C++20 concepts support, which prevents
-  # simdjson headers from compiling. Disable simdjson concepts for this SDK.
-  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES "MacOSX11\\.3\\.sdk$")
-    message(STATUS "Disabling simdjson concepts for macOS SDK 11.3")
+  # macOS SDKs before 13.3 ship a libc++ without <ranges> and with incomplete
+  # <concepts>, but simdjson enables its C++20 concepts API from the compiler's
+  # __cpp_concepts alone, so its headers fail to compile against those SDKs
+  # (GH-55267). Disable simdjson concepts for them. Arrow doesn't use that part
+  # of the simdjson API. simdjson considers these SDKs unsupported and won't fix
+  # this upstream, see https://github.com/simdjson/simdjson/issues/2787.
+  #
+  # The SDK directory name may omit the minor version ("MacOSX11.sdk" on CRAN,
+  # "MacOSX11.3.sdk" in our as-cran CI job), so match both forms. This treats
+  # "MacOSX13.sdk" as too old, which is harmless.
+  if(CMAKE_OSX_SYSROOT AND CMAKE_OSX_SYSROOT MATCHES
+                           "MacOSX(1[0-2](\\.[0-9]+)?|13(\\.[0-2])?)\\.sdk$")
+    message(STATUS "Disabling simdjson concepts for macOS SDK older than 13.3")
     target_compile_definitions(simdjson PUBLIC SIMDJSON_CONCEPT_DISABLED=1)
   endif()
 
@@ -3441,10 +3417,21 @@ function(build_grpc)
       TRUE
       PARENT_SCOPE)
 
+  # gRPC's source archive doesn't include the third_party/grpc-proto
+  # submodule. We disable gRPC_DOWNLOAD_ARCHIVES, so we download it
+  # by ourselves.
+  fetchcontent_declare(grpc_proto
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${GRPC_PROTO_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GRPC_PROTO_BUILD_SHA256_CHECKSUM}")
+  fetchcontent_makeavailable(grpc_proto)
+
   fetchcontent_declare(grpc
                        ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${GRPC_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}")
+                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}"
+                       PATCH_COMMAND ${CMAKE_COMMAND} -E copy_directory
+                                     ${grpc_proto_SOURCE_DIR} third_party/grpc-proto)
 
   prepare_fetchcontent()
 
@@ -3514,16 +3501,6 @@ function(build_grpc)
     add_executable(gRPC::grpc_cpp_plugin ALIAS grpc_cpp_plugin)
   endif()
 
-  # gRPC headers use deprecated std::iterator that causes compilation errors.
-  # This workaround can be removed once we upgrade to a newer gRPC version.
-  if(NOT MSVC)
-    foreach(target ${GRPC_LIBRARY_TARGETS})
-      if(TARGET ${target})
-        target_compile_options(${target} INTERFACE -Wno-error=deprecated-declarations)
-      endif()
-    endforeach()
-  endif()
-
   # ar -M rejects with the "libgrpc++.a" filename because "+" is a line
   # continuation character in these scripts, so we have to create a copy of the
   # static lib that we will bundle later.
@@ -3550,7 +3527,19 @@ function(build_grpc)
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
-       gRPC::grpcpp_for_bundling)
+       gRPC::grpcpp_for_bundling
+       upb_base_lib
+       upb_descriptor_lib
+       upb_hash_lib
+       upb_json_lib
+       upb_lex_lib
+       upb_mem_lib
+       upb_message_lib
+       upb_mini_descriptor_lib
+       upb_mini_table_lib
+       upb_reflection_lib
+       upb_textformat_lib
+       upb_wire_lib)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
@@ -3865,6 +3854,19 @@ function(build_google_cloud_cpp_storage)
                                PUBLIC $<BUILD_INTERFACE:${_otel_api_includes}>)
   endif()
 
+  # google-cloud-cpp headers use deprecated Abseil APIs such as
+  # absl::visit(). They are fixed in google-cloud-cpp 3.9.0 or later
+  # but google-cloud-cpp 3.9.0 or later requires libcurl 8.7.1 or
+  # later. We can't require it because some supported platforms such as
+  # Ubuntu 24.04 ship older libcurl.
+  #
+  # TODO: Remove this workaround once we upgrade to google-cloud-cpp
+  # 3.9.0 or later.
+  if(NOT MSVC AND TARGET google_cloud_cpp_common)
+    target_compile_options(google_cloud_cpp_common
+                           INTERFACE -Wno-error=deprecated-declarations)
+  endif()
+
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${google_cloud_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
@@ -3873,13 +3875,8 @@ function(build_google_cloud_cpp_storage)
   # 141MB -> 79MB
   file(REMOVE_RECURSE "${google_cloud_cpp_SOURCE_DIR}/ci")
 
-  list(PREPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       google-cloud-cpp::storage
-       google-cloud-cpp::rest_internal
-       google-cloud-cpp::common)
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+  set(ARROW_GCS_BUNDLED_STATIC_LIBS
+      google-cloud-cpp::storage google-cloud-cpp::rest_internal google-cloud-cpp::common
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
@@ -3893,8 +3890,14 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
 
   # curl is required on all platforms. We always use system curl to
   # avoid conflict.
-  find_curl(ARROW)
-  resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
+  find_curl(ARROW_GCS)
+  resolve_dependency(google_cloud_cpp_storage
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowGcs
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-gcs
+                     PC_PACKAGE_NAMES
+                     google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
   message(STATUS "Found google-cloud-cpp::storage headers: ${google_cloud_cpp_storage_INCLUDE_DIR}"
@@ -4052,6 +4055,13 @@ function(build_orc)
     if(absl_SOURCE_DIR)
       set(ORC_ABSL_INCLUDE_DIR "${absl_SOURCE_DIR}")
     endif()
+    # Protobuf 36.2 headers include utf8_validity.h in utf8_range.
+    # ORC build needs the utf8_range include directory if we're using a
+    # bundled Protobuf.
+    fetchcontent_getproperties(protobuf)
+    if(protobuf_SOURCE_DIR)
+      set(ORC_UTF8_RANGE_INCLUDE_DIR "${protobuf_SOURCE_DIR}/third_party/utf8_range")
+    endif()
 
     get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
                         INTERFACE_INCLUDE_DIRECTORIES)
@@ -4063,10 +4073,12 @@ function(build_orc)
     get_target_property(ORC_ZLIB_ROOT ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_ZLIB_ROOT "${ORC_ZLIB_ROOT}" DIRECTORY)
 
+    set(ORC_CXX_FLAGS "${EP_CXX_FLAGS}")
     if(ORC_ABSL_INCLUDE_DIR)
-      set(ORC_CXX_FLAGS "${EP_CXX_FLAGS} -isystem ${ORC_ABSL_INCLUDE_DIR}")
-    else()
-      set(ORC_CXX_FLAGS "${EP_CXX_FLAGS}")
+      string(APPEND ORC_CXX_FLAGS " -isystem ${ORC_ABSL_INCLUDE_DIR}")
+    endif()
+    if(ORC_UTF8_RANGE_INCLUDE_DIR)
+      string(APPEND ORC_CXX_FLAGS " -isystem ${ORC_UTF8_RANGE_INCLUDE_DIR}")
     endif()
     set(ORC_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
@@ -4423,42 +4435,54 @@ function(build_azure_sdk)
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)
-  list(PREPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       Azure::azure-core
-       Azure::azure-identity
-       Azure::azure-storage-blobs
-       Azure::azure-storage-common
-       Azure::azure-storage-files-datalake)
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+  set(ARROW_AZURE_BUNDLED_STATIC_LIBS
+      Azure::azure-storage-files-datalake
+      Azure::azure-storage-blobs
+      Azure::azure-storage-common
+      Azure::azure-identity
+      Azure::azure-core
       PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
 if(ARROW_WITH_AZURE_SDK)
-  resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
+  resolve_dependency(Azure
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowAzure
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-azure
+                     REQUIRED_VERSION
+                     1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES Azure::azure-storage-files-datalake
                                Azure::azure-storage-blobs Azure::azure-identity)
   if(AZURE_SDK_VENDORED AND NOT WIN32)
-    find_curl(ARROW)
+    find_curl(ARROW_AZURE)
     find_package(LibXml2 REQUIRED)
-    list(APPEND ARROW_SYSTEM_DEPENDENCIES LibXml2)
+    list(APPEND ARROW_AZURE_SYSTEM_DEPENDENCIES LibXml2)
   endif()
 endif()
 
 if(ARROW_BUILD_STATIC)
-  if((ARROW_GCS AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
-     OR (ARROW_AZURE
-         AND AZURE_SDK_VENDORED
-         AND NOT WIN32))
-    arrow_append_pc_system_library("libcurl" ARROW_CURL_PC "-lcurl")
+  if(ARROW_GCS AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED")
+    arrow_append_pc_system_library("libcurl" ARROW_GCS_CURL_PC "-lcurl" ARROW_GCS)
+    if(NOT WIN32)
+      arrow_append_pc_system_library("openssl" ARROW_GCS_OPENSSL_PC "-lssl -lcrypto"
+                                     ARROW_GCS)
+    endif()
   endif()
   if(ARROW_AZURE
      AND AZURE_SDK_VENDORED
      AND NOT WIN32)
-    arrow_append_pc_system_library("libxml-2.0" ARROW_LIBXML2_PC "-lxml2")
+    arrow_append_pc_system_library("libcurl" ARROW_AZURE_CURL_PC "-lcurl" ARROW_AZURE)
+    arrow_append_pc_system_library("openssl" ARROW_AZURE_OPENSSL_PC "-lssl -lcrypto"
+                                   ARROW_AZURE)
+  endif()
+  if(ARROW_AZURE
+     AND AZURE_SDK_VENDORED
+     AND NOT WIN32)
+    arrow_append_pc_system_library("libxml-2.0" ARROW_AZURE_LIBXML2_PC "-lxml2"
+                                   ARROW_AZURE)
   endif()
   if(ARROW_GCS
      AND google_cloud_cpp_storage_SOURCE STREQUAL "BUNDLED"
@@ -4484,14 +4508,14 @@ if(ARROW_BUILD_STATIC)
                           NO_CMAKE_ENVIRONMENT_PATH
                           QUIET)
         if(ARROW_GCS_${ARROW_GCS_ABSL_PC_PACKAGE}_PC_FOUND)
-          string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARROW_GCS_ABSL_PC_PACKAGE}")
+          string(APPEND ARROW_GCS_PC_REQUIRES_PRIVATE " ${ARROW_GCS_ABSL_PC_PACKAGE}")
         else()
           message(STATUS "No .pc for ${ARROW_GCS_ABSL_PC_PACKAGE}; "
                          "static pkg-config metadata may be incomplete. Consider CMake")
         endif()
       endforeach()
     else()
-      message(STATUS "PkgConfig not available. Skipping Abseil dependencies from arrow.pc"
+      message(STATUS "PkgConfig not available. Skipping Abseil dependencies from arrow-gcs.pc"
       )
     endif()
   endif()
@@ -4505,3 +4529,5 @@ if(ARROW_FLIGHT_SQL_ODBC)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
+message(STATUS "GCS bundled static libraries: ${ARROW_GCS_BUNDLED_STATIC_LIBS}")
+message(STATUS "Azure bundled static libraries: ${ARROW_AZURE_BUNDLED_STATIC_LIBS}")

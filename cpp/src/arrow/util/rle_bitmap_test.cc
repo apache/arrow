@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <random>
@@ -285,6 +286,51 @@ void CheckBitmapDecoder(const typename Decoder::RunType& run,
   }
 }
 
+/// Reference count of `value` in the slice `expected[start, start + count)`.
+rle_size_t CountValueSlice(const std::vector<bool>& expected, rle_size_t start,
+                           rle_size_t count, bool value) {
+  return static_cast<rle_size_t>(
+      std::count(expected.begin() + start, expected.begin() + start + count, value));
+}
+
+/// Count both boolean values in the run with CountUpTo, `chunk_size` values at a time.
+///
+/// Verifies the per-chunk and total matching counts, the processed counts, and that
+/// counting past the end yields nothing.
+template <typename Decoder>
+void CheckDecoderCountUpTo(const typename Decoder::RunType& run,
+                           const std::vector<bool>& expected, rle_size_t chunk_size) {
+  ARROW_SCOPED_TRACE("chunk_size = ", chunk_size);
+  const auto n_vals = static_cast<rle_size_t>(expected.size());
+
+  for (bool value : {true, false}) {
+    ARROW_SCOPED_TRACE("value = ", value);
+    Decoder decoder(run);
+
+    rle_size_t processed = 0;
+    rle_size_t matching = 0;
+    while (processed < n_vals) {
+      const auto want = std::min(chunk_size, n_vals - processed);
+      const auto result = decoder.CountUpTo(value, want);
+      EXPECT_EQ(result.processed_count, want) << "at pos " << processed;
+      ASSERT_GT(result.processed_count, 0) << "at pos " << processed;  // break on failure
+      EXPECT_EQ(result.matching_count,
+                CountValueSlice(expected, processed, result.processed_count, value))
+          << "at pos " << processed;
+      processed += result.processed_count;
+      matching += result.matching_count;
+      EXPECT_EQ(decoder.remaining(), n_vals - processed);
+    }
+    EXPECT_EQ(processed, n_vals);
+    EXPECT_EQ(matching, CountValueSlice(expected, 0, n_vals, value));
+
+    // Counting past the end processes nothing.
+    const auto past = decoder.CountUpTo(value, std::max(chunk_size, rle_size_t{1}));
+    EXPECT_EQ(past.processed_count, 0);
+    EXPECT_EQ(past.matching_count, 0);
+  }
+}
+
 }  // namespace
 
 /***************************
@@ -310,6 +356,10 @@ TEST_P(RleRunToBitmapDecoderTest, Decode) {
 
     const std::vector<bool> expected(count, value);
     CheckBitmapDecoder<RleRunToBitmapDecoder>(run, expected);
+
+    for (const rle_size_t chunk_size : {1, 7, 8, 9, count, count + 1}) {
+      CheckDecoderCountUpTo<RleRunToBitmapDecoder>(run, expected, chunk_size);
+    }
   }
 }
 
@@ -345,6 +395,10 @@ TEST_P(BitPackedRunToBitmapDecoderTest, Decode) {
 
   const std::vector<bool> expected = BitsFromBytes(param.bytes, param.count);
   CheckBitmapDecoder<BitPackedRunToBitmapDecoder>(run, expected);
+
+  for (const rle_size_t chunk_size : {1, 3, 7, 8, 9, param.count, param.count + 1}) {
+    CheckDecoderCountUpTo<BitPackedRunToBitmapDecoder>(run, expected, chunk_size);
+  }
 }
 
 INSTANTIATE_TEST_SUITE_P(  //
@@ -451,15 +505,53 @@ void CheckRleBitPackedDecode(const std::vector<uint8_t>& bytes,
   });
 }
 
-/// Run the decode check over a battery of chunk sizes and output offsets.
+/// Count both boolean values across the whole `bytes` using CountUpTo, `chunk_size`
+/// values at a time, and check against `expected`.
+void CheckRleBitPackedCountUpTo(const std::vector<uint8_t>& bytes,
+                                const std::vector<bool>& expected,
+                                rle_size_t chunk_size) {
+  ARROW_SCOPED_TRACE("chunk_size = ", chunk_size);
+  const auto n_vals = static_cast<rle_size_t>(expected.size());
+
+  for (bool value : {true, false}) {
+    ARROW_SCOPED_TRACE("value = ", value);
+    RleBitPackedToBitmapDecoder decoder(bytes.data(),
+                                        static_cast<rle_size_t>(bytes.size()));
+    EXPECT_EQ(decoder.exhausted(), n_vals == 0);
+
+    rle_size_t processed = 0;
+    rle_size_t matching = 0;
+    while (processed < n_vals) {
+      const auto want = std::min(chunk_size, n_vals - processed);
+      const auto result = decoder.CountUpTo(value, want);
+      EXPECT_EQ(result.processed_count, want) << "at pos " << processed;
+      ASSERT_GT(result.processed_count, 0) << "at pos " << processed;  // break on failure
+      EXPECT_EQ(result.matching_count,
+                CountValueSlice(expected, processed, result.processed_count, value))
+          << "at pos " << processed;
+      processed += result.processed_count;
+      matching += result.matching_count;
+    }
+    EXPECT_EQ(processed, n_vals);
+    EXPECT_TRUE(decoder.exhausted());
+    EXPECT_EQ(matching, CountValueSlice(expected, 0, n_vals, value));
+
+    // Counting past the end processes nothing and leaves the decoder exhausted.
+    const auto past = decoder.CountUpTo(value, 8);
+    EXPECT_EQ(past.processed_count, 0);
+    EXPECT_EQ(past.matching_count, 0);
+    EXPECT_TRUE(decoder.exhausted());
+  }
+}
+
+/// Run the decode and count checks over a battery of chunk sizes and output offsets.
 void CheckRleBitPackedToBitmap(const std::vector<uint8_t>& bytes,
                                const std::vector<bool>& expected) {
   const auto n_vals = static_cast<rle_size_t>(expected.size());
   ASSERT_GT(n_vals, 0);
-  for (const rle_size_t chunk_size :
-       {rle_size_t{1}, rle_size_t{3}, rle_size_t{7}, rle_size_t{8}, rle_size_t{9},
-        rle_size_t{33}, n_vals, n_vals + 1}) {
+  for (const rle_size_t chunk_size : {1, 3, 7, 8, 9, 33, n_vals, n_vals + 1}) {
     CheckRleBitPackedDecode(bytes, expected, chunk_size);
+    CheckRleBitPackedCountUpTo(bytes, expected, chunk_size);
     // A non-zero output offset forces the first run to start at a non-byte
     // aligned output position.
     for (rle_size_t out_offset = 1; out_offset < 8; ++out_offset) {
@@ -471,18 +563,35 @@ void CheckRleBitPackedToBitmap(const std::vector<uint8_t>& bytes,
 }  // namespace
 
 TEST(RleBitPackedToBitmapDecoder, Empty) {
-  // A default-constructed decoder is already exhausted.
+  // A default-constructed decoder is already exhausted: it decodes and counts nothing.
   RleBitPackedToBitmapDecoder decoder;
   EXPECT_TRUE(decoder.exhausted());
   uint8_t out = 0;
   auto got = decoder.GetBatch(BitmapSpanMut(&out), 8);
   EXPECT_EQ(got, 0);
+  for (bool value : {true, false}) {
+    const auto counted = decoder.CountUpTo(value, 8);
+    EXPECT_EQ(counted.processed_count, 0);
+    EXPECT_EQ(counted.matching_count, 0);
+  }
 
   // So is one reset on an empty buffer.
   decoder.Reset(nullptr, 0);
   EXPECT_TRUE(decoder.exhausted());
   got = decoder.GetBatch(BitmapSpanMut(&out), 8);
   EXPECT_EQ(got, 0);
+
+  // A zero batch_size is a no-op even with data available.
+  std::vector<uint8_t> bytes;
+  std::vector<bool> expected;
+  AppendRleRun(bytes, expected, /*value=*/true, /*count=*/8);
+  decoder.Reset(bytes.data(), static_cast<rle_size_t>(bytes.size()));
+  EXPECT_FALSE(decoder.exhausted());
+  EXPECT_EQ(decoder.GetBatch(BitmapSpanMut(&out), 0), 0);
+  const auto counted = decoder.CountUpTo(true, 0);
+  EXPECT_EQ(counted.processed_count, 0);
+  EXPECT_EQ(counted.matching_count, 0);
+  EXPECT_FALSE(decoder.exhausted());
 }
 
 TEST(RleBitPackedToBitmapDecoder, SingleRleZeros) {

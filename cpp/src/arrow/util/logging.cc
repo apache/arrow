@@ -187,6 +187,8 @@ void ArrowLog::StartArrowLog(const std::string& app_name,
 #endif
 }
 
+ARROW_SUPPRESS_DEPRECATION_WARNING
+
 void ArrowLog::UninstallSignalAction() {
 #ifdef ARROW_USE_GLOG
   ARROW_LOG(DEBUG) << "Uninstall signal handlers.";
@@ -223,6 +225,8 @@ void ArrowLog::InstallFailureSignalHandler() {
 #endif
 }
 
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
+
 bool ArrowLog::IsLevelEnabled(ArrowLogLevel log_level) {
   return log_level >= severity_threshold_;
 }
@@ -255,12 +259,7 @@ std::ostream& ArrowLog::Stream() {
 
 bool ArrowLog::IsEnabled() const { return is_enabled_; }
 
-ArrowLog::~ArrowLog() {
-  if (logging_provider_ != nullptr) {
-    delete reinterpret_cast<LoggingProvider*>(logging_provider_);
-    logging_provider_ = nullptr;
-  }
-}
+ArrowLog::~ArrowLog() { delete static_cast<LoggingProvider*>(logging_provider_); }
 
 }  // namespace util
 }  // namespace arrow

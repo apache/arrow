@@ -1450,8 +1450,6 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
   std::vector<std::shared_ptr<Field>> fields(num_fields);
   for (int i = 0; i < num_fields; ++i) {
     const flatbuf::Field* field = schema->fields()->Get(i);
-    // XXX I don't think this check is necessary (AP)
-    CHECK_FLATBUFFERS_NOT_NULL(field, "DictionaryEncoding.indexType");
     RETURN_NOT_OK(
         FieldFromFlatbuffer(field, field_pos.child(i), dictionary_memo, &fields[i]));
   }

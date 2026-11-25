@@ -179,6 +179,10 @@ TEST_F(TestArray, TestNullCount) {
                              true, true);
     CheckDictionaryNullCount(dict_type, "[null, true, null, false]", "[null, 1, 0, 2, 3]",
                              1, 3, true, true);
+
+    // null-typed dictionary, without a validity bitmap
+    CheckDictionaryNullCount(dictionary(index_type, null()), "[null]", "[0, null, 0]", 1,
+                             3, true, true);
   }
 }
 
@@ -1137,6 +1141,26 @@ TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
   ASSERT_OK(dst->ValidateFull());
 
   AssertArraysEqual(*src, *dst);
+}
+
+// GH-54924: ArraySpan::HasVariadicBuffers must look through extension types.
+TEST_F(TestArray, TestBinaryViewExtensionArraySpanRoundtrip) {
+  auto storage = ArrayFromJSON(
+      binary_view(),
+      R"([null, "short", "long string that is not inlined", "another somewhat long string"])");
+  auto extension_type = binary_view_extension_type();
+  auto extension_array = ExtensionType::WrapArray(extension_type, storage);
+  ASSERT_OK(extension_array->ValidateFull());
+
+  ArraySpan span(*extension_array->data());
+  ASSERT_TRUE(span.HasVariadicBuffers());
+  ASSERT_EQ(span.GetVariadicBuffers().size(), storage->data()->buffers.size() - 2);
+
+  auto roundtripped = span.ToArray();
+  ASSERT_OK(roundtripped->ValidateFull());
+  AssertArraysEqual(*extension_array, *roundtripped);
+  ASSERT_EQ(roundtripped->data()->buffers.size(),
+            extension_array->data()->buffers.size());
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {
@@ -4480,6 +4504,91 @@ TEST_F(TestHalfFloatBuilder, TestBulkAppend) {
         ArrayFromJSON(float16(), "[1,2,3,1,null,3,1,null,3,1,2,3,1,null,3,1,null,3]");
     AssertArraysEqual(*array, *comp);
   }
+}
+
+TEST_F(TestArray, ArangeInvalidInputs) {
+  // step == 0 is always invalid
+  ASSERT_RAISES(Invalid, Arange(0, 10, 0, pool_));
+
+  // Byte count overflows uint64 (size = 2^63 - 1)
+  ASSERT_RAISES(Invalid, Arange(0, INT64_MAX, 1, pool_));
+
+  // Byte count fits uint64 but exceeds INT64_MAX (size = 2^60 + 8)
+  ASSERT_RAISES(Invalid, Arange(0, (1LL << 60) + 8, 1, pool_));
+
+  // Negative step over the full domain (range = 2^64 - 1)
+  ASSERT_RAISES(Invalid, Arange(INT64_MAX, INT64_MIN, -1, pool_));
+}
+
+TEST_F(TestArray, ArangeBasicPositiveStep) {
+  auto expected = ArrayFromJSON(int64(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(0, 10, 1, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[0, 3, 6, 9]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(0, 10, 3, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[-5, -3, -1, 1, 3]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(-5, 5, 2, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+}
+
+TEST_F(TestArray, ArangeBasicNegativeStep) {
+  auto expected = ArrayFromJSON(int64(), "[10, 9, 8, 7, 6, 5, 4, 3, 2, 1]");
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(10, 0, -1, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[10, 7, 4, 1]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(10, 0, -3, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[5, 2, -1, -4]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(5, -7, -3, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+}
+
+TEST_F(TestArray, ArangeEmptyRanges) {
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(10, 5, 1, pool_));
+  ASSERT_EQ(result->length(), 0);
+
+  ASSERT_OK_AND_ASSIGN(result, Arange(5, 10, -1, pool_));
+  ASSERT_EQ(result->length(), 0);
+
+  ASSERT_OK_AND_ASSIGN(result, Arange(5, 5, 1, pool_));
+  ASSERT_EQ(result->length(), 0);
+}
+
+TEST_F(TestArray, ArangeBoundaryValues) {
+  // Positive-step, with range = 2^64 - 1
+  auto expected = ArrayFromJSON(
+      int64(), "[-9223372036854775808, -4611686018427387904, 0, 4611686018427387904]");
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(INT64_MIN, INT64_MAX, 1LL << 62, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  // Negative-step mirror, also with range = 2^64 - 1
+  expected = ArrayFromJSON(
+      int64(), "[9223372036854775807, 4611686018427387903, -1, -4611686018427387905]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(INT64_MAX, INT64_MIN, -(1LL << 62), pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  // step == INT64_MIN is valid: |step| is computed in unsigned arithmetic
+  expected = ArrayFromJSON(int64(), "[10]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(10, 0, INT64_MIN, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[9223372036854775807, -1]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(INT64_MAX, INT64_MIN, INT64_MIN, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  // Endpoints on the int64 rails
+  expected = ArrayFromJSON(int64(), "[-9223372036854775808, -9223372036854775807]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(INT64_MIN, INT64_MIN + 2, 1, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
+
+  expected = ArrayFromJSON(int64(), "[9223372036854775805, 9223372036854775806]");
+  ASSERT_OK_AND_ASSIGN(result, Arange(INT64_MAX - 2, INT64_MAX, 1, pool_));
+  ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
 
 class TestDayTimeIntervalBuilder : public ::testing::Test {

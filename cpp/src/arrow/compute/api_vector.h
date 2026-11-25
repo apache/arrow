@@ -408,7 +408,7 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
   /// length of the input indices.
   int64_t max_index = -1;
   /// \brief The data type for the output array of inverse permutation. Defaults to the
-  /// type of the input indices when `nullopt`. Must be a signed integer type. An
+  /// type of the input indices when `nullopt`. Must be an integer type. An
   /// invalid error will be reported if this type is not able to store the length of the
   /// input indices.
   std::optional<std::shared_ptr<DataType>> output_type;
@@ -912,7 +912,7 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
 ///   [1, 6, 3, null, 4, null, null]
 /// if max_index = 6.
 ///
-/// \param[in] indices array-like indices
+/// \param[in] indices array-like signed or unsigned integer indices
 /// \param[in] options configures the max index and the output type
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting inverse permutation
@@ -940,7 +940,7 @@ Result<Datum> InversePermutation(
 /// if max_index = 6.
 ///
 /// \param[in] values datum to scatter
-/// \param[in] indices array-like indices
+/// \param[in] indices array-like signed or unsigned integer indices
 /// \param[in] options configures the max index of to scatter
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum

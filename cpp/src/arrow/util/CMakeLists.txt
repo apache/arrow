@@ -50,7 +50,6 @@ add_arrow_test(utility-test
                base64_test.cc
                byte_size_test.cc
                byte_stream_split_test.cc
-               cache_test.cc
                checked_cast_test.cc
                compression_test.cc
                decimal_test.cc
@@ -111,6 +110,8 @@ add_arrow_test(bit-utility-test
                rle_encoding_test.cc
                test_common.cc)
 
+add_arrow_test(encoding-utility-test SOURCES alp/alp_test.cc)
+
 add_arrow_test(crc32-test
                SOURCES
                crc32_test.cc
@@ -130,7 +131,6 @@ add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(bitmap_reader_benchmark)
 add_arrow_benchmark(bpacking_benchmark)
-add_arrow_benchmark(cache_benchmark)
 add_arrow_benchmark(compression_benchmark)
 add_arrow_benchmark(decimal_benchmark)
 add_arrow_benchmark(hashing_benchmark)

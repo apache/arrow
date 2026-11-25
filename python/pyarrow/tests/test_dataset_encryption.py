@@ -133,12 +133,14 @@ def do_test_dataset_encryption_decryption(table, extra_column_path=None):
         encrypt_kms_connection_config = create_kms_connection_config(write_keys)
         decrypt_kms_connection_config = create_kms_connection_config(read_keys)
 
-        crypto_factory = pe.CryptoFactory(kms_factory)
+        encrypt_crypto_factory = pe.CryptoFactory(kms_factory)
+        # Keep the writer's cached keys out of the reader's configuration.
+        decrypt_crypto_factory = pe.CryptoFactory(kms_factory)
         parquet_encryption_cfg = ds.ParquetEncryptionConfig(
-            crypto_factory, encrypt_kms_connection_config, encryption_config
+            encrypt_crypto_factory, encrypt_kms_connection_config, encryption_config
         )
         parquet_decryption_cfg = ds.ParquetDecryptionConfig(
-            crypto_factory, decrypt_kms_connection_config, decryption_config
+            decrypt_crypto_factory, decrypt_kms_connection_config, decryption_config
         )
 
         # create write_options with dataset encryption config
@@ -176,7 +178,7 @@ def do_test_dataset_encryption_decryption(table, extra_column_path=None):
                 assert table.select(read_columns).equals(dataset.to_table(read_columns))
 
         # set decryption properties for parquet fragment scan options
-        decryption_properties = crypto_factory.file_decryption_properties(
+        decryption_properties = decrypt_crypto_factory.file_decryption_properties(
             decrypt_kms_connection_config, decryption_config)
         pq_scan_opts = ds.ParquetFragmentScanOptions(
             decryption_properties=decryption_properties

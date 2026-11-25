@@ -22,6 +22,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 
@@ -372,7 +373,11 @@ bool CsvFileFormat::Equals(const FileFormat& format) const {
   const auto& other_parse_options =
       checked_cast<const CsvFileFormat&>(format).parse_options;
 
-  return parse_options.delimiter == other_parse_options.delimiter &&
+  const auto effective_delimiter = [](const csv::ParseOptions& options) {
+    return options.delimiter_string.empty() ? std::string_view(&options.delimiter, 1)
+                                            : std::string_view(options.delimiter_string);
+  };
+  return effective_delimiter(parse_options) == effective_delimiter(other_parse_options) &&
          parse_options.quoting == other_parse_options.quoting &&
          parse_options.quote_char == other_parse_options.quote_char &&
          parse_options.double_quote == other_parse_options.double_quote &&
@@ -498,6 +503,13 @@ Result<std::shared_ptr<FileWriter>> CsvFileFormat::MakeWriter(
     fs::FileLocator destination_locator) const {
   if (!Equals(*options->format())) {
     return Status::TypeError("Mismatching format/write options.");
+  }
+  const auto& other_parse_options =
+      checked_cast<const CsvFileFormat&>(*options->format()).parse_options;
+  if (!parse_options.delimiter_string.empty() ||
+      !other_parse_options.delimiter_string.empty()) {
+    return Status::NotImplemented(
+        "Writing CSV files with delimiter_string is not supported");
   }
   auto csv_options = checked_pointer_cast<CsvFileWriteOptions>(options);
   ARROW_ASSIGN_OR_RAISE(

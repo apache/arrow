@@ -18,6 +18,7 @@
 #include "parquet/geospatial/util_json_internal.h"
 
 #include <string>
+#include <string_view>
 
 #include "arrow/extension_type.h"
 #include "arrow/result.h"
@@ -30,6 +31,11 @@
 namespace parquet {
 
 namespace {
+
+// An upper bound on the expected nesting depth of a geospatial JSON metadata object
+constexpr int kMaxJsonDepth = 20;
+constexpr std::string_view kUnknownCrs = "srid:0";
+
 ::arrow::Result<std::string> GeospatialGeoArrowCrsToParquetCrs(
     simdjson::ondemand::object object) {
   auto json_crs_result =
@@ -37,10 +43,9 @@ namespace {
 
   if (!json_crs_result.ok()) {
     if (json_crs_result.status().IsKeyError()) {
-      // Parquet GEOMETRY/GEOGRAPHY do not have a concept of a null/missing
-      // CRS, but an omitted one is more likely to have meant "lon/lat" than
-      // a truly unspecified one (i.e., Engineering CRS with arbitrary XY units)
-      return "";
+      // GeoArrow uses an omitted CRS to mean that the CRS is unknown. Parquet
+      // represents this explicitly as the special value "srid:0".
+      return std::string(kUnknownCrs);
     }
 
     return json_crs_result.status();
@@ -50,7 +55,7 @@ namespace {
 
   ARROW_ASSIGN_OR_RAISE(bool is_null, ::arrow::internal::IsJsonNull(json_crs));
   if (is_null) {
-    return "";
+    return std::string(kUnknownCrs);
   }
 
   auto crs_string_result = ::arrow::internal::GetJsonAs<std::string_view>(json_crs);
@@ -160,7 +165,9 @@ namespace {
   // of the writer, we do interpret these values according to the suggestion in
   // the format and pass on this information to GeoArrow.
   if (crs.empty()) {
-    return R"("crs": "OGC:CRS84", "crs_type": "authority_code")";
+    return R"("crs": "OGC:CRS84")";
+  } else if (crs == kUnknownCrs) {
+    return "";
   } else if (crs.starts_with(kSridPrefix)) {
     return R"("crs": ")" + std::string(crs.substr(kSridPrefix.size())) +
            R"(", "crs_type": "srid")";
@@ -195,7 +202,7 @@ namespace {
   simdjson::ondemand::parser parser;
   simdjson::padded_string json(crs);
 
-  if (!::arrow::internal::ValidateJsonDocument(parser, json).ok()) {
+  if (!::arrow::internal::ValidateJsonDocument(parser, json, kMaxJsonDepth).ok()) {
     return EscapeJsonString(crs);
   }
 
@@ -206,16 +213,15 @@ namespace {
 
 ::arrow::Result<std::shared_ptr<const parquet::LogicalType>>
 LogicalTypeFromGeoArrowMetadata(std::string_view serialized_data) {
-  // Parquet has no way to interpret a null or missing CRS, so we choose the most likely
-  // intent here (that the user meant to use the default Parquet CRS)
+  // Parquet represents GeoArrow's unknown (omitted) CRS as "srid:0".
   if (serialized_data.empty() || serialized_data == "{}") {
-    return LogicalType::Geometry();
+    return LogicalType::Geometry(std::string(kUnknownCrs));
   }
 
   simdjson::ondemand::parser parser;
   simdjson::padded_string json(serialized_data);
 
-  RETURN_NOT_OK(::arrow::internal::ValidateJsonDocument(parser, json));
+  RETURN_NOT_OK(::arrow::internal::ValidateJsonDocument(parser, json, kMaxJsonDepth));
 
   // Reparse because validation consumes the On-Demand document.
   ARROW_ASSIGN_OR_RAISE(auto document, ::arrow::internal::ResolveSimdjsonResult(
@@ -243,10 +249,15 @@ LogicalTypeFromGeoArrowMetadata(std::string_view serialized_data) {
     return LogicalType::Geometry(crs);
   }
 
-  if (edges_string == "spherical") {
-    return LogicalType::Geography(crs,
-                                  LogicalType::EdgeInterpolationAlgorithm::SPHERICAL);
-  }
+  using EdgeAlgorithm = LogicalType::EdgeInterpolationAlgorithm;
+  if (edges_string == "spherical")
+    return LogicalType::Geography(crs, EdgeAlgorithm::SPHERICAL);
+  if (edges_string == "vincenty")
+    return LogicalType::Geography(crs, EdgeAlgorithm::VINCENTY);
+  if (edges_string == "thomas") return LogicalType::Geography(crs, EdgeAlgorithm::THOMAS);
+  if (edges_string == "andoyer")
+    return LogicalType::Geography(crs, EdgeAlgorithm::ANDOYER);
+  if (edges_string == "karney") return LogicalType::Geography(crs, EdgeAlgorithm::KARNEY);
 
   return ::arrow::Status::Invalid("Unsupported GeoArrow edge type: ", serialized_data);
 }
@@ -277,8 +288,11 @@ LogicalTypeFromGeoArrowMetadata(std::string_view serialized_data) {
                           MakeGeoArrowCrsMetadata(geospatial_type.crs(), metadata));
     std::string edges_metadata =
         R"("edges": ")" + std::string(geospatial_type.algorithm_name()) + R"(")";
-    std::string serialized_data =
-        std::string("{") + crs_metadata + ", " + edges_metadata + "}";
+    std::string serialized_data = std::string("{") + crs_metadata;
+    if (!crs_metadata.empty()) {
+      serialized_data += ", ";
+    }
+    serialized_data += edges_metadata + "}";
     return maybe_geoarrow_wkb->Deserialize(storage_type, serialized_data);
   } else {
     throw ParquetException("Can't export logical type ", logical_type.ToString(),

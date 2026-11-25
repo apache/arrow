@@ -247,7 +247,6 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
     # Upgrade GUID is required to be unchanged for ODBC installer to upgrade
     set(CPACK_WIX_UPGRADE_GUID "DBF27A18-F8BF-423F-9E3A-957414D52C4B")
-    set(CPACK_WIX_PRODUCT_GUID "279D087B-93B5-4DC3-BA69-BCF485022A26")
   elseif(APPLE)
     # macOS and Linux
     set(CPACK_GENERATOR "productbuild")
@@ -255,6 +254,9 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
   # Load CPack after all CPACK* variables are set
   include(CPack)
+  # The component name is part of the CPack file ID referenced in
+  # install/windows/arrow-flight-sql-odbc.wxs (CM_FP_ArrowFlightSQLODBC.*).
+  # Update the .wxs if it is renamed.
   cpack_add_component(ArrowFlightSQLODBC
                       DISPLAY_NAME "ODBC library"
                       DESCRIPTION "Apache Arrow Flight SQL ODBC library bin, required to install"

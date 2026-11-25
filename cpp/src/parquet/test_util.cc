@@ -267,7 +267,7 @@ std::shared_ptr<::arrow::DataType> geoarrow_wkb_lonlat(
     const std::shared_ptr<::arrow::DataType> storage) {
   // There are other ways to express lon/lat output, but this is the one that will
   // roundtrip into Parquet and back
-  return geoarrow_wkb(R"({"crs": "OGC:CRS84", "crs_type": "authority_code"})", storage);
+  return geoarrow_wkb(R"({"crs": "OGC:CRS84"})", storage);
 }
 
 }  // namespace test

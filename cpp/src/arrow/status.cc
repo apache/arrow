@@ -32,9 +32,7 @@ Status::Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> d
 
 void Status::CopyFrom(const Status& s) {
   if (ARROW_PREDICT_FALSE(state_ != NULL)) {
-    if (!state_->is_constant) {
-      DeleteState();
-    }
+    DeleteState();
   }
   if (s.state_ == nullptr) {
     state_ = nullptr;

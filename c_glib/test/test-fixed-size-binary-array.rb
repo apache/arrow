@@ -47,13 +47,19 @@ class TestFixedSizeBinaryArray < Test::Unit::TestCase
   end
 
   def test_value
-    array = build_fixed_size_binary_array(@data_type, ["0123"])
-    assert_equal("0123", array.get_value(0).to_s)
+    data_type = Arrow::FixedSizeBinaryDataType.new(40)
+    values = ["0123" * 10]
+    value = build_fixed_size_binary_array(data_type, values).get_value(0)
+    GC.start
+    assert_equal(values[0], value.to_s)
   end
 
   def test_values_bytes
-    array = build_fixed_size_binary_array(@data_type,
-                                          ["0123", "abcd", "0000"])
-    assert_equal("0123abcd0000", array.values_bytes.to_s)
+    data_type = Arrow::FixedSizeBinaryDataType.new(40)
+    values = ["0123" * 10, "abcd" * 10, "0000" * 10]
+    values_bytes =
+      build_fixed_size_binary_array(data_type, values).values_bytes
+    GC.start
+    assert_equal(values.join(""), values_bytes.to_s)
   end
 end

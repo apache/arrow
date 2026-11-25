@@ -28,7 +28,7 @@ project(pyarrow)
 # which in turn meant that Py_GIL_DISABLED was not set.
 set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
 
-set(PYARROW_VERSION "26.0.0-SNAPSHOT")
+set(PYARROW_VERSION "27.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Generate SO version and full SO version
@@ -111,7 +111,9 @@ if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1")
   set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 endif()
 
-if(UNIX)
+# On Emscripten, the equivalent $ORIGIN runtime path is added
+# through the linker flags in SetupCxxFlags.cmake instead
+if(UNIX AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
   # In the event that we are bundling the shared libraries (e.g. in a
   # manylinux1 wheel), we need to set the RPATH of the extensions to the
@@ -403,8 +405,7 @@ set(PYARROW_CPP_SRCS
     ${PYARROW_CPP_SOURCE_DIR}/python_test.cc
     ${PYARROW_CPP_SOURCE_DIR}/python_to_arrow.cc
     ${PYARROW_CPP_SOURCE_DIR}/pyarrow.cc
-    ${PYARROW_CPP_SOURCE_DIR}/udf.cc
-    ${PYARROW_CPP_SOURCE_DIR}/util.cc)
+    ${PYARROW_CPP_SOURCE_DIR}/udf.cc)
 set_source_files_properties(${PYARROW_CPP_SOURCE_DIR}/numpy_init.cc
                             PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
@@ -728,6 +729,18 @@ if(PYARROW_BUILD_AZURE)
   if(NOT ARROW_AZURE)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_AZURE=ON")
   endif()
+  find_package(ArrowAzure REQUIRED)
+  if(ARROW_BUILD_SHARED)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_AZURE_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_AZURE_IMPORT_LIB})
+      endif()
+    endif()
+    set(AZURE_LINK_LIBS ArrowAzure::arrow_azure_shared)
+  else()
+    set(AZURE_LINK_LIBS ArrowAzure::arrow_azure_static)
+  endif()
   list(APPEND CYTHON_EXTENSIONS _azurefs)
 endif()
 
@@ -735,6 +748,18 @@ if(PYARROW_BUILD_GCS)
   message(STATUS "Building PyArrow with GCS")
   if(NOT ARROW_GCS)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_GCS=ON")
+  endif()
+  find_package(ArrowGcs REQUIRED)
+  if(ARROW_BUILD_SHARED)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_GCS_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_GCS_IMPORT_LIB})
+      endif()
+    endif()
+    set(GCS_LINK_LIBS ArrowGcs::arrow_gcs_shared)
+  else()
+    set(GCS_LINK_LIBS ArrowGcs::arrow_gcs_static)
   endif()
   list(APPEND CYTHON_EXTENSIONS _gcsfs)
 endif()
@@ -1052,6 +1077,14 @@ if(PYARROW_BUILD_PARQUET)
   endif()
 endif()
 
+if(PYARROW_BUILD_AZURE)
+  target_link_libraries(_azurefs PRIVATE ${AZURE_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_GCS)
+  target_link_libraries(_gcsfs PRIVATE ${GCS_LINK_LIBS})
+endif()
+
 if(PYARROW_BUILD_S3)
   target_link_libraries(_s3fs PRIVATE ${S3_LINK_LIBS})
 endif()
@@ -1061,7 +1094,7 @@ endif()
 #
 # TODO(GH-32609): Reintroduce type stubs into PyArrow wheels.
 # GH-49831: Temporarily do not install pyarrow-stubs into wheels.
-# Stubs live in pyarrow-stubs/pyarrow/ during development but are installed
+# Stubs live in pyarrow-stubs/ during development but are installed
 # alongside the package so type checkers can find them (PEP 561).
 # The stubs are currently incomplete, and some type checkers consume .pyi files
 # even without the py.typed marker. Re-enable this when the stubs are complete.
@@ -1069,7 +1102,7 @@ if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
   message(FATAL_ERROR "PYARROW_REQUIRE_STUB_DOCSTRINGS cannot be used while "
                       "pyarrow-stubs are omitted from wheels (GH-49831).")
 endif()
-# set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
+# set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs")
 # if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
 #   install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
 #           DESTINATION "."

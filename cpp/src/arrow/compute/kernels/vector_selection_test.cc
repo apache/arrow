@@ -2920,6 +2920,14 @@ TEST(TestIndicesNonZero, IndicesNonZero) {
         actual, CallFunction("indices_nonzero", {static_cast<Datum>(chunked_arr_empty)}));
     AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 2, 3, 5]"), *actual.make_array(),
                       /*verbose*/ true);
+
+    // chunked with zero chunks (GH-51018)
+    ChunkedArray chunked_arr_no_chunks({}, type);
+    ASSERT_OK_AND_ASSIGN(
+        actual,
+        CallFunction("indices_nonzero", {static_cast<Datum>(chunked_arr_no_chunks)}));
+    AssertArraysEqual(*ArrayFromJSON(uint64(), "[]"), *actual.make_array(),
+                      /*verbose*/ true);
   }
 }
 

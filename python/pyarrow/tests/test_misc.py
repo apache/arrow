@@ -123,6 +123,26 @@ def test_runtime_info():
         subprocess.check_call([sys.executable, "-c", code], env=env)
 
 
+def test_show_info(capsys):
+    pa.show_info()
+    out = capsys.readouterr().out
+
+    # Which codecs and modules are enabled depends on how PyArrow was built,
+    # so only the labels are checked, not their status.
+    assert "Compression Codecs:" in out
+    codecs = [line.split(":")[0].strip()
+              for line in out.split("Compression Codecs:")[1].splitlines()
+              if ":" in line]
+    # "lz4" is an alias for "lz4_frame", so naming both listed one codec
+    # twice and left out lz4_raw.
+    assert codecs == ["brotli", "bz2", "gzip", "lz4_frame", "lz4_raw",
+                      "snappy", "zstd"]
+
+    for section in ("Platform:", "Memory:", "Optional modules:",
+                    "Filesystems:"):
+        assert section in out
+
+
 @pytest.mark.processes
 def test_import_at_shutdown():
     # GH-38626: importing PyArrow at interpreter shutdown would crash

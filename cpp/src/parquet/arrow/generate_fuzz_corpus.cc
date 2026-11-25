@@ -396,7 +396,7 @@ Result<std::vector<ColumnWithEncodings>> AllColumnsWithEncodings(
                                         Encoding::DELTA_BINARY_PACKED,
                                         Encoding::BYTE_STREAM_SPLIT};
   const EncodingVector kFloatEncodings = {Encoding::PLAIN, Encoding::RLE_DICTIONARY,
-                                          Encoding::BYTE_STREAM_SPLIT};
+                                          Encoding::BYTE_STREAM_SPLIT, Encoding::ALP};
   const EncodingVector kBooleanEncodings = {Encoding::PLAIN, Encoding::RLE};
   const EncodingVector kByteArrayEncodings = {Encoding::PLAIN, Encoding::RLE_DICTIONARY,
                                               Encoding::DELTA_LENGTH_BYTE_ARRAY,

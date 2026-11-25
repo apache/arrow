@@ -99,8 +99,8 @@ def _alltypes_example(size=100):
 
 def _check_pandas_roundtrip(df, expected=None, use_threads=False,
                             expected_schema=None,
-                            check_dtype=True, schema=None,
-                            preserve_index=False,
+                            check_dtype=True, check_freq=True,
+                            schema=None, preserve_index=False,
                             as_batch=False):
     klass = pa.RecordBatch if as_batch else pa.Table
     table = klass.from_pandas(df, schema=schema,
@@ -125,7 +125,8 @@ def _check_pandas_roundtrip(df, expected=None, use_threads=False,
             "ignore", "elementwise comparison failed", DeprecationWarning)
         tm.assert_frame_equal(result, expected, check_dtype=check_dtype,
                               check_index_type=('equiv' if preserve_index
-                                                else False))
+                                                else False),
+                              check_freq=check_freq)
 
 
 def _check_series_roundtrip(s, type_=None, expected_pa_type=None):
@@ -223,7 +224,7 @@ class TestConvertMetadata:
             np.random.randn(5, 3),
             columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz=tz)
         )
-        _check_pandas_roundtrip(df, preserve_index=True)
+        _check_pandas_roundtrip(df, preserve_index=True, check_freq=False)
 
     def test_column_index_names_with_decimal(self):
         # GH-41503: Test valid roundtrip with decimal value in column index
@@ -4302,6 +4303,13 @@ def test_dictionary_from_pandas_specified_type():
     with pytest.raises(pa.ArrowInvalid):
         result = pa.array(cat, type=typ)
 
+    # mismatching values type that used to be ignored with a
+    # FutureWarning -> raise error
+    int_cat = pd.Categorical([1, 2, 1])
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.string())
+    with pytest.raises(TypeError):
+        pa.array(int_cat, type=typ)
+
     # mismatching order -> raise error
     typ = pa.dictionary(
         index_type=pa.int8(), value_type=pa.string(), ordered=True)
@@ -5016,7 +5024,7 @@ def test_does_not_mutate_timedelta_dtype():
 
     assert np.dtype(np.timedelta64) == expected
 
-    df = pd.DataFrame({"a": [np.timedelta64()]})
+    df = pd.DataFrame({"a": [np.timedelta64(0, "s")]})
     t = pa.Table.from_pandas(df)
     t.to_pandas()
 
@@ -5362,3 +5370,23 @@ def test_pandas_array_likes_with_extension_arrays():
         for box in [pd.array, pd.Index, pd.Series]:
             _check_array_roundtrip(box(arr[0]), expected=pd.Series(
                 arr[1]) if arr[1] is not None else None)
+
+
+def test_multiindex_integer_level_names():
+    # https://github.com/apache/arrow/issues/38983
+    index = pd.MultiIndex.from_tuples(
+        [(10, 20), (30, 40), (50, 60), (70, 80)], names=[1, 2])
+    df = pd.DataFrame({"a": [1, 2, 3, 4], "b": [5, 6, 7, 8]}, index=index)
+
+    # non-str index names are converted to str, with a warning
+    with pytest.warns(UserWarning):
+        table = pa.Table.from_pandas(df)
+
+    assert table.column_names == ["a", "b", "1", "2"]
+    assert table.column(2).to_pylist() == [10, 30, 50, 70]
+    assert table.column(3).to_pylist() == [20, 40, 60, 80]
+
+    expected = df.copy()
+    expected.index.names = ["1", "2"]
+    with pytest.warns(UserWarning):
+        _check_pandas_roundtrip(df, expected=expected, preserve_index=True)

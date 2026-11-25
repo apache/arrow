@@ -67,6 +67,42 @@ std::vector<Decimal128> TestDecimal::MakeDecimalVector(std::vector<std::string> 
   return ret;
 }
 
+TEST_F(TestDecimal, CastLargeBatch) {
+  // Allocating decimal return slots in the record loop can exhaust the stack
+  // when optimization is disabled. A single int32-to-decimal cast is sufficient.
+  constexpr int kNumRecords = 1 << 19;
+  auto input_field = arrow::field("large_batch_decimal", arrow::int32());
+  auto schema = arrow::schema({input_field});
+  auto decimal_type = arrow::decimal128(10, 0);
+  auto decimal = TreeExprBuilder::MakeFunction(
+      "castDECIMAL", {TreeExprBuilder::MakeField(input_field)}, decimal_type);
+  auto expression =
+      TreeExprBuilder::MakeExpression(decimal, arrow::field("result", decimal_type));
+
+  std::vector<int32_t> values(kNumRecords);
+  std::vector<bool> validity(kNumRecords);
+  std::vector<Decimal128> expected_values(kNumRecords);
+  for (int i = 0; i < kNumRecords; ++i) {
+    values[i] = i % 17 - 8;
+    validity[i] = i % 11 != 0;
+    expected_values[i] = Decimal128(values[i]);
+  }
+  auto batch = arrow::RecordBatch::Make(schema, kNumRecords,
+                                        {MakeArrowArrayInt32(values, validity)});
+  auto expected = MakeArrowArrayDecimal(decimal_type, expected_values, validity);
+
+  for (bool optimize : {false, true}) {
+    SCOPED_TRACE(optimize);
+    auto config = std::make_shared<Configuration>(optimize);
+    std::shared_ptr<Projector> projector;
+    ASSERT_OK(Projector::Make(schema, {expression}, config, &projector));
+    arrow::ArrayVector output;
+    ASSERT_OK(projector->Evaluate(*batch, pool_, &output));
+    ASSERT_EQ(output.size(), 1);
+    EXPECT_ARROW_ARRAY_EQUALS(expected, output[0]);
+  }
+}
+
 TEST_F(TestDecimal, TestSimple) {
   // schema for input fields
   constexpr int32_t precision = 36;

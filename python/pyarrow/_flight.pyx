@@ -21,7 +21,6 @@ import collections
 import enum
 import re
 import time
-import warnings
 import weakref
 
 from cython.operator cimport dereference as deref
@@ -325,6 +324,9 @@ cdef class Action(_Weakrefable):
             CAction.Deserialize(tobytes(serialized)))
         return action
 
+    def __reduce__(self):
+        return Action.deserialize, (self.serialize(),)
+
     def __eq__(self, Action other):
         return self.action == other.action
 
@@ -392,6 +394,9 @@ cdef class Result(_Weakrefable):
             CFlightResult.Deserialize(tobytes(serialized)))))
         return result
 
+    def __reduce__(self):
+        return Result.deserialize, (self.serialize(),)
+
     def __eq__(self, Result other):
         return deref(self.result.get()) == deref(other.result.get())
 
@@ -437,6 +442,9 @@ cdef class BasicAuth(_Weakrefable):
 
     def serialize(self):
         return GetResultValue(self.basic_auth.get().SerializeToString())
+
+    def __reduce__(self):
+        return BasicAuth.deserialize, (self.serialize(),)
 
     def __eq__(self, BasicAuth other):
         return deref(self.basic_auth.get()) == deref(other.basic_auth.get())
@@ -597,6 +605,9 @@ cdef class FlightDescriptor(_Weakrefable):
             CFlightDescriptor.Deserialize(tobytes(serialized)))
         return descriptor
 
+    def __reduce__(self):
+        return FlightDescriptor.deserialize, (self.serialize(),)
+
     def __eq__(self, FlightDescriptor other):
         return self.descriptor == other.descriptor
 
@@ -636,6 +647,9 @@ cdef class Ticket(_Weakrefable):
             CTicket.Deserialize(tobytes(serialized)))
         return ticket
 
+    def __reduce__(self):
+        return Ticket.deserialize, (self.serialize(),)
+
     def __eq__(self, Ticket other):
         return self.c_ticket == other.c_ticket
 
@@ -665,6 +679,10 @@ cdef class Location(_Weakrefable):
         if not isinstance(other, Location):
             return NotImplemented
         return self.location.Equals((<Location> other).location)
+
+    def __reduce__(self):
+        # Location has no protobuf serialize helper; URI is sufficient.
+        return Location, (self.uri,)
 
     @staticmethod
     def for_grpc_tcp(host, port):
@@ -830,6 +848,9 @@ cdef class FlightEndpoint(_Weakrefable):
             CFlightEndpoint.Deserialize(tobytes(serialized)))
         return endpoint
 
+    def __reduce__(self):
+        return FlightEndpoint.deserialize, (self.serialize(),)
+
     def __repr__(self):
         return (f"<pyarrow.flight.FlightEndpoint ticket={self.ticket!r} "
                 f"locations={self.locations!r} "
@@ -888,6 +909,9 @@ cdef class SchemaResult(_Weakrefable):
         result.result.reset(new CSchemaResult(GetResultValue(
             CSchemaResult.Deserialize(tobytes(serialized)))))
         return result
+
+    def __reduce__(self):
+        return SchemaResult.deserialize, (self.serialize(),)
 
     def __eq__(self, SchemaResult other):
         return deref(self.result.get()) == deref(other.result.get())
@@ -1032,6 +1056,9 @@ cdef class FlightInfo(_Weakrefable):
         info.info = move(GetResultValue(
             CFlightInfo.Deserialize(tobytes(serialized))))
         return info
+
+    def __reduce__(self):
+        return FlightInfo.deserialize, (self.serialize(),)
 
     def __eq__(self, FlightInfo other):
         return deref(self.info.get()) == deref(other.info.get())
@@ -1231,7 +1258,7 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
             check_flight_status(
                 self._writer().WriteRecordBatch(deref(batch.batch), custom_metadata))
 
-    def write_table(self, Table table, max_chunksize=None, **kwargs):
+    def write_table(self, Table table, max_chunksize=None):
         """
         Write Table to stream in (contiguous) RecordBatch objects.
 
@@ -1245,13 +1272,6 @@ cdef class MetadataRecordBatchWriter(_CRecordBatchWriter):
         cdef:
             # max_chunksize must be > 0 to have any impact
             int64_t c_max_chunksize = -1
-
-        if 'chunksize' in kwargs:
-            max_chunksize = kwargs['chunksize']
-            msg = ('The parameter chunksize is deprecated for the write_table '
-                   'methods as of 0.15, please use parameter '
-                   'max_chunksize instead')
-            warnings.warn(msg, FutureWarning)
 
         if max_chunksize is not None:
             c_max_chunksize = max_chunksize
@@ -1522,25 +1542,6 @@ cdef class FlightClient(_Weakrefable):
                 break
             else:
                 break
-
-    @classmethod
-    def connect(cls, location, tls_root_certs=None, cert_chain=None,
-                private_key=None, override_hostname=None,
-                disable_server_verification=None):
-        """Connect to a Flight server.
-
-        .. deprecated:: 0.15.0
-            Use the ``FlightClient`` constructor or ``pyarrow.flight.connect`` function instead.
-        """
-        warnings.warn("The 'FlightClient.connect' method is deprecated, use "
-                      "FlightClient constructor or pyarrow.flight.connect "
-                      "function instead")
-        return FlightClient(
-            location, tls_root_certs=tls_root_certs,
-            cert_chain=cert_chain, private_key=private_key,
-            override_hostname=override_hostname,
-            disable_server_verification=disable_server_verification
-        )
 
     def authenticate(self, auth_handler, options: FlightCallOptions = None):
         """Authenticate to the server.
@@ -3204,16 +3205,6 @@ cdef class FlightServerBase(_Weakrefable):
             raise ValueError("run() on uninitialized FlightServerBase")
         with nogil:
             check_flight_status(self.server.get().ServeWithSignals())
-
-    def run(self):
-        """Block until the server shuts down.
-
-        .. deprecated:: 0.15.0
-            Use the ``FlightServer.serve`` method instead
-        """
-        warnings.warn("The 'FlightServer.run' method is deprecated, use "
-                      "FlightServer.serve method instead")
-        self.serve()
 
     def shutdown(self):
         """Shut down the server, blocking until current requests finish.

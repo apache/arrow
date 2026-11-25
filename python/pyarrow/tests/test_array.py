@@ -31,11 +31,12 @@ import weakref
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
 import pyarrow.compute as pc
+from pyarrow.vendored.version import Version
 
 
 @pytest.mark.processes
@@ -322,11 +323,11 @@ def test_asarray():
 
     arr = pa.array(range(4))
 
-    # The iterator interface gives back an array of Int64Value's
+    # The iterator interface gives back an array of Int64Scalar's
     np_arr = np.asarray([_ for _ in arr])
     assert np_arr.tolist() == [0, 1, 2, 3]
     assert np_arr.dtype == np.dtype('O')
-    assert isinstance(np_arr[0], pa.lib.Int64Value)
+    assert isinstance(np_arr[0], pa.Int64Scalar)
 
     # Calling with the arrow array gives back an array with 'int64' dtype
     np_arr = np.asarray(arr)
@@ -783,6 +784,9 @@ def test_array_from_buffers():
     with pytest.raises(TypeError):
         pa.Array.from_buffers(pa.int16(), 3, ['', ''], offset=1)
 
+    with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
+        pa.Array.from_buffers(type=None, length=0, buffers=[])
+
 
 def test_string_binary_from_buffers():
     array = pa.array(["a", None, "b", "c"])
@@ -866,6 +870,10 @@ def test_list_from_buffers(list_type_factory):
         # too many children
         pa.Array.from_buffers(ty, 4, buffers[:ty.num_buffers],
                               children=[child, child])
+
+    with pytest.raises(TypeError, match="Array child must not be None"):
+        pa.Array.from_buffers(
+            type=ty, length=4, buffers=buffers[:ty.num_buffers], children=[None])
 
 
 def test_struct_from_buffers():
@@ -985,6 +993,13 @@ def test_dictionary_from_buffers(offset):
                                         a.indices.buffers(), a.dictionary,
                                         offset=offset)
     assert a[offset:] == b
+
+    with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
+        pa.DictionaryArray.from_buffers(
+            None, len(a), a.indices.buffers(), a.dictionary)
+    with pytest.raises(TypeError, match="Argument 'dictionary' has incorrect type"):
+        pa.DictionaryArray.from_buffers(
+            a.type, len(a), a.indices.buffers(), None)
 
 
 @pytest.mark.numpy
@@ -1805,12 +1820,6 @@ def test_cast_chunked_array_empty():
         result = arr.cast(typ2)
         expected = pa.chunked_array([], type=typ2)
         assert result.equals(expected)
-
-
-def test_chunked_array_data_warns():
-    with pytest.warns(FutureWarning):
-        res = pa.chunked_array([[]]).data
-    assert isinstance(res, pa.ChunkedArray)
 
 
 @pytest.mark.numpy
@@ -2737,6 +2746,8 @@ def test_array_from_list_of_timestamps(unit):
 
 @pytest.mark.numpy
 def test_array_from_timestamp_with_generic_unit():
+    if Version(np.__version__) >= Version("2.5.0"):
+        pytest.skip("generic units of timedelta64 deprecated")
     n = np.datetime64('NaT')
     x = np.datetime64('2017-01-01 01:01:01.111111111')
     y = np.datetime64('2018-11-22 12:24:48.111111111')
@@ -2778,11 +2789,13 @@ def test_array_from_numpy_timedelta(dtype, type):
 @pytest.mark.numpy
 def test_array_from_numpy_timedelta_incorrect_unit():
     # generic (no unit)
-    td = np.timedelta64(1)
+    if Version(np.__version__) < Version("2.5.0"):
+        # Generic units of timedelta64 deprecated in NumPy 2.5
+        td = np.timedelta64(1)
 
-    for data in [[td], np.array([td])]:
-        with pytest.raises(NotImplementedError):
-            pa.array(data)
+        for data in [[td], np.array([td])]:
+            with pytest.raises(NotImplementedError):
+                pa.array(data)
 
     # unsupported unit
     td = np.timedelta64(1, 'M')
@@ -3189,7 +3202,7 @@ def test_buffers_primitive():
     # Slicing does not affect the buffers but the offset
     a_sliced = a[1:]
     buffers = a_sliced.buffers()
-    a_sliced.offset == 1
+    assert a_sliced.offset == 1
     assert len(buffers) == 2
     null_bitmap = buffers[0].to_pybytes()
     assert 1 <= len(null_bitmap) <= 64  # XXX this is varying
@@ -4276,6 +4289,9 @@ def test_run_end_encoded_from_buffers():
         pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
                                            1, offset, children)
 
+    with pytest.raises(TypeError, match="Argument 'type' has incorrect type"):
+        pa.RunEndEncodedArray.from_buffers(type=None, length=0, buffers=[])
+
 
 @pytest.mark.numpy
 def test_run_end_encoded_from_array_with_type():
@@ -4558,6 +4574,7 @@ def test_swapped_byte_order_fails(numpy_native_dtype):
         pa.StructArray.from_arrays([np_arr], names=['a'])
 
 
+@pytest.mark.numpy
 def test_non_cpu_array():
     cuda = pytest.importorskip("pyarrow.cuda", exc_type=ImportError)
     ctx = cuda.Context(0)

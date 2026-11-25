@@ -266,7 +266,7 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
     }
 
     case simdjson::ondemand::json_type::unknown:
-      return Status::Invalid("Unknown JSON type");
+      return Status::Invalid("Invalid JSON value");
   }
 
   return Status::Invalid("Unreachable");
@@ -274,45 +274,33 @@ Status VisitJsonValue(simdjson::ondemand::value value, ObjectFn&& object_fn,
 
 ARROW_EXPORT const char* JsonTypeName(simdjson::ondemand::json_type type);
 
+// Inspect the type without consuming the value or validating its contents.
+inline Result<simdjson::ondemand::json_type> GetJsonType(
+    simdjson::ondemand::value& value) {
+  return ResolveSimdjsonResult(value.type(), "Failed to determine JSON type");
+}
+
 // Result<bool> because peeking the nonRootScalar can fail (parsed lazily)
 ARROW_EXPORT Result<bool> IsJsonNull(simdjson::ondemand::value& value);
 
 template <typename SimdjsonValueType>
 Result<SimdjsonValueType> GetJsonAs(simdjson::ondemand::value& value) {
-  SimdjsonValueType typed_value{};
-  simdjson::error_code error_code;
+  ARROW_ASSIGN_OR_RAISE(auto json_type, GetJsonType(value));
 
   if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
-    // simdjson has no get<>() for null; probe it explicitly
-    bool is_null;
-    error_code = value.is_null().get(is_null);
-    if (error_code == simdjson::SUCCESS && !is_null) {
-      error_code = simdjson::INCORRECT_TYPE;
+    ARROW_ASSIGN_OR_RAISE(bool is_null, IsJsonNull(value));
+    if (is_null) {
+      return SimdjsonNull{};
     }
+    return Status::Invalid("Expected null, got JSON type ", JsonTypeName(json_type));
   } else {
-    error_code = value.get(typed_value);
-  }
-
-  if (error_code != simdjson::SUCCESS) {
-    simdjson::ondemand::json_type json_type;
-    if (value.type().get(json_type) != simdjson::SUCCESS) {
-      if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
-        return Status::Invalid("Expected null, got malformed JSON value");
-      } else {
-        return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
-                               ", got malformed JSON value");
-      }
-    }
-
-    if constexpr (std::same_as<SimdjsonValueType, SimdjsonNull>) {
-      return Status::Invalid("Expected null, got JSON type ", JsonTypeName(json_type));
-    } else {
+    SimdjsonValueType typed_value{};
+    if (value.get(typed_value) != simdjson::SUCCESS) {
       return Status::Invalid("Expected ", JsonTypeName<SimdjsonValueType>(),
                              ", got JSON type ", JsonTypeName(json_type));
     }
+    return typed_value;
   }
-
-  return typed_value;
 }
 
 template <typename T>
@@ -341,13 +329,12 @@ Result<T> GetJsonField(simdjson::ondemand::object& object, std::string_view key)
 
 ARROW_EXPORT Result<std::string> MinifyJson(std::string_view json);
 
-ARROW_EXPORT Status ValidateJsonObject(simdjson::ondemand::object object);
-
-ARROW_EXPORT Status ValidateJsonArray(simdjson::ondemand::array array);
-
-ARROW_EXPORT Status ConsumeJsonValue(simdjson::ondemand::value value);
+ARROW_EXPORT Status ValidateJsonValue(simdjson::ondemand::value value, int max_depth,
+                                      int depth = 0);
 
 ARROW_EXPORT Status ValidateJsonDocument(simdjson::ondemand::parser& parser,
-                                         simdjson::padded_string& json);
+                                         simdjson::padded_string& json, int max_depth);
+
+ARROW_EXPORT int64_t ConsumeJsonWhitespace(std::string_view view, bool trailing);
 
 }  // namespace arrow::internal

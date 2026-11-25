@@ -25,12 +25,6 @@
 #include "arrow/util/config.h"
 
 #include "arrow/filesystem/filesystem.h"
-#ifdef ARROW_AZURE
-#  include "arrow/filesystem/azurefs.h"
-#endif
-#ifdef ARROW_GCS
-#  include "arrow/filesystem/gcsfs.h"
-#endif
 #ifdef ARROW_HDFS
 #  include "arrow/filesystem/hdfs.h"
 #endif
@@ -912,26 +906,6 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(
                                   scheme, "', got ", options.size(), " option(s)");
   }
 
-  if (scheme == "abfs" || scheme == "abfss") {
-#ifdef ARROW_AZURE
-    ARROW_ASSIGN_OR_RAISE(auto options, AzureOptions::FromUri(uri, out_path));
-    return AzureFileSystem::Make(options, io_context);
-#else
-    return Status::NotImplemented(
-        "Got Azure Blob File System URI but Arrow compiled without Azure Blob File "
-        "System support");
-#endif
-  }
-  if (scheme == "gs" || scheme == "gcs") {
-#ifdef ARROW_GCS
-    ARROW_ASSIGN_OR_RAISE(auto options, GcsOptions::FromUri(uri, out_path));
-    return GcsFileSystem::Make(options, io_context);
-#else
-    return Status::NotImplemented(
-        "Got GCS URI but Arrow compiled "
-        "without GCS support");
-#endif
-  }
   if (scheme == "hdfs" || scheme == "viewfs") {
 #ifdef ARROW_HDFS
     ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));

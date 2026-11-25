@@ -43,25 +43,61 @@ if(ARROW_BUILD_BENCHMARKS)
 endif()
 
 if(ARROW_GCS)
+  set(ARROW_GCS_TEST_EXTRA_LINK_LIBS)
+  if(ARROW_TEST_LINKAGE STREQUAL "shared")
+    list(APPEND ARROW_GCS_TEST_EXTRA_LINK_LIBS arrow_gcs_shared)
+  else()
+    list(APPEND ARROW_GCS_TEST_EXTRA_LINK_LIBS arrow_gcs_static)
+  endif()
+  list(APPEND ARROW_GCS_TEST_EXTRA_LINK_LIBS google-cloud-cpp::storage)
   add_arrow_test(gcsfs_test
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
-                 google-cloud-cpp::storage)
+                 ${ARROW_GCS_TEST_EXTRA_LINK_LIBS})
   if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
     if(TARGET arrow-gcsfs-test)
       target_compile_options(arrow-gcsfs-test PRIVATE -Wno-documentation
                                                       -Wno-documentation-deprecated-sync)
     endif()
   endif()
+  if(ARROW_BUILD_TESTS AND ARROW_BUILD_SHARED)
+    add_arrow_test(gcsfs_module_test
+                   SOURCES
+                   gcsfs_module_test.cc
+                   EXTRA_LABELS
+                   filesystem
+                   DEFINITIONS
+                   ARROW_GCS_LIBPATH="$<TARGET_FILE:arrow_gcs_shared>"
+                   EXTRA_DEPENDENCIES
+                   arrow_gcs_shared)
+  endif()
 endif()
 
 if(ARROW_AZURE)
+  set(ARROW_AZURE_TEST_EXTRA_LINK_LIBS)
+  if(ARROW_TEST_LINKAGE STREQUAL "shared")
+    list(APPEND ARROW_AZURE_TEST_EXTRA_LINK_LIBS arrow_azure_shared)
+  else()
+    list(APPEND ARROW_AZURE_TEST_EXTRA_LINK_LIBS arrow_azure_static)
+  endif()
+  list(APPEND ARROW_AZURE_TEST_EXTRA_LINK_LIBS ${AZURE_SDK_LINK_LIBRARIES})
   add_arrow_test(azurefs_test
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
-                 ${AZURE_SDK_LINK_LIBRARIES})
+                 ${ARROW_AZURE_TEST_EXTRA_LINK_LIBS})
+  if(ARROW_BUILD_TESTS AND ARROW_BUILD_SHARED)
+    add_arrow_test(azurefs_module_test
+                   SOURCES
+                   azurefs_module_test.cc
+                   EXTRA_LABELS
+                   filesystem
+                   DEFINITIONS
+                   ARROW_AZURE_LIBPATH="$<TARGET_FILE:arrow_azure_shared>"
+                   EXTRA_DEPENDENCIES
+                   arrow_azure_shared)
+  endif()
 endif()
 
 if(ARROW_S3)

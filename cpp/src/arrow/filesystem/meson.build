@@ -18,9 +18,11 @@
 install_headers(
     [
         'api.h',
+        'azure_visibility.h',
         'azurefs.h',
         'filesystem.h',
         'filesystem_library.h',
+        'gcs_visibility.h',
         'gcsfs.h',
         'hdfs.h',
         'localfs.h',

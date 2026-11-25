@@ -63,9 +63,6 @@ jobs:
       - id: set_enabled
         if: >-
           github.ref_type == 'tag' ||
-          (github.event_name == 'push' &&
-           github.repository == 'apache/arrow' &&
-           github.ref_name == 'main') ||
           (github.event_name == 'schedule' && github.repository == 'apache/arrow') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
           contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: CUDA')
@@ -93,10 +90,6 @@ jobs:
             ubuntu: 24.04
             image: ubuntu-cuda-python
             title: AMD64 Ubuntu 24 CUDA 12.9.0 Python
-          - cuda: 11.7.1
-            ubuntu: 22.04
-            image: ubuntu-cuda-python
-            title: AMD64 Ubuntu 22 CUDA 11.7.1 Python
     env:
       ARCHERY_DEBUG: 1
       ARROW_ENABLE_TIMING_TESTS: OFF
@@ -109,7 +102,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Restore Docker Volumes
-        uses: apache/infrastructure-actions/stash/restore@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
+        uses: apache/infrastructure-actions/stash/restore@05004b32a492c4c39567cd8aea55ed9c27388d19
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
@@ -139,17 +132,14 @@ jobs:
       - name: Save Docker Volumes
         if: ${{ !cancelled() }}
         continue-on-error: true
-        uses: apache/infrastructure-actions/stash/save@547b55daa5d3c7e45383094ef738b7d16bc8ccc5
+        uses: apache/infrastructure-actions/stash/save@05004b32a492c4c39567cd8aea55ed9c27388d19
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ matrix.ubuntu }}-${{ matrix.cuda }}
           include-hidden-files: true
       - name: Docker Push
         if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.repository == 'apache/arrow' &&
-          github.ref_name == 'main'
+          success() && github.event_name == 'schedule'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}

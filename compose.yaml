@@ -982,10 +982,11 @@ services:
         arch_short: ${ARCH_SHORT}
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
-        pyodide_version: "0.27.1"
+        pyodide_version: "314.0.7"
+        pyodide_build_version: "0.39.2"
         chrome_version: "latest"
         selenium_version: "4.41.0"
-        required_python_min: "(3,12)"
+        required_python_min: "(3,14)"
         python: ${PYTHON}
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -1179,7 +1180,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2026.09.05-1
+        base: quay.io/pypa/manylinux_2_28_${ARCH_ALIAS}:2026.10.10-1
         manylinux: 2_28
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1204,7 +1205,7 @@ services:
       args:
         arch: ${ARCH}
         arch_short: ${ARCH_SHORT}
-        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2026.09.05-1
+        base: quay.io/pypa/musllinux_1_2_${ARCH_ALIAS}:2026.10.10-1
         musllinux: 1_2
         python: ${PYTHON}
         python_abi_tag: ${PYTHON_ABI_TAG}
@@ -1245,7 +1246,7 @@ services:
       args:
         base: "alpine:${ALPINE_LINUX}"
         python_version: ${PYTHON}
-        build_date: "20260901"  # python-build-standalone release date
+        build_date: "20261009"  # python-build-standalone release date
         arch: ${ARCH_ALIAS}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-imports.dockerfile
@@ -1289,7 +1290,7 @@ services:
       args:
         base: "alpine:${ALPINE_LINUX}"
         python_version: ${PYTHON}
-        build_date: "20260901"  # python-build-standalone release date
+        build_date: "20261009"  # python-build-standalone release date
         arch: ${ARCH_ALIAS}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-unittests.dockerfile
@@ -1686,7 +1687,6 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
-        r_update_clang: ${R_UPDATE_CLANG}
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
