@@ -256,6 +256,7 @@ util_tests = {
     'arrow-bit-utility-test': {
         'sources': [
             'bit_block_counter_test.cc',
+            'bit_util_feature_test.cc',
             'bit_util_test.cc',
             'bitmap_test.cc',
             'bpacking_test.cc',
