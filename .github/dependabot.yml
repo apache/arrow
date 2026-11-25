@@ -29,3 +29,40 @@ updates:
         patterns:
           - "apache/infrastructure-actions/stash/save"
           - "apache/infrastructure-actions/stash/restore"
+  - package-ecosystem: "pre-commit"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "MINOR: [Dev] "
+    groups:
+      pre-commit-hooks:
+        patterns:
+          - "*"
+    ignore:
+      # clang-format is pinned on purpose: bumping it reformats the codebase.
+      - dependency-name: "https://github.com/pre-commit/mirrors-clang-format"
+  - package-ecosystem: "pip"
+    directory: "/python"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "MINOR: [Python] "
+    groups:
+      python-stubs:
+        patterns:
+          - "*"
+    ignore:
+      # NumPy 2.5 requires Python 3.12 but the stubs still support 3.11.
+      # Revisit when 3.11 is dropped
+      - dependency-name: "numpy"
+        versions: [">=2.5"]
+    # Only update the pins of python/requirements-stubs.txt. Skip the other
+    # manifests in python/ and also .txt files in pyarrow-stubs-tests/
+    exclude-paths:
+      - "pyproject.toml"
+      - "setup.cfg"
+      - "requirements-build.txt"
+      - "requirements-test.txt"
+      - "requirements-wheel-*.txt"
+      - "pyarrow-stubs-tests/**"
