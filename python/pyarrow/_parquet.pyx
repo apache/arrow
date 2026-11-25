@@ -755,7 +755,8 @@ cdef class SortingColumn:
         self.nulls_first = nulls_first
 
     @classmethod
-    def from_ordering(cls, Schema schema, sort_keys, null_placement='at_end'):
+    def from_ordering(cls, Schema schema not None, sort_keys,
+                      null_placement='at_end'):
         """
         Create a tuple of SortingColumn objects from the same arguments as
         :class:`pyarrow.compute.SortOptions`.
@@ -816,7 +817,7 @@ cdef class SortingColumn:
         return tuple(sorting_columns)
 
     @staticmethod
-    def to_ordering(Schema schema, sorting_columns):
+    def to_ordering(Schema schema not None, sorting_columns):
         """
         Convert a tuple of SortingColumn objects to the same format as
         :class:`pyarrow.compute.SortOptions`.
@@ -1247,7 +1248,7 @@ cdef class FileMetaData(_Weakrefable):
 cdef class ParquetSchema(_Weakrefable):
     """A Parquet schema."""
 
-    def __cinit__(self, FileMetaData container):
+    def __cinit__(self, FileMetaData container not None):
         self.parent = container
         self.schema = container._metadata.schema()
 
@@ -1336,7 +1337,7 @@ cdef class ColumnSchema(_Weakrefable):
         ParquetSchema parent
         const ColumnDescriptor* descr
 
-    def __cinit__(self, ParquetSchema schema, int index):
+    def __cinit__(self, ParquetSchema schema not None, int index):
         self.parent = schema
         self.index = index  # for pickling support
         self.descr = schema.schema.Column(index)
@@ -2085,11 +2086,12 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         WriterProperties.Builder props
         CdcOptions cdc_options
         double savings
+        double default_min_savings = 0.01
 
     savings = min_compression_savings
     if not (0.0 <= savings <= 1.0):
         raise ValueError("min_compression_savings must be in range [0, 1]")
-    if savings > 0.01 and data_page_version in (None, "1.0"):
+    if savings > default_min_savings and data_page_version == "1.0":
         raise ValueError("min_compression_savings requires V2 data pages")
     props.min_compression_savings(savings)
 

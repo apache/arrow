@@ -46,7 +46,7 @@ From PyArrow to other libraries: ``__dataframe__()`` method
 -----------------------------------------------------------
 
 The ``__dataframe__()`` method creates a new exchange object that
-the consumer library can take and construct an object of it's own.
+the consumer library can take and construct an object of its own.
 
 .. code-block:: python
 

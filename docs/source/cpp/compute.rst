@@ -1621,7 +1621,7 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
   used to set the starting day of the week using ISO convention (Monday=1, Sunday=7).
   :member:`DayOfWeekOptions::week_start` parameter is not affected by :member:`DayOfWeekOptions::count_from_zero`.
 
-* \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
+* \(2) First ISO week has the majority (4 or more) of its days in January. ISO year
   starts with the first ISO week. ISO week starts on Monday.
   See `ISO 8601 week date definition`_ for more details.
 

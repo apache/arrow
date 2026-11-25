@@ -182,6 +182,7 @@ cdef class Dataset(_Weakrefable):
 
         classes = {
             'union': UnionDataset,
+            'filtered': FilteredDataset,
             'filesystem': FileSystemDataset,
             'in-memory': InMemoryDataset,
         }
@@ -844,6 +845,17 @@ cdef class Dataset(_Weakrefable):
         filtered_dataset._scan_options = dict(filter=new_filter)
         return filtered_dataset
 
+    def _with_filter_attached(self):
+        """
+        Return a Dataset which carries this Dataset's filter, if any, in its
+        C++ representation, so that it survives being combined with other
+        Datasets (e.g. in a UnionDataset).
+        """
+        current_filter = self._scan_options.get("filter")
+        if current_filter is None:
+            return self
+        return FilteredDataset(Dataset.wrap(self.wrapped), current_filter)
+
     def sort_by(self, sorting, **kwargs):
         """
         Sort the Dataset by one or multiple columns.
@@ -1078,6 +1090,8 @@ cdef class UnionDataset(Dataset):
             shared_ptr[CUnionDataset] union_dataset
 
         for child in children:
+            # Any filter applied with Dataset.filter() needs to be moved to the C++ child Dataset
+            child = child._with_filter_attached()
             c_children.push_back(child.wrapped)
 
         union_dataset = GetResultValue(CUnionDataset.Make(
@@ -1095,6 +1109,55 @@ cdef class UnionDataset(Dataset):
     def children(self):
         cdef CDatasetVector children = self.union_dataset.children()
         return [Dataset.wrap(children[i]) for i in range(children.size())]
+
+
+cdef class FilteredDataset(Dataset):
+    """
+    A Dataset viewing only the rows of a child dataset that match a filter.
+
+    Unlike :meth:`Dataset.filter`, the filter is part of the dataset itself, so
+    it is preserved when this dataset is unioned with datasets that have
+    different filters. Rows for which the filter evaluates to null are dropped.
+
+    Parameters
+    ----------
+    child : Dataset
+        The dataset to filter. Any filter already applied to it with
+        :meth:`Dataset.filter` is combined with ``filter``.
+    filter : Expression
+        A boolean expression referencing fields of the child's schema.
+    """
+
+    cdef:
+        CFilteredDataset* filtered_dataset
+
+    def __init__(self, Dataset child not None, Expression filter not None):
+        current_filter = child._scan_options.get("filter")
+        if current_filter is not None:
+            filter = current_filter & filter
+        self.init(<shared_ptr[CDataset]> GetResultValue(
+            CFilteredDataset.Make(child.wrapped, (<Expression> filter).unwrap())))
+
+    cdef void init(self, const shared_ptr[CDataset]& sp):
+        Dataset.init(self, sp)
+        self.filtered_dataset = <CFilteredDataset*> sp.get()
+
+    def __reduce__(self):
+        return (FilteredDataset, (self.child, self.filter_expression),
+                self._scan_options.copy())
+
+    def __setstate__(self, state):
+        self._scan_options = state
+
+    @property
+    def child(self):
+        """The unfiltered child Dataset."""
+        return Dataset.wrap(self.filtered_dataset.child())
+
+    @property
+    def filter_expression(self):
+        """The filter applied to the child Dataset."""
+        return Expression.wrap(self.filtered_dataset.filter())
 
 
 cdef class FileSystemDataset(Dataset):
@@ -1121,7 +1184,8 @@ cdef class FileSystemDataset(Dataset):
     cdef:
         CFileSystemDataset* filesystem_dataset
 
-    def __init__(self, fragments, Schema schema, FileFormat format,
+    def __init__(self, fragments, Schema schema not None,
+                 FileFormat format not None,
                  FileSystem filesystem=None, root_partition=None):
         cdef:
             FileFragment fragment=None
@@ -1138,6 +1202,8 @@ cdef class FileSystemDataset(Dataset):
             )
 
         for fragment in fragments:
+            if fragment is None:
+                raise TypeError("Fragment must not be None")
             c_fragments.push_back(
                 static_pointer_cast[CFileFragment, CFragment](
                     fragment.unwrap()))
@@ -1455,6 +1521,7 @@ cdef class Fragment(_Weakrefable):
             'json': FileFragment,
             'orc': FileFragment,
             'parquet': _get_parquet_symbol('ParquetFileFragment'),
+            'filtered': FilteredFragment,
         }
 
         class_ = classes.get(type_name, None)
@@ -1972,6 +2039,34 @@ cdef class Fragment(_Weakrefable):
             cache_metadata=cache_metadata,
             memory_pool=memory_pool
         ).count_rows()
+
+
+cdef class FilteredFragment(Fragment):
+    """
+    A Fragment of a FilteredDataset, which yields only the rows of a wrapped
+    Fragment that match a filter.
+    """
+
+    cdef:
+        CFilteredFragment* filtered_fragment
+
+    cdef void init(self, const shared_ptr[CFragment]& sp):
+        Fragment.init(self, sp)
+        self.filtered_fragment = <CFilteredFragment*> sp.get()
+
+    @property
+    def fragment(self):
+        """The unfiltered wrapped Fragment."""
+        return Fragment.wrap(self.filtered_fragment.fragment())
+
+    @property
+    def filter_expression(self):
+        """
+        The filter applied to the wrapped Fragment. This may be simplified
+        from the FilteredDataset's filter using the Fragment's partition
+        expression.
+        """
+        return Expression.wrap(self.filtered_fragment.filter())
 
 
 cdef class FileFragment(Fragment):
@@ -4052,7 +4147,7 @@ cdef class Scanner(_Weakrefable):
         return reader
 
 
-def get_partition_keys(Expression partition_expression):
+def get_partition_keys(Expression partition_expression not None):
     """
     Extract partition keys (equality constraints between a field and a scalar)
     from an expression as a dict mapping the field's name to its value.
@@ -4236,5 +4331,5 @@ class ScanNodeOptions(_ScanNodeOptions):
         Preserve implicit ordering of data.
     """
 
-    def __init__(self, Dataset dataset, **kwargs):
+    def __init__(self, Dataset dataset not None, **kwargs):
         self._set_options(dataset, kwargs)

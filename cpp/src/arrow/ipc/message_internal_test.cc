@@ -391,7 +391,7 @@ TEST_F(MessageDecodingTest, ReadMessage3) {
     io::BufferReader reader(stream_buf);
     return ReadMessage(/*offset=*/padding_size,
                        static_cast<int32_t>(sample_message.metadata_bytes->size()),
-                       &reader, /*fields_loader=*/{});
+                       sample_message.body_bytes->size(), &reader);
   };
   padding_size = 0;
   for (const auto& params : message_params()) {
@@ -427,7 +427,8 @@ TEST_F(MessageDecodingTest, ReadMessage4) {
     io::BufferReader reader(stream_buf);
     return ReadMessage(/*offset=*/padding_size,
                        static_cast<int32_t>(sample_message.metadata_bytes->size()),
-                       &reader, fields_loader);
+                       sample_message.body_bytes->size(), &reader, default_memory_pool(),
+                       fields_loader);
   };
   padding_size = 0;
   for (const auto& params : message_params()) {

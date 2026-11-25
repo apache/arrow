@@ -96,17 +96,21 @@ run mkdir -p "${build_dir}"
 run pushd "${build_dir}"
 run cp /host/tmp/${PACKAGE}-${VERSION}.tar.gz \
   ${PACKAGE}_${VERSION}.orig.tar.gz
-run tar xfz ${PACKAGE}_${VERSION}.orig.tar.gz
-case "${VERSION}" in
-  *~dev*)
-    run mv ${PACKAGE}-$(echo $VERSION | sed -e 's/~dev/-dev/') \
-        ${PACKAGE}-${VERSION}
-    ;;
-  *~rc*)
-    run mv ${PACKAGE}-$(echo $VERSION | sed -r -e 's/~rc[0-9]+//') \
-        ${PACKAGE}-${VERSION}
-    ;;
-esac
+# Extract the source archive like dpkg-source does. If the archive has
+# only one top-level directory, use it as the source directory whatever
+# its name is. Otherwise, use the extracted directory as is.
+source_tmp_dir=${PACKAGE}-${VERSION}.tmp
+run mkdir ${source_tmp_dir}
+run tar xfz ${PACKAGE}_${VERSION}.orig.tar.gz -C ${source_tmp_dir}
+# "d" means that there is only one entry and it's a directory (not a
+# symbolic link).
+top_level_entry_types=$(find ${source_tmp_dir} -mindepth 1 -maxdepth 1 -printf '%y')
+if [ "${top_level_entry_types}" = "d" ]; then
+  run mv "$(find ${source_tmp_dir} -mindepth 1 -maxdepth 1)" ${PACKAGE}-${VERSION}
+  run rm -rf ${source_tmp_dir}
+else
+  run mv ${source_tmp_dir} ${PACKAGE}-${VERSION}
+fi
 run pushd ${PACKAGE}-${VERSION}/
 platform="${distribution}-${code_name}"
 if [ -d "/host/tmp/debian.${platform}-${architecture}" ]; then

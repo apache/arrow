@@ -552,8 +552,10 @@ class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
     ASSERT_OK(WriteRecordBatch(*batch, buffer_offset, mmap_.get(), &metadata_length,
                                &body_length, options_));
 
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message1,
                          ReadMessage(0, metadata_length, mmap_.get()));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     ASSERT_EQ(expected_version, message1->metadata_version());
 
     ASSERT_OK_AND_ASSIGN(auto message2,

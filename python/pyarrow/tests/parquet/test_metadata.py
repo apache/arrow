@@ -133,7 +133,7 @@ def test_parquet_metadata_api():
     assert col_meta.is_stats_set is True
     assert isinstance(col_meta.statistics, pq.Statistics)
     assert col_meta.compression == 'SNAPPY'
-    assert set(col_meta.encodings) == {'PLAIN', 'RLE'}
+    assert set(col_meta.encodings) == {'RLE'}
     assert col_meta.has_dictionary_page is False
     assert col_meta.dictionary_page_offset is None
     assert col_meta.data_page_offset > 0
@@ -350,6 +350,12 @@ def test_parquet_sorting_column():
 
     with pytest.raises(ValueError):
         pq.SortingColumn.from_ordering(schema, (("a", "not a valid sort order")))
+
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        pq.SortingColumn.from_ordering(None, ())
+
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        pq.SortingColumn.to_ordering(None, ())
 
     with pytest.raises(ValueError, match="inconsistent null placement"):
         sorting_cols = (
@@ -870,6 +876,12 @@ def test_internal_class_instantiation():
 
     with pytest.raises(TypeError, match=msg("FileMetaData")):
         pq.FileMetaData()
+
+    with pytest.raises(TypeError, match="Argument 'container'"):
+        pq.ParquetSchema(None)
+
+    with pytest.raises(TypeError, match="Argument 'schema'"):
+        pq.ColumnSchema(None, 0)
 
 
 def test_read_schema_uuid_extension_type(tmp_path):

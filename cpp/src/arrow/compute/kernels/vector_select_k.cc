@@ -481,12 +481,12 @@ class RecordBatchSelector {
                                            first_remaining_sort_key.order,
                                            output.non_null_like_range);
         }
-        if (output.nan_range.size() > 0) {
+        if (!output.nan_range.empty()) {
           // We have the last sort_key, can just copy over the null values
           std::copy(p.nan_begin(), p.nan_begin() + output.nan_range.size(),
                     output.nan_begin());
         }
-        if (output.null_range.size() > 0) {
+        if (!output.null_range.empty()) {
           // We have the last sort_key, can just copy over the null values
           std::copy(p.null_begin(), p.null_begin() + output.null_range.size(),
                     output.null_begin());
@@ -499,11 +499,11 @@ class RecordBatchSelector {
           HeapSortNonNullsToOutput(p.non_null_like_range, cmp,
                                    output.non_null_like_range);
         }
-        if (output.nan_range.size() > 0) {
+        if (!output.nan_range.empty()) {
           ARROW_RETURN_NOT_OK(selector_->DoSelectKForKey(start_sort_key_index_ + 1,
                                                          p.nan_range, output.nan_range));
         }
-        if (output.null_range.size() > 0) {
+        if (!output.null_range.empty()) {
           ARROW_RETURN_NOT_OK(selector_->DoSelectKForKey(
               start_sort_key_index_ + 1, p.null_range, output.null_range));
         }

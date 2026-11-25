@@ -115,6 +115,7 @@ This is the list of available packages:
 
 * ArrowCUDA
 * ArrowAcero
+* ArrowAzure
 * ArrowCompute
 * ArrowDataset
 * ArrowFlight
@@ -186,6 +187,7 @@ Available packages
 The Arrow C++ provides a pkg-config package for each module. Here are
 all available packages:
 
+  * ``arrow-azure``
   * ``arrow-csv``
   * ``arrow-cuda``
   * ``arrow-dataset``

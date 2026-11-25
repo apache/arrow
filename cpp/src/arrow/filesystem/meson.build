@@ -18,6 +18,7 @@
 install_headers(
     [
         'api.h',
+        'azure_visibility.h',
         'azurefs.h',
         'filesystem.h',
         'filesystem_library.h',
