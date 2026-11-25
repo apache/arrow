@@ -29,3 +29,10 @@
 static_assert(arrow::bit_util::BitWidth(5U) == 3);
 static_assert(arrow::bit_util::HasSingleBit(8U));
 #endif
+
+#if defined(__apple_build_version__) && \
+    (!defined(__cpp_lib_int_pow2) || __cpp_lib_int_pow2 < 202002L)
+[[maybe_unused]] bool LegacyAppleHelpersCompile() {
+  return arrow::bit_util::BitWidth(1U) == 1 && arrow::bit_util::HasSingleBit(1U);
+}
+#endif
