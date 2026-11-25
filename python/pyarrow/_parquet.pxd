@@ -38,7 +38,7 @@ cdef class FileEncryptionProperties:
     cdef inline shared_ptr[CFileEncryptionProperties] unwrap(self):
         return self.properties
 
-cdef shared_ptr[WriterProperties] _create_writer_properties(
+cdef shared_ptr[CWriterProperties] _create_writer_properties(
     use_dictionary=*,
     compression=*,
     version=*,
@@ -58,12 +58,11 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     store_decimal_as_integer=*,
     use_content_defined_chunking=*,
     bloom_filter_options=*,
-    min_compression_savings=*,
-    size_statistics_level=*
+    min_compression_savings=*
 ) except *
 
 
-cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
+cdef shared_ptr[CArrowWriterProperties] _create_arrow_writer_properties(
     use_deprecated_int96_timestamps=*,
     coerce_timestamps=*,
     allow_truncated_timestamps=*,

@@ -41,6 +41,62 @@ except ImportError:
 pytestmark = pytest.mark.parquet
 
 
+def test_parquet_writer_properties():
+    table = pa.table({"a": [1, 2], "b": [3, 4]})
+    sink = pa.BufferOutputStream()
+    with pq.ParquetWriter(
+        sink, table.schema, version="2.4", data_page_version="1.0",
+        compression={"a": "gzip"}, compression_level={"a": 3},
+        use_dictionary=["a"], write_statistics=["b"],
+        write_batch_size=32, write_page_index=True, write_page_checksum=True,
+        coerce_timestamps="ms", allow_truncated_timestamps=True,
+        use_compliant_nested_type=False, store_schema=False,
+    ) as writer:
+        properties = writer.properties
+        arrow_properties = writer.arrow_properties
+        assert isinstance(properties, pq.WriterProperties)
+        assert isinstance(arrow_properties, pq.ArrowWriterProperties)
+        assert properties.version == "2.4"
+        assert properties.data_page_version == "1.0"
+        assert properties.write_batch_size == 32
+        assert properties.compression("a") == "GZIP"
+        assert properties.compression("b") == "UNCOMPRESSED"
+        assert properties.compression_level("a") == 3
+        assert properties.dictionary_enabled("a") is True
+        assert properties.dictionary_enabled("b") is False
+        assert properties.statistics_enabled("a") is False
+        assert properties.statistics_enabled("b") is True
+        assert properties.page_index_enabled("a") is True
+        assert properties.page_checksum_enabled is True
+        assert arrow_properties.coerce_timestamps == "ms"
+        assert arrow_properties.truncated_timestamps_allowed is True
+        assert arrow_properties.compliant_nested_types is False
+        assert arrow_properties.store_schema is False
+        with pytest.raises(AttributeError):
+            properties.write_batch_size = 64
+        with pytest.raises(AttributeError):
+            arrow_properties.store_schema = True
+        writer.write_table(table)
+
+    assert writer.properties.version == "2.4"
+    assert writer.arrow_properties.coerce_timestamps == "ms"
+    del writer
+    assert properties.write_batch_size == 32
+    assert arrow_properties.store_schema is False
+    assert pq.read_table(sink.getvalue()).equals(table)
+
+
+def test_parquet_writer_default_properties():
+    with pq.ParquetWriter(pa.BufferOutputStream(),
+                          pa.schema([("a", pa.int64())])) as writer:
+        assert writer.properties.version == "2.6"
+        assert writer.properties.compression("a") == "SNAPPY"
+        assert writer.properties.compression_level("a") is None
+        assert writer.arrow_properties.coerce_timestamps is None
+        assert writer.arrow_properties.engine_version == "V2"
+        assert writer.arrow_properties.store_schema is True
+
+
 @pytest.mark.parametrize("page_version, minimum", [
     ("1.0", None),
     ("1.0", 0.0),

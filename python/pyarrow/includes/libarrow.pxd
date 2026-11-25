@@ -3075,6 +3075,9 @@ cdef extern from "arrow/util/compression.h" namespace "arrow" nogil:
 
     cdef cppclass CCodec" arrow::util::Codec":
         @staticmethod
+        int UseDefaultCompressionLevel()
+
+        @staticmethod
         CResult[unique_ptr[CCodec]] Create(CCompressionType codec)
 
         @staticmethod
