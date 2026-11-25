@@ -226,13 +226,8 @@ def test_array_wise_functions() -> None:
     taken = pc.take(arr, [0, 2])
     check(assert_type(taken, pa.Array | pa.ChunkedArray | pa.RecordBatch | pa.Table),
           pa.Array)
-    check(assert_type(pc.partition_nth_indices([3, 1, 2], pivot=1),
-                      pa.UInt64Array | pa.ChunkedArray),
+    check(assert_type(pc.partition_nth_indices([3, 1, 2], pivot=1), pa.UInt64Array),
           pa.UInt64Array)
-    check(assert_type(pc.partition_nth_indices(pa.chunked_array([[3, 1], [2]]),
-                                               pivot=1),
-                      pa.UInt64Array | pa.ChunkedArray),
-          pa.ChunkedArray)
     check(assert_type(pc.search_sorted([1, 2, 3], [0, 1, 2]),
                       pa.UInt64Scalar | pa.UInt64Array),
           pa.UInt64Array)
@@ -275,6 +270,9 @@ def test_array_wise_functions() -> None:
         pc.top_k_unstable(arr, "2")  # type: ignore[arg-type]
         pc.top_k_unstable([3, 1, 2], 2)  # type: ignore[arg-type]
         pc.sort_indices(table, [("a", "up")])  # type: ignore[list-item]
+        # TODO: currently segfaults
+        # pc.partition_nth_indices(
+        #     pa.chunked_array([[3, 1], [2]]), pivot=1)
         # Only lists, tuples and NumPy arrays are converted to arrays (_ArrayLike)
         pc.cumulative_sum(range(3))  # type: ignore[arg-type]
         # Vector and meta functions can't be evaluated as expressions, e.g.

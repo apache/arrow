@@ -1524,14 +1524,14 @@ def array_sort_indices(
     memory_pool: MemoryPool | None = None,
 ) -> UInt64Array | ChunkedArray: ...
 def partition_nth_indices(
-    array: _ArrayOrChunkedArray | _ArrayLike,
+    array: Array | _ArrayLike,
     /,
     pivot: int,
     *,
     null_placement: NullPlacement = "at_end",
     options: PartitionNthOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> UInt64Array | ChunkedArray: ...
+) -> UInt64Array: ...
 def rank(
     input: _ArrayOrChunkedArray | _ArrayLike,
     /,
