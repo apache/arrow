@@ -478,6 +478,7 @@ class ORCFileReader::Impl {
     std::unique_ptr<liborc::RowReader> row_reader;
     std::unique_ptr<liborc::ColumnVectorBatch> batch;
     std::unique_ptr<RecordBatchBuilder> builder;
+    int64_t rows_read = 0;
 
     ORC_BEGIN_CATCH_NOT_OK
     row_reader = reader_->createRowReader(opts);
@@ -489,6 +490,9 @@ class ORCFileReader::Impl {
 
     const liborc::Type& type = row_reader->getSelectedType();
     while (row_reader->next(*batch)) {
+      if (schema->num_fields() == 0) {
+        rows_read += static_cast<int64_t>(batch->numElements);
+      }
       for (int i = 0; i < builder->num_fields(); i++) {
         RETURN_NOT_OK(AppendBatch(type.getSubtype(i), struct_batch.fields[i], 0,
                                   batch->numElements, builder->GetField(i)));
@@ -496,6 +500,9 @@ class ORCFileReader::Impl {
     }
     ORC_END_CATCH_NOT_OK
 
+    if (schema->num_fields() == 0) {
+      return RecordBatch::Make(schema, rows_read, std::vector<std::shared_ptr<Array>>{});
+    }
     return builder->Flush();
   }
 
