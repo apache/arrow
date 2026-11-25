@@ -64,6 +64,20 @@ TEST_F(TestOrcFileFormat, Inspect) { TestInspect(); }
 TEST_F(TestOrcFileFormat, IsSupported) { TestIsSupported(); }
 TEST_F(TestOrcFileFormat, CountRows) { TestCountRows(); }
 TEST_F(TestOrcFileFormat, FragmentEquals) { TestFragmentEquals(); }
+TEST_F(TestOrcFileFormat, ScanWithoutDatasetSchema) {
+  auto batch =
+      RecordBatchFromJSON(schema({field("value", int32()), field("other", int32())}),
+                          R"([[1, 10], [2, 20]])");
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({batch}));
+  auto source = GetFileSource(reader.get());
+  opts_->projection = compute::field_ref("value");
+  ASSERT_OK_AND_ASSIGN(auto generator, MakeFragment(*source)->ScanBatchesAsync(opts_));
+  ASSERT_OK_AND_ASSIGN(auto batches,
+                       MakeGeneratorIterator(std::move(generator)).ToVector());
+  ASSERT_OK_AND_ASSIGN(auto expected, batch->SelectColumns({0}));
+  ASSERT_EQ(batches.size(), 1);
+  AssertBatchesEqual(*expected, *batches[0]);
+}
 
 // TODO add TestOrcFileSystemDataset if write support is added
 

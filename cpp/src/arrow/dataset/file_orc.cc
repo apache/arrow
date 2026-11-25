@@ -93,7 +93,8 @@ class OrcScanTask {
         // filter out virtual columns
         std::vector<int> included_indices;
         ARROW_ASSIGN_OR_RAISE(auto schema, reader->ReadSchema());
-        const auto& dataset_schema = *scan_options.dataset_schema;
+        const auto& dataset_schema =
+            scan_options.dataset_schema ? *scan_options.dataset_schema : *schema;
         const bool same_schema = dataset_schema.Equals(*schema);
         for (const auto& ref : materialized_fields) {
           ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOneOrNone(dataset_schema));
