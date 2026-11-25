@@ -164,7 +164,7 @@ env:
       # (see https://github.com/actions/runner-images/pull/15043).
       # Use a shallow clone instead of `brew tap --force homebrew/core` to
       # avoid downloading the full commit history on every CI run while
-      # preserving homebrew/core audit checks
+      # preserving homebrew/core audit checks.
       core_tap=$(brew --repository homebrew/core)
       if [ ! -d "${core_tap}" ]; then
         git clone --depth=1 https://github.com/Homebrew/homebrew-core.git "${core_tap}"
