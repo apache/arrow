@@ -61,7 +61,7 @@ Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenORCReader(
 }
 
 // Preserve each name component when mapping logical positions to file fields.
-FieldRef ToUniversalRef(const FieldPath& path, const Schema& schema) {
+FieldRef ToOrcUniversalRef(const FieldPath& path, const Schema& schema) {
   std::vector<FieldRef> refs;
   refs.reserve(path.indices().size());
   const FieldVector* fields = &schema.fields();
@@ -100,7 +100,7 @@ class OrcScanTask {
           ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOneOrNone(dataset_schema));
           if (path.empty()) continue;
           auto file_ref =
-              same_schema ? FieldRef(path) : ToUniversalRef(path, dataset_schema);
+              same_schema ? FieldRef(path) : ToOrcUniversalRef(path, dataset_schema);
           auto maybe_match = file_ref.FindOneOrNone(*schema);
           if (!maybe_match.ok() && !same_schema && ref.field_path() &&
               path.indices().size() == 1) {
