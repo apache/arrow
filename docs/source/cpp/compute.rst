@@ -1016,6 +1016,8 @@ String transforms
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 | utf8_lower              | Unary  | String-like                             | String-like            |                                   | \(9)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_normalize          | Unary  | String-like                             | String-like            | :struct:`Utf8NormalizeOptions`    |       |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 | utf8_replace_slice      | Unary  | String-like                             | String-like            | :struct:`ReplaceSliceOptions`     | \(7)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 | utf8_reverse            | Unary  | String-like                             | String-like            |                                   | \(11) |
@@ -1431,6 +1433,13 @@ provided by a concrete function :func:`~arrow::compute::Cast`.
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
 | cast            | Unary      | Many               | Variable         | :struct:`CastOptions`          |       |
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| run_end_decode  | Unary      | Run-end encoded    | Input type       |                                |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
+| run_end_encode  | Unary      | Boolean, Null,     | Run-end encoded  | :struct:`RunEndEncodeOptions`  |       |
+|                 |            | Numeric, Temporal, |                  |                                |       |
+|                 |            | Binary-, String-   |                  |                                |       |
+|                 |            | and Nested types   |                  |                                |       |
++-----------------+------------+--------------------+------------------+--------------------------------+-------+
 | strftime        | Unary      | Temporal           | String           | :struct:`StrftimeOptions`      | \(1)  |
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
 | strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`      |       |
@@ -1798,6 +1807,8 @@ Associative transforms
 | dictionary_encode | Unary | Boolean, Null, Numeric,           | Dictionary  | \(1)  |
 |                   |       | Temporal, Binary- and String-like |             |       |
 +-------------------+-------+-----------------------------------+-------------+-------+
+| dictionary_decode | Unary | Dictionary                        | Input type  | \(4)  |
++-------------------+-------+-----------------------------------+-------------+-------+
 | unique            | Unary | Boolean, Null, Numeric,           | Input type  | \(2)  |
 |                   |       | Temporal, Binary- and String-like |             |       |
 +-------------------+-------+-----------------------------------+-------------+-------+
@@ -1814,6 +1825,8 @@ Associative transforms
 * \(3) Output is a ``{"values": input type, "counts": Int64}`` Struct.
   Each output element corresponds to a unique value in the input, along
   with the number of times this value has appeared.
+
+* \(4) If the input is not a Dictionary array, it is returned unchanged.
 
 Selections
 ~~~~~~~~~~

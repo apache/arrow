@@ -553,6 +553,7 @@ Sorts and Partitions
    rank_normal
    rank_quantile
    select_k_unstable
+   search_sorted
    sort_indices
    top_k_unstable
 
