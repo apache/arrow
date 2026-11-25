@@ -270,7 +270,7 @@ def test_array_wise_functions() -> None:
         pc.top_k_unstable(arr, "2")  # type: ignore[arg-type]
         pc.top_k_unstable([3, 1, 2], 2)  # type: ignore[arg-type]
         pc.sort_indices(table, [("a", "up")])  # type: ignore[list-item]
-        # TODO: currently segfaults
+        # TODO(GH-55775):
         # pc.partition_nth_indices(
         #     pa.chunked_array([[3, 1], [2]]), pivot=1)
         # Only lists, tuples and NumPy arrays are converted to arrays (_ArrayLike)
