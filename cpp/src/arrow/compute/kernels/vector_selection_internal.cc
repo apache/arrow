@@ -48,13 +48,52 @@ using internal::CheckIndexBounds;
 
 namespace compute::internal {
 
+namespace {
+
+// The selection kernels read both arguments as arrays, but scalar arguments are
+// only promoted to arrays when all arguments are scalars. Reject a mix of
+// scalars and arrays before a kernel is called.
+class SelectionFunction : public VectorFunction {
+ public:
+  using VectorFunction::VectorFunction;
+
+  Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
+                        ExecContext* ctx) const override {
+    RETURN_NOT_OK(CheckArgumentKinds(args));
+    return VectorFunction::Execute(args, options, ctx);
+  }
+
+  Result<Datum> Execute(const ExecBatch& batch, const FunctionOptions* options,
+                        ExecContext* ctx) const override {
+    RETURN_NOT_OK(CheckArgumentKinds(batch.values));
+    return VectorFunction::Execute(batch, options, ctx);
+  }
+
+ private:
+  Status CheckArgumentKinds(const std::vector<Datum>& args) const {
+    bool any_scalar = false;
+    bool all_scalar = true;
+    for (const Datum& arg : args) {
+      any_scalar |= arg.is_scalar();
+      all_scalar &= arg.is_scalar();
+    }
+    if (any_scalar && !all_scalar) {
+      return Status::TypeError("Function '", name(),
+                               "' cannot mix scalar and array arguments");
+    }
+    return Status::OK();
+  }
+};
+
+}  // namespace
+
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                VectorKernel base_kernel,
                                std::vector<SelectionKernelData>&& kernels,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry) {
-  auto func = std::make_shared<VectorFunction>(name, Arity::Binary(), std::move(doc),
-                                               default_options);
+  auto func = std::make_shared<SelectionFunction>(name, Arity::Binary(), std::move(doc),
+                                                  default_options);
   for (auto&& kernel_data : kernels) {
     base_kernel.signature = KernelSignature::Make(
         {std::move(kernel_data.value_type), std::move(kernel_data.selection_type)},
