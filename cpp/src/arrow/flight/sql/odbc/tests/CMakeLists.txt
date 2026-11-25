@@ -35,6 +35,7 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
     errors_test.cc
     get_functions_test.cc
     statement_attr_test.cc
+    statement_driver_api_test.cc
     statement_test.cc
     tables_test.cc
     type_info_test.cc

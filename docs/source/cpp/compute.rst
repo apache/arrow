@@ -1621,7 +1621,7 @@ For timestamps inputs with non-empty timezone, localized timestamp components wi
   used to set the starting day of the week using ISO convention (Monday=1, Sunday=7).
   :member:`DayOfWeekOptions::week_start` parameter is not affected by :member:`DayOfWeekOptions::count_from_zero`.
 
-* \(2) First ISO week has the majority (4 or more) of it's days in January. ISO year
+* \(2) First ISO week has the majority (4 or more) of its days in January. ISO year
   starts with the first ISO week. ISO week starts on Monday.
   See `ISO 8601 week date definition`_ for more details.
 
@@ -1831,7 +1831,7 @@ These functions select and return a subset of their input.
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
 | filter              | Binary | Any            | Boolean      | Input type 1        | :struct:`FilterOptions`             | \(2)  |
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
-| inverse_permutation | Unary  | Signed Integer |              | Signed Integer \(4) | :struct:`InversePermutationOptions` | \(5)  |
+| inverse_permutation | Unary  | Integer        |              | Integer \(4)        | :struct:`InversePermutationOptions` | \(5)  |
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
 | scatter             | Binary | Any            | Integer      | Input type 1        | :struct:`ScatterOptions`            | \(6)  |
 +---------------------+--------+----------------+--------------+---------------------+-------------------------------------+-------+
@@ -1947,6 +1947,8 @@ Structural transforms
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | Function name       | Arity      | Input types                         | Output type      | Options class                | Notes  |
 +=====================+============+=====================================+==================+==============================+========+
+| list_contains       | Binary     | List-like (Arg 0), Any (Arg 1)      | Boolean          |                              | \(7)   |
++---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_element        | Binary     | List-like (Arg 0), Integral (Arg 1) | List value type  |                              | \(1)   |
 +---------------------+------------+-------------------------------------+------------------+------------------------------+--------+
 | list_flatten        | Unary      | List-like                           | List value type  |                              | \(2)   |
@@ -2004,6 +2006,14 @@ Structural transforms
     at an index *n* if and only if the child array ``a`` is valid at
     index *n* and the type code at index *n* is 2.
   * The indices ``2`` and ``7`` are invalid.
+
+* \(7) Output is true for each list containing a value equal to the second
+  argument. If the second argument is an array, each list is searched for the
+  value at the same index, and a scalar list is searched for each value: the
+  list ``[1, 2]`` and the array ``[2, 3]`` give ``[true, false]``. Unlike
+  ``equal``, a null second argument matches null list values and a NaN second
+  argument matches NaN list values; otherwise null list values never match.
+  Null lists emit a null in the output.
 
 .. _cpp-compute-vector-replace-functions:
 

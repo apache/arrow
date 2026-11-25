@@ -30,6 +30,7 @@
 #include "arrow/testing/generator.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/float16.h"
+#include "arrow/visit_data_inline.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/test_util.h"
@@ -61,7 +62,7 @@ using ::testing::Bool;
 using ::testing::Combine;
 using ::testing::Values;
 
-// generate determinisic and platform-independent data
+// generate deterministic and platform-independent data
 inline uint64_t hash(uint64_t seed, uint64_t index) {
   uint64_t h = (index + seed) * 0xc4ceb9fe1a85ec53ull;
   h ^= h >> 33;
@@ -169,6 +170,10 @@ Result<std::shared_ptr<Array>> GenerateArray(const std::shared_ptr<Field>& field
       GENERATE_CASE(BINARY, ::arrow::BinaryBuilder,
                     std::string("bin_") + std::to_string(val))
       GENERATE_CASE(LARGE_BINARY, ::arrow::LargeBinaryBuilder,
+                    std::string("bin_") + std::to_string(val))
+      GENERATE_CASE(STRING_VIEW, ::arrow::StringViewBuilder,
+                    std::string("str_") + std::to_string(val))
+      GENERATE_CASE(BINARY_VIEW, ::arrow::BinaryViewBuilder,
                     std::string("bin_") + std::to_string(val))
     case ::arrow::Type::FIXED_SIZE_BINARY: {
       auto size =
@@ -391,6 +396,7 @@ ParquetInfo GetColumnParquetInfo(const std::shared_ptr<Buffer>& data, int column
     while (auto page = page_reader->NextPage()) {
       if (page->type() == PageType::DATA_PAGE || page->type() == PageType::DATA_PAGE_V2) {
         auto data_page = static_cast<DataPage*>(page.get());
+        EXPECT_GT(data_page->num_values(), 0) << "empty data page";
         column_info.page_sizes.push_back(data_page->uncompressed_size());
         column_info.page_lengths.push_back(data_page->num_values());
       } else if (page->type() == PageType::DICTIONARY_PAGE) {
@@ -401,6 +407,20 @@ ParquetInfo GetColumnParquetInfo(const std::shared_ptr<Buffer>& data, int column
   }
 
   return result;
+}
+
+// The offsets where the data pages of a column end, counted in levels from the start of
+// the column across its row groups, which are rows for flat columns
+std::vector<int64_t> GetPageEnds(const std::shared_ptr<Buffer>& data, int column_index) {
+  std::vector<int64_t> page_ends;
+  int64_t offset = 0;
+  for (const auto& row_group : GetColumnParquetInfo(data, column_index)) {
+    for (auto page_length : row_group.page_lengths) {
+      offset += page_length;
+      page_ends.push_back(offset);
+    }
+  }
+  return page_ends;
 }
 
 // A git-hunk like side-by-side data structure to represent the differences between two
@@ -639,7 +659,7 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
   // exact_number_of_larger_diffs, and exact_number_of_smaller_diffs parameters specify
   // the expected number of differences with equal, larger, and smaller sums of the page
   // lengths respectively. The edit_length parameter is used to verify that the page
-  // lenght differences are exactly equal to the edit_length.
+  // length differences are exactly equal to the edit_length.
   auto diffs = FindDifferences(original.page_lengths, modified.page_lengths);
 
   // Note, the assertion function assumes that all edits are made using the same edit
@@ -665,7 +685,7 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
   if (diffs.size() != expected_number_of_diffs) {
     PrintDifferences(original.page_lengths, modified.page_lengths, diffs);
   }
-  if (diffs.size() == 0) {
+  if (diffs.empty()) {
     // no differences found, the arrays are equal
     ASSERT_TRUE(original.page_lengths == modified.page_lengths);
   }
@@ -715,7 +735,7 @@ void AssertPageLengthDifferences(const ColumnInfo& original, const ColumnInfo& m
     ASSERT_EQ(left_sum, right_sum);
   }
 
-  if (diffs.size() == 0) {
+  if (diffs.empty()) {
     // no differences found, the arrays are equal
     ASSERT_TRUE(original.page_lengths == modified.page_lengths);
   }
@@ -742,6 +762,10 @@ Result<int64_t> CalculateCdcSize(const std::shared_ptr<Array>& array, bool nulla
   } else if (::arrow::is_large_binary_like(type_id)) {
     auto binary_array = checked_cast<const ::arrow::LargeBinaryArray*>(array.get());
     result += binary_array->total_values_length();
+  } else if (::arrow::is_binary_view_like(type_id)) {
+    ::arrow::VisitArraySpanInline<::arrow::BinaryViewType>(
+        *array->data(),
+        [&](std::string_view v) { result += static_cast<int64_t>(v.size()); }, [] {});
   } else {
     return Status::NotImplemented("CDC size calculation for type ",
                                   array->type()->ToString(), " is not implemented");
@@ -781,13 +805,13 @@ void AssertContentDefinedChunkSizes(const std::shared_ptr<::arrow::ChunkedArray>
     ASSERT_FALSE(column_info.has_dictionary_page);
   } else {
     ASSERT_EQ(column_info.has_dictionary_page, expect_dictionary_page);
-    ASSERT_EQ(column_info.has_dictionary_page, expect_dictionary_page);
   }
 
-  if (::arrow::is_fixed_width(type_id) || ::arrow::is_base_binary_like(type_id)) {
+  if (::arrow::is_fixed_width(type_id) || ::arrow::is_base_binary_like(type_id) ||
+      ::arrow::is_binary_view_like(type_id)) {
     int64_t offset = 0;
 
-    auto page_lengths = column_info.page_lengths;
+    const auto& page_lengths = column_info.page_lengths;
     for (size_t i = 0; i < page_lengths.size() - 1; i++) {
       // since CDC chunking is applied on the logical values before any parquet encoding
       // we first slice the array to get the logical array and then calculate the CDC
@@ -1444,6 +1468,27 @@ TEST_P(TestCDCSingleRowGroup, ArrayOffsets) {
   }
 }
 
+TEST_P(TestCDCSingleRowGroup, IndependentOfArrayChunks) {
+  // Content-defined chunking should produce the same pages
+  // for logically equal inputs, regardless of the inputs' own
+  // in-memory chunking.
+  const auto& param = GetParam();
+  ASSERT_OK_AND_ASSIGN(auto chunked, ConcatenateTables({part1_, part2_, part3_}));
+  ASSERT_OK_AND_ASSIGN(auto combined, chunked->CombineChunks());
+  ASSERT_EQ(chunked->column(0)->num_chunks(), 3);
+  ASSERT_EQ(combined->column(0)->num_chunks(), 1);
+  ASSERT_OK_AND_ASSIGN(
+      auto chunked_parquet,
+      WriteTableToBuffer(chunked, kMinChunkSize, kMaxChunkSize, kRowGroupLength, false,
+                         param.data_page_version));
+  ASSERT_OK_AND_ASSIGN(
+      auto combined_parquet,
+      WriteTableToBuffer(combined, kMinChunkSize, kMaxChunkSize, kRowGroupLength, false,
+                         param.data_page_version));
+  ASSERT_EQ(GetPageEnds(chunked_parquet, /*column_index=*/0),
+            GetPageEnds(combined_parquet, /*column_index=*/0));
+}
+
 #if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
 // Instantiate the test suite with a reduced set of types to avoid slow tests
 INSTANTIATE_TEST_SUITE_P(
@@ -1451,7 +1496,7 @@ INSTANTIATE_TEST_SUITE_P(
     testing::Values(
         CaseConfig{::arrow::boolean(), false}, CaseConfig{::arrow::int64(), true},
         // Binary-like
-        CaseConfig{::arrow::utf8(), false},
+        CaseConfig{::arrow::utf8(), false}, CaseConfig{::arrow::utf8_view(), true},
         CaseConfig{::arrow::fixed_size_binary(16), true},
         // Nested types
         CaseConfig{::arrow::list(::arrow::int32()), false},
@@ -1475,6 +1520,7 @@ INSTANTIATE_TEST_SUITE_P(
         // Binary-like
         CaseConfig{::arrow::utf8(), false}, CaseConfig{::arrow::binary(), true},
         CaseConfig{::arrow::fixed_size_binary(16), true},
+        CaseConfig{::arrow::utf8_view(), false}, CaseConfig{::arrow::binary_view(), true},
         // Temporal
         CaseConfig{::arrow::date32(), false},
         CaseConfig{::arrow::time32(::arrow::TimeUnit::MILLI), true},
@@ -1697,6 +1743,41 @@ TEST_F(TestCDCMultipleRowGroups, Append) {
       ASSERT_EQ(original_page_lengths[i], modified_page_lengths[i]);
     }
     ASSERT_GT(modified_page_lengths.back(), original_page_lengths.back());
+  }
+}
+
+TEST_F(TestCDCMultipleRowGroups, IndependentOfRowGroupBoundaries) {
+  // Splitting the data into row groups must not move the content defined page
+  // boundaries, only add one at the end of each row group. For example, if the pages of
+  // a single row group file end at rows 100, 250 and 400, then with row groups of 200
+  // rows the pages must end at rows 100, 200, 250 and 400.
+  ASSERT_OK_AND_ASSIGN(auto table, ConcatAndCombine({part1_, part2_, part3_}));
+  const int64_t num_rows = table->num_rows();
+  const int64_t row_group_length = num_rows / 6;
+  ASSERT_OK_AND_ASSIGN(auto single,
+                       WriteTableToBuffer(table, kMinChunkSize, kMaxChunkSize,
+                                          /*row_group_length=*/num_rows));
+  ASSERT_OK_AND_ASSIGN(auto multi, WriteTableToBuffer(table, kMinChunkSize, kMaxChunkSize,
+                                                      row_group_length));
+  ASSERT_EQ(ReadMetaData(std::make_shared<BufferReader>(single))->num_row_groups(), 1);
+  ASSERT_EQ(ReadMetaData(std::make_shared<BufferReader>(multi))->num_row_groups(), 6);
+  // compare the page ends column by column
+  for (int col = 0; col < table->num_columns(); col++) {
+    // the page ends of the single row group file, e.g. 100, 250 and 400
+    auto single_page_ends = GetPageEnds(single, col);
+    // the page ends of the multiple row group file, e.g. 100, 200, 250 and 400
+    auto multi_page_ends = GetPageEnds(multi, col);
+    // expect the page ends of the single row group file plus one at each of the 5
+    // boundaries between the row groups, e.g. 200, the last row group ends with the data
+    // where the single row group file's last page ends too
+    auto expected = single_page_ends;
+    for (int i = 1; i < 6; i++) {
+      expected.push_back(i * row_group_length);
+    }
+    std::sort(expected.begin(), expected.end());
+    EXPECT_EQ(multi_page_ends.size(), single_page_ends.size() + 5) << "column " << col;
+    // unlike ASSERT_EQ, ContainerEq prints the page ends that differ
+    ASSERT_THAT(multi_page_ends, ::testing::ContainerEq(expected)) << "column " << col;
   }
 }
 

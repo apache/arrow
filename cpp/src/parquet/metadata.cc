@@ -823,9 +823,11 @@ class FileMetaData::FileMetaDataImpl {
     const SecureString& key = file_decryptor_->GetFooterKey();
     const std::string& aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
 
-    auto aes_encryptor = encryption::AesEncryptor::Make(file_decryptor_->algorithm(),
-                                                        static_cast<int>(key.size()),
-                                                        true, false /*write_length*/);
+    // A plaintext footer is always signed with AES-GCM, regardless of the algorithm
+    // configured for encryption.
+    auto aes_encryptor = encryption::AesEncryptor::Make(
+        ParquetCipher::AES_GCM_V1, static_cast<int>(key.size()), /*metadata=*/true,
+        /*write_length=*/false);
 
     std::shared_ptr<Buffer> encrypted_buffer = AllocateBuffer(
         file_decryptor_->pool(), aes_encryptor->CiphertextLength(
@@ -1202,8 +1204,10 @@ bool FileMetaData::VerifySignature(std::span<const uint8_t> serialized_metadata,
   const SecureString& key = file_decryptor->GetFooterKey();
   const std::string& aad = encryption::CreateFooterAad(file_decryptor->file_aad());
 
+  // A plaintext footer is always signed with AES-GCM, regardless of the algorithm
+  // configured for encryption.
   auto aes_encryptor = encryption::AesEncryptor::Make(
-      file_decryptor->algorithm(), static_cast<int>(key.size()), /*metadata=*/true,
+      ParquetCipher::AES_GCM_V1, static_cast<int>(key.size()), /*metadata=*/true,
       /*write_length=*/false);
 
   std::shared_ptr<Buffer> encrypted_buffer =
@@ -2103,7 +2107,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       total_rows += row_group.num_rows;
     }
     metadata_->__set_num_rows(total_rows);
-    metadata_->__set_row_groups(row_groups_);
+    metadata_->row_groups = std::move(row_groups_);
 
     if (key_value_metadata) {
       ToThriftKeyValueMetadata(*key_value_metadata, metadata_.get());
@@ -2133,22 +2137,14 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     metadata_->column_orders.resize(schema_->num_columns(), column_order);
     metadata_->__isset.column_orders = true;
 
-    // if plaintext footer, set footer signing algorithm
+    // Plaintext footers declare the file encryption algorithm and signing key metadata.
     auto file_encryption_properties = properties_->file_encryption_properties();
     if (file_encryption_properties && !file_encryption_properties->encrypted_footer()) {
-      EncryptionAlgorithm signing_algorithm;
-      EncryptionAlgorithm algo = file_encryption_properties->algorithm();
-      signing_algorithm.aad.aad_file_unique = algo.aad.aad_file_unique;
-      signing_algorithm.aad.supply_aad_prefix = algo.aad.supply_aad_prefix;
-      if (!algo.aad.supply_aad_prefix) {
-        signing_algorithm.aad.aad_prefix = algo.aad.aad_prefix;
-      }
-      signing_algorithm.algorithm = ParquetCipher::AES_GCM_V1;
-
-      metadata_->__set_encryption_algorithm(ToThrift(signing_algorithm));
+      metadata_->__set_encryption_algorithm(
+          ToThrift(file_encryption_properties->algorithm()));
       const std::string& footer_signing_key_metadata =
           file_encryption_properties->footer_key_metadata();
-      if (footer_signing_key_metadata.size() > 0) {
+      if (!footer_signing_key_metadata.empty()) {
         metadata_->__set_footer_signing_key_metadata(footer_signing_key_metadata);
       }
     }
@@ -2176,7 +2172,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
 
     crypto_metadata_->__set_encryption_algorithm(
         ToThrift(file_encryption_properties->algorithm()));
-    std::string key_metadata = file_encryption_properties->footer_key_metadata();
+    const std::string& key_metadata = file_encryption_properties->footer_key_metadata();
 
     if (!key_metadata.empty()) {
       crypto_metadata_->__set_key_metadata(key_metadata);

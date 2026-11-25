@@ -118,6 +118,16 @@ std::ostream& operator<<(std::ostream& os, SegmentEncoding segment_encoding);
 struct ARROW_DS_EXPORT KeyValuePartitioningOptions {
   /// After splitting a path into components, decode the path components
   /// before parsing according to this scheme.
+  ///
+  /// For directory and filename partitioning, partition values are also encoded
+  /// according to this scheme when formatting paths for writing. With
+  /// SegmentEncoding::None, values are written as-is, and values containing "/"
+  /// or "\", or equal to "." or "..", raise errors. Values starting with "." or
+  /// "_" are written, but are skipped by dataset discovery unless
+  /// selector_ignore_prefixes is changed. Other values may not be valid path
+  /// segments on all platforms, eg. on Windows, values ending in "." or " " are
+  /// not written correctly. For directory and filename partitioning, empty values
+  /// raise errors with either encoding.
   SegmentEncoding segment_encoding = SegmentEncoding::Uri;
 };
 
@@ -209,8 +219,16 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   /// Convert a Key to a full expression.
   Result<compute::Expression> ConvertKey(const Key& key) const;
 
+  /// Format partition values as path segments, encoding them according to
+  /// options_.segment_encoding.
+  ///
+  /// \param[in] values the partition values for each schema field
+  /// \param[in] escape_filename_separator whether to escape the
+  ///   filename partitioning separator ("_"). If no encoding is used
+  ///   (SegmentEncoding::None), values containing the separator result in an error.
   Result<std::vector<std::string>> FormatPartitionSegments(
-      const ScalarVector& values) const;
+      const ScalarVector& values, bool escape_filename_separator = false) const;
+
   Result<std::vector<Key>> ParsePartitionSegments(
       const std::vector<std::string>& segments) const;
 

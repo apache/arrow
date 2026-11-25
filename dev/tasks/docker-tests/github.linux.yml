@@ -28,7 +28,7 @@ jobs:
   test:
     name: |
       Docker Test {{ flags|default("") }} {{ image }} {{ command|default("") }}
-    runs-on: ubuntu-latest
+    runs-on: {{ runs_on|default("ubuntu-latest") }}
 {{ macros.github_set_env(env) }}
     timeout-minutes: {{ timeout|default(60) }}
     steps:

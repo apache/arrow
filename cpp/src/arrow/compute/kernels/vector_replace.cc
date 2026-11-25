@@ -773,7 +773,7 @@ struct FillNullBackwardChunked {
       ArrayData* array_with_current =
           values.chunk(/*first_chunk=*/chunks_length - 1)->data().get();
       int64_t last_valid_value_offset = -1;
-      auto chunks = values.chunks();
+      const auto& chunks = values.chunks();
       for (int i = chunks_length - 1; i >= 0; --i) {
         const auto& chunk = chunks[i];
         if (is_fixed_width(out->type()->id())) {
@@ -824,11 +824,10 @@ template <template <class> class Functor, template <class> class ChunkedFunctor>
 void RegisterVectorFunction(FunctionRegistry* registry,
                             std::shared_ptr<VectorFunction> func) {
   auto add_primitive_kernel = [&](detail::GetTypeId get_id) {
-    AddKernel(
-        get_id.id, Functor<FixedSizeBinaryType>::GetSignature(get_id),
-        GenerateTypeAgnosticPrimitive<Functor, ArrayKernelExec>(get_id),
-        GenerateTypeAgnosticPrimitive<ChunkedFunctor, VectorKernel::ChunkedExec>(get_id),
-        registry, func.get());
+    AddKernel(get_id.id, Functor<FixedSizeBinaryType>::GetSignature(get_id),
+              GenerateTypeAgnosticPrimitive<Functor>(get_id),
+              GenerateTypeAgnosticPrimitive<ChunkedFunctor>(get_id), registry,
+              func.get());
   };
   for (const auto& ty : NumericTypes()) {
     add_primitive_kernel(ty);

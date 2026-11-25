@@ -552,8 +552,10 @@ class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
     ASSERT_OK(WriteRecordBatch(*batch, buffer_offset, mmap_.get(), &metadata_length,
                                &body_length, options_));
 
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message1,
                          ReadMessage(0, metadata_length, mmap_.get()));
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     ASSERT_EQ(expected_version, message1->metadata_version());
 
     ASSERT_OK_AND_ASSIGN(auto message2,
@@ -2263,6 +2265,75 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
 
   io::BufferReader garbage_reader(garbage);
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader));
+}
+
+TEST(TestRecordBatchStreamReader, OpenFileFormatSuggestsFileReader) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  FileWriterHelper helper;
+  ASSERT_OK(helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.Finish());
+
+  io::BufferReader reader(helper.buffer_);
+  // Check we mention using the file_reader when we detect file format
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Try the IPC file reader"),
+                                  RecordBatchStreamReader::Open(&reader));
+}
+
+TEST(TestRecordBatchStreamReader, CorruptDataDoesNotSuggestFileReader) {
+  // Continuation marker + metadata_length = 100, then 8 bytes of non-magic data.
+  const std::string corrupt(
+      "\xff\xff\xff\xff"
+      "\x64\x00\x00\x00"
+      "ABABABAB",
+      16);
+  auto buffer = std::make_shared<Buffer>(corrupt);
+  io::BufferReader reader(buffer);
+  // Validate that we don't suggest file reader when file is just corrupt
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::Not(::testing::HasSubstr("Try the IPC file reader")),
+      RecordBatchStreamReader::Open(&reader));
+}
+
+TEST(TestRecordBatchStreamReader, FileMagicAfterFirstMessageDoesNotSuggestFileReader) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  StreamWriterHelper helper;
+  ASSERT_OK(helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.Finish());
+
+  // Replace the 8-byte marker with the IPC file magic.
+  std::string data = helper.buffer_->ToString();
+  data.resize(data.size() - 8);
+  data.append("ARROW1\0\0", 8);
+  io::BufferReader reader(Buffer::FromString(std::move(data)));
+
+  ASSERT_OK_AND_ASSIGN(auto stream_reader, RecordBatchStreamReader::Open(&reader));
+  ASSERT_OK(stream_reader->Next());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::Not(::testing::HasSubstr("Try the IPC file reader")),
+      stream_reader->Next());
+}
+
+TEST(TestRecordBatchFileReader, OpenStreamFormatSuggestsStreamReader) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  StreamWriterHelper helper;
+  ASSERT_OK(helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.Finish());
+
+  auto buf_reader = std::make_shared<io::BufferReader>(helper.buffer_);
+  // Check we mention using the stream_reader when we detect stream format
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("use the IPC stream reader"),
+      RecordBatchFileReader::Open(buf_reader.get(), helper.buffer_->size()));
 }
 
 class EndlessCollectListener : public CollectListener {

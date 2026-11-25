@@ -874,15 +874,13 @@ void AddAsciiStringLength(FunctionRegistry* registry) {
   auto func = std::make_shared<ScalarFunction>("binary_length", Arity::Unary(),
                                                binary_length_doc);
   for (const auto& ty : {binary(), utf8()}) {
-    auto exec =
-        GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, Int32Type, BinaryLength>(
-            ty);
+    auto exec = GenerateVarBinaryBase<applicator::ScalarUnaryNotNull,
+                                      WithType0<Int32Type>, BinaryLength>(ty);
     DCHECK_OK(func->AddKernel({ty}, int32(), std::move(exec)));
   }
   for (const auto& ty : {large_binary(), large_utf8()}) {
-    auto exec =
-        GenerateVarBinaryBase<applicator::ScalarUnaryNotNull, Int64Type, BinaryLength>(
-            ty);
+    auto exec = GenerateVarBinaryBase<applicator::ScalarUnaryNotNull,
+                                      WithType0<Int64Type>, BinaryLength>(ty);
     DCHECK_OK(func->AddKernel({ty}, int64(), std::move(exec)));
   }
   DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_BINARY)}, int32(),

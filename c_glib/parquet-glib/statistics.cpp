@@ -19,6 +19,7 @@
 
 #include <arrow-glib/arrow-glib.hpp>
 
+#include <parquet-glib/metadata.hpp>
 #include <parquet-glib/statistics.hpp>
 
 #include <parquet/schema.h>
@@ -54,10 +55,12 @@ G_BEGIN_DECLS
 struct GParquetStatisticsPrivate
 {
   std::shared_ptr<parquet::Statistics> statistics;
+  GParquetColumnChunkMetadata *metadata;
 };
 
 enum {
   PROP_STATISTICS = 1,
+  PROP_METADATA,
 };
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GParquetStatistics,
@@ -67,6 +70,17 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GParquetStatistics,
 #define GPARQUET_STATISTICS_GET_PRIVATE(object)                                          \
   static_cast<GParquetStatisticsPrivate *>(                                              \
     gparquet_statistics_get_instance_private(GPARQUET_STATISTICS(object)))
+
+static void
+gparquet_statistics_dispose(GObject *object)
+{
+  auto priv = GPARQUET_STATISTICS_GET_PRIVATE(object);
+  if (priv->metadata) {
+    g_object_unref(priv->metadata);
+    priv->metadata = nullptr;
+  }
+  G_OBJECT_CLASS(gparquet_statistics_parent_class)->dispose(object);
+}
 
 static void
 gparquet_statistics_finalize(GObject *object)
@@ -89,6 +103,9 @@ gparquet_statistics_set_property(GObject *object,
     priv->statistics =
       *static_cast<std::shared_ptr<parquet::Statistics> *>(g_value_get_pointer(value));
     break;
+  case PROP_METADATA:
+    priv->metadata = GPARQUET_COLUMN_CHUNK_METADATA(g_value_dup_object(value));
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -106,6 +123,7 @@ static void
 gparquet_statistics_class_init(GParquetStatisticsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
+  gobject_class->dispose = gparquet_statistics_dispose;
   gobject_class->finalize = gparquet_statistics_finalize;
   gobject_class->set_property = gparquet_statistics_set_property;
 
@@ -116,6 +134,14 @@ gparquet_statistics_class_init(GParquetStatisticsClass *klass)
     "The raw std::shared_ptr<parquet::Statistics>",
     static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_STATISTICS, spec);
+
+  spec = g_param_spec_object(
+    "metadata",
+    "Metadata",
+    "The column chunk metadata of this statistics",
+    GPARQUET_TYPE_COLUMN_CHUNK_METADATA,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_METADATA, spec);
 }
 
 /**
@@ -467,38 +493,9 @@ gparquet_double_statistics_get_max(GParquetDoubleStatistics *statistics)
   return gparquet_typed_statistics_get_max<parquet::DoubleStatistics>(statistics);
 }
 
-struct GParquetByteArrayStatisticsPrivate
-{
-  GBytes *min;
-  GBytes *max;
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GParquetByteArrayStatistics,
-                           gparquet_byte_array_statistics,
-                           GPARQUET_TYPE_STATISTICS)
-
-#define GPARQUET_BYTE_ARRAY_STATISTICS_GET_PRIVATE(object)                               \
-  static_cast<GParquetByteArrayStatisticsPrivate *>(                                     \
-    gparquet_byte_array_statistics_get_instance_private(                                 \
-      GPARQUET_BYTE_ARRAY_STATISTICS(object)))
-
-static void
-gparquet_byte_array_statistics_dispose(GObject *object)
-{
-  auto priv = GPARQUET_BYTE_ARRAY_STATISTICS_GET_PRIVATE(object);
-
-  if (priv->min) {
-    g_bytes_unref(priv->min);
-    priv->min = nullptr;
-  }
-
-  if (priv->max) {
-    g_bytes_unref(priv->max);
-    priv->max = nullptr;
-  }
-
-  G_OBJECT_CLASS(gparquet_byte_array_statistics_parent_class)->dispose(object);
-}
+G_DEFINE_TYPE(GParquetByteArrayStatistics,
+              gparquet_byte_array_statistics,
+              GPARQUET_TYPE_STATISTICS)
 
 static void
 gparquet_byte_array_statistics_init(GParquetByteArrayStatistics *object)
@@ -508,83 +505,51 @@ gparquet_byte_array_statistics_init(GParquetByteArrayStatistics *object)
 static void
 gparquet_byte_array_statistics_class_init(GParquetByteArrayStatisticsClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->dispose = gparquet_byte_array_statistics_dispose;
 }
 
 /**
  * gparquet_byte_array_statistics_get_min:
  * @statistics: A #GParquetByteArrayStatistics.
  *
- * Returns: (transfer none): The minimum value.
+ * Returns: (transfer full): The minimum value. The value isn't
+ *   copied. The returned #GBytes keeps the value alive.
  *
  * Since: 8.0.0
  */
 GBytes *
 gparquet_byte_array_statistics_get_min(GParquetByteArrayStatistics *statistics)
 {
-  auto priv = GPARQUET_BYTE_ARRAY_STATISTICS_GET_PRIVATE(statistics);
-  if (!priv->min) {
-    const auto &parquet_min =
-      gparquet_typed_statistics_get_min<parquet::ByteArrayStatistics>(statistics);
-    priv->min = g_bytes_new_static(parquet_min.ptr, parquet_min.len);
-  }
-  return priv->min;
+  const auto &parquet_min =
+    gparquet_typed_statistics_get_min<parquet::ByteArrayStatistics>(statistics);
+  return g_bytes_new_with_free_func(parquet_min.ptr,
+                                    parquet_min.len,
+                                    g_object_unref,
+                                    g_object_ref(statistics));
 }
 
 /**
  * gparquet_byte_array_statistics_get_max:
  * @statistics: A #GParquetByteArrayStatistics.
  *
- * Returns: (transfer none): The maximum value.
+ * Returns: (transfer full): The maximum value. The value isn't
+ *   copied. The returned #GBytes keeps the value alive.
  *
  * Since: 8.0.0
  */
 GBytes *
 gparquet_byte_array_statistics_get_max(GParquetByteArrayStatistics *statistics)
 {
-  auto priv = GPARQUET_BYTE_ARRAY_STATISTICS_GET_PRIVATE(statistics);
-  if (!priv->max) {
-    const auto &parquet_max =
-      gparquet_typed_statistics_get_max<parquet::ByteArrayStatistics>(statistics);
-    priv->max = g_bytes_new_static(parquet_max.ptr, parquet_max.len);
-  }
-  return priv->max;
+  const auto &parquet_max =
+    gparquet_typed_statistics_get_max<parquet::ByteArrayStatistics>(statistics);
+  return g_bytes_new_with_free_func(parquet_max.ptr,
+                                    parquet_max.len,
+                                    g_object_unref,
+                                    g_object_ref(statistics));
 }
 
-struct GParquetFixedLengthByteArrayStatisticsPrivate
-{
-  GBytes *min;
-  GBytes *max;
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GParquetFixedLengthByteArrayStatistics,
-                           gparquet_fixed_length_byte_array_statistics,
-                           GPARQUET_TYPE_STATISTICS)
-
-#define GPARQUET_FIXED_LENGTH_BYTE_ARRAY_STATISTICS_GET_PRIVATE(object)                  \
-  static_cast<GParquetFixedLengthByteArrayStatisticsPrivate *>(                          \
-    gparquet_fixed_length_byte_array_statistics_get_instance_private(                    \
-      GPARQUET_FIXED_LENGTH_BYTE_ARRAY_STATISTICS(object)))
-
-static void
-gparquet_fixed_length_byte_array_statistics_dispose(GObject *object)
-{
-  auto priv = GPARQUET_FIXED_LENGTH_BYTE_ARRAY_STATISTICS_GET_PRIVATE(object);
-
-  if (priv->min) {
-    g_bytes_unref(priv->min);
-    priv->min = nullptr;
-  }
-
-  if (priv->max) {
-    g_bytes_unref(priv->max);
-    priv->max = nullptr;
-  }
-
-  G_OBJECT_CLASS(gparquet_fixed_length_byte_array_statistics_parent_class)
-    ->dispose(object);
-}
+G_DEFINE_TYPE(GParquetFixedLengthByteArrayStatistics,
+              gparquet_fixed_length_byte_array_statistics,
+              GPARQUET_TYPE_STATISTICS)
 
 static void
 gparquet_fixed_length_byte_array_statistics_init(
@@ -596,15 +561,14 @@ static void
 gparquet_fixed_length_byte_array_statistics_class_init(
   GParquetFixedLengthByteArrayStatisticsClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->dispose = gparquet_fixed_length_byte_array_statistics_dispose;
 }
 
 /**
  * gparquet_fixed_length_byte_array_statistics_get_min:
  * @statistics: A #GParquetFixedLengthByteArrayStatistics.
  *
- * Returns: (transfer none): The minimum value.
+ * Returns: (transfer full): The minimum value. The value isn't
+ *   copied. The returned #GBytes keeps the value alive.
  *
  * Since: 8.0.0
  */
@@ -612,21 +576,20 @@ GBytes *
 gparquet_fixed_length_byte_array_statistics_get_min(
   GParquetFixedLengthByteArrayStatistics *statistics)
 {
-  auto priv = GPARQUET_FIXED_LENGTH_BYTE_ARRAY_STATISTICS_GET_PRIVATE(statistics);
-  if (!priv->min) {
-    auto parquet_statistics =
-      gparquet_typed_statistics_get_raw<parquet::FLBAStatistics>(statistics);
-    priv->min = g_bytes_new_static(parquet_statistics->min().ptr,
-                                   parquet_statistics->descr()->type_length());
-  }
-  return priv->min;
+  auto parquet_statistics =
+    gparquet_typed_statistics_get_raw<parquet::FLBAStatistics>(statistics);
+  return g_bytes_new_with_free_func(parquet_statistics->min().ptr,
+                                    parquet_statistics->descr()->type_length(),
+                                    g_object_unref,
+                                    g_object_ref(statistics));
 }
 
 /**
  * gparquet_fixed_length_byte_array_statistics_get_max:
  * @statistics: A #GParquetFixedLengthByteArrayStatistics.
  *
- * Returns: (transfer none): The maximum value.
+ * Returns: (transfer full): The maximum value. The value isn't
+ *   copied. The returned #GBytes keeps the value alive.
  *
  * Since: 8.0.0
  */
@@ -634,20 +597,19 @@ GBytes *
 gparquet_fixed_length_byte_array_statistics_get_max(
   GParquetFixedLengthByteArrayStatistics *statistics)
 {
-  auto priv = GPARQUET_FIXED_LENGTH_BYTE_ARRAY_STATISTICS_GET_PRIVATE(statistics);
-  if (!priv->max) {
-    auto parquet_statistics =
-      gparquet_typed_statistics_get_raw<parquet::FLBAStatistics>(statistics);
-    priv->max = g_bytes_new_static(parquet_statistics->max().ptr,
-                                   parquet_statistics->descr()->type_length());
-  }
-  return priv->max;
+  auto parquet_statistics =
+    gparquet_typed_statistics_get_raw<parquet::FLBAStatistics>(statistics);
+  return g_bytes_new_with_free_func(parquet_statistics->max().ptr,
+                                    parquet_statistics->descr()->type_length(),
+                                    g_object_unref,
+                                    g_object_ref(statistics));
 }
 
 G_END_DECLS
 
 GParquetStatistics *
-gparquet_statistics_new_raw(std::shared_ptr<parquet::Statistics> *parquet_statistics)
+gparquet_statistics_new_raw(std::shared_ptr<parquet::Statistics> *parquet_statistics,
+                            GParquetColumnChunkMetadata *metadata)
 {
   GType type = GPARQUET_TYPE_STATISTICS;
   switch ((*parquet_statistics)->physical_type()) {
@@ -675,8 +637,8 @@ gparquet_statistics_new_raw(std::shared_ptr<parquet::Statistics> *parquet_statis
   default:
     break;
   }
-  auto statistics =
-    GPARQUET_STATISTICS(g_object_new(type, "statistics", parquet_statistics, NULL));
+  auto statistics = GPARQUET_STATISTICS(
+    g_object_new(type, "statistics", parquet_statistics, "metadata", metadata, NULL));
   return statistics;
 }
 

@@ -199,7 +199,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     explicit index type will not be demoted even if it is wider than required.
 
     This class supports Python's standard operators
-    for element-wise operations, i.e. arithmetic (`+`, `-`, `/`, `%`, `**`),
+    for element-wise operations, i.e. arithmetic (`+`, `-`, `*`, `/`, `**`),
     bitwise (`&`, `|`, `^`, `>>`, `<<`) and others.
     They can be used directly instead of calling underlying
     `pyarrow.compute` functions explicitly.
@@ -377,27 +377,9 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
             indices = _codes_to_indices(
                 values.codes, mask, index_type, memory_pool)
-            try:
-                dictionary = array(
-                    values.categories, type=value_type,
-                    from_pandas=True, memory_pool=memory_pool)
-            except TypeError:
-                # TODO when removing the deprecation warning, this whole
-                # try/except can be removed (to bubble the TypeError of
-                # the first array(..) call)
-                if value_type is not None:
-                    warnings.warn(
-                        "The dtype of the 'categories' of the passed "
-                        f"categorical values ({values.categories.dtype}) does not match the "
-                        f"specified type ({value_type}). For now ignoring the specified "
-                        "type, but in the future this mismatch will raise a "
-                        "TypeError",
-                        FutureWarning, stacklevel=2)
-                    dictionary = array(
-                        values.categories, from_pandas=True,
-                        memory_pool=memory_pool)
-                else:
-                    raise
+            dictionary = array(
+                values.categories, type=value_type,
+                from_pandas=True, memory_pool=memory_pool)
 
             return DictionaryArray.from_arrays(
                 indices, dictionary, ordered=values.ordered, safe=safe)
@@ -1347,8 +1329,8 @@ cdef class Array(_PandasConvertible):
             (_reduce_array_data(self.sp_array.get().data().get()),)
 
     @staticmethod
-    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
-                     children=None):
+    def from_buffers(DataType type not None, length, buffers, null_count=-1,
+                     offset=0, children=None):
         """
         Construct an Array from a sequence of buffers.
 
@@ -1404,6 +1386,8 @@ cdef class Array(_PandasConvertible):
             c_buffers.push_back(pyarrow_unwrap_buffer(buf))
 
         for child in children:
+            if child is None:
+                raise TypeError("Array child must not be None")
             c_child_data.push_back(child.ap.data())
 
         array_data = CArrayData.MakeWithChildren(type.sp_type, length,
@@ -2787,7 +2771,7 @@ cdef class FixedSizeBinaryArray(Array):
     Concrete class for Arrow arrays of a fixed-size binary data type.
     """
 
-cdef class Decima32Array(FixedSizeBinaryArray):
+cdef class Decimal32Array(FixedSizeBinaryArray):
     """
     Concrete class for Arrow arrays of decimal32 data type.
     """
@@ -3954,7 +3938,7 @@ cdef class FixedSizeListArray(BaseListArray):
         Or create from a values array, list size and matching type:
 
         >>> typ = pa.list_(pa.field("values", pa.int64()), 2)
-        >>> arr = pa.FixedSizeListArray.from_arrays(values,type=typ)
+        >>> arr = pa.FixedSizeListArray.from_arrays(values, type=typ)
         >>> arr
         <pyarrow.lib.FixedSizeListArray object at ...>
         [
@@ -4040,24 +4024,6 @@ cdef class UnionArray(Array):
     """
     Concrete class for Arrow arrays of a Union data type.
     """
-
-    def child(self, int pos):
-        """
-        DEPRECATED, use field() instead.
-
-        Parameters
-        ----------
-        pos : int
-            The physical index of the union child field (not its type code).
-
-        Returns
-        -------
-        field : pyarrow.Field
-            The given child field.
-        """
-        import warnings
-        warnings.warn("child is deprecated, use field", FutureWarning)
-        return self.field(pos)
 
     def field(self, int pos):
         """
@@ -4364,8 +4330,9 @@ cdef class DictionaryArray(Array):
         return self._indices
 
     @staticmethod
-    def from_buffers(DataType type, int64_t length, buffers, Array dictionary,
-                     int64_t null_count=-1, int64_t offset=0):
+    def from_buffers(DataType type not None, int64_t length, buffers,
+                     Array dictionary not None, int64_t null_count=-1,
+                     int64_t offset=0):
         """
         Construct a DictionaryArray from buffers.
 
@@ -4781,8 +4748,8 @@ cdef class RunEndEncodedArray(Array):
                                                run_ends, values, 0)
 
     @staticmethod
-    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
-                     children=None):
+    def from_buffers(DataType type not None, length, buffers, null_count=-1,
+                     offset=0, children=None):
         """
         Construct a RunEndEncodedArray from all the parameters that make up an
         Array.

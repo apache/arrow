@@ -227,7 +227,7 @@ inline typename Compression::type LoadEnumSafe(const format::CompressionCodec::t
   const auto max_value =
       static_cast<decltype(raw_value)>(format::CompressionCodec::LZ4_RAW);
   if (raw_value < min_value || raw_value > max_value) {
-    return Compression::UNCOMPRESSED;
+    throw ParquetException("Unsupported compression codec value: ", raw_value);
   }
   return FromThriftUnsafe(*in);
 }

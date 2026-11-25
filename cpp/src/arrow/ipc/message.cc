@@ -308,8 +308,9 @@ Status ReadFieldsSubset(int64_t offset, io::RandomAccessFile* file,
   RETURN_NOT_OK(fields_loader(batch, &io_recorded_random_access_file));
   const auto& read_ranges = io_recorded_random_access_file.GetReadRanges();
   for (const auto& range : read_ranges) {
-    auto read_result = file->ReadAt(offset + metadata->size() + range.offset,
-                                    range.length, body->mutable_data() + range.offset);
+    auto read_result =
+        file->ReadAt(offset + metadata->size() + range.offset, range.length,
+                     /*allow_short_read=*/false, body->mutable_data() + range.offset);
     if (!read_result.ok()) {
       return Status::IOError("Failed to read message body, error ",
                              read_result.status().ToString());
@@ -332,17 +333,26 @@ struct ReadMessageState {
   ReadMessageState& operator=(ReadMessageState&&) = delete;
 };
 
+Status CheckBodyLength(int64_t offset, int64_t body_length, io::RandomAccessFile* file) {
+  ARROW_ASSIGN_OR_RAISE(auto file_size, file->GetSize());
+  if (body_length > file_size - offset) {
+    return Status::IOError(
+        "Invalid IPC file: advertised body length would read beyond end of file");
+  }
+  return Status::OK();
+}
+
 // A common continuation callback for ReadMessage and ReadMessageAsync overloads
 static Result<std::unique_ptr<Message>> ReadMessageContinued(
     int64_t offset, int32_t metadata_length, std::optional<int64_t> body_length,
-    std::shared_ptr<Buffer> metadata, io::RandomAccessFile* file,
+    std::shared_ptr<Buffer> metadata, io::RandomAccessFile* file, MemoryPool* pool,
     const FieldsLoaderFunction& fields_loader, ReadMessageState* state) {
   MessageDecoder* decoder = state->decoder.get();
-  if (body_length.has_value()) {
-    // If body length was known, the given buffer should contain exactly the metadata
-    // followed by the body.
-    DCHECK_EQ(metadata->size(), metadata_length + *body_length);
-  }
+  // The given buffer should contain exactly the metadata, optionally followed by the
+  // body.
+  DCHECK(metadata->size() == metadata_length ||
+         metadata->size() == metadata_length + body_length.value_or(0));
+
   ARROW_RETURN_NOT_OK(decoder->Consume(SliceBuffer(metadata, 0, metadata_length)));
   if (decoder->buffered_size() > 0) {
     return Status::Invalid("Message metadata too long by ", decoder->buffered_size(),
@@ -360,17 +370,7 @@ static Result<std::unique_ptr<Message>> ReadMessageContinued(
                              ", metadata length: ", metadata_length);
     case MessageDecoder::State::BODY: {
       std::shared_ptr<Buffer> body;
-      if (fields_loader) {
-        // Selective field loading: allocate a body buffer and read only the
-        // requested field ranges into it.
-        DCHECK_NE(file, nullptr);
-        ARROW_ASSIGN_OR_RAISE(
-            body, AllocateBuffer(decoder->next_required_size(), default_memory_pool()));
-        RETURN_NOT_OK(ReadFieldsSubset(offset, file, fields_loader,
-                                       SliceBuffer(metadata, 0, metadata_length),
-                                       decoder->next_required_size(), body));
-      } else if (body_length.has_value()) {
-        // Body was already read as part of the combined IO; just slice it out.
+      if (body_length.has_value()) {
         if (*body_length != decoder->next_required_size()) {
           // The streaming decoder got out of sync with the actual advertised
           // metadata and body size, which signals an invalid IPC file.
@@ -378,14 +378,31 @@ static Result<std::unique_ptr<Message>> ReadMessageContinued(
                                  *body_length, ", but message decoder expects to read ",
                                  decoder->next_required_size(), " bytes instead");
         }
-        body = SliceBuffer(metadata, metadata_length,
-                           std::min(*body_length, metadata->size() - metadata_length));
       } else {
-        // Body length was unknown; do a separate IO to read the body.
+        // Read body length from message decoder
+        body_length = decoder->next_required_size();
+      }
+      // Check body length against file size if possible. This reduces the blast
+      // radius of excessive memory allocation if IPC metadata is corrupted.
+      if (file != nullptr) {
+        RETURN_NOT_OK(CheckBodyLength(offset + metadata_length, *body_length, file));
+      }
+      if (fields_loader) {
+        // Selective field loading: allocate a body buffer and read only the
+        // requested field ranges into it.
         DCHECK_NE(file, nullptr);
-        ARROW_ASSIGN_OR_RAISE(
-            body, file->ReadAt(offset + metadata_length, decoder->next_required_size(),
-                               /*allow_short_read=*/false));
+        ARROW_ASSIGN_OR_RAISE(body, AllocateBuffer(*body_length, pool));
+        RETURN_NOT_OK(ReadFieldsSubset(offset, file, fields_loader,
+                                       SliceBuffer(metadata, 0, metadata_length),
+                                       *body_length, body));
+      } else if (metadata->size() - metadata_length >= body_length) {
+        // Body was already read as part of the combined IO; just slice it out.
+        body = SliceBuffer(metadata, metadata_length, *body_length);
+      } else {
+        // Body was not read yet; do a separate IO to read the body.
+        DCHECK_NE(file, nullptr);
+        ARROW_ASSIGN_OR_RAISE(body, file->ReadAt(offset + metadata_length, *body_length,
+                                                 /*allow_short_read=*/false));
       }
 
       RETURN_NOT_OK(decoder->Consume(body));
@@ -454,20 +471,25 @@ Result<std::unique_ptr<Message>> ReadMessage(std::shared_ptr<Buffer> metadata,
 // separately.
 static Result<std::unique_ptr<Message>> ReadMessageInternal(
     int64_t offset, int32_t metadata_length, std::optional<int64_t> body_length,
-    io::RandomAccessFile* file, const FieldsLoaderFunction& fields_loader) {
+    io::RandomAccessFile* file, MemoryPool* pool,
+    const FieldsLoaderFunction& fields_loader) {
   ReadMessageState state;
 
   if (metadata_length < state.decoder->next_required_size()) {
     return Status::Invalid("metadata_length should be at least ",
                            state.decoder->next_required_size());
   }
-  // When body_length is known, read metadata + body in one IO call.
+  RETURN_NOT_OK(CheckBodyLength(offset + metadata_length, body_length.value_or(0), file));
+  // When body_length is known and all fields will be loaded,
+  // read metadata + body in one IO call.
   // Otherwise, read only metadata first.
+  const auto read_size =
+      metadata_length + ((body_length.has_value() && !fields_loader) ? *body_length : 0);
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> metadata,
-                        file->ReadAt(offset, metadata_length + body_length.value_or(0),
+                        file->ReadAt(offset, read_size,
                                      /*allow_short_read=*/false));
 
-  return ReadMessageContinued(offset, metadata_length, body_length, metadata, file,
+  return ReadMessageContinued(offset, metadata_length, body_length, metadata, file, pool,
                               fields_loader, &state);
 }
 
@@ -475,15 +497,16 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
                                              io::RandomAccessFile* file,
                                              const FieldsLoaderFunction& fields_loader) {
   return ReadMessageInternal(offset, metadata_length, /*body_length=*/std::nullopt, file,
-                             fields_loader);
+                             file->io_context().pool(), fields_loader);
 }
 
 Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
                                              const int32_t metadata_length,
                                              const int64_t body_length,
-                                             io::RandomAccessFile* file) {
-  return ReadMessageInternal(offset, metadata_length, body_length, file,
-                             /*fields_loader=*/{});
+                                             io::RandomAccessFile* file, MemoryPool* pool,
+                                             const FieldsLoaderFunction& fields_loader) {
+  return ReadMessageInternal(offset, metadata_length, body_length, file, pool,
+                             fields_loader);
 }
 
 Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metadata_length,
@@ -505,7 +528,7 @@ Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metada
         // Pass a nullptr file to ensure that no further IO occurs
         // (we have fetched all the required bytes).
         return ReadMessageContinued(offset, metadata_length, body_length, metadata,
-                                    /*file=*/nullptr,
+                                    /*file=*/nullptr, context.pool(),
                                     /*fields_loader=*/{}, state.get());
       });
 }
@@ -1056,6 +1079,19 @@ class InputStreamMessageReader : public MessageReader, public MessageDecoderList
 
   Status OnMessageDecoded(std::unique_ptr<Message> message) override {
     message_ = std::move(message);
+    first_message_ = false;
+    return Status::OK();
+  }
+
+  Status OnMetadata() override {
+    // An IPC file starts with "ARROW1". Read as a stream, its first four bytes
+    // ("ARRO") decode as a metadata length of 0x4F525241.
+    constexpr int64_t kArrowMagicAsMetadataLength = 0x4F525241;
+    if (first_message_ && decoder_.next_required_size() == kArrowMagicAsMetadataLength) {
+      return Status::Invalid(
+          "This appears to be an Arrow IPC file. "
+          "Try the IPC file reader instead of the IPC stream reader.");
+    }
     return Status::OK();
   }
 
@@ -1068,6 +1104,7 @@ class InputStreamMessageReader : public MessageReader, public MessageDecoderList
   io::InputStream* stream_;
   std::shared_ptr<io::InputStream> owned_stream_;
   std::unique_ptr<Message> message_;
+  bool first_message_ = true;
   MessageDecoder decoder_;
 };
 

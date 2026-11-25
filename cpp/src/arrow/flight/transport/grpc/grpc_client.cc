@@ -214,13 +214,47 @@ class GrpcClientInterceptorAdapterFactory
   std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware_;
 };
 
-class GrpcClientAuthSender : public ClientAuthSender {
+/// \brief A Handshake stream that calls Finish() at most once.
+///
+/// gRPC aborts the process if Finish() is called twice on the same call.
+class GrpcClientHandshakeStream {
  public:
-  explicit GrpcClientAuthSender(
+  explicit GrpcClientHandshakeStream(
       std::shared_ptr<
           ::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
           stream)
-      : stream_(stream) {}
+      : stream_(std::move(stream)) {}
+
+  bool finished() const { return finished_; }
+
+  bool Write(const pb::HandshakeRequest& request) {
+    return !finished_ && stream_->Write(request);
+  }
+
+  bool Read(pb::HandshakeResponse* response) {
+    return !finished_ && stream_->Read(response);
+  }
+
+  bool WritesDone() { return !finished_ && stream_->WritesDone(); }
+
+  const ::grpc::Status& Finish() {
+    if (!finished_) {
+      status_ = stream_->Finish();
+      finished_ = true;
+    }
+    return status_;
+  }
+
+ private:
+  std::shared_ptr<::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
+      stream_;
+  bool finished_ = false;
+  ::grpc::Status status_;
+};
+
+class GrpcClientAuthSender : public ClientAuthSender {
+ public:
+  explicit GrpcClientAuthSender(GrpcClientHandshakeStream* stream) : stream_(stream) {}
 
   Status Write(const std::string& token) override {
     pb::HandshakeRequest response;
@@ -232,17 +266,12 @@ class GrpcClientAuthSender : public ClientAuthSender {
   }
 
  private:
-  std::shared_ptr<::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
-      stream_;
+  GrpcClientHandshakeStream* stream_;
 };
 
 class GrpcClientAuthReader : public ClientAuthReader {
  public:
-  explicit GrpcClientAuthReader(
-      std::shared_ptr<
-          ::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
-          stream)
-      : stream_(stream) {}
+  explicit GrpcClientAuthReader(GrpcClientHandshakeStream* stream) : stream_(stream) {}
 
   Status Read(std::string* token) override {
     pb::HandshakeResponse request;
@@ -254,8 +283,7 @@ class GrpcClientAuthReader : public ClientAuthReader {
   }
 
  private:
-  std::shared_ptr<::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
-      stream_;
+  GrpcClientHandshakeStream* stream_;
 };
 
 /// \brief The base of the ClientDataStream implementation for gRPC.
@@ -1065,16 +1093,18 @@ class GrpcClientImpl : public internal::ClientTransport {
 
  private:
   Status AuthenticateInternal(ClientRpc& rpc) {
-    std::shared_ptr<
-        ::grpc::ClientReaderWriter<pb::HandshakeRequest, pb::HandshakeResponse>>
-        stream = stub_->Handshake(&rpc.context);
+    GrpcClientHandshakeStream stream{stub_->Handshake(&rpc.context)};
     if (auth_handler_) {
-      GrpcClientAuthSender outgoing{stream};
-      GrpcClientAuthReader incoming{stream};
+      GrpcClientAuthSender outgoing{&stream};
+      GrpcClientAuthReader incoming{&stream};
       RETURN_NOT_OK(auth_handler_->Authenticate(&outgoing, &incoming));
     }
+    // The server may have finished the handshake while authenticating
+    if (stream.finished()) {
+      return FromGrpcStatus(stream.Finish(), &rpc.context);
+    }
     // Explicitly close our side of the connection
-    bool finished_writes = stream->WritesDone();
+    bool finished_writes = stream.WritesDone();
     if (!finished_writes) {
       return MakeFlightError(FlightStatusCode::Internal,
                              "Could not finish writing before closing");
@@ -1084,9 +1114,9 @@ class GrpcClientImpl : public internal::ClientTransport {
     // reader finishes, so it's OK to assume the client no longer
     // wants to read and drain the read side.
     pb::HandshakeResponse response;
-    while (stream->Read(&response)) {
+    while (stream.Read(&response)) {
     }
-    RETURN_NOT_OK(FromGrpcStatus(stream->Finish(), &rpc.context));
+    RETURN_NOT_OK(FromGrpcStatus(stream.Finish(), &rpc.context));
     return Status::OK();
   }
 

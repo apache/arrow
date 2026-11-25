@@ -34,6 +34,7 @@
 #include <flatbuffers/flatbuffers.h>  // IWYU pragma: export
 
 #include "arrow/array.h"
+#include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/caching.h"
@@ -455,6 +456,20 @@ class ArrayLoader {
 
   Status Visit(const MapType& type) {
     RETURN_NOT_OK(LoadList(type));
+    DCHECK_EQ(out_->child_data.size(), 1);  // ensured by LoadList()
+    // Ensure that GetNullCount() calls in MapArray::ValidateChildData
+    // don't access invalid memory.
+    // We cannot call array validation as it will fail on non-native endianness
+    // (due to checking the last offset on variable-width data) or missing
+    // dictionaries (they are not yet populated at this point).
+    const ArrayData& child_data = *out_->child_data[0];
+    if (child_data.null_count != 0) {
+      return Status::Invalid("Map array child array should have no nulls");
+    }
+    if (!child_data.child_data.empty() && child_data.child_data[0]->null_count != 0) {
+      return Status::Invalid("Map array keys array should have no nulls");
+    }
+    // If we don't do this, MapArray::SetData will abort on invalid data.
     return MapArray::ValidateChildData(out_->child_data);
   }
 
@@ -778,8 +793,9 @@ Status GetCompressionExperimental(const flatbuf::Message* message,
   return Status::OK();
 }
 
-Status ReadContiguousPayload(io::InputStream* file, std::unique_ptr<Message>* message) {
-  ARROW_ASSIGN_OR_RAISE(*message, ReadMessage(file));
+Status ReadContiguousPayload(io::InputStream* file, const IpcReadOptions& options,
+                             std::unique_ptr<Message>* message) {
+  ARROW_ASSIGN_OR_RAISE(*message, ReadMessage(file, options.memory_pool));
   if (*message == nullptr) {
     return Status::Invalid("Unable to read metadata at offset");
   }
@@ -980,7 +996,7 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
     const std::shared_ptr<Schema>& schema, const DictionaryMemo* dictionary_memo,
     const IpcReadOptions& options, io::InputStream* file) {
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
+  RETURN_NOT_OK(ReadContiguousPayload(file, options, &message));
   CHECK_HAS_BODY(*message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
   return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, options,
@@ -1278,25 +1294,21 @@ Result<MessagePtr> CheckBodyLength(MessagePtr message, const FileBlock& block) {
 }
 
 Result<std::unique_ptr<Message>> ReadMessageFromBlock(
-    const FileBlock& block, io::RandomAccessFile* file,
+    const FileBlock& block, const IpcReadOptions& options, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader) {
   RETURN_NOT_OK(CheckAligned(block));
-  if (fields_loader) {
-    ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
-                                                    file, fields_loader));
-    return CheckBodyLength(std::move(message), block);
-  } else {
-    ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
-                                                    block.body_length, file));
-    return CheckBodyLength(std::move(message), block);
-  }
+  ARROW_ASSIGN_OR_RAISE(
+      auto message, ReadMessage(block.offset, block.metadata_length, block.body_length,
+                                file, options.memory_pool, fields_loader));
+  return CheckBodyLength(std::move(message), block);
 }
 
 Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
-    const FileBlock& block, io::RandomAccessFile* file, const io::IOContext& io_context) {
+    const FileBlock& block, const IpcReadOptions& options, io::RandomAccessFile* file,
+    const io::IOContext& io_context) {
   RETURN_NOT_OK(CheckAligned(block));
   return ReadMessageAsync(block.offset, block.metadata_length, block.body_length, file,
-                          io_context)
+                          io_context.with_pool(options.memory_pool))
       .Then([block](std::shared_ptr<Message> message) {
         return CheckBodyLength(std::move(message), block);
       });
@@ -1651,8 +1663,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
 
   Result<std::unique_ptr<Message>> ReadMessageFromBlock(
       const FileBlock& block, const FieldsLoaderFunction& fields_loader = {}) {
-    ARROW_ASSIGN_OR_RAISE(auto message,
-                          arrow::ipc::ReadMessageFromBlock(block, file_, fields_loader));
+    ARROW_ASSIGN_OR_RAISE(auto message, arrow::ipc::ReadMessageFromBlock(
+                                            block, options_, file_, fields_loader));
     stats_.num_messages.fetch_add(1, std::memory_order_relaxed);
     return message;
   }
@@ -1899,7 +1911,9 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
           const auto magic_start = buffer->data() + sizeof(int32_t);
           if (std::string_view(reinterpret_cast<const char*>(magic_start), kMagicSize) !=
               kArrowMagicBytes) {
-            return Status::Invalid("Not an Arrow file");
+            return Status::Invalid(
+                "Not an Arrow file. If this is an Arrow IPC stream, use "
+                "the IPC stream reader instead.");
           }
 
           int32_t footer_length = bit_util::FromLittleEndian(
@@ -2043,7 +2057,7 @@ Future<std::shared_ptr<Message>> WholeIpcFileRecordBatchGenerator::ReadBlock(
           return ReadMessage(&stream, pool);
         });
   } else {
-    return ReadMessageFromBlockAsync(block, state_->file_, io_context_);
+    return ReadMessageFromBlockAsync(block, state_->options_, state_->file_, io_context_);
   }
 }
 
@@ -2275,7 +2289,7 @@ Result<std::shared_ptr<Schema>> ReadSchema(const Message& message,
 
 Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file) {
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
+  RETURN_NOT_OK(ReadContiguousPayload(file, IpcReadOptions::Defaults(), &message));
   ARROW_SUPPRESS_DEPRECATION_WARNING
   return ReadTensor(*message);
   ARROW_UNSUPPRESS_DEPRECATION_WARNING
@@ -2729,7 +2743,7 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Message& message) {
 
 Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file) {
   std::unique_ptr<Message> message;
-  RETURN_NOT_OK(ReadContiguousPayload(file, &message));
+  RETURN_NOT_OK(ReadContiguousPayload(file, IpcReadOptions::Defaults(), &message));
   CHECK_MESSAGE_TYPE(MessageType::SPARSE_TENSOR, message->type());
   CHECK_HAS_BODY(*message);
   ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));

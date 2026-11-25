@@ -49,11 +49,16 @@ endif()
 if(ARROW_CPU_FLAG STREQUAL "x86")
   # x86/amd64 compiler flags, msvc/gcc/clang
   if(MSVC)
-    set(ARROW_SSE4_2_FLAG "/arch:SSE4.2")
-    # These definitions are needed for xsimd to consider the corresponding instruction
-    # sets available, but they are not set by MSVC (unlike other compilers).
-    # See https://github.com/AcademySoftwareFoundation/OpenImageIO/issues/4265
-    add_definitions(-D__SSE2__ -D__SSE4_1__ -D__SSE4_2__)
+    # MSVC doesn't define __SSE4_1__/__SSE4_2__ even with /arch:SSE4.2 (unlike
+    # other compilers) but xsimd needs them to consider SSE4.x available. We
+    # define them only where SSE4.2 is enabled. We don't define __SSE2__
+    # because xsimd detects SSE2 by _M_X64 and simdjson >= 5 uses GCC builtins
+    # when __SSE2__ is defined.
+    # See also:
+    # * https://learn.microsoft.com/en-us/cpp/build/reference/arch-x64
+    # * https://github.com/xtensor-stack/xsimd/issues/878
+    # * https://github.com/apache/arrow/issues/51690
+    set(ARROW_SSE4_2_FLAG "/arch:SSE4.2" "-D__SSE4_1__" "-D__SSE4_2__")
     set(ARROW_AVX2_FLAGS "/arch:AVX2")
     # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
     set(ARROW_BMI2_FLAGS "/arch:AVX2")
@@ -502,7 +507,8 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     if(NOT CXX_SUPPORTS_SSE4_2)
       message(FATAL_ERROR "SSE4.2 required but compiler doesn't support it.")
     endif()
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_SSE4_2_FLAG}")
+    list(JOIN ARROW_SSE4_2_FLAG " " ARROW_SSE4_2_FLAG_COMMAND_LINE)
+    string(APPEND CXX_COMMON_FLAGS " ${ARROW_SSE4_2_FLAG_COMMAND_LINE}")
     add_definitions(-DARROW_HAVE_SSE4_2)
   elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
     message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by x86.")
@@ -708,26 +714,35 @@ if(MSVC)
 endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-  # flags are:
+  # For the Pyodide 2026_0 ABI, the flags are:
   # 1) We force *everything* to build as position independent
-  # 2) And with support for C++ exceptions
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -fexceptions")
+  # 2) We support C++ WASM exceptions, using the native WebAssembly
+  #    exception handling proposal and WebAssembly-based setjmp/longjmp
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -fwasm-exceptions -sSUPPORT_LONGJMP=wasm")
   # deprecated-literal-operator error is thrown in datetime (vendored lib in arrow)
   set(CMAKE_CXX_FLAGS
-      "${CMAKE_CXX_FLAGS} -fPIC -fexceptions -Wno-error=deprecated-literal-operator")
+      "${CMAKE_CXX_FLAGS} -fPIC -fwasm-exceptions -sSUPPORT_LONGJMP=wasm -Wno-error=deprecated-literal-operator"
+  )
 
   # flags for creating shared libraries (only used in pyarrow, because
   # Emscripten builds libarrow as static)
   # flags are:
   # 1) Tell it to use JavaScript / WebAssembly 64 bit number support.
-  # 2) Tell it to build with support for C++ exceptions
+  # 2) Tell it to build with support for C++ exceptions (see above)
   # 3) Skip linker flags error which happens with -soname parameter
-  set(ARROW_EMSCRIPTEN_LINKER_FLAGS "-sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
-  set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS
-      "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
-  set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS
-      "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
-  set(CMAKE_SHARED_LINKER_FLAGS "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
+  # 4) Record $ORIGIN as an RPATH, so that Pyodide can locate
+  #    libarrow_python.so next to the extension modules needing it
+  # Note: the CMAKE_SHARED_LIBRARY_CREATE_<LANG>_FLAGS and
+  # CMAKE_SHARED_MODULE_CREATE_<LANG>_FLAGS variables are not used by the
+  # Ninja generator, so the flags must go through the linker-flags
+  # variables, which apply to SHARED (libarrow_python) and MODULE (Cython
+  # extension) targets respectively.
+  set(ARROW_EMSCRIPTEN_LINKER_FLAGS
+      "-sWASM_BIGINT=1 -fwasm-exceptions -sSUPPORT_LONGJMP=wasm -Wno-error=linkflags")
+  set(ARROW_EMSCRIPTEN_DYLIB_CREATE_FLAGS
+      "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS} '-Wl,-rpath,$ORIGIN'")
+  set(CMAKE_SHARED_LINKER_FLAGS "${ARROW_EMSCRIPTEN_DYLIB_CREATE_FLAGS}")
+  set(CMAKE_MODULE_LINKER_FLAGS "${ARROW_EMSCRIPTEN_DYLIB_CREATE_FLAGS}")
   if(ARROW_TESTING)
     # Deeply nested tests need a larger stack (1 MiB).
     set(ARROW_EMSCRIPTEN_TEST_STACK_SIZE 1048576)

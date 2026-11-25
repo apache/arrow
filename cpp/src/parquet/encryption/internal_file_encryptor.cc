@@ -68,7 +68,9 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterSigningEncryptor() {
     return footer_signing_encryptor_;
   }
 
-  ParquetCipher::type algorithm = properties_->algorithm().algorithm;
+  // A plaintext footer is always signed with AES-GCM, regardless of the algorithm
+  // configured for encryption.
+  const auto algorithm = ParquetCipher::AES_GCM_V1;
   std::string footer_aad = encryption::CreateFooterAad(properties_->file_aad());
   const SecureString& footer_signing_key = properties_->footer_key();
   auto aes_encryptor = GetMetaAesEncryptor(algorithm, footer_signing_key.size());

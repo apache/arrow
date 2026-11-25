@@ -977,5 +977,16 @@ Result<std::shared_ptr<GcsFileSystem>> GcsFileSystem::Make(
 GcsFileSystem::GcsFileSystem(const GcsOptions& options, const io::IOContext& context)
     : FileSystem(context), impl_(std::make_shared<Impl>(options)) {}
 
+static Result<std::shared_ptr<FileSystem>> GcsFileSystemFactory(
+    const arrow::util::Uri& uri, const io::IOContext& io_context, std::string* out_path) {
+  ARROW_ASSIGN_OR_RAISE(auto options, GcsOptions::FromUri(uri, out_path));
+  return GcsFileSystem::Make(options, io_context);
+}
+
+FileSystemRegistrar kGcsFileSystemModule[]{
+    ARROW_REGISTER_FILESYSTEM("gs", GcsFileSystemFactory, {}),
+    ARROW_REGISTER_FILESYSTEM("gcs", GcsFileSystemFactory, {}),
+};
+
 }  // namespace fs
 }  // namespace arrow

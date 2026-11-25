@@ -147,10 +147,7 @@ install_headers(
         'file_writer.h',
         'hasher.h',
         'index_location.h',
-        'level_comparison.h',
-        'level_comparison_inc.h',
         'level_conversion.h',
-        'level_conversion_inc.h',
         'metadata.h',
         'page_index.h',
         'platform.h',
@@ -227,6 +224,7 @@ parquet_tests = {
     'chunker-test': {'sources': files('chunker_internal_test.cc')},
     'arrow-reader-writer-test': {
         'sources': files(
+            'arrow/arrow_encoding_test.cc',
             'arrow/arrow_reader_writer_test.cc',
             'arrow/arrow_statistics_test.cc',
             'arrow/variant_test.cc',

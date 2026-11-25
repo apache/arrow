@@ -107,37 +107,27 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_acero_static PUBLIC ARROW_ACERO_STATIC)
 endif()
 
-if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_ACERO_TEST_LINK_LIBS arrow_acero_static ${ARROW_TEST_STATIC_LINK_LIBS})
-else()
-  set(ARROW_ACERO_TEST_LINK_LIBS arrow_acero_shared ${ARROW_TEST_SHARED_LINK_LIBS})
-endif()
-
 foreach(LIB_TARGET ${ARROW_ACERO_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_ACERO_EXPORTING)
 endforeach()
 
-# Define arrow_acero_testing object library for common test files
+# Define arrow_acero_testing static library for common test files.
 if(ARROW_TESTING)
   # test_nodes.cc isn't used by all tests but link to it for simple
   # CMakeLists.txt.
-  add_library(arrow_acero_testing OBJECT test_nodes.cc test_util_internal.cc)
-  # Even though this is still just an object library we still need to "link" our
-  # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_ACERO_TEST_LINK_LIBS})
+  add_library(arrow_acero_testing STATIC test_nodes.cc test_util_internal.cc)
+  if(ARROW_TEST_LINKAGE STREQUAL "static")
+    target_link_libraries(arrow_acero_testing PUBLIC arrow_acero_static
+                                                     ${ARROW_TEST_STATIC_LINK_LIBS})
+  else()
+    target_link_libraries(arrow_acero_testing PUBLIC arrow_acero_shared
+                                                     ${ARROW_TEST_SHARED_LINK_LIBS})
+  endif()
+  target_link_libraries(arrow_acero_testing PUBLIC arrow_compute_core_testing)
   # Only for test_nodes.cc.
   if(ARROW_WITH_OPENTELEMETRY)
     target_link_libraries(arrow_acero_testing PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
   endif()
-  # arrow_compute_testing will register the kernels for Gtest. In order to register the kernels
-  # for Google benchmark we use a custom main function used on add_arrow_compute_benchmark.
-  set(ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS
-      ${ARROW_ACERO_TEST_LINK_LIBS} arrow_acero_testing arrow_compute_core_testing)
-  list(APPEND ARROW_ACERO_TEST_LINK_LIBS arrow_acero_testing arrow_compute_testing)
-endif()
-# Only for hash_aggregate_test.cc.
-if(ARROW_USE_BOOST)
-  list(APPEND ARROW_ACERO_TEST_LINK_LIBS Boost::headers)
 endif()
 
 # Adding unit tests part of the "dataset" portion of the test suite
@@ -163,9 +153,16 @@ function(add_arrow_acero_test REL_TEST_NAME)
     set(LABELS "arrow_acero")
   endif()
 
+  # arrow_compute_testing_main registers the extra kernels.
+  set(EXTRA_LINK_LIBS arrow_acero_testing arrow_compute_testing_main)
+  # Only for hash_aggregate_test.cc.
+  if(ARROW_USE_BOOST)
+    list(APPEND EXTRA_LINK_LIBS Boost::headers)
+  endif()
+
   add_arrow_test(${REL_TEST_NAME}
                  EXTRA_LINK_LIBS
-                 ${ARROW_ACERO_TEST_LINK_LIBS}
+                 ${EXTRA_LINK_LIBS}
                  PREFIX
                  ${PREFIX}
                  LABELS
@@ -214,11 +211,7 @@ function(add_arrow_acero_benchmark REL_BENCHMARK_NAME)
     set(LABELS "arrow_acero")
   endif()
 
-  if(ARROW_TEST_LINKAGE STREQUAL "static")
-    set(EXTRA_LINK_LIBS arrow_acero_static ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS})
-  else()
-    set(EXTRA_LINK_LIBS arrow_acero_shared ${ARROW_ACERO_BENCHMARKS_TEST_LINK_LIBS})
-  endif()
+  set(EXTRA_LINK_LIBS arrow_acero_testing)
   if(ARG_EXTRA_LINK_LIBS)
     list(APPEND EXTRA_LINK_LIBS ${ARG_EXTRA_LINK_LIBS})
   endif()

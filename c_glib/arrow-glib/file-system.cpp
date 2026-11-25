@@ -17,6 +17,10 @@
  * under the License.
  */
 
+#include <string>
+
+#include <gio/gio.h>
+
 #include <arrow-glib/enums.h>
 
 #include <arrow-glib/error.hpp>
@@ -545,6 +549,37 @@ garrow_file_selector_class_init(GArrowFileSelectorClass *klass)
 
 /* arrow::fs::FileSystem */
 
+static const gchar garrow_file_system_extension_point_name[] = "arrow-file-system";
+
+static GIOExtensionPoint *
+garrow_file_system_get_extension_point(void)
+{
+  static auto extension_point = [] {
+    auto point = g_io_extension_point_register(garrow_file_system_extension_point_name);
+    g_io_extension_point_set_required_type(point, GARROW_TYPE_FILE_SYSTEM);
+    const struct
+    {
+      const gchar *name;
+      GType gtype;
+    } builtins[] = {
+      {"local", GARROW_TYPE_LOCAL_FILE_SYSTEM},
+      {"hdfs", GARROW_TYPE_HDFS_FILE_SYSTEM},
+      {"s3", GARROW_TYPE_S3_FILE_SYSTEM},
+      {"gcs", GARROW_TYPE_GCS_FILE_SYSTEM},
+      {"abfs", GARROW_TYPE_AZURE_FILE_SYSTEM},
+      {"mock", GARROW_TYPE_MOCK_FILE_SYSTEM},
+    };
+    for (const auto &builtin : builtins) {
+      g_io_extension_point_implement(garrow_file_system_extension_point_name,
+                                     builtin.gtype,
+                                     builtin.name,
+                                     0);
+    }
+    return point;
+  }();
+  return extension_point;
+}
+
 typedef struct GArrowFileSystemPrivate_
 {
   std::shared_ptr<arrow::fs::FileSystem> file_system;
@@ -612,6 +647,80 @@ garrow_file_system_class_init(GArrowFileSystemClass *klass)
     "The raw std::shared<arrow::fs::FileSystem> *",
     static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_FILE_SYSTEM, spec);
+}
+
+/**
+ * garrow_file_system_register_type:
+ * @type_name: A non-empty Arrow C++ file system type name.
+ * @gtype: A non-abstract #GArrowFileSystem type.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Registers @gtype as the GLib wrapper type for @type_name. The type name
+ * is copied and the registration lasts for the lifetime of the process.
+ * Built-in file system wrapper types are registered automatically.
+ * Registering a name that is already registered is an error.
+ * Each wrapper type can be registered under only one name.
+ *
+ * Registration must be completed sequentially during initialization,
+ * before concurrent file system wrapper lookups begin. This function is
+ * not thread-safe. The same restriction applies to registration directly
+ * through GIO's `arrow-file-system` extension point, including any
+ * registration triggered by GIO module loading.
+ *
+ * Returns: %TRUE on success, %FALSE on error.
+ *
+ * Since: 27.0.0
+ */
+gboolean
+garrow_file_system_register_type(const gchar *type_name, GType gtype, GError **error)
+{
+  const gchar *context = "[file-system][register-type]";
+  if (!type_name || !*type_name) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "%s type name must not be NULL or empty",
+                context);
+    return FALSE;
+  }
+  if (!g_type_is_a(gtype, GARROW_TYPE_FILE_SYSTEM) || G_TYPE_IS_ABSTRACT(gtype)) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "%s GType must be a non-abstract GArrowFileSystem type",
+                context);
+    return FALSE;
+  }
+
+  auto extension_point = garrow_file_system_get_extension_point();
+  const auto duplicate =
+    g_io_extension_point_get_extension_by_name(extension_point, type_name) != NULL;
+  GIOExtension *extension = NULL;
+  if (!duplicate) {
+    extension = g_io_extension_point_implement(garrow_file_system_extension_point_name,
+                                               gtype,
+                                               type_name,
+                                               0);
+  }
+  if (duplicate) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_KEY,
+                "%s file system type is already registered: %s",
+                context,
+                type_name);
+    return FALSE;
+  }
+  if (g_strcmp0(g_io_extension_get_name(extension), type_name) != 0) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_KEY,
+                "%s wrapper type is already registered under another name: %s",
+                context,
+                g_io_extension_get_name(extension));
+    return FALSE;
+  }
+  return TRUE;
 }
 
 /**
@@ -1598,18 +1707,11 @@ garrow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_sy
   const auto &type_name = (*arrow_file_system)->type_name();
 
   GType file_system_type = GARROW_TYPE_FILE_SYSTEM;
-  if (type_name == "local") {
-    file_system_type = GARROW_TYPE_LOCAL_FILE_SYSTEM;
-  } else if (type_name == "hdfs") {
-    file_system_type = GARROW_TYPE_HDFS_FILE_SYSTEM;
-  } else if (type_name == "s3") {
-    file_system_type = GARROW_TYPE_S3_FILE_SYSTEM;
-  } else if (type_name == "gcs") {
-    file_system_type = GARROW_TYPE_GCS_FILE_SYSTEM;
-  } else if (type_name == "abfs") {
-    file_system_type = GARROW_TYPE_AZURE_FILE_SYSTEM;
-  } else if (type_name == "mock") {
-    file_system_type = GARROW_TYPE_MOCK_FILE_SYSTEM;
+  auto extension_point = garrow_file_system_get_extension_point();
+  auto extension =
+    g_io_extension_point_get_extension_by_name(extension_point, type_name.c_str());
+  if (extension) {
+    file_system_type = g_io_extension_get_type(extension);
   }
 
   return GARROW_FILE_SYSTEM(
