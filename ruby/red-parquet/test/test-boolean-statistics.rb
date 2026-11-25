@@ -29,9 +29,7 @@ class TestBooleanStatistics < Test::Unit::TestCase
         @statistics =
           reader.metadata.get_row_group(0).get_column_chunk(0).statistics
         yield
-        @statistics = nil
       end
-      GC.start # Ensure freeing @statistics that refers file.path.
     end
   end
 

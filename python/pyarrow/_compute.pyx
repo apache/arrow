@@ -1473,7 +1473,7 @@ class InversePermutationOptions(_InversePermutationOptions):
     output_type : DataType, default None
         The data type for the output array of inverse permutation.
         If None, the output will be of the same type as the input indices, otherwise
-        must be a signed integer type. An invalid error will be reported if this type
+        must be an integer type. An invalid error will be reported if this type
         is not able to store the length of the input indices.
     """
 
@@ -2686,7 +2686,7 @@ cdef class Expression(_Weakrefable):
     cdef inline CExpression unwrap(self):
         return self.expr
 
-    def equals(self, Expression other):
+    def equals(self, Expression other not None):
         """
         Parameters
         ----------

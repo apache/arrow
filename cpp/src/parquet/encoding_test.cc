@@ -32,6 +32,7 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/cast.h"
+#include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -1907,6 +1908,94 @@ TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
   }
 }
 
+TYPED_TEST(TestDeltaBitPackEncoding, SingleValueSkipsMiniblockAllocation) {
+  using T = typename TypeParam::c_type;
+
+  // Header: 2^25 values per block, 2^20 miniblocks, 1 value, and first value 0.
+  const std::vector<uint8_t> encoded = {0x80, 0x80, 0x80, 0x10, 0x80,
+                                        0x80, 0x40, 0x01, 0x00};
+  ::arrow::ProxyMemoryPool pool(default_memory_pool());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED,
+                                             this->descr_.get(), &pool);
+  T decoded = 1;
+
+  decoder->SetData(1, encoded.data(), static_cast<int>(encoded.size()));
+  ASSERT_EQ(decoder->Decode(&decoded, 1), 1);
+  EXPECT_EQ(decoded, 0);
+  EXPECT_EQ(pool.total_bytes_allocated(), 0);
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, RejectsMiniblockWidthsLargerThanInput) {
+  using T = typename TypeParam::c_type;
+
+  // Header: 2^25 values per block, 2^20 miniblocks, 2 values, and first value 0,
+  // followed by min delta 0 and no miniblock bit widths.
+  const std::vector<uint8_t> encoded = {0x80, 0x80, 0x80, 0x10, 0x80,
+                                        0x80, 0x40, 0x02, 0x00, 0x00};
+  ::arrow::ProxyMemoryPool pool(default_memory_pool());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED,
+                                             this->descr_.get(), &pool);
+  std::vector<T> decoded(2);
+
+  EXPECT_THROW_THAT(
+      [&] {
+        decoder->SetData(2, encoded.data(), static_cast<int>(encoded.size()));
+        decoder->Decode(decoded.data(), static_cast<int>(decoded.size()));
+      },
+      ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr("the required number of miniblock bit widths "
+                               "(1048576) exceeds the number of bytes remaining "
+                               "in the data (1)")));
+  EXPECT_EQ(pool.total_bytes_allocated(), 0);
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, RejectsInsufficientBitWidthsAcrossBlocks) {
+  using T = typename TypeParam::c_type;
+
+  // Header: 128 values per block, 1 miniblock, 130 values, and first value 0.
+  const std::vector<uint8_t> encoded = {0x80, 0x01, 0x01, 0x82, 0x01, 0x00, 0x00};
+  ::arrow::ProxyMemoryPool pool(default_memory_pool());
+  auto decoder = MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED,
+                                             this->descr_.get(), &pool);
+  std::vector<T> decoded(130);
+
+  EXPECT_THROW_THAT(
+      [&] {
+        decoder->SetData(static_cast<int>(decoded.size()), encoded.data(),
+                         static_cast<int>(encoded.size()));
+        decoder->Decode(decoded.data(), static_cast<int>(decoded.size()));
+      },
+      ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr("the required number of miniblock bit widths (2) "
+                               "exceeds the number of bytes remaining in the "
+                               "data (1)")));
+  EXPECT_EQ(pool.total_bytes_allocated(), 0);
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, RejectsMissingBitWidthAfterMultiByteMinDelta) {
+  using T = typename TypeParam::c_type;
+
+  // Header: 128 values per block, 1 miniblock, 2 values, and first value 0,
+  // followed by a two-byte min delta and no miniblock bit-width byte.
+  const std::vector<uint8_t> encoded = {0x80, 0x01, 0x01, 0x02, 0x00, 0x80, 0x01};
+  auto decoder =
+      MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED, this->descr_.get());
+  std::vector<T> decoded(2);
+
+  EXPECT_THROW_THAT(
+      [&] {
+        decoder->SetData(2, encoded.data(), static_cast<int>(encoded.size()));
+        decoder->Decode(decoded.data(), static_cast<int>(decoded.size()));
+      },
+      ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("Decode bit-width EOF")));
+}
+
 TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
   // GH-14923: depending on the number of encoded values, some of the miniblock
   // bitwidths are actually padding bytes that may take non-conformant values
@@ -2559,9 +2648,11 @@ void TestDeltaByteArrayEncodingDirectPut<FLBAType>::CheckRoundtrip() {
       rag.FixedSizeBinary(/*size=*/0, /*byte_width=*/kByteWidth);
   CheckDirectPut(values);
 
-  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-    values = rag.FixedSizeBinary(kSize + seed, kByteWidth);
-    CheckDirectPut(values);
+  for (double null_probability : {0.0, 0.25}) {
+    for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+      values = rag.FixedSizeBinary(kSize + seed, kByteWidth, null_probability);
+      CheckDirectPut(values);
+    }
   }
 }
 
@@ -2662,6 +2753,34 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([16, 13, 0, 11])");
     const std::string suffix_data = "καλημέρα\xbcηλιέρη\xbbημέρα";
     CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+  }
+}
+
+// A value with an empty suffix at the start of a Decode call must not point into the
+// decoder's last value, which that call overwrites.
+TEST(DeltaByteArrayEncodingAdHoc, FLBAEmptySuffixAtBatchStart) {
+  auto descr = ExampleDescr<FLBAType>();
+  const int type_length = descr->type_length();
+  const std::string a(static_cast<size_t>(type_length), 'a');
+  const std::string b(static_cast<size_t>(type_length), 'b');
+  // Values: a, a, a, b
+  auto buffer =
+      ::arrow::ConcatenateBuffers({DeltaEncode({0, type_length, type_length, 0}),
+                                   DeltaEncode({type_length, 0, 0, type_length}),
+                                   std::make_shared<Buffer>(a + b)})
+          .ValueOrDie();
+
+  auto decoder = MakeTypedDecoder<FLBAType>(Encoding::DELTA_BYTE_ARRAY, descr.get());
+  decoder->SetData(/*num_values=*/4, buffer->data(), static_cast<int>(buffer->size()));
+
+  std::vector<FLBA> out(2);
+  for (const auto& expected : {std::vector{a, a}, std::vector{a, b}}) {
+    ASSERT_EQ(2, decoder->Decode(out.data(), /*max_values=*/2));
+    for (int i = 0; i < 2; ++i) {
+      ASSERT_EQ(expected[i],
+                std::string(reinterpret_cast<const char*>(out[i].ptr), type_length))
+          << "value " << i;
+    }
   }
 }
 

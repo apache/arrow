@@ -14,25 +14,5 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#pragma once
 
-#include <algorithm>
-#include <cstdint>
-
-#include "parquet/platform.h"
-
-namespace parquet::internal {
-
-/// Builds a  bitmap where each set bit indicates the corresponding level is greater
-/// than rhs.
-uint64_t PARQUET_EXPORT GreaterThanBitmap(const int16_t* levels, int64_t num_levels,
-                                          int16_t rhs);
-
-struct MinMax {
-  int16_t min;
-  int16_t max;
-};
-
-MinMax PARQUET_EXPORT FindMinMax(const int16_t* levels, int64_t num_levels);
-
-}  // namespace parquet::internal
+#include "arrow/filesystem/filesystem_library.h"

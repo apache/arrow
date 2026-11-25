@@ -494,7 +494,7 @@ The build system supports a number of third-party dependencies
   * ``BZip2``: for data compression
   * ``c-ares``: a dependency of gRPC
   * ``gflags``: for command line utilities (formerly Googleflags)
-  * ``GLOG``: for logging
+  * ``GLOG``: for logging (deprecated)
   * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires
     system cURL and can use the ``BUNDLED`` method described below
   * ``gRPC``: for remote procedure calls
@@ -581,6 +581,10 @@ internet.
 To enable offline builds, you can download the source artifacts yourself and
 use environment variables of the form ``ARROW_$LIBRARY_URL`` to direct the
 build system to read from a local file rather than accessing the internet.
+Each archive is checked against the SHA256 checksum in
+``thirdparty/versions.txt``; if you use an archive that differs from the
+upstream one, you can set the matching ``ARROW_$LIBRARY_BUILD_SHA256_CHECKSUM``
+environment variable to its checksum.
 
 To make this easier for you, we have prepared a script
 ``thirdparty/download_dependencies.sh`` which will download the correct version
@@ -600,7 +604,7 @@ downloading them (one for each build dir!).
 Statically Linking
 ------------------
 
-When ``-DARROW_BUILD_STATIC=ON``, all build dependencies built as static
+When ``-DARROW_BUILD_STATIC=ON``, core build dependencies built as static
 libraries by the Arrow build system will be merged together to create a static
 library ``arrow_bundled_dependencies``. In UNIX-like environments (Linux, macOS,
 MinGW), this is called ``libarrow_bundled_dependencies.a`` and on Windows with
@@ -613,6 +617,14 @@ systems, you may need to explicitly link to the dependency bundle. We created
 an `example CMake-based build configuration
 <https://github.com/apache/arrow/tree/main/cpp/examples/minimal_build>`_ to
 show you a working example.
+
+With ``-DARROW_GCS=ON``, a bundled google-cloud-cpp goes into a separate
+``arrow_gcs_bundled_dependencies`` library. The ``ArrowGcs::arrow_gcs_static``
+CMake target includes it automatically, otherwise link it right after ``arrow_gcs``.
+
+With ``-DARROW_AZURE=ON``, a bundled Azure SDK for C++ goes into a separate
+``arrow_azure_bundled_dependencies`` library. The ``ArrowAzure::arrow_azure_static``
+CMake target includes it automatically, otherwise link it right after ``arrow_azure``.
 
 On Linux and macOS, if your application does not link to the ``pthread``
 library already, you must include ``-pthread`` in your linker setup. In CMake

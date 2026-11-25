@@ -34,6 +34,7 @@
 #include "arrow/util/secure_string.h"
 
 #include "parquet/encryption/encryption.h"
+#include "parquet/properties.h"
 #include "parquet/test_util.h"
 
 namespace parquet {
@@ -102,6 +103,11 @@ class FileEncryptor {
  public:
   FileEncryptor();
 
+  // Create a FileEncryptor that writes files with the same layout as the encrypted
+  // files in the parquet-testing repository (a single row group, Snappy compression
+  // and RLE encoding for the boolean column).
+  static FileEncryptor ForParquetTestingFiles();
+
   void EncryptFile(
       std::string file,
       std::shared_ptr<parquet::FileEncryptionProperties> encryption_configurations);
@@ -111,6 +117,9 @@ class FileEncryptor {
 
   int num_rowgroups_ = 5;
   int rows_per_rowgroup_ = 50;
+  Compression::type compression_ = Compression::UNCOMPRESSED;
+  ParquetVersion::type parquet_version_ = ParquetVersion::PARQUET_2_LATEST;
+  bool rle_encode_boolean_ = false;
   std::shared_ptr<schema::GroupNode> schema_;
 };
 

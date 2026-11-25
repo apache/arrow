@@ -17,16 +17,11 @@
 
 #include <array>
 
-#include "parquet/level_comparison.h"
-
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-#  include "parquet/level_comparison_avx2_internal.h"
-#endif
-
+#include "parquet/level_comparison_internal.h"
 #include "parquet/level_comparison_simd_internal.h"
 
 #define PARQUET_IMPL_NAMESPACE standard
-#include "parquet/level_comparison_inc.h"
+#include "parquet/level_comparison_inc_internal.h"
 #undef PARQUET_IMPL_NAMESPACE
 
 #include "arrow/util/dispatch_internal.h"
@@ -45,6 +40,8 @@ struct GreaterThanDynamicFunction {
   static constexpr auto targets() {
     return std::array{
         ARROW_DISPATCH_TARGET_NONE(&standard::GreaterThanBitmapImpl)  //
+        ARROW_DISPATCH_TARGET_NEON(&GreaterThanBitmapNeon)            //
+        ARROW_DISPATCH_TARGET_SSE4_2(&GreaterThanBitmapSse42)         //
         ARROW_DISPATCH_TARGET_AVX2(&GreaterThanBitmapAvx2)            //
     };
   }

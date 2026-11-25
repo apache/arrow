@@ -428,7 +428,7 @@ Status CheckOptions(KernelContext* ctx) {
   return Status::OK();
 }
 
-template <typename OutTypeUnused, typename InType>
+template <typename InType>
 struct ModeExecutor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     RETURN_NOT_OK(CheckOptions(ctx));
@@ -436,7 +436,7 @@ struct ModeExecutor {
   }
 };
 
-template <typename OutTypeUnused, typename InType>
+template <typename InType>
 struct ModeExecutorChunked {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     RETURN_NOT_OK(CheckOptions(ctx));
@@ -491,21 +491,20 @@ void RegisterScalarAggregateMode(FunctionRegistry* registry) {
   static auto default_options = ModeOptions::Defaults();
   auto func = std::make_shared<VectorFunction>("mode", Arity::Unary(), mode_doc,
                                                &default_options);
-  DCHECK_OK(func->AddKernel(
-      NewModeKernel(boolean(), ModeExecutor<StructType, BooleanType>::Exec,
-                    ModeExecutorChunked<StructType, BooleanType>::Exec)));
+  DCHECK_OK(func->AddKernel(NewModeKernel(boolean(), ModeExecutor<BooleanType>::Exec,
+                                          ModeExecutorChunked<BooleanType>::Exec)));
   for (const auto& type : NumericTypes()) {
-    DCHECK_OK(func->AddKernel(
-        NewModeKernel(type, GenerateNumeric<ModeExecutor, StructType>(*type),
-                      GenerateNumeric<ModeExecutorChunked, StructType>(*type))));
+    DCHECK_OK(
+        func->AddKernel(NewModeKernel(type, GenerateNumeric<ModeExecutor>(*type),
+                                      GenerateNumeric<ModeExecutorChunked>(*type))));
   }
   // Type parameters are ignored
-  DCHECK_OK(func->AddKernel(
-      NewModeKernel(decimal128(1, 0), ModeExecutor<StructType, Decimal128Type>::Exec,
-                    ModeExecutorChunked<StructType, Decimal128Type>::Exec)));
-  DCHECK_OK(func->AddKernel(
-      NewModeKernel(decimal256(1, 0), ModeExecutor<StructType, Decimal256Type>::Exec,
-                    ModeExecutorChunked<StructType, Decimal256Type>::Exec)));
+  DCHECK_OK(
+      func->AddKernel(NewModeKernel(decimal128(1, 0), ModeExecutor<Decimal128Type>::Exec,
+                                    ModeExecutorChunked<Decimal128Type>::Exec)));
+  DCHECK_OK(
+      func->AddKernel(NewModeKernel(decimal256(1, 0), ModeExecutor<Decimal256Type>::Exec,
+                                    ModeExecutorChunked<Decimal256Type>::Exec)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

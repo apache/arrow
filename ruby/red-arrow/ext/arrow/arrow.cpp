@@ -45,11 +45,24 @@ namespace red_arrow {
   }
 
   void
+  chunked_array_mark(gpointer object)
+  {
+    auto chunked_array = GARROW_CHUNKED_ARRAY(object);
+    auto n_chunks = garrow_chunked_array_get_n_chunks(chunked_array);
+    for (guint i = 0; i < n_chunks; ++i) {
+      auto chunk = garrow_chunked_array_peek_chunk(chunked_array, i);
+      if (chunk) {
+        rbgobj_gc_mark_instance(chunk);
+      }
+    }
+  }
+
+  void
   record_batch_reader_mark(gpointer object)
   {
     auto reader = GARROW_RECORD_BATCH_READER(object);
     auto sources = garrow_record_batch_reader_get_sources(reader);
-    for (auto source = sources; sources; sources = g_list_next(sources)) {
+    for (auto source = sources; source; source = g_list_next(source)) {
       rbgobj_gc_mark_instance(source->data);
     }
   }
@@ -150,6 +163,8 @@ extern "C" void Init_arrow() {
   red_arrow::symbols::month = ID2SYM(rb_intern("month"));
   red_arrow::symbols::nanosecond = ID2SYM(rb_intern("nanosecond"));
 
+  rbgobj_register_mark_func(GARROW_TYPE_CHUNKED_ARRAY,
+                            red_arrow::chunked_array_mark);
   rbgobj_register_mark_func(GARROW_TYPE_RECORD_BATCH_READER,
                             red_arrow::record_batch_reader_mark);
   rbgobj_register_mark_func(GARROW_TYPE_EXECUTE_PLAN,

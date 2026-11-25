@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from datetime import date, timedelta
+from unittest import mock
+
 from click.testing import CliRunner
 import pytest
 
@@ -41,3 +44,26 @@ def test_crossbow_submit(tmp_path):
 
     result = invoke('submit', '--no-fetch', '--no-push', '-g', 'wheel')
     assert result.exit_code == 0
+
+
+def test_crossbow_notify_token_expiration(monkeypatch):
+    # The report carries the From/To headers, so the sender and recipient
+    # options have to reach it: send_email() only passes the rendered message
+    # on to smtplib. Dropping them left this command raising before it ever
+    # built a message.
+    queue = mock.MagicMock()
+    queue.token_expiration_date.return_value = date.today() + timedelta(days=7)
+    monkeypatch.setattr('archery.crossbow.cli.Queue',
+                        mock.MagicMock(return_value=queue))
+    monkeypatch.setattr('archery.crossbow.cli.Repo', mock.MagicMock())
+
+    result = CliRunner().invoke(crossbow, [
+        'notify-token-expiration',
+        '--sender-name', 'Crossbow Reporter',
+        '--sender-email', 'sender@arrow.apache.org',
+        '--recipient-email', 'recipient@arrow.apache.org',
+    ])
+
+    assert result.exit_code == 0, result.exception
+    assert 'From: Crossbow Reporter <sender@arrow.apache.org>' in result.output
+    assert 'To: recipient@arrow.apache.org' in result.output

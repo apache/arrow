@@ -396,6 +396,12 @@ def test_filesystem_dataset(mockfs):
     # validation of required arguments
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(fragments, file_format, schema)
+    with pytest.raises(TypeError, match="Fragment must not be None"):
+        ds.FileSystemDataset([None], schema=schema, format=file_format)
+    with pytest.raises(TypeError, match="Argument 'schema' has incorrect type"):
+        ds.FileSystemDataset(fragments, schema=None, format=file_format)
+    with pytest.raises(TypeError, match="Argument 'format' has incorrect type"):
+        ds.FileSystemDataset(fragments, schema=schema, format=None)
     # validation of root_partition
     with pytest.raises(TypeError, match="incorrect type"):
         ds.FileSystemDataset(fragments, schema=schema,
@@ -853,8 +859,8 @@ def test_partitioning_pickling(pickle_module):
     "flavor, expected_defined_partition, expected_undefined_partition",
     [
         ("HivePartitioning", (r"foo=A/bar=ant%20bee", ""), ("", "")),
-        ("DirectoryPartitioning", (r"A/ant bee", ""), ("", "")),
-        ("FilenamePartitioning", ("", r"A_ant bee_"), ("", "_")),
+        ("DirectoryPartitioning", (r"A/ant%20bee", ""), ("", "")),
+        ("FilenamePartitioning", ("", r"A_ant%20bee_"), ("", "_")),
     ],
 )
 def test_dataset_partitioning_format(
@@ -945,6 +951,9 @@ def test_partition_keys():
 
     null = ds.field('a').is_null()
     assert ds.get_partition_keys(null) == {'a': None}
+
+    with pytest.raises(TypeError, match="Argument 'partition_expression'"):
+        ds.get_partition_keys(None)
 
 
 @pytest.mark.parquet
@@ -3433,41 +3442,6 @@ def test_orc_format(tempdir, dataset_reader):
 
 
 @pytest.mark.orc
-@pytest.mark.parametrize('literal_first', [True, False])
-@pytest.mark.parametrize('in_memory', [True, False])
-@pytest.mark.parametrize('empty', [True, False])
-def test_orc_dotted_field_identity(
-        tempdir, dataset_reader, literal_first, in_memory, empty):
-    from pyarrow import orc
-    table = pa.table({'a.b': [1, 2, None],
-                      'a': [{'b': 10}, None, {'b': 30}],
-                      'other': [101, 102, 103]})
-    if not literal_first:
-        table = table.select(['a', 'a.b', 'other'])
-    if empty:
-        table = table.slice(0, 0)
-    output = pa.BufferOutputStream() if in_memory else str(tempdir / 'dotted.orc')
-    orc.write_table(table, output)
-    dataset = (
-        ds.OrcFileFormat().make_fragment(pa.BufferReader(output.getvalue()))
-        if in_memory else ds.dataset(output, format='orc'))
-
-    assert dataset_reader.to_table(dataset).equals(table)
-    projected = dataset_reader.to_table(dataset, columns=['a.b'], batch_size=1)
-    assert projected.equals(table.select(['a.b']))
-    assert all(len(chunk) <= 1 for chunk in projected['a.b'].chunks)
-    predicate = ds.field('a.b') > 1
-    assert dataset_reader.to_table(
-        dataset, columns=['other'], filter=predicate).equals(
-            table.filter(predicate).select(['other']))
-    columns = {'literal': ds.field('a.b'), 'nested': ds.field(('a', 'b'))}
-    expected = pa.table({'literal': [1, 2, None],
-                         'nested': [10, None, 30]}).slice(0, table.num_rows)
-    assert dataset_reader.to_table(dataset, columns=columns).equals(expected)
-    assert dataset_reader.to_table(dataset, columns=[]).num_rows == table.num_rows
-
-
-@pytest.mark.orc
 @pytest.mark.parametrize('nested', [False, True])
 @pytest.mark.parametrize('use_filter', [False, True])
 def test_orc_positional_field_identity(tempdir, dataset_reader, nested, use_filter):
@@ -3495,10 +3469,53 @@ def test_orc_duplicate_field_positional_projection(dataset_reader):
     sink = pa.BufferOutputStream()
     orc.write_table(table, sink)
     fragment = ds.OrcFileFormat().make_fragment(pa.BufferReader(sink.getvalue()))
-    for index in range(2):
+    actual = dataset_reader.to_table(
+        fragment, schema=table.schema, columns={'selected': ds.field(0)})
+    assert actual.equals(table.select([0]).rename_columns(['selected']))
+
+
+@pytest.fixture
+def orc_duplicate_schema_fragment():
+    from pyarrow import orc
+    table = pa.Table.from_arrays([[101, 102], [1, 2], [3, 4]],
+                                 names=['x', 'f', 'f'])
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    return table.schema, ds.OrcFileFormat().make_fragment(
+        pa.BufferReader(sink.getvalue()))
+
+
+@pytest.mark.orc
+@pytest.mark.parametrize('use_filter', [False, True])
+def test_orc_duplicate_last_position_schema_change(
+        dataset_reader, orc_duplicate_schema_fragment, use_filter):
+    physical, fragment = orc_duplicate_schema_fragment
+    schema = pa.schema([physical.field(1), physical.field(0), physical.field(2)])
+    reference = ds.field(2)
+    if use_filter:
         actual = dataset_reader.to_table(
-            fragment, schema=table.schema, columns={'selected': ds.field(index)})
-        assert actual.equals(table.select([index]).rename_columns(['selected']))
+            fragment, schema=schema, columns=['x'], filter=reference > 3)
+        expected = pa.table({'x': pa.array([102], type=schema.field('x').type)})
+    else:
+        actual = dataset_reader.to_table(
+            fragment, schema=schema, columns={'selected': reference})
+        expected = pa.table({'selected': [3, 4]})
+    assert actual.equals(expected)
+
+
+@pytest.mark.orc
+@pytest.mark.parametrize(('names', 'index'), [
+    pytest.param(['x', 'y', 'f', 'f'], 2, id='logical-position'),
+    pytest.param(['f', 'f', 'x'], 1, id='physical-position'),
+    pytest.param(['f', 'f', 'f'], 2, id='different-count'),
+])
+def test_orc_duplicate_position_ambiguous_schema(
+        dataset_reader, orc_duplicate_schema_fragment, names, index):
+    _, fragment = orc_duplicate_schema_fragment
+    schema = pa.schema([pa.field(name, pa.int64()) for name in names])
+    with pytest.raises(pa.ArrowInvalid, match='Multiple matches'):
+        dataset_reader.to_table(
+            fragment, schema=schema, columns={'selected': ds.field(index)})
 
 
 @pytest.mark.orc
@@ -3510,13 +3527,19 @@ def test_orc_dotted_field_schema_evolution(tempdir, dataset_reader):
         path = str(tempdir / f'part{i}.orc')
         orc.write_table(table.select(columns), path)
         paths.append(path)
-    dataset = ds.dataset(paths, format='orc', schema=table.schema)
+    dataset = ds.dataset(paths, format='orc')
     missing = table.set_column(0, table.schema.field(0), pa.nulls(2, pa.int64()))
     expected = pa.concat_tables([table, table, missing])
     assert dataset_reader.to_table(dataset).equals(expected)
-    assert dataset_reader.to_table(
-        dataset, columns=['a.b'], filter=ds.field('a.b') > 1).equals(
-            pa.table({'a.b': [2, 2]}))
+    predicate = ds.field('a.b') > 1
+    assert dataset_reader.to_table(dataset, columns=['a'], filter=predicate).equals(
+        expected.filter(predicate).select(['a']))
+    columns = {'literal': ds.field('a.b'), 'nested': ds.field(('a', 'b'))}
+    projected = pa.table({'literal': expected['a.b'],
+                          'nested': expected['a'].flatten()[0]})
+    actual = dataset_reader.to_table(dataset, columns=columns, batch_size=1)
+    assert actual.equals(projected)
+    assert all(len(chunk) <= 1 for chunk in actual['literal'].chunks)
 
 
 @pytest.mark.orc
@@ -5705,8 +5728,148 @@ def test_union_dataset_filter(tempdir, dstype):
     filtered_ds1 = ds1.filter(pc.field("colA") < 3)
     filtered_ds2 = ds2.filter(pc.field("colA") < 10)
 
-    with pytest.raises(ValueError, match="currently not supported"):
-        ds.dataset((filtered_ds1, filtered_ds2))
+    union_of_filtered = ds.dataset((filtered_ds1, filtered_ds2))
+    assert union_of_filtered.to_table() == pa.table({
+        "colA": [1, 2, 9],
+        "col2": ["a", "b", "h"]
+    })
+    assert union_of_filtered.count_rows() == 3
+    assert union_of_filtered.filter(pc.field("col2") != "a").to_table() == pa.table({
+        "colA": [2, 9],
+        "col2": ["b", "h"]
+    })
+    assert all(isinstance(child, ds.FilteredDataset)
+               for child in union_of_filtered.children)
+
+    # Each child keeps its own filter, even where they overlap or select nulls.
+    t3 = pa.table({"colA": [1, None, 9], "col2": ["x", "y", "z"]})
+    union_of_filtered = ds.dataset([
+        ds.dataset(t3).filter(pc.field("colA") < 3),
+        ds.dataset(t3).filter(pc.field("colA") > 3),
+        ds.dataset(t3).filter(pc.field("colA").is_null()),
+    ])
+    assert union_of_filtered.to_table() == pa.table({
+        "colA": [1, 9, None],
+        "col2": ["x", "z", "y"]
+    })
+
+    # A UnionDataset constructed directly from filtered children also works:
+    union_of_filtered_direct = ds.UnionDataset(ds1.schema, [filtered_ds1, filtered_ds2])
+    assert union_of_filtered_direct.to_table() == pa.table({
+        "colA": [1, 2, 9],
+        "col2": ["a", "b", "h"]
+    })
+    assert all(isinstance(child, ds.FilteredDataset)
+               for child in union_of_filtered_direct.children)
+
+
+def test_union_dataset_filter_positional_field_ref():
+    # A positional field reference keeps referring to the same column
+    # when the union reorders the columns.
+    child = ds.dataset(pa.table({"x": [0, 1], "y": [1, 0]}))
+    reordered = pa.schema([("y", pa.int64()), ("x", pa.int64())])
+    union = ds.dataset([child.filter(pc.field(0) == 1)], schema=reordered)
+    assert union.to_table().to_pylist() == [{"y": 0, "x": 1}]
+
+
+@pytest.mark.parquet
+def test_filtered_dataset(tempdir, pickle_module):
+    table = pa.table({"part": [1, 1, 2, 2], "value": [1, 2, 3, 4]})
+    ds.write_dataset(table, tempdir, format="parquet", partitioning=["part"])
+    dataset = ds.dataset(tempdir, format="parquet", partitioning=["part"])
+
+    filtered = ds.FilteredDataset(dataset, pc.field("value") > 1)
+    assert filtered.filter_expression.equals(pc.field("value") > 1)
+    assert filtered.child.to_table().num_rows == 4
+    assert filtered.to_table().sort_by("value")["value"].to_pylist() == [2, 3, 4]
+    assert filtered.count_rows() == 3
+
+    # The __filename field holds the paths of the underlying files.
+    filenames = filtered.to_table(columns=["__filename"])["__filename"]
+    assert set(filenames.to_pylist()) == {f.path for f in dataset.get_fragments()}
+
+    # The inherited Dataset.filter method applies a further filter.
+    refiltered = filtered.filter(pc.field("value") < 4)
+    assert refiltered.to_table().sort_by("value")["value"].to_pylist() == [2, 3]
+
+    # Fragments that cannot match the filter are pruned.
+    on_part = ds.FilteredDataset(dataset, pc.field("part") == 2)
+    assert len(list(on_part.get_fragments())) == 1
+    assert on_part.to_table()["value"].to_pylist() == [3, 4]
+
+    # Fragments can be scanned without a schema,
+    # in which case partition fields are excluded from the returned batches.
+    (fragment,) = on_part.get_fragments()
+    assert fragment.to_table().to_pylist() == [{"value": 3}, {"value": 4}]
+    assert fragment.count_rows() == 2
+    on_part_and_value = ds.FilteredDataset(
+        dataset, (pc.field("part") == 2) & (pc.field("value") > 3))
+    (fragment,) = on_part_and_value.get_fragments()
+    assert fragment.to_table().to_pylist() == [{"value": 4}]
+    assert fragment.count_rows() == 1
+
+    # The wrapped fragment and the simplified filter are accessible.
+    assert isinstance(fragment, ds.FilteredFragment)
+    assert isinstance(fragment.fragment, ds.ParquetFileFragment)
+    assert pathlib.Path(fragment.fragment.path).parent == tempdir / "2"
+    assert fragment.fragment.to_table()["value"].to_pylist() == [3, 4]
+    # The filter is bound, so compare string representations
+    assert str(fragment.filter_expression) == str(pc.field("value") > 3)
+    assert fragment.partition_expression.equals(
+        fragment.fragment.partition_expression)
+
+    # A lazy filter on the child is folded into the FilteredDataset's filter.
+    combined = ds.FilteredDataset(dataset.filter(pc.field("value") < 4),
+                                  pc.field("value") > 1)
+    assert combined.to_table().sort_by("value")["value"].to_pylist() == [2, 3]
+
+    assert pickle_module.loads(
+        pickle_module.dumps(filtered)).to_table().num_rows == 3
+
+    # A filter applied with Dataset.filter() is kept when pickling.
+    restored = pickle_module.loads(pickle_module.dumps(refiltered))
+    assert restored.filter_expression.equals(pc.field("value") > 1)
+    assert restored.to_table().sort_by("value")["value"].to_pylist() == [2, 3]
+
+    with pytest.raises(pa.ArrowInvalid):
+        ds.FilteredDataset(dataset, pc.field("missing") > 1)
+    with pytest.raises(TypeError):
+        ds.FilteredDataset(dataset, pc.field("value") + 1)
+
+
+@pytest.mark.parquet
+def test_union_of_filtered_datasets_pushes_down_outer_filter(tempdir):
+    """
+    When scanning a union of filtered datasets with a predicate,
+    both the outer and inner predicates must be applied.
+    """
+    # Write a Hive partitioned dataset with data covering 1000 days,
+    # with 10 rows per day.
+    day = pa.array([i // 10 for i in range(10_000)])
+    for (i, part) in enumerate(["A", "B"]):
+        part_dir = tempdir / f"part={part}"
+        part_dir.mkdir()
+        table = pa.table({
+            "day": day,
+            "v": pc.cast(pc.multiply(day, i + 2), "float64"),
+        })
+        pq.write_table(table, part_dir / "part.parquet", row_group_size=500)
+    base = ds.dataset(tempdir, format="parquet", partitioning="hive")
+
+    low_days = base.filter(pc.field("day") < 300)
+    high_days = base.filter(pc.field("day") >= 700)
+    union = ds.dataset([low_days, high_days])
+    outer_filter = (pc.field("day") >= 250) & (pc.field("day") < 750)
+
+    expected = pa.concat_tables(
+        [low_days.to_table(), high_days.to_table()]).filter(outer_filter)
+    assert expected.num_rows == 2_000
+    result = union.filter(outer_filter)
+    sorting = [
+        ("part", "ascending", "at_end"),
+        ("day", "ascending", "at_end"),
+    ]
+    assert result.to_table().sort_by(sorting).equals(expected.sort_by(sorting))
 
 
 def test_parquet_dataset_filter(tempdir):
@@ -6034,6 +6197,32 @@ def test_write_dataset_content_defined_chunking(tempdir, cdc):
     opts = fmt.make_write_options(use_content_defined_chunking=cdc)
     ds.write_dataset(expected_table, tempdir, format=fmt, file_options=opts)
     assert ds.dataset(tempdir, format=fmt).to_table().equals(expected_table)
+
+
+@pytest.mark.parquet
+def test_parquet_min_compression_savings(tempdir):
+    import pyarrow.parquet as pq
+
+    table = pa.table({
+        "value": pa.array([0.0] * 1000, type=pa.float32())
+    })
+    sizes = []
+
+    for minimum in [0.0, 0.1, 1.0]:
+        directory = tempdir / str(minimum)
+        pq.write_to_dataset(
+            table,
+            directory,
+            compression="snappy",
+            use_dictionary=False,
+            data_page_version="2.0",
+            min_compression_savings=minimum,
+        )
+        result = ds.dataset(directory, format="parquet").to_table()
+        assert result.equals(table)
+        sizes.append(next(directory.iterdir()).stat().st_size)
+
+    assert sizes[-1] > max(sizes[:-1])
 
 
 def test_make_write_options_error():

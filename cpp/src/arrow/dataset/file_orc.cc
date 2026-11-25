@@ -100,7 +100,22 @@ class OrcScanTask {
           if (path.empty()) continue;
           auto file_ref =
               same_schema ? FieldRef(path) : ToUniversalRef(path, dataset_schema);
-          ARROW_ASSIGN_OR_RAISE(auto match, file_ref.FindOneOrNone(*schema));
+          auto maybe_match = file_ref.FindOneOrNone(*schema);
+          if (!maybe_match.ok() && !same_schema && ref.field_path() &&
+              path.indices().size() == 1) {
+            const int index = path.indices()[0];
+            const auto& name = dataset_schema.field(index)->name();
+            const auto logical_indices = dataset_schema.GetAllFieldIndices(name);
+            const auto physical_indices = schema->GetAllFieldIndices(name);
+            // Preserve the legacy selection of the last duplicate at the same position.
+            if (logical_indices.size() > 1 &&
+                logical_indices.size() == physical_indices.size() &&
+                logical_indices.back() == index && physical_indices.back() == index) {
+              included_indices.push_back(index);
+              continue;
+            }
+          }
+          ARROW_ASSIGN_OR_RAISE(auto match, std::move(maybe_match));
           if (match.indices().empty()) continue;
 
           included_indices.push_back(match.indices()[0]);

@@ -17,7 +17,6 @@
 
 #include "parquet/chunker_internal.h"
 
-#include <bit>
 #include <cstdint>
 #include <iterator>
 #include <string>
@@ -87,15 +86,8 @@ uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_
 
   // assuming that the gear hash has a uniform distribution, we can calculate the mask
   // by taking the floor(log2(target_size))
-  // TODO: We can remove this condition once CRAN upgrades its macOS
-  // SDK from 11.3.
-  // __apple_build_version__ should be defined only on Apple clang
-#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
-  auto target_bits = std::log2p1(static_cast<uint64_t>(target_size));
-#else
-  auto target_bits = std::bit_width(static_cast<uint64_t>(target_size));
-#endif
-  int mask_bits = target_bits == 0 ? 0 : static_cast<int>(target_bits - 1);
+  auto target_bits = ::arrow::bit_util::BitWidth(static_cast<uint64_t>(target_size));
+  int mask_bits = target_bits == 0 ? 0 : target_bits - 1;
 
   // a user defined `norm_level` can be used to adjust the mask size, hence the matching
   // probability, by increasing the norm_level we increase the probability of matching
@@ -237,7 +229,8 @@ class ContentDefinedChunker::Impl {
     // chunks must be non-empty and monotonic increasing
     ARROW_DCHECK(!chunks.empty());
 
-    // the first chunk must start at the first level
+    // the first chunk must start at the first level, it may be empty to close the
+    // page left open by the previous call
     auto first_chunk = chunks.front();
     ARROW_DCHECK_EQ(first_chunk.level_offset, 0);
     ARROW_DCHECK_EQ(first_chunk.value_offset, 0);
@@ -334,13 +327,11 @@ class ContentDefinedChunker::Impl {
         }
 
         if (rep_level == 0 && gearhash.NeedNewChunk()) {
-          // if we are at a record boundary and need a new chunk, we create a new chunk
-          auto levels_to_write = offset - prev_offset;
-          if (levels_to_write > 0) {
-            chunks.push_back({prev_offset, prev_value_offset, levels_to_write});
-            prev_offset = offset;
-            prev_value_offset = value_offset;
-          }
+          // if we are at a record boundary and need a new chunk, we create a new chunk,
+          // at offset 0 it is empty and closes the page of the previous call
+          chunks.push_back({prev_offset, prev_value_offset, offset - prev_offset});
+          prev_offset = offset;
+          prev_value_offset = value_offset;
         }
         if (def_level >= level_info_.repeated_ancestor_def_level) {
           // we only increment the value offset if we have a leaf value
