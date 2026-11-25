@@ -164,10 +164,11 @@ class HadoopFileSystem::Impl {
     HdfsPathInfo path_info;
     auto status = GetPathInfoStatus(path, &path_info);
     info.set_path(path);
-    if (status.IsIOError()) {
+    if (status.IsIOError() && ErrnoFromStatus(status) == ENOENT) {
       info.set_type(FileType::NotFound);
       return info;
     }
+    RETURN_NOT_OK(status);
 
     PathInfoToFileInfo(path_info, &info);
     return info;

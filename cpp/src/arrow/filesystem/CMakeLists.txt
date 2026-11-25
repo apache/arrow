@@ -181,5 +181,9 @@ if(ARROW_S3)
 endif()
 
 if(ARROW_HDFS)
-  add_arrow_test(hdfs_test EXTRA_LABELS filesystem)
+  add_arrow_test(hdfs_test
+                 EXTRA_LABELS
+                 filesystem
+                 EXTRA_LINK_LIBS
+                 arrow::hadoop)
 endif()

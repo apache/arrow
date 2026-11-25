@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/filesystem/hdfs.h"
+#include "arrow/filesystem/hdfs_internal.h"
 
 #include <gtest/gtest.h>
 
@@ -204,6 +205,37 @@ class TestHadoopFileSystem : public ::testing::Test, public HadoopFileSystemTest
   if (!this->loaded_driver_) {                     \
     GTEST_SKIP() << "Driver not loaded, skipping"; \
   }
+
+TEST_F(TestHadoopFileSystem, GetFileInfoPropagatesPathErrors) {
+  SKIP_IF_NO_DRIVER();
+
+  internal::LibHdfsShim* shim;
+  ASSERT_OK(internal::ConnectLibHdfs(&shim));
+  auto restore = [path_info = shim->hdfsGetPathInfo,
+                  list = shim->hdfsListDirectory](internal::LibHdfsShim* driver) {
+    driver->hdfsGetPathInfo = path_info;
+    driver->hdfsListDirectory = list;
+  };
+  std::unique_ptr<internal::LibHdfsShim, decltype(restore)> guard(shim, restore);
+  shim->hdfsGetPathInfo = [](hdfsFS, const char*) -> hdfsFileInfo* {
+    errno = EACCES;
+    return nullptr;
+  };
+  shim->hdfsListDirectory = [](hdfsFS, const char*, int*) -> hdfsFileInfo* {
+    errno = EIO;
+    return nullptr;
+  };
+
+  auto single = fs_->GetFileInfo("/injected-error");
+  auto multiple = fs_->GetFileInfo(std::vector<std::string>{"/injected-error"});
+  FileSelector selector;
+  selector.allow_not_found = true;
+  auto selected = fs_->GetFileInfo(selector);
+  for (const auto& status : {single.status(), multiple.status(), selected.status()}) {
+    EXPECT_TRUE(status.IsIOError()) << status;
+    EXPECT_EQ(ErrnoFromStatus(status), EACCES);
+  }
+}
 
 TEST_F(TestHadoopFileSystem, ConnectsAgain) {
   SKIP_IF_NO_DRIVER();
