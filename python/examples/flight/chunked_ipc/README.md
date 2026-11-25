@@ -47,6 +47,9 @@ row fails at the same cap. Binary, string, large binary, large string,
 dictionary replacement, schema/field metadata and zero-batch streams are
 covered. The benchmark accepts `--kind string` and emits JSON lines.
 
+Flight-enabled Unix Python CI runs these tests against its source-built
+PyArrow through `ci/scripts/python_test.sh`.
+
 From this directory, a minimal call looks like:
 
 ```python

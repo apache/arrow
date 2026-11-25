@@ -75,6 +75,13 @@ read -r -a PYTEST_ARGS_ARRAY <<< "$PYTEST_ARGS"
 # Testing PyArrow
 pytest -r s "${PYTEST_ARGS_ARRAY[@]}" --pyargs pyarrow
 
+# Flight examples live outside the installed pyarrow test package.
+case "${PYARROW_TEST_FLIGHT}" in
+  1|[Tt][Rr][Uu][Ee]|[Oo][Nn]|[Yy][Ee][Ss]|[Yy])
+    pytest -r s "${arrow_dir}/python/examples/flight/chunked_ipc/test_chunked_ipc.py"
+    ;;
+esac
+
 # Testing RST documentation examples (if PYTEST_RST_ARGS is set)
 if [ -n "${PYTEST_RST_ARGS}" ]; then
   # Convert the space-separated options into a Bash array.
