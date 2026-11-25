@@ -17,7 +17,17 @@
 
 import builtins
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Literal, Self, SupportsIndex, TypeAlias, overload
+from typing import (
+    Any,
+    ClassVar,
+    Generic,
+    Literal,
+    Self,
+    SupportsIndex,
+    TypeAlias,
+    TypeVar,
+    overload,
+)
 
 import numpy as np
 import pandas as pd
@@ -148,7 +158,7 @@ _NullarySelector: TypeAlias = tuple[()]
 _NarySelector: TypeAlias = list[str] | tuple[str, ...]
 _ColumnSelector: TypeAlias = _UnarySelector | _NullarySelector | _NarySelector
 
-class ChunkedArray(_PandasConvertible):
+class ChunkedArray(_PandasConvertible[pd.Series[Any]]):
     @property
     def type(self) -> DataType: ...
     def length(self) -> int: ...
@@ -246,7 +256,10 @@ def chunked_array(
     type: DataType | str | None = None,
 ) -> ChunkedArray: ...
 
-class _Tabular(_PandasConvertible):
+# Column type of a tabular class: RecordBatch has Array, Table has ChunkedArray
+_ColumnT = TypeVar("_ColumnT", Array, ChunkedArray)
+
+class _Tabular(_PandasConvertible[pd.DataFrame], Generic[_ColumnT]):
     def __array__(
         self, dtype: np.dtype[Any] | None = None, copy: bool | None = None
     ) -> NDArray[Any]: ...
@@ -254,16 +267,16 @@ class _Tabular(_PandasConvertible):
         self, nan_as_null: bool = False, allow_copy: bool = True
     ) -> _PyArrowDataFrame: ...
     @overload
-    def __getitem__(self, key: int | str) -> _ArrayOrChunkedArray: ...
+    def __getitem__(self, key: int | str) -> _ColumnT: ...
     @overload
     def __getitem__(self, key: slice) -> Self: ...
     def __len__(self) -> int: ...
     __hash__: ClassVar[None]  # type: ignore[assignment]
-    def column(self, i: int | str) -> _ArrayOrChunkedArray: ...
+    def column(self, i: int | str) -> _ColumnT: ...
     @property
     def column_names(self) -> list[str]: ...
     @property
-    def columns(self) -> list[Array] | list[ChunkedArray]: ...
+    def columns(self) -> list[_ColumnT]: ...
     def drop_null(self) -> Self: ...
     def field(self, i: int | str) -> Field: ...
     @classmethod
@@ -286,7 +299,7 @@ class _Tabular(_PandasConvertible):
         schema: Schema | None = None,
         metadata: Mapping[str | bytes, str | bytes] | None = None,
     ) -> Self: ...
-    def itercolumns(self) -> Iterator[_ArrayOrChunkedArray]: ...
+    def itercolumns(self) -> Iterator[_ColumnT]: ...
     @property
     def num_columns(self) -> int: ...
     @property
@@ -327,7 +340,7 @@ class _Tabular(_PandasConvertible):
         self, field_: str | Field, column: _ArrayOrChunkedArray | list[list[Any]]
     ) -> Self: ...
 
-class RecordBatch(_Tabular):
+class RecordBatch(_Tabular[Array]):
     def validate(self, *, full: bool = False) -> None: ...
     def replace_schema_metadata(
         self,
@@ -439,7 +452,7 @@ _JoinType: TypeAlias = Literal[
     "full outer",
 ]
 
-class Table(_Tabular):
+class Table(_Tabular[ChunkedArray]):
     def validate(self, *, full: bool = False) -> None: ...
     def slice(self, offset: int = 0, length: int | None = None) -> Table: ...
     def select(self, columns: Iterable[str | int]) -> Table: ...

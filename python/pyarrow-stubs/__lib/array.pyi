@@ -17,7 +17,16 @@
 
 import builtins
 from collections.abc import Collection, Iterable, Iterator, Sequence
-from typing import Any, ClassVar, Self, SupportsIndex, TypeAlias, overload
+from typing import (
+    Any,
+    ClassVar,
+    Generic,
+    Self,
+    SupportsIndex,
+    TypeAlias,
+    TypeVar,
+    overload,
+)
 
 import numpy as np
 import pandas as pd
@@ -117,7 +126,10 @@ class ArrayStatistics(_Weakrefable):
     @property
     def is_max_exact(self) -> bool | None: ...
 
-class _PandasConvertible(_Weakrefable):
+# to_pandas() arrays return Series, tables return DataFrame
+_PandasT = TypeVar("_PandasT", pd.Series[Any], pd.DataFrame)
+
+class _PandasConvertible(_Weakrefable, Generic[_PandasT]):
     def to_pandas(
         self,
         memory_pool: MemoryPool | None = None,
@@ -136,9 +148,9 @@ class _PandasConvertible(_Weakrefable):
         maps_as_pydicts: MapsAsPydicts | None = None,
         types_mapper: Any = None,  # Callable[[DataType], ExtensionDtype | None] | None
         coerce_temporal_nanoseconds: bool = False,
-    ) -> pd.Series | pd.DataFrame: ...
+    ) -> _PandasT: ...
 
-class Array(_PandasConvertible):
+class Array(_PandasConvertible[pd.Series[Any]]):
     __hash__: ClassVar[None]  # type: ignore[assignment]
     def diff(self, other: Array) -> str: ...
     def cast(

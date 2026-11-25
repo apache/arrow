@@ -70,14 +70,13 @@ def test_table() -> None:
     check(assert_type(table.schema, pa.Schema), pa.Schema)
     check(assert_type(table.field("a"), pa.Field), pa.Field)
 
-    # Columns aren't typed per tabular class, so Table and RecordBatch both
-    # return the union here.
-    check(assert_type(table.column("a"), pa.Array | pa.ChunkedArray),
-          pa.ChunkedArray)
-    check(assert_type(table["a"], pa.Array | pa.ChunkedArray),
-          pa.ChunkedArray)
-    check(assert_type(table[0], pa.Array | pa.ChunkedArray),
-          pa.ChunkedArray)
+    # Table columns are chunked arrays.
+    check(assert_type(table.column("a"), pa.ChunkedArray), pa.ChunkedArray)
+    check(assert_type(table["a"], pa.ChunkedArray), pa.ChunkedArray)
+    check(assert_type(table[0], pa.ChunkedArray), pa.ChunkedArray)
+    check(assert_type(table.columns, list[pa.ChunkedArray]), list)
+    for column in table.itercolumns():
+        check(assert_type(column, pa.ChunkedArray), pa.ChunkedArray)
     check(assert_type(table[:1], pa.Table),
           pa.Table)
 
@@ -150,8 +149,13 @@ def test_record_batch() -> None:
     batch = pa.record_batch({"a": [1, 2]})  # from a dict
     check(assert_type(batch, pa.RecordBatch), pa.RecordBatch)
     check(assert_type(batch.num_rows, int), int)
-    check(assert_type(batch.column(0), pa.Array | pa.ChunkedArray),
-          pa.Array)
+    # RecordBatch columns are arrays.
+    check(assert_type(batch.column(0), pa.Array), pa.Array)
+    check(assert_type(batch["a"], pa.Array), pa.Array)
+    check(assert_type(batch[0], pa.Array), pa.Array)
+    check(assert_type(batch.columns, list[pa.Array]), list)
+    for column in batch.itercolumns():
+        check(assert_type(column, pa.Array), pa.Array)
     check(assert_type(batch.slice(1), pa.RecordBatch), pa.RecordBatch)
     check(assert_type(pa.Table.from_batches([batch]), pa.Table), pa.Table)
     check(assert_type(pa.concat_batches([batch, batch]), pa.RecordBatch),
@@ -194,6 +198,19 @@ def test_table_to_pandas_categories() -> None:
     check(table.to_pandas(categories={"a"}), pd.DataFrame)
     if TYPE_CHECKING:
         table.to_pandas(categories=[0])  # type: ignore[list-item]
+
+
+def test_to_pandas_return_type() -> None:
+    pytest.importorskip("pandas")
+    import pandas as pd
+
+    table = pa.table({"a": [1]})
+    check(assert_type(table.to_pandas(), pd.DataFrame), pd.DataFrame)
+    check(assert_type(pa.record_batch({"a": [1]}).to_pandas(), pd.DataFrame),
+          pd.DataFrame)
+    check(assert_type(table.column("a").to_pandas(), "pd.Series[Any]"),
+          pd.Series)
+    check(assert_type(pa.array([1]).to_pandas(), "pd.Series[Any]"), pd.Series)
 
 
 def test_chunked_array() -> None:
