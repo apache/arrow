@@ -1049,6 +1049,18 @@ TEST_P(TestScanner, ScanBatchesUnordered) {
   AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch), batch);
 }
 
+TEST_P(TestScanner, ScanWithoutFragmentReadahead) {
+  // GH-48111: unordered scans used to hang with fragment_readahead=0
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+  for (int fragment_readahead : {0, 1}) {
+    ARROW_SCOPED_TRACE("fragment_readahead = ", fragment_readahead);
+    options_->fragment_readahead = fragment_readahead;
+    AssertScanBatchesEqualRepetitionsOf(MakeScanner(batch), batch);
+    AssertScanBatchesUnorderedEqualRepetitionsOf(MakeScanner(batch), batch);
+  }
+}
+
 TEST_P(TestScanner, ScanWithCappedBatchSize) {
   SetSchema({field("i32", int32()), field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
