@@ -153,7 +153,14 @@ def test_record_batch() -> None:
     check(assert_type(batch.column(0), pa.Array | pa.ChunkedArray),
           pa.Array)
     check(assert_type(batch.slice(1), pa.RecordBatch), pa.RecordBatch)
-    check(assert_type(pa.Table.from_batches([batch]), pa.Table), pa.Table)
+    table = check(assert_type(pa.Table.from_batches([batch]), pa.Table), pa.Table)
+    indices = pa.chunked_array([[1, 0]])
+    check(assert_type(batch.take(indices.chunk(0)), pa.RecordBatch),
+          pa.RecordBatch)
+    check(assert_type(table.take(indices), pa.Table), pa.Table)
+    with pytest.raises(pa.ArrowNotImplementedError):
+        batch.take(indices)  # type: ignore[arg-type]
+
     check(assert_type(pa.concat_batches([batch, batch]), pa.RecordBatch),
           pa.RecordBatch)
     check(assert_type(batch.add_column(0, "b", pa.array([3, 4])),

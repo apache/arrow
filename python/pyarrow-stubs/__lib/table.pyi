@@ -40,6 +40,7 @@ from pyarrow._stubs_typing import (
     MapsAsPydicts,
     Mask,
     MetadataMapping,
+    NonChunkedIndices,
     NullEncoding,
     NullPlacement,
     NullSelectionBehavior,
@@ -301,7 +302,7 @@ class _Tabular(_PandasConvertible):
         sorting: str | Sequence[tuple[str, Order] | tuple[str, Order, NullPlacement]],
         **kwargs: Any,
     ) -> Self: ...
-    def take(self, indices: Indices) -> Self: ...
+    def take(self, indices: NonChunkedIndices) -> Self: ...
     def filter(
         self,
         mask: Mask | Expression,
@@ -433,6 +434,7 @@ _JoinType: TypeAlias = Literal[
 ]
 
 class Table(_Tabular):
+    def take(self, indices: Indices) -> Self: ...
     def validate(self, *, full: bool = False) -> None: ...
     def slice(self, offset: int = 0, length: int | None = None) -> Table: ...
     def select(self, columns: Iterable[str | int]) -> Table: ...
