@@ -30,6 +30,7 @@
 #include "arrow/compute/exec_internal.h"
 #include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/range_evaluation_internal.h"
 #include "arrow/compute/util.h"
 #include "arrow/io/memory.h"
 #ifdef ARROW_IPC
@@ -1160,8 +1161,42 @@ Result<Expression> Canonicalize(Expression expr, compute::ExecContext* exec_cont
 
 namespace {
 
+// Value sets up to this length are simplified against a guarantee by filtering the
+// value set and rebinding the `is_in` call (see Inequality::SimplifyIsIn). This is
+// too expensive for longer value sets (https://github.com/apache/arrow/issues/46777),
+// for which the kernel is instead asked what the call evaluates to over the range of
+// the guarantee (see internal::RangeEvaluator), which never rebinds.
+constexpr int64_t kIsInSimplificationMaxValueSet = 50;
+
+// An Expression which evaluates to `value` where `target` is valid and to null where
+// it is null: true_unless_null(target) or invert(true_unless_null(target)).
+//
+// true_unless_null is cheap; it purely reuses the validity bitmap for the values
+// buffer. Inversion is less cheap but we expect that term never to be evaluated
+// since invert(true_unless_null(x)) is not satisfiable.
+Result<Expression> ValueUnlessNull(const Expression& target, bool value) {
+  ExecContext exec_context;
+
+  Expression::Call call;
+  call.function_name = "true_unless_null";
+  call.arguments = {target};
+  ARROW_ASSIGN_OR_RAISE(auto true_unless_null,
+                        BindNonRecursive(std::move(call),
+                                         /*insert_implicit_casts=*/false, &exec_context));
+  if (value) return true_unless_null;
+
+  Expression::Call invert;
+  invert.function_name = "invert";
+  invert.arguments = {std::move(true_unless_null)};
+  return BindNonRecursive(std::move(invert),
+                          /*insert_implicit_casts=*/false, &exec_context);
+}
+
 // An inequality comparison which a target Expression is known to satisfy. If nullable,
 // the target may evaluate to null in addition to values satisfying the comparison.
+//
+// `target` and `bound` refer into the guarantee the inequality was extracted from,
+// which must outlive it.
 struct Inequality {
   // The inequality type
   Comparison::type cmp;
@@ -1171,37 +1206,45 @@ struct Inequality {
   const Datum& bound;
   // Whether target can be null
   bool nullable;
+  // Whether the inequality was extracted from a range which may be null, see Extract
+  bool from_nullable_range = false;
 
-  // Extract an Inequality if possible, derived from "less",
-  // "greater", "less_equal", and "greater_equal" expressions,
-  // possibly disjuncted with an "is_null" Expression.
-  // cmp(a, 2)
-  // cmp(a, 2) or is_null(a)
-  static std::optional<Inequality> ExtractOne(const Expression& guarantee) {
+  // Extract the inequalities implied by a guarantee, derived from "less",
+  // "greater", "less_equal", "greater_equal" and "equal" expressions, possibly
+  // disjuncted with an "is_null" Expression:
+  //   cmp(a, 2)
+  //   cmp(a, 2) or is_null(a)
+  //   (cmp(a, 2) and cmp(a, 5)) or is_null(a)
+  // The last is the shape of a Parquet row group's statistics when it may contain
+  // nulls. In a disjunction each bound only holds for non-null values of the field.
+  //
+  // Inequalities of the last shape are used with more care than the others, whose
+  // handling is left as it is:
+  // - only where no types need to be reconciled, see AppliesTo;
+  // - for floating point fields, only where NaN evaluates alike, see Simplify.
+  static std::vector<Inequality> Extract(const Expression& guarantee) {
+    if (auto inequality = ExtractOneFromComparison(guarantee)) return {*inequality};
+
     auto call = guarantee.call();
-    if (!call) return std::nullopt;
+    if (!call || call->function_name != "or_kleene") return {};
 
-    if (call->function_name == "or_kleene") {
-      // expect the LHS to be a usable field inequality
-      auto out = ExtractOneFromComparison(call->arguments[0]);
-      if (!out) return std::nullopt;
+    // expect the RHS to be an is_null expression ...
+    auto null_call = call->arguments[1].call();
+    if (!null_call || null_call->function_name != "is_null") return {};
+    auto target = null_call->arguments[0].field_ref();
+    if (!target) return {};
 
-      // expect the RHS to be an is_null expression
-      auto call_rhs = call->arguments[1].call();
-      if (!call_rhs) return std::nullopt;
-      if (call_rhs->function_name != "is_null") return std::nullopt;
-
-      // ... and that it references the same target
-      auto target = call_rhs->arguments[0].field_ref();
-      if (!target) return std::nullopt;
-      if (*target != out->target) return std::nullopt;
-
-      out->nullable = true;
-      return out;
+    // ... and the LHS to be a conjunction of usable inequalities on the same field
+    std::vector<Inequality> inequalities;
+    const auto members = GuaranteeConjunctionMembers(call->arguments[0]);
+    for (const auto& member : members) {
+      auto inequality = ExtractOneFromComparison(member);
+      if (!inequality || inequality->target != *target) continue;
+      inequality->nullable = true;
+      inequality->from_nullable_range = members.size() > 1;
+      inequalities.push_back(*inequality);
     }
-
-    // fall back to a simple comparison with no "is_null"
-    return ExtractOneFromComparison(guarantee);
+    return inequalities;
   }
 
   static std::optional<Inequality> ExtractOneFromComparison(const Expression& guarantee) {
@@ -1217,12 +1260,25 @@ struct Inequality {
 
       auto bound = call->arguments[1].literal();
       if (!bound) return std::nullopt;
-      if (!bound->is_scalar()) return std::nullopt;
+      // A comparison with null is null, which says nothing about the target
+      if (!bound->is_scalar() || !bound->scalar()->is_valid) return std::nullopt;
 
       return Inequality{*cmp, /*target=*/*target, *bound, /*nullable=*/false};
     }
 
     return std::nullopt;
+  }
+
+  /// Whether this inequality is used to simplify a call on `argument`, which is the
+  /// target, possibly wrapped in order preserving casts.
+  ///
+  /// A range which may be null is only used for calls on the field itself, not on a
+  /// cast of it, where the field has the type of the bounds. (A column may be read as
+  /// another type than it is stored as, in which case its statistics bound it with
+  /// values of another type.)
+  bool AppliesTo(const Expression& argument) const {
+    if (!from_nullable_range) return true;
+    return argument.field_ref() != nullptr && bound.type()->Equals(*argument.type());
   }
 
   /// The given expression simplifies to `value` if the inequality
@@ -1231,27 +1287,8 @@ struct Inequality {
   Result<Expression> simplified_to(const Expression& bound_target, bool value) const {
     if (!nullable) return literal(value);
 
-    ExecContext exec_context;
-
     // Data may be null, so comparison will yield `value` - or null IFF the data was null
-    //
-    // true_unless_null is cheap; it purely reuses the validity bitmap for the values
-    // buffer. Inversion is less cheap but we expect that term never to be evaluated
-    // since invert(true_unless_null(x)) is not satisfiable.
-    Expression::Call call;
-    call.function_name = "true_unless_null";
-    call.arguments = {bound_target};
-    ARROW_ASSIGN_OR_RAISE(
-        auto true_unless_null,
-        BindNonRecursive(std::move(call),
-                         /*insert_implicit_casts=*/false, &exec_context));
-    if (value) return true_unless_null;
-
-    Expression::Call invert;
-    invert.function_name = "invert";
-    invert.arguments = {std::move(true_unless_null)};
-    return BindNonRecursive(std::move(invert),
-                            /*insert_implicit_casts=*/false, &exec_context);
+    return ValueUnlessNull(bound_target, value);
   }
 
   /// Simplify an `is_in` call against an inequality guarantee.
@@ -1270,11 +1307,7 @@ struct Inequality {
 
     auto options = checked_pointer_cast<SetLookupOptions>(is_in_call->options);
 
-    // The maximum number of values in the is_in expression set of values
-    // in order to use the simplification.
-    // If the set is large there are performance implications, see:
-    // https://github.com/apache/arrow/issues/46777
-    constexpr int16_t kIsInSimplificationMaxValueSet = 50;
+    // Large value sets are handled by the kernel instead, see SimplifyOverRange.
     if (options->value_set.length() > kIsInSimplificationMaxValueSet) {
       return std::nullopt;
     }
@@ -1282,9 +1315,25 @@ struct Inequality {
     const auto& lhs = Comparison::StripOrderPreservingCasts(is_in_call->arguments[0]);
     if (!lhs.field_ref()) return std::nullopt;
     if (*lhs.field_ref() != guarantee.target) return std::nullopt;
+    if (!guarantee.AppliesTo(is_in_call->arguments[0])) return std::nullopt;
+    // ... which includes the value set, which the kernel matches as the field's type
+    if (guarantee.from_nullable_range &&
+        !options->value_set.type()->Equals(*lhs.type())) {
+      return std::nullopt;
+    }
+
+    // Statistics based guarantees cannot bound NaN (a row group's minimum and
+    // maximum ignore it) whereas `is_in` matches NaN with NaN, so a NaN in the
+    // value set must not be filtered out if the field can be NaN. Leave such value
+    // sets alone, as the kernel does for large ones.
+    if (is_floating(lhs.type()->id()) && is_floating(options->value_set.type()->id())) {
+      ARROW_ASSIGN_OR_RAISE(Datum is_nan, IsNan(options->value_set));
+      ARROW_ASSIGN_OR_RAISE(Datum any_nan, Any(is_nan));
+      if (any_nan.scalar_as<BooleanScalar>().value) return std::nullopt;
+    }
 
     FilterOptions::NullSelectionBehavior null_selection{};
-    switch (options->null_matching_behavior) {
+    switch (options->GetNullMatchingBehavior()) {
       case SetLookupOptions::MATCH:
         null_selection =
             guarantee.nullable ? FilterOptions::EMIT_NULL : FilterOptions::DROP;
@@ -1321,7 +1370,7 @@ struct Inequality {
     simplified_call.function_name = "is_in";
     simplified_call.arguments = is_in_call->arguments;
     simplified_call.options = std::make_shared<SetLookupOptions>(
-        simplified_value_set, options->null_matching_behavior);
+        simplified_value_set, options->GetNullMatchingBehavior());
     ARROW_ASSIGN_OR_RAISE(
         Expression simplified_expr,
         BindNonRecursive(std::move(simplified_call),
@@ -1330,7 +1379,7 @@ struct Inequality {
   }
 
   /// \brief Simplify the given expression given this inequality as a guarantee.
-  Result<Expression> Simplify(Expression expr) {
+  Result<Expression> Simplify(Expression expr) const {
     const auto& guarantee = *this;
 
     auto call = expr.call();
@@ -1361,6 +1410,17 @@ struct Inequality {
     const auto& lhs = Comparison::StripOrderPreservingCasts(call->arguments[0]);
     if (!lhs.field_ref()) return expr;
     if (*lhs.field_ref() != guarantee.target) return expr;
+    if (!guarantee.AppliesTo(call->arguments[0])) return expr;
+    // The statistics of a row group ignore NaN, so a range which may be null bounds
+    // the values of a floating point field other than NaN. A comparison is then only
+    // decided the way it evaluates for NaN: true for not_equal, false for the others.
+    const bool may_be_nan =
+        guarantee.from_nullable_range && is_floating(lhs.type()->id());
+    auto simplified_to = [&](const Expression& bound_target,
+                             bool value) -> Result<Expression> {
+      if (may_be_nan && value != (*cmp == Comparison::NOT_EQUAL)) return expr;
+      return guarantee.simplified_to(bound_target, value);
+    };
 
     // Whether the RHS of the expression is EQUAL, LESS, or GREATER than the
     // RHS of the guarantee. N.B. Comparison::type is a bitmask
@@ -1412,6 +1472,96 @@ struct Inequality {
   }
 };
 
+/// \brief The range which the inequalities of a guarantee leave to a field: the
+///   tightest lower and upper bound on it, and whether it may be null.
+///
+/// Only bounds which have the type of the field are used; others are ignored, which
+/// only loses precision.
+internal::ArgumentRange ResolveRange(const std::vector<Inequality>& inequalities,
+                                     const FieldRef& field, const DataType& field_type) {
+  internal::ArgumentRange range;
+
+  // Whether a bound is tighter than the current one on that side. Bounds which
+  // cannot be compared are ignored.
+  auto is_tighter = [](const std::shared_ptr<Scalar>& bound, bool inclusive,
+                       const std::shared_ptr<Scalar>& current, bool current_inclusive,
+                       Comparison::type tighter) {
+    if (!current) return true;
+    auto cmp = Comparison::Execute(bound, current);
+    if (!cmp.ok()) return false;
+    if (*cmp == Comparison::EQUAL) return current_inclusive && !inclusive;
+    return *cmp == tighter;
+  };
+
+  for (const Inequality& inequality : inequalities) {
+    if (inequality.target != field) continue;
+    // The guarantee holds for every row, and an inequality which does not admit
+    // nulls can only hold for non-null data.
+    range.nullable = range.nullable && inequality.nullable;
+
+    const std::shared_ptr<Scalar>& bound = inequality.bound.scalar();
+    if (!bound->type->Equals(field_type)) continue;
+    const bool inclusive = inequality.cmp & Comparison::EQUAL;
+    // Unless the comparison admits values below the bound, it is a lower bound;
+    // likewise for values above the bound. Equality is both.
+    if (!(inequality.cmp & Comparison::LESS) &&
+        is_tighter(bound, inclusive, range.lower, range.lower_inclusive,
+                   Comparison::GREATER)) {
+      range.lower = bound;
+      range.lower_inclusive = inclusive;
+    }
+    if (!(inequality.cmp & Comparison::GREATER) &&
+        is_tighter(bound, inclusive, range.upper, range.upper_inclusive,
+                   Comparison::LESS)) {
+      range.upper = bound;
+      range.upper_inclusive = inclusive;
+    }
+  }
+  return range;
+}
+
+/// \brief Simplify a call whose kernel can tell what it evaluates to over a range
+///   (currently `is_in`, which searches its sorted value set) against all the
+///   inequalities on its argument at once.
+///
+/// Applying the inequalities together matters: a row group's statistics yield
+/// `x >= min and x <= max`, and neither bound on its own can rule out a value set
+/// whose hull spans the row group. This costs O(log N) per guarantee, with no
+/// rebinding. `is_in` calls with small value sets are left to
+/// Inequality::SimplifyIsIn.
+Result<Expression> SimplifyOverRange(const std::vector<Inequality>& inequalities,
+                                     Expression expr) {
+  auto call = expr.call();
+  if (!call || call->arguments.size() != 1) return expr;
+
+  const auto* evaluator =
+      dynamic_cast<const internal::RangeEvaluator*>(call->kernel_state.get());
+  // The range is that of a field: the call must be on the field itself, not on a
+  // cast of it.
+  const FieldRef* field = call->arguments[0].field_ref();
+  if (!evaluator || !field) return expr;
+  if (call->function_name == "is_in" &&
+      checked_cast<const SetLookupOptions&>(*call->options).value_set.length() <=
+          kIsInSimplificationMaxValueSet) {
+    return expr;
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto evaluation,
+                        evaluator->EvaluateOverRange(ResolveRange(
+                            inequalities, *field, *call->arguments[0].type())));
+  switch (evaluation) {
+    case internal::RangeEvaluation::kUnknown:
+      break;
+    case internal::RangeEvaluation::kFalse:
+      return literal(false);
+    case internal::RangeEvaluation::kNull:
+      return literal(MakeNullScalar(call->type.GetSharedPtr()));
+    case internal::RangeEvaluation::kFalseUnlessNull:
+      return ValueUnlessNull(call->arguments[0], false);
+  }
+  return expr;
+}
+
 /// \brief Simplify an expression given a guarantee, if the guarantee
 ///   is is_valid().
 Result<Expression> SimplifyIsValidGuarantee(Expression expr,
@@ -1445,6 +1595,16 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
 
   RETURN_NOT_OK(ExtractKnownFieldValues(&conjunction_members, &known_values));
 
+  // Ranges which may be null are applied after the other members of the guarantee, so
+  // that what they simplify is not offered to the comparisons against those members,
+  // whose handling is left as it is (see Inequality::Extract).
+  std::stable_partition(conjunction_members.begin(), conjunction_members.end(),
+                        [](const Expression& guarantee) {
+                          auto inequalities = Inequality::Extract(guarantee);
+                          return inequalities.empty() ||
+                                 !inequalities.front().from_nullable_range;
+                        });
+
   ARROW_ASSIGN_OR_RAISE(expr,
                         ReplaceFieldsWithKnownValues(known_values, std::move(expr)));
 
@@ -1458,12 +1618,12 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
   for (const auto& guarantee : conjunction_members) {
     if (!guarantee.call()) continue;
 
-    if (auto inequality = Inequality::ExtractOne(guarantee)) {
+    for (const Inequality& inequality : Inequality::Extract(guarantee)) {
       ARROW_ASSIGN_OR_RAISE(auto simplified,
                             ModifyExpression(
                                 std::move(expr), [](Expression expr) { return expr; },
                                 [&](Expression expr, ...) -> Result<Expression> {
-                                  return inequality->Simplify(std::move(expr));
+                                  return inequality.Simplify(std::move(expr));
                                 }));
 
       if (Expression::Identical(simplified, expr)) continue;
@@ -1479,6 +1639,32 @@ Result<Expression> SimplifyWithGuarantee(Expression expr,
 
       if (Expression::Identical(simplified, expr)) continue;
 
+      expr = std::move(simplified);
+      RETURN_NOT_OK(CanonicalizeAndFoldConstants());
+    }
+  }
+
+  // Calls which can be evaluated over a range (`is_in` with a large value set) are
+  // simplified against all the inequalities of the guarantee at once, see
+  // SimplifyOverRange. The inequalities refer into conjunction_members.
+  //
+  // This comes last, so that the comparisons simplified above are those which would
+  // be simplified without it: they are not offered a literal which a call folded to.
+  std::vector<Inequality> inequalities;
+  for (const auto& guarantee : conjunction_members) {
+    for (const Inequality& inequality : Inequality::Extract(guarantee)) {
+      inequalities.push_back(inequality);
+    }
+  }
+  if (!inequalities.empty()) {
+    ARROW_ASSIGN_OR_RAISE(auto simplified,
+                          ModifyExpression(
+                              expr, [](Expression expr) { return expr; },
+                              [&](Expression expr, ...) -> Result<Expression> {
+                                return SimplifyOverRange(inequalities, std::move(expr));
+                              }));
+
+    if (!Expression::Identical(simplified, expr)) {
       expr = std::move(simplified);
       RETURN_NOT_OK(CanonicalizeAndFoldConstants());
     }

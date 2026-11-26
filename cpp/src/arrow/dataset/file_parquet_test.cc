@@ -18,12 +18,15 @@
 #include "arrow/dataset/file_parquet.h"
 
 #include <functional>
+#include <limits>
 #include <memory>
+#include <numeric>
 #include <thread>
 #include <utility>
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/cast.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/scanner.h"
@@ -34,6 +37,7 @@
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -575,6 +579,21 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper
       EXPECT_EQ(SingleBatch(parquet_fragment)->num_rows(), expected + 1);
     }
   }
+
+  // Check which row groups of `fragment` a scan with `filter` reads
+  void ExpectRowGroupsRead(const std::shared_ptr<Fragment>& fragment,
+                           compute::Expression filter,
+                           const std::vector<int>& expected_row_groups) {
+    SetFilter(std::move(filter));
+    auto parquet_fragment = checked_pointer_cast<ParquetFileFragment>(fragment);
+    ASSERT_OK_AND_ASSIGN(auto fragments, parquet_fragment->SplitByRowGroup(opts_->filter))
+    std::vector<int> row_groups;
+    for (const auto& split : fragments) {
+      const auto& read = checked_pointer_cast<ParquetFileFragment>(split)->row_groups();
+      row_groups.insert(row_groups.end(), read.begin(), read.end());
+    }
+    EXPECT_EQ(row_groups, expected_row_groups);
+  }
 };
 
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(); }
@@ -745,6 +764,139 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragments) {
                            less(field_ref(FieldRef("struct", "i32")), literal(6)));
   CountRowGroupsInFragment(fragment, {1},
                            equal(field_ref(FieldRef("struct", "str")), literal("2")));
+}
+
+TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsLargeIsIn) {
+  // Row group i holds i64 == 10 * i, ..., 10 * i + 9 and a null, so that its
+  // statistics yield (i64 >= min and i64 <= max) or is_null(i64).
+  constexpr int kNumRowGroups = 8;
+  auto dataset_schema = schema({field("i64", int64())});
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  for (int i = 0; i < kNumRowGroups; ++i) {
+    std::vector<int64_t> values(11);
+    std::iota(values.begin(), values.end(), 10 * i);
+    std::vector<bool> valid(values.size(), true);
+    valid.back() = false;
+    std::shared_ptr<Array> array;
+    ArrayFromVector<Int64Type, int64_t>(valid, values, &array);
+    batches.push_back(RecordBatch::Make(dataset_schema, array->length(), {array}));
+  }
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchReader::Make(std::move(batches), dataset_schema));
+  auto source = GetFileSource(reader.get());
+  SetSchema(dataset_schema->fields());
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  auto expect_row_groups = [&](compute::Expression filter,
+                               const std::vector<int>& expected_row_groups) {
+    ExpectRowGroupsRead(fragment, std::move(filter), expected_row_groups);
+  };
+  using compute::SetLookupOptions;
+  auto make_set = [](std::vector<int64_t> values, bool with_null = false) {
+    std::vector<bool> valid(values.size(), true);
+    if (with_null) {
+      values.push_back(0);
+      valid.push_back(false);
+    }
+    std::shared_ptr<Array> array;
+    ArrayFromVector<Int64Type, int64_t>(valid, values, &array);
+    return array;
+  };
+  auto is_in = [](std::shared_ptr<Array> set,
+                  SetLookupOptions::NullMatchingBehavior behavior =
+                      SetLookupOptions::MATCH) {
+    return call("is_in", {field_ref("i64")}, SetLookupOptions{std::move(set), behavior});
+  };
+
+  // A value set longer than the exact simplification threshold whose hull [0, 79]
+  // spans every row group but which contains no value in [20, 39]. Only the row
+  // groups holding a value of the set are read.
+  std::vector<int64_t> values(60);
+  std::iota(values.begin(), values.begin() + 20, 0);
+  std::iota(values.begin() + 20, values.end(), 40);
+  const std::vector<int> matching = {0, 1, 4, 5, 6, 7};
+  const auto all = ::arrow::internal::Iota(kNumRowGroups);
+  expect_row_groups(is_in(make_set(values)), matching);
+
+  // Values beyond the data select nothing.
+  std::vector<int64_t> beyond(100);
+  std::iota(beyond.begin(), beyond.end(), 1000);
+  expect_row_groups(is_in(make_set(beyond)), {});
+
+  // Values cast from a narrower type are handled too.
+  ASSERT_OK_AND_ASSIGN(auto int32_set, compute::Cast(*make_set(values), int32()));
+  expect_row_groups(is_in(int32_set), matching);
+
+  // Combined with other predicates.
+  expect_row_groups(
+      and_(is_in(make_set(values)), less(field_ref("i64"), literal<int64_t>(50))),
+      {0, 1, 4});
+
+  // Only a null in a MATCH value set matches the nulls in every row group; nulls
+  // which produce null rather than false are pruned too.
+  for (auto behavior : {SetLookupOptions::MATCH, SetLookupOptions::SKIP,
+                        SetLookupOptions::EMIT_NULL, SetLookupOptions::INCONCLUSIVE}) {
+    SCOPED_TRACE(behavior);
+    expect_row_groups(is_in(make_set(values), behavior), matching);
+    expect_row_groups(is_in(make_set(values, /*with_null=*/true), behavior),
+                      behavior == SetLookupOptions::MATCH ? all : matching);
+  }
+
+  // Comparisons and small value sets are pruned against the same statistics.
+  expect_row_groups(greater(field_ref("i64"), literal<int64_t>(100)), {});
+  expect_row_groups(less(field_ref("i64"), literal<int64_t>(10)), {0});
+  expect_row_groups(is_null(field_ref("i64")), all);
+  auto small_set = ArrayFromJSON(int64(), "[5, 25]");
+  expect_row_groups(is_in(small_set), {0, 2});
+  expect_row_groups(and_(is_in(small_set), is_valid(field_ref("i64"))), {0, 2});
+}
+
+TEST_P(TestParquetFileFormatScan, PredicatePushdownNullableFloatRangeWithNaN) {
+  SetSchema({field("x", float64())});
+  auto batch = RecordBatchFromJSON(opts_->dataset_schema, "[[1], [2], [NaN], [null]]");
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({batch}));
+  ASSERT_OK_AND_ASSIGN(auto fragment,
+                       format_->MakeFragment(*GetFileSource(reader.get())));
+
+  // The statistics ignore NaN, so the range only decides a comparison the way it
+  // evaluates for NaN. No row is greater than 100, NaN included.
+  auto x = field_ref("x");
+  ExpectRowGroupsRead(fragment, greater(x, literal(100.0)), {});
+  // The NaN row matches the first filter; every non-null row matches the second.
+  ExpectRowGroupsRead(fragment, not_(greater(x, literal(0.0))), {0});
+  auto nan = literal(std::numeric_limits<double>::quiet_NaN());
+  ExpectRowGroupsRead(fragment, not_(less(x, nan)), {0});
+}
+
+TEST_P(TestParquetFileFormatScan, PredicatePushdownColumnReadAsAnotherType) {
+  // The statistics of a row group are in the type the column is stored as, while the
+  // filter is bound to the dataset schema, which may read the column as another type.
+  // The statistics of row groups with nulls are only used where the two types are
+  // the same, so that these row groups are read as they were before.
+  auto expect_row_groups = [&](const std::shared_ptr<Array>& stored,
+                               const std::shared_ptr<DataType>& read_as,
+                               compute::Expression filter,
+                               const std::vector<int>& expected_row_groups) {
+    auto physical_schema = schema({field("x", stored->type())});
+    ASSERT_OK_AND_ASSIGN(
+        auto reader, RecordBatchReader::Make(
+                         {RecordBatch::Make(physical_schema, stored->length(), {stored})},
+                         physical_schema));
+    auto source = GetFileSource(reader.get());
+    SetSchema({field("x", read_as)});
+    ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+    ExpectRowGroupsRead(fragment, std::move(filter), expected_row_groups);
+  };
+  auto x = field_ref("x");
+
+  // int32 read as int64, with a null
+  expect_row_groups(ArrayFromJSON(int32(), "[1, 2, 3, null]"), int64(),
+                    greater(x, literal<int64_t>(100)), {0});
+
+  // string read as int64: the statistics order the strings ("10" <= x <= "9") and
+  // say nothing about the integers they are read as
+  expect_row_groups(ArrayFromJSON(utf8(), R"(["10", "5", "9", "100", null])"), int64(),
+                    equal(x, literal<int64_t>(5)), {0});
 }
 
 TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
