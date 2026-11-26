@@ -136,6 +136,13 @@ def test_schema() -> None:
     check(assert_type(schema.field("a"), pa.Field), pa.Field)
     check(assert_type(schema[0], pa.Field), pa.Field)
 
+    # Mappings with only str or only bytes keys are accepted.
+    str_fields: dict[str, pa.DataType] = {"a": pa.int32()}
+    bytes_fields: dict[bytes, pa.DataType] = {b"a": pa.int32()}
+    for fields in (str_fields, bytes_fields):
+        assert pa.schema(fields).names == ["a"]
+        assert pa.struct(fields).field(0).name == "a"
+
 
 def test_key_value_metadata() -> None:
     # The runtime yields generators instead of Mapping views (duplicated keys)

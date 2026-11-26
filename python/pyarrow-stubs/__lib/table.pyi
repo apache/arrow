@@ -39,6 +39,7 @@ from pyarrow._stubs_typing import (
     Indices,
     MapsAsPydicts,
     Mask,
+    MetadataMapping,
     NullEncoding,
     NullPlacement,
     NullSelectionBehavior,
@@ -277,14 +278,14 @@ class _Tabular(_PandasConvertible):
             | SupportsArrowDeviceArray,
         ],
         schema: Schema | None = None,
-        metadata: Mapping[str | bytes, str | bytes] | None = None,
+        metadata: MetadataMapping | None = None,
     ) -> Self: ...
     @classmethod
     def from_pylist(
         cls,
         mapping: Sequence[Mapping[str, Any]],
         schema: Schema | None = None,
-        metadata: Mapping[str | bytes, str | bytes] | None = None,
+        metadata: MetadataMapping | None = None,
     ) -> Self: ...
     def itercolumns(self) -> Iterator[_ArrayOrChunkedArray]: ...
     @property
@@ -331,11 +332,7 @@ class RecordBatch(_Tabular):
     def validate(self, *, full: bool = False) -> None: ...
     def replace_schema_metadata(
         self,
-        metadata: dict[str, str]
-        | dict[bytes, bytes]
-        | dict[bytes, str]
-        | dict[str, bytes]
-        | None = None,
+        metadata: MetadataMapping | None = None,
     ) -> RecordBatch: ...
     @property
     def num_columns(self) -> int: ...
@@ -375,11 +372,7 @@ class RecordBatch(_Tabular):
         arrays: list[Any],
         names: Sequence[str] | None = None,
         schema: Schema | None = None,
-        metadata: Mapping[bytes, bytes]
-        | Mapping[str, str]
-        | Mapping[bytes, str]
-        | Mapping[str, bytes]
-        | None = None,
+        metadata: MetadataMapping | None = None,
     ) -> RecordBatch: ...
     @classmethod
     def from_pandas(
@@ -445,11 +438,7 @@ class Table(_Tabular):
     def select(self, columns: Iterable[str | int]) -> Table: ...
     def replace_schema_metadata(
         self,
-        metadata: dict[str, str]
-        | dict[bytes, bytes]
-        | dict[bytes, str]
-        | dict[str, bytes]
-        | None = None,
+        metadata: MetadataMapping | None = None,
     ) -> Table: ...
     def flatten(self, memory_pool: MemoryPool | None = None) -> Table: ...
     def combine_chunks(self, memory_pool: MemoryPool | None = None) -> Table: ...
@@ -485,11 +474,7 @@ class Table(_Tabular):
         | NDArray[Any],
         names: Sequence[str] | None = None,
         schema: Schema | None = None,
-        metadata: Mapping[bytes, bytes]
-        | Mapping[str, str]
-        | Mapping[bytes, str]
-        | Mapping[str, bytes]
-        | None = None,
+        metadata: MetadataMapping | None = None,
     ) -> Table: ...
     @staticmethod
     def from_struct_array(struct_array: StructArray | ChunkedArray) -> Table: ...
@@ -574,7 +559,7 @@ def record_batch(
     | SupportsArrowDeviceArray,
     names: list[str] | Schema | None = None,
     schema: Schema | None = None,
-    metadata: Mapping[str | bytes, str | bytes] | None = None,
+    metadata: MetadataMapping | None = None,
 ) -> RecordBatch: ...
 def table(
     data: dict[str, Any]
@@ -586,7 +571,7 @@ def table(
     | SupportsArrowDeviceArray,
     names: list[str] | Schema | None = None,
     schema: Schema | None = None,
-    metadata: Mapping[str | bytes, str | bytes] | None = None,
+    metadata: MetadataMapping | None = None,
     nthreads: int | None = None,
 ) -> Table: ...
 def concat_tables(

@@ -38,6 +38,7 @@ from pyarrow._stubs_typing import (
     IntegerType,
     LargeBinaryType,
     LargeStringType,
+    MetadataMapping,
     MonthDayNanoIntervalType,
     NullType,
     StringType,
@@ -281,14 +282,8 @@ def unregister_extension_type(type_name: str) -> None: ...
 
 _FieldName: TypeAlias = str | bytes
 _StrOrBytes: TypeAlias = str | bytes
-_MetadataMapping: TypeAlias = (
-    Mapping[bytes, bytes]
-    | Mapping[str, str]
-    | Mapping[bytes, str]
-    | Mapping[str, bytes]
-)
 _MetadataIterable: TypeAlias = Iterable[tuple[_StrOrBytes, _StrOrBytes]]
-_KeyValueMetadataInput: TypeAlias = _MetadataMapping | _MetadataIterable
+_KeyValueMetadataInput: TypeAlias = MetadataMapping | _MetadataIterable
 _DataTypeAlias: TypeAlias = Literal[
     "null",
     "bool",
@@ -407,7 +402,10 @@ _FieldTuple: TypeAlias = (
     ]
 )
 _StructFieldsInput: TypeAlias = (
-    Iterable[Field | _FieldTuple] | Mapping[_FieldName, _DataTypeLike]
+    Iterable[Field | _FieldTuple]
+    | Mapping[str, _DataTypeLike]
+    | Mapping[bytes, _DataTypeLike]
+    | Mapping[_FieldName, _DataTypeLike]
 )
 _SchemaFieldsInput: TypeAlias = _StructFieldsInput
 

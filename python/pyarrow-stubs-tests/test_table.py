@@ -179,6 +179,26 @@ def test_record_batch() -> None:
           pa.RecordBatch)
 
 
+def test_metadata_mappings() -> None:
+    # Mappings with only str or only bytes keys are accepted, not just
+    # Mapping[str | bytes, ...] (Mapping is invariant in its key type).
+    str_meta: dict[str, str] = {"k": "v"}
+    bytes_meta: dict[bytes, bytes] = {b"k": b"v"}
+    expected = {b"k": b"v"}
+
+    table = pa.table({"a": [1]}, metadata=str_meta)
+    batch = pa.record_batch({"a": [1]}, metadata=bytes_meta)
+    assert table.schema.metadata == batch.schema.metadata == expected
+    from_dict = pa.Table.from_pydict({"a": [1]}, metadata=str_meta)
+    from_rows = pa.RecordBatch.from_pylist([{"a": 1}], metadata=bytes_meta)
+    assert from_dict.schema.metadata == from_rows.schema.metadata == expected
+
+    replacement = MappingProxyType({"k": "updated"})
+    table = table.replace_schema_metadata(replacement)
+    batch = batch.replace_schema_metadata(replacement)
+    assert table.schema.metadata == batch.schema.metadata == {b"k": b"updated"}
+
+
 def test_record_batch_from_pandas() -> None:
     pd = pytest.importorskip("pandas")
     df = pd.DataFrame({"a": [1], "b": [2]})
