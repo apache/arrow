@@ -1559,6 +1559,19 @@ def test_take_null_type():
     assert len(table.take(indices).column(0)) == 4
 
 
+def test_array_take_mixed_scalar_and_array_arguments():
+    # GH-55780: mixing scalar and array arguments crashed
+    message = "Function 'array_take' cannot mix scalar and array arguments"
+    with pytest.raises(TypeError, match=message):
+        pc.array_take(pa.array([1]), pa.scalar(0))
+    with pytest.raises(TypeError, match=message):
+        pc.array_take(pa.scalar(1), pa.array([0]))
+
+    # With all arguments scalar, the values are promoted to an array of length 1
+    result = pc.array_take(pa.scalar(1), pa.scalar(0))
+    assert result.equals(pa.array([1]))
+
+
 @pytest.mark.parametrize(('ty', 'values'), all_array_types)
 def test_drop_null(ty, values):
     arr = pa.array(values, type=ty)
@@ -1749,6 +1762,21 @@ def test_filter_errors():
     for filt in [batch, table, scalar]:
         with pytest.raises(TypeError):
             table.filter(filt)
+
+
+def test_array_filter_mixed_scalar_and_array_arguments():
+    # GH-55780: mixing scalar and array arguments crashed
+    message = "Function 'array_filter' cannot mix scalar and array arguments"
+    with pytest.raises(TypeError, match=message):
+        pc.array_filter(pa.scalar(1), pa.array([True]))
+    with pytest.raises(TypeError, match=message):
+        pc.filter(pa.scalar(1), pa.array([True]))
+    with pytest.raises(TypeError, match=message):
+        pc.array_filter(pa.array([1]), pa.scalar(True))
+
+    # With all arguments scalar, the values are promoted to an array of length 1
+    result = pc.array_filter(pa.scalar(1), pa.scalar(True))
+    assert result.equals(pa.array([1]))
 
 
 def test_filter_null_type():
