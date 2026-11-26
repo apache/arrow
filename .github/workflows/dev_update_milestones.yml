@@ -38,10 +38,6 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-          fetch-tags: true
-      - name: Fetch maintenance branches
-        run: |
-          git fetch origin 'refs/heads/maint-*:refs/remotes/origin/maint-*'
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
