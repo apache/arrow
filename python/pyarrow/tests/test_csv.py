@@ -300,14 +300,6 @@ def test_parse_options(pickle_module):
     assert repr(opts) == f"<pyarrow.csv.ParseOptions>({expected_repr_inner})"
     assert str(opts) == f"ParseOptions({expected_repr_inner})"
 
-    # Verify backward compatibility with legacy 7-element state
-    legacy_state = (',', '"', True, False, False, True, None)
-    opts_legacy = ParseOptions()
-    opts_legacy.__setstate__(legacy_state)
-    assert opts_legacy.pad_short_rows is False
-    assert opts_legacy.delimiter == ','
-    assert opts_legacy.quote_char == '"'
-
     # Verify equality differentiation
     assert ParseOptions() != ParseOptions(pad_short_rows=True)
     assert ParseOptions() == ParseOptions(pad_short_rows=False)

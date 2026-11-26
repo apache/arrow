@@ -609,16 +609,10 @@ cdef class ParseOptions(_Weakrefable):
                 self.pad_short_rows)
 
     def __setstate__(self, state):
-        if len(state) == 7:
-            (self.delimiter, self.quote_char, self.double_quote,
-             self.escape_char, self.newlines_in_values,
-             self.ignore_empty_lines, self.invalid_row_handler) = state
-            self.pad_short_rows = False
-        else:
-            (self.delimiter, self.quote_char, self.double_quote,
-             self.escape_char, self.newlines_in_values,
-             self.ignore_empty_lines, self.invalid_row_handler,
-             self.pad_short_rows) = state
+        (self.delimiter, self.quote_char, self.double_quote,
+         self.escape_char, self.newlines_in_values,
+         self.ignore_empty_lines, self.invalid_row_handler,
+         self.pad_short_rows) = state
 
     def __eq__(self, other):
         try:
