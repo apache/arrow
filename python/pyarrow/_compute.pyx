@@ -790,6 +790,10 @@ class CastOptions(_CastOptions):
         Whether date/time range overflow is allowed when casting.
     allow_decimal_truncate : bool, default False
         Whether decimal precision truncation is allowed when casting.
+        Note that casting floating-point values to decimal always rounds to
+        the target scale; this option only controls whether errors are
+        ignored when the value overflows the target precision or is
+        non-finite.
     allow_float_truncate : bool, default False
         Whether floating-point precision truncation is allowed when casting.
     allow_invalid_utf8 : bool, default False
