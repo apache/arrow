@@ -24,8 +24,10 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <set>
 #include <sstream>
 #include <type_traits>
@@ -2841,6 +2843,214 @@ TEST(TestArrowReadWrite, GetRecordBatchReaderNoColumns) {
   ASSERT_NE(actual_batch, nullptr);
   ASSERT_EQ(actual_batch->num_columns(), 0);
   ASSERT_EQ(actual_batch->num_rows(), num_rows);
+}
+
+// GH-39808: bytes cached by PreBuffer() for a decoded row group must be
+// releasable, else Dataset.to_batches accumulates memory over the reader's life.
+TEST(TestArrowReadWrite, EvictPreBufferedDataBefore) {
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  // Control pre-buffering explicitly so row-group reads preserve the cache.
+  properties.set_pre_buffer(false);
+  const int num_rows = 1024;
+  const int row_group_size = 256;
+  const int num_columns = 3;
+  const std::vector<int> row_groups = {0, 1, 2, 3};
+  const std::vector<int> column_indices = {0, 1, 2};
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(properties)->Build(&reader));
+  ASSERT_EQ(reader->num_row_groups(), static_cast<int>(row_groups.size()));
+
+  auto options = ::arrow::io::CacheOptions::LazyDefaults();
+  options.hole_size_limit = 0;
+  options.range_size_limit = 1;
+  reader->parquet_reader()->PreBuffer(row_groups, column_indices,
+                                      ::arrow::io::IOContext(), options);
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
+
+  std::shared_ptr<Table> rg_table;
+  ASSERT_OK(reader->ReadRowGroup(/*i=*/0, column_indices, &rg_table));
+  AssertTablesEqual(*table->Slice(0, row_group_size), *rg_table,
+                    /*same_chunk_layout=*/false);
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
+
+  const int64_t rg1_min =
+      reader->parquet_reader()->metadata()->RowGroup(1)->file_offset();
+
+  reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min);
+  ASSERT_RAISES(Invalid,
+                reader->parquet_reader()->WhenBuffered({0}, column_indices).status());
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered({1, 2, 3}, column_indices).status());
+  ASSERT_OK(reader->ReadRowGroup(/*i=*/1, column_indices, &rg_table));
+  AssertTablesEqual(*table->Slice(row_group_size, row_group_size), *rg_table,
+                    /*same_chunk_layout=*/false);
+
+  reader->parquet_reader()->EvictPreBufferedDataBefore(
+      std::numeric_limits<int64_t>::max());
+  ASSERT_RAISES(Invalid,
+                reader->parquet_reader()->WhenBuffered({1}, column_indices).status());
+  std::shared_ptr<ChunkedArray> reread_column;
+  ASSERT_OK(reader->RowGroup(1)->Column(0)->Read(&reread_column));
+  ::arrow::AssertChunkedEquivalent(
+      *table->column(0)->Slice(row_group_size, row_group_size), *reread_column);
+
+  // Re-evicting the same window frees nothing more.
+  reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min);
+
+  // A reader that never called PreBuffer is a no-op.
+  std::unique_ptr<FileReader> no_prebuffer_reader;
+  FileReaderBuilder no_prebuffer_builder;
+  ASSERT_OK(no_prebuffer_builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(no_prebuffer_builder.Build(&no_prebuffer_reader));
+  no_prebuffer_reader->parquet_reader()->EvictPreBufferedDataBefore(rg1_min);
+}
+
+// GH-39808: with coalescing a single cache entry can span adjacent row groups.
+// Offset-based eviction frees such an entry once end_offset passes its end.
+TEST(TestArrowReadWrite, EvictPreBufferedDataBeforeReleasesCrossRowGroupEntry) {
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_pre_buffer(true);
+  const int num_rows = 1024;
+  const int row_group_size = 256;  // 4 row groups
+  const int num_columns = 2;
+  const std::vector<int> row_groups = {0, 1, 2, 3};
+  const std::vector<int> column_indices = {0, 1};
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(properties)->Build(&reader));
+
+  // Huge limits coalesce every column chunk of every row group into ONE entry
+  // spanning all row-group boundaries.
+  ::arrow::io::CacheOptions options = ::arrow::io::CacheOptions::LazyDefaults();
+  options.hole_size_limit = static_cast<int64_t>(buffer->size());
+  options.range_size_limit = static_cast<int64_t>(buffer->size()) + 1;
+  reader->parquet_reader()->PreBuffer(row_groups, column_indices,
+                                      ::arrow::io::IOContext(), options);
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
+
+  // Any offset short of the spanning entry's end frees nothing.
+  ASSERT_OK_AND_ASSIGN(auto rg3_ranges,
+                       reader->parquet_reader()->GetReadRanges({3}, column_indices));
+  int64_t rg3_min = std::numeric_limits<int64_t>::max();
+  for (const auto& r : rg3_ranges) rg3_min = std::min(rg3_min, r.offset);
+  reader->parquet_reader()->EvictPreBufferedDataBefore(rg3_min);
+  ASSERT_OK(reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
+
+  // An offset past the whole file frees the spanning entry.
+  reader->parquet_reader()->EvictPreBufferedDataBefore(
+      static_cast<int64_t>(buffer->size()));
+  ASSERT_RAISES(
+      Invalid,
+      reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
+}
+
+TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_pre_buffer(true);
+  properties.set_batch_size(256);
+
+  const int num_rows = 1024;
+  const int row_group_size = 256;
+  const int num_columns = 2;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  // General FileReaders retain their cache because callers may create another
+  // generator for the same row group.
+  ASSERT_FALSE(properties.auto_evict_read_cache());
+  std::shared_ptr<FileReader> retaining_reader;
+  {
+    std::unique_ptr<FileReader> unique_reader;
+    FileReaderBuilder builder;
+    ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    ASSERT_OK(builder.properties(properties)->Build(&unique_reader));
+    retaining_reader = std::move(unique_reader);
+  }
+  ASSERT_OK_AND_ASSIGN(
+      auto retaining_generator,
+      retaining_reader->GetRecordBatchGenerator(retaining_reader, {0}, {0}));
+  auto retained_fut = retaining_generator();
+  ASSERT_OK_AND_ASSIGN(auto retained_batch, retained_fut.result());
+  ASSERT_NE(retained_batch, nullptr);
+  auto retained_end_fut = retaining_generator();
+  ASSERT_OK_AND_ASSIGN(auto retained_end, retained_end_fut.result());
+  ASSERT_EQ(retained_end, nullptr);
+  ASSERT_OK(retaining_reader->parquet_reader()->WhenBuffered({0}, {0}).status());
+
+  properties.set_auto_evict_read_cache(true);
+  properties.set_batch_size(row_group_size / 2);
+  auto options = ::arrow::io::CacheOptions::Defaults();
+  options.hole_size_limit = 0;
+  options.range_size_limit = 1;
+  properties.set_cache_options(options);
+
+  std::shared_ptr<FileReader> reader;
+  {
+    std::unique_ptr<FileReader> unique_reader;
+    FileReaderBuilder builder;
+    ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    ASSERT_OK(builder.properties(properties)->Build(&unique_reader));
+    reader = std::move(unique_reader);
+  }
+  ASSERT_EQ(reader->num_row_groups(), num_rows / row_group_size);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto batch_generator,
+      reader->GetRecordBatchGenerator(reader, {0, 1, 2, 3}, {0, 1},
+                                      /*cpu_executor=*/nullptr,
+                                      /*rows_to_readahead=*/2 * row_group_size));
+  std::vector<std::shared_ptr<::arrow::RecordBatch>> batches;
+  for (int i = 0; i < 2 * reader->num_row_groups(); ++i) {
+    auto fut = batch_generator();
+    ASSERT_OK_AND_ASSIGN(auto batch, fut.result());
+    ASSERT_NE(batch, nullptr);
+    ASSERT_EQ(batch->num_rows(), row_group_size / 2);
+    batches.push_back(std::move(batch));
+    // Inspect before the queued batch can advance to the next row group.
+    if (i % 2 == 0) {
+      for (int row_group = 0; row_group <= i / 2; ++row_group) {
+        for (int column : {0, 1}) {
+          ASSERT_RAISES(
+              Invalid,
+              reader->parquet_reader()->WhenBuffered({row_group}, {column}).status());
+        }
+      }
+      for (int row_group = i / 2 + 1; row_group < reader->num_row_groups(); ++row_group) {
+        ASSERT_OK(reader->parquet_reader()->WhenBuffered({row_group}, {0, 1}).status());
+      }
+    }
+  }
+  // Generator is drained.
+  auto fut_end = batch_generator();
+  ASSERT_OK_AND_ASSIGN(auto end_batch, fut_end.result());
+  ASSERT_EQ(end_batch, nullptr);
+
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       ::arrow::Table::FromRecordBatches(batches[0]->schema(), batches));
+  AssertTablesEqual(*table, *actual, /*same_chunk_layout=*/false);
 }
 
 TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
