@@ -228,6 +228,58 @@ TEST(BlockParserWithSchema, Nested) {
                       R"([{"ps":null}, {}, {"ps":"78"}, {"ps":"90"}])"});
 }
 
+TEST(BlockParserWithSchema, NullableStructWithRequiredChildren) {
+  auto options = ParseOptions::Defaults();
+  auto nested = struct_({field("flag", boolean(), false)});
+  options.explicit_schema =
+      schema({field("my_struct", struct_({field("some_information", int64(), false),
+                                          field("nested", nested, false)}))});
+  std::shared_ptr<Array> parsed;
+  ASSERT_OK(ParseFromString(options, R"(
+    {}
+    {"my_struct": null}
+    {"my_struct": {"some_information": 42, "nested": {"flag": true}}}
+  )",
+                            &parsed));
+  ASSERT_OK(parsed->ValidateFull());
+
+  auto column = checked_cast<const StructArray&>(*parsed).field(0);
+  ASSERT_EQ(column->length(), 3);
+  EXPECT_TRUE(column->IsNull(0));
+  EXPECT_TRUE(column->IsNull(1));
+  EXPECT_FALSE(column->IsNull(2));
+  auto expected_type =
+      struct_({field("some_information", utf8(), false), field("nested", nested, false)});
+  auto expected = ArrayFromJSON(expected_type, R"(
+    [{"some_information": "42", "nested": {"flag": true}}]
+  )");
+  AssertUnconvertedArraysEqual(*expected, *column->Slice(2));
+}
+
+TEST(BlockParserWithSchema, RequiredChildrenOfValidStruct) {
+  auto options = ParseOptions::Defaults();
+  options.explicit_schema =
+      schema({field("my_struct", struct_({field("required", int64(), false)}))});
+  std::shared_ptr<Array> parsed;
+  std::string null_row = "{\"my_struct\": null}\n";
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("a required field was absent"),
+      ParseFromString(options, null_row + R"({"my_struct": {}})", &parsed));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("a required field was null"),
+      ParseFromString(options, null_row + R"({"my_struct": {"required": null}})",
+                      &parsed));
+
+  options.explicit_schema =
+      schema({options.explicit_schema->field(0)->WithNullable(false)});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  testing::HasSubstr("a required field was absent"),
+                                  ParseFromString(options, "{}", &parsed));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("a required field was null"),
+      ParseFromString(options, R"({"my_struct": null})", &parsed));
+}
+
 TEST(BlockParserWithSchema, FailOnIncompleteJson) {
   auto options = ParseOptions::Defaults();
   options.explicit_schema = schema({field("a", int32())});
