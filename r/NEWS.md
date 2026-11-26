@@ -214,8 +214,8 @@
 - `case_when()` now correctly detects objects that are not in the global 
   environment (@etiennebacher, #46667).
 - Negative fractional dates now correctly converted to integers by flooring values (#46873).
-- Backwards compatibility checks for legacy Arrow C++ versions have been removed 
-  from the R package (#46491). This shouldn't affect most users this package and would only impact you
+- Backwards compatibility checks for legacy Arrow C++ versions have been removed
+  from the R package (#46491). This shouldn't affect most users of this package and would only impact you
   if you were building the R package from source with different R package and Arrow C++ versions.
 - Require CMake 3.25 or greater in bundled build script for full-source builds (#46834). This shouldn't affect most users.
 
@@ -306,7 +306,7 @@ post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
 
 * Dataset and table output printing now truncates schemas longer than 20 items long (#38916)
 * Fixed pointer conversion to Python for latest reticulate to ensure data can be passed between Arrow and PyArrow (#39969)
-* Check on macOS if we are using GNU libtool is and ensure we use macOS libtool instead (#40259)
+* Check on macOS if we are using GNU libtool and ensure we use macOS libtool instead (#40259)
 * Fix an error where creating a bundled tarball with all dependencies was failing on Windows (@hutch3232, #40232)
 
 
@@ -326,7 +326,7 @@ post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
 ##  Minor improvements and fixes
 
 * Don't download cmake when ARROW_OFFLINE_BUILD=true and update `SystemRequirements` (#39602).
-* Fallback to source build gracefully if binary download fails (#39587).
+* Fall back gracefully to a source build if the binary download fails (#39587).
 * An error is now thrown instead of warning and pulling the data into R when any
   of `sub`, `gsub`, `stringr::str_replace`, `stringr::str_replace_all` are
   passed a length > 1 vector of values in `pattern` (@abfleishman, #39219).
@@ -345,12 +345,12 @@ post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
 
 ##  Minor improvements and fixes
 
-* Check for internet access when building from source and fallback to a
+* Check for internet access when building from source and fall back to a
   minimally scoped Arrow C++ build (#39699).
 * Build from source by default on macOS, use `LIBARROW_BINARY=true` for old behavior (#39861).
 * Support building against older versions of Arrow C++. This is currently opt-in
-  (`ARROW_R_ALLOW_CPP_VERSION_MISMATCH=true`) and requires atleast Arrow C++ 13.0.0 (#39739).
-* Make it possible to use Arrow C++ from Rtools on windows (in future Rtools versions). (#39986).
+  (`ARROW_R_ALLOW_CPP_VERSION_MISMATCH=true`) and requires at least Arrow C++ 13.0.0 (#39739).
+* Make it possible to use Arrow C++ from Rtools on Windows (in future Rtools versions). (#39986).
 
 # arrow 14.0.2
 
@@ -440,7 +440,7 @@ post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
 
 ## Breaking changes
 
-* Input objects which inherit only from `data.frame` and no other classes now have the `class` attribute dropped, resulting in now always returning tibbles from file reading functions and `arrow_table()`, which results in consistency in the type of returned objects.  Calling `as.data.frame()` on Arrow Tabular objects now always returns a `data.frame` object (#34775)
+* Input objects which inherit only from `data.frame` and no other classes now have the `class` attribute dropped, so file reading functions and `arrow_table()` now always return tibbles, which keeps the returned object types consistent. Calling `as.data.frame()` on Arrow Tabular objects now always returns a `data.frame` object (#34775)
 
 ## New features
 
@@ -453,7 +453,7 @@ post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
 
 * Convenience function `arrow_array()` can be used to create Arrow Arrays (#36381)
 * Convenience function `scalar()` can be used to create Arrow Scalars  (#36265)
-* Prevent crashed when passing data between arrow and duckdb by always calling `RecordBatchReader::ReadNext()` from DuckDB from the main R thread (#36307)
+* Prevent crashes when passing data between arrow and duckdb by always calling `RecordBatchReader::ReadNext()` from DuckDB on the main R thread (#36307)
 * Issue a warning for `set_io_thread_count()` with `num_threads` < 2 (#36304)
 * Ensure missing grouping variables are added to the beginning of the variable list (#36305)
 * CSV File reader options class objects can print the selected values (#35955)
@@ -495,7 +495,7 @@ post](https://arrow.apache.org/blog/2025/02/16/19.0.1-release/) and
 * The `$options` member of `GcsFileSystem` objects can now be inspected
   (@amoeba, #34422, #34477).
 * The `read_csv_arrow()` and `read_json_arrow()` functions now accept literal text input wrapped in
-  `I()` to improve compatability with `readr::read_csv()` (@eitsupi, #18487,
+  `I()` to improve compatibility with `readr::read_csv()` (@eitsupi, #18487,
   #33968).
 * Nested fields can now be accessed using `$` and `[[` in dplyr expressions
   (#18818, #19706).
@@ -937,7 +937,7 @@ Along with `summarize()`, you can also call `count()`, `tally()`, and `distinct(
 
 This enhancement does change the behavior of `summarize()` and `collect()` in some cases: see "Breaking changes" below for details.
 
-In addition to `summarize()`, mutating and filtering equality joins (`inner_join()`, `left_join()`, `right_join()`, `full_join()`, `semi_join()`, and `anti_join()`) with are also supported natively in Arrow.
+In addition to `summarize()`, mutating and filtering equality joins (`inner_join()`, `left_join()`, `right_join()`, `full_join()`, `semi_join()`, and `anti_join()`) are also supported natively in Arrow.
 
 Grouped aggregation and (especially) joins should be considered somewhat experimental in this release. We expect them to work, but they may not be well optimized for all workloads. To help us focus our efforts on improving them in the next release, please let us know if you encounter unexpected behavior or poor performance.
 
@@ -947,7 +947,7 @@ We've also worked to fill in support for all data types, such as `Decimal`, for 
 
 ## 2. DuckDB integration
 
-If you have the [duckdb package](https://CRAN.R-project.org/package=duckdb) installed, you can hand off an Arrow Dataset or query object to [DuckDB](https://duckdb.org/) for further querying using the `to_duckdb()` function. This allows you to use duckdb's `dbplyr` methods, as well as its SQL interface, to aggregate data. Filtering and column projection done before `to_duckdb()` is evaluated in Arrow, and duckdb can push down some predicates to Arrow as well. This handoff *does not* copy the data, instead it uses Arrow's C-interface (just like passing arrow data between R and Python). This means there is no serialization or data copying costs are incurred.
+If you have the [duckdb package](https://CRAN.R-project.org/package=duckdb) installed, you can hand off an Arrow Dataset or query object to [DuckDB](https://duckdb.org/) for further querying using the `to_duckdb()` function. This allows you to use duckdb's `dbplyr` methods, as well as its SQL interface, to aggregate data. Filtering and column projection done before `to_duckdb()` is evaluated in Arrow, and duckdb can push down some predicates to Arrow as well. This handoff *does not* copy the data; instead it uses Arrow's C-interface (just like passing arrow data between R and Python). This means there are no serialization or data copying costs.
 
 You can also take a duckdb `tbl` and call `to_arrow()` to stream data to Arrow's query engine. This means that in a single dplyr pipeline, you could start with an Arrow Dataset, evaluate some steps in DuckDB, then evaluate the rest in Arrow.
 
