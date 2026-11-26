@@ -4690,6 +4690,41 @@ def test_array_to_pandas_string_dtype(string_type, data):
                                                ordered=False)
 
 
+@pytest.mark.parametrize("dtype", [None, "string"])
+@pytest.mark.parametrize(
+    "new_column",
+    [
+        pa.array([1, 2, 3]),
+        pa.array([1.5, 2.5, 3.5]),
+        pa.array([True, False, None]),
+        pa.array([datetime(2020, 1, 1)] * 3),
+        pa.array([decimal.Decimal("1.5")] * 3),
+    ],
+)
+def test_to_pandas_replaced_string_column_with_stale_metadata(new_column,
+                                                              dtype):
+    # The pandas metadata still describes the replaced column as a string
+    # column; its values must not be converted to strings.
+    df = pd.DataFrame({"a": [1, 2, 3], "b": pd.Series(["x", "y", "z"], dtype=dtype)})
+    table = pa.Table.from_pandas(df).set_column(1, "b", new_column)
+    result = table.to_pandas()
+    tm.assert_series_equal(result["b"], new_column.to_pandas(), check_names=False)
+
+
+@pytest.mark.parametrize("dtype", [
+    pytest.param(None, marks=pytest.mark.skipif(
+        not _pandas_api.uses_string_dtype(), reason="requires pandas 3 str dtype")),
+    "string",
+])
+@pytest.mark.parametrize("binary_type", [pa.binary(), pa.large_binary()])
+def test_from_pandas_string_column_with_binary_schema(dtype, binary_type):
+    # A string column stored as binary is still read back as strings
+    df = pd.DataFrame({"b": pd.Series(["x", "y", "z"], dtype=dtype)})
+    schema = pa.schema([("b", binary_type)])
+    result = pa.Table.from_pandas(df, schema=schema).to_pandas()
+    assert result["b"].tolist() == ["x", "y", "z"]
+
+
 # ----------------------------------------------------------------------
 # Legacy metadata compatibility tests
 

@@ -915,15 +915,24 @@ def _get_extension_dtypes(table, columns_metadata, types_mapper, options, catego
                     # when the metadata indicate to use the string dtype,
                     # ignore this in case:
                     # - it is specified to convert strings / this column to categorical
-                    # - the column itself is dictionary encoded and would otherwise be
-                    #   converted to categorical
+                    # - the column is not a string column, e.g. dictionary encoded or
+                    #   replaced by a column of another type after the metadata was
+                    #   written (the dtype's __from_arrow__ also accepts binary)
                     if strings_to_categorical or name in categories:
                         continue
                     try:
-                        if pa.types.is_dictionary(table.schema.field(name).type):
-                            continue
+                        field_type = table.schema.field(name).type
                     except KeyError:
                         pass
+                    else:
+                        if not (pa.types.is_string(field_type)
+                                or pa.types.is_large_string(field_type)
+                                or pa.types.is_string_view(field_type)
+                                or pa.types.is_binary(field_type)
+                                or pa.types.is_large_binary(field_type)
+                                or pa.types.is_binary_view(field_type)
+                                or pa.types.is_null(field_type)):
+                            continue
                 if hasattr(pandas_dtype, "__from_arrow__"):
                     ext_columns[name] = pandas_dtype
 
