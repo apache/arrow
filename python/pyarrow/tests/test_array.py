@@ -3895,6 +3895,42 @@ def test_binary_array_strided():
 
 
 @pytest.mark.numpy
+def test_binary_array_from_numpy_preserves_interior_nulls():
+    # GH-41388: numpy fixed-width bytes arrays with interior '\x00' bytes
+    # used to be truncated at the first null. NumPy only pads *trailing*
+    # bytes, so only trailing nulls should be stripped.
+    values = [b'contains \x00 interior', b'no nulls here']
+    np_array = np.array(values)  # dtype='S20'
+
+    # Variable-length binary
+    arr = pa.array(np_array, type=pa.binary())
+    assert arr.to_pylist() == values
+
+    # Large binary uses the same converter path
+    arr_large = pa.array(np_array, type=pa.large_binary())
+    assert arr_large.to_pylist() == values
+
+    # Trailing padding on short values is still stripped (NumPy 'S' semantics)
+    short = np.array([b'short', b'exactlyten'])  # dtype='S10'
+    arr_short = pa.array(short, type=pa.binary())
+    assert arr_short.to_pylist() == [b'short', b'exactlyten']
+
+    # Table.from_pydict goes through the same path
+    table = pa.Table.from_pydict({'x': np_array})
+    assert table['x'].to_pylist() == values
+
+    # Masked variant still preserves interior nulls
+    masked = pa.array(np_array, type=pa.binary(),
+                      mask=np.array([False, False]))
+    assert masked.to_pylist() == values
+
+    # Strided variant still preserves interior nulls
+    stride = np.array([b'one \x00 one', b'two \x00 two', b'three'])
+    strided = pa.array(stride[::2], type=pa.binary())
+    assert strided.to_pylist() == [b'one \x00 one', b'three']
+
+
+@pytest.mark.numpy
 def test_array_invalid_mask_raises():
     # ARROW-10742
     cases = [
