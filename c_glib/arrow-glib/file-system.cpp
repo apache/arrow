@@ -724,6 +724,26 @@ garrow_file_system_register_type(const gchar *type_name, GType gtype, GError **e
 }
 
 /**
+ * garrow_file_system_ensure_finalized:
+ *
+ * Finalize all registered Arrow C++ file system implementations.
+ *
+ * Call this function during application shutdown, after file system
+ * operations have finished and streams have been closed. Do not use
+ * file system APIs after this call.
+ *
+ * The caller is responsible for synchronizing this call with other
+ * file system activity.
+ *
+ * Since: 27.0.0
+ */
+void
+garrow_file_system_ensure_finalized(void)
+{
+  arrow::fs::EnsureFinalized();
+}
+
+/**
  * garrow_file_system_create:
  * @uri: An URI to specify file system with options. If you only have an
  *   absolute path, g_filename_to_uri() will help you.
