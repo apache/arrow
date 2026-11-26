@@ -56,6 +56,22 @@ The ``.yml`` files in ``.github/workflows`` are workflows which are run on GitHu
 
 PR housekeeping (component labels, PR title validation and the GitHub issue link in the PR description) is handled by the `Boring Cyborg <https://github.com/kaxil/boring-cyborg>`_ GitHub App, configured in ``.github/boring-cyborg.yml``.
 
+Maintaining the Crossbow GitHub token
+-------------------------------------
+
+The ``comment_bot.yml`` workflow uses ``CROSSBOW_GITHUB_TOKEN`` when it
+submits Crossbow jobs from pull-request comments.  The token must have the
+following GitHub scopes:
+
+- ``contents:write``
+- ``actions:write``
+- ``workflows:write``
+
+When the token-expiration notification is received, generate a replacement
+token with these scopes and send it to Apache INFRA.  INFRA updates the
+``CROSSBOW_GITHUB_TOKEN`` Actions secret.  The replacement also needs to be
+updated in the Crossbow repository and in the Azure Pipelines configuration.
+
 Extended builds
 -----------------------
 
