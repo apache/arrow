@@ -65,6 +65,10 @@ class ARROW_EXPORT CastOptions : public FunctionOptions {
   bool allow_int_overflow;
   bool allow_time_truncate;
   bool allow_time_overflow;
+  /// Whether precision truncation / overflow is allowed when casting to decimal.
+  /// Note that casting floating-point values to decimal always rounds to the
+  /// target scale; this option only controls whether errors are ignored when
+  /// the value does not fit in the target precision or is non-finite.
   bool allow_decimal_truncate;
   bool allow_float_truncate;
   // Indicate if conversions from Binary/FixedSizeBinary to string must

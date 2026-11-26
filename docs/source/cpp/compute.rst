@@ -1494,7 +1494,11 @@ null input value is converted into a null output value.
 * \(3) No-operation cast: only the type is changed.
 
 * \(4) Overflow and truncation checks are enabled depending on
-  the given :struct:`CastOptions`.
+  the given :struct:`CastOptions`. Note that casting floating-point values
+  to Decimal always rounds to the target scale;
+  :member:`CastOptions::allow_decimal_truncate` only controls whether errors
+  are ignored when the result does not fit in the target precision (or the
+  input is non-finite).
 
 * \(5) Not all such casts have been implemented.
 
