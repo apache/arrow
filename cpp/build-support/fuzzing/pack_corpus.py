@@ -36,9 +36,9 @@ def process_dir(corpus_dir, zip_output):
             data = f.read()
         arcname = hashlib.sha1(data).hexdigest()
         if arcname in seen_hashes:
-            raise ValueError(
-                f"Duplicate hash: {arcname} (in file {child}), "
-                f"already seen in file {seen_hashes[arcname]}")
+            print(f"  WARNING: {child} has the same content as {seen_hashes[arcname]}, "
+                  "skipping it", file=sys.stderr)
+            continue
         print(f"  {child} -> {arcname}")
         zip_output.writestr(str(arcname), data)
         seen_hashes[arcname] = child

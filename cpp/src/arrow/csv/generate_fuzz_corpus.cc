@@ -15,23 +15,30 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// A command line executable that generates a bunch of valid IPC files
-// containing example record batches.  Those are used as fuzzing seeds
-// to make fuzzing more efficient.
+// A command line executable that generates a bunch of valid CSV files
+// containing example record batches.  Each file is prefixed with a serialized
+// CSV fuzz header (see csv/fuzz_header_internal.h) encoding the reader
+// options matching the dialect used for writing.  Those are used as fuzzing
+// seeds to make fuzzing more efficient.
 
+#include <algorithm>
+#include <cstdint>
 #include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/cast.h"
+#include "arrow/csv/fuzz_header_internal.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/writer.h"
 #include "arrow/io/file.h"
+#include "arrow/util/logging.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/json/from_string.h"
@@ -152,6 +159,108 @@ Result<RecordBatchVector> Batches() {
   return batches;
 }
 
+namespace {
+
+// Default fuzz header values, matching the default CSV reader options
+// (see ParseOptions, ReadOptions and ConvertOptions in csv/options.h).
+internal::FuzzCsvHeader MakeDefaultFuzzCsvHeader() {
+  internal::FuzzCsvHeader header{};
+  internal::SetFuzzCsvMagic(header);
+  // --- ParseOptions defaults ---
+  header.parse_1.delimiter_id = 0;  // ','
+  header.parse_1.quoting = 1;
+  header.parse_1.quote_char_id = 0;  // '"'
+  header.parse_1.double_quote = 1;
+  header.parse_1.escaping = 0;
+  header.parse_1.escape_char_id = 0;  // '\\'
+  header.parse_2.newlines_in_values = 0;
+  header.parse_2.ignore_empty_lines = 1;
+  header.parse_2.pad_short_rows = 0;
+  header.parse_2.ignore_extra_columns = 0;
+  // --- ReadOptions defaults ---
+  // Block size and threading are not part of the header: they do not affect
+  // the CSV bytes and the fuzz target varies them itself.
+  header.read.skip_rows = 0;
+  header.read.autogenerate_column_names = 0;
+  // --- ConvertOptions defaults ---
+  header.convert_1.strings_can_be_null = 0;
+  header.convert_1.quoted_strings_can_be_null = 1;
+  header.convert_1.auto_dict_encode = 0;
+  header.convert_1.auto_dict_max_cardinality_id = 0;  // 50
+  header.convert_1.decimal_point_is_comma = 0;        // '.'
+  header.convert_1.check_utf8 = 1;
+  return header;
+}
+
+// Index of `delimiter` in the candidate delimiters of the fuzz header
+uint8_t FuzzDelimiterId(std::string_view delimiter) {
+  auto it = std::find(internal::kFuzzCsvDelimiters.begin(),
+                      internal::kFuzzCsvDelimiters.end(), delimiter);
+  // An unknown delimiter would silently desync the fuzz header from the
+  // written dialect (the id maps modulo the array length), so treat it as
+  // the generator bug it is.
+  if (it == internal::kFuzzCsvDelimiters.end()) {
+    ARROW_CHECK_OK(Status::Invalid("Delimiter missing from kFuzzCsvDelimiters: ",
+                                   std::string(delimiter)));
+  }
+  return static_cast<uint8_t>(it - internal::kFuzzCsvDelimiters.begin());
+}
+// Build the fuzz header for a set of write options: the parse and convert
+// fields mirror the dialect that the writer will produce, and the read-side
+// fields keep their defaults (block size and threading are varied by the
+// fuzz target itself).
+internal::FuzzCsvHeader MakeFuzzCsvHeaderFromWriteOptions(
+    const WriteOptions& o) {
+  internal::FuzzCsvHeader header = MakeDefaultFuzzCsvHeader();
+  header.parse_1.delimiter_id = FuzzDelimiterId(std::string(1, o.delimiter));
+  if (!o.include_header) {
+    // No header row was written, so the reader must autogenerate the
+    // column names it will read back.
+    header.read.autogenerate_column_names = 1;
+  }
+  if (!o.null_string.empty()) {
+    // The reader must parse the written null spelling as nulls.
+    header.convert_1.strings_can_be_null = 1;
+  }
+  return header;
+}
+
+using WriteAndHeaderOptions = std::pair<WriteOptions, internal::FuzzCsvHeader>;
+
+// Generate several dialect variants of each batch, matching the option
+// rotations performed by the fuzz target (see csv/fuzz.cc).  For each
+// variant, also compute the fuzz header encoding the reader options that
+// match the writing dialect.
+std::vector<WriteAndHeaderOptions> SampleVariants() {
+  std::vector<WriteAndHeaderOptions> variants;
+  auto append_variant = [&](std::function<void(WriteOptions&)> write_fn) {
+    auto write_options = WriteOptions::Defaults();
+    write_fn(write_options);
+    // An invalid set of write options is a bug in this generator, not
+    // something to skip silently.
+    ARROW_CHECK_OK(write_options.Validate());
+    // Build the header before moving the options: argument evaluation order
+    // is unspecified, so moving first could read from a moved-from object.
+    auto header = MakeFuzzCsvHeaderFromWriteOptions(write_options);
+    variants.emplace_back(std::move(write_options), std::move(header));
+  };
+  // Default dialect
+  append_variant([](WriteOptions&) {});
+  // Alternate delimiters
+  append_variant([](WriteOptions& o) { o.delimiter = ';'; });
+  append_variant([](WriteOptions& o) { o.delimiter = '\t'; });
+  // Quote all values (the writer uses '"' as the quoting character)
+  append_variant([](WriteOptions& o) { o.quoting_style = QuotingStyle::AllValid; });
+  // No header row, and let the reader autogenerate column names
+  append_variant([](WriteOptions& o) { o.include_header = false; });
+  // Write nulls as "N/A", and let the reader parse them as nulls
+  // ("N/A" is one of the default null spellings in ConvertOptions)
+  append_variant([](WriteOptions& o) { o.null_string = "N/A"; });
+  return variants;
+}
+
+}  // namespace
+
 Status DoMain(const std::string& out_dir) {
   ARROW_ASSIGN_OR_RAISE(auto dir_fn, PlatformFilename::FromString(out_dir));
   RETURN_NOT_OK(CreateDir(dir_fn));
@@ -162,19 +271,22 @@ Status DoMain(const std::string& out_dir) {
   };
 
   ARROW_ASSIGN_OR_RAISE(auto batches, Batches());
-
-  auto options = WriteOptions::Defaults();
-  RETURN_NOT_OK(options.Validate());
+  const auto option_variants = SampleVariants();
 
   for (const auto& batch : batches) {
     RETURN_NOT_OK(batch->ValidateFull());
-    ARROW_ASSIGN_OR_RAISE(auto buffer, WriteRecordBatch(batch, options));
+    for (const auto& [options, header] : option_variants) {
+      ARROW_ASSIGN_OR_RAISE(auto buffer, WriteRecordBatch(batch, options));
+      const std::string header_str = internal::SerializeFuzzCsvHeader(header);
 
-    ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
-    std::cerr << sample_fn.ToString() << std::endl;
-    ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));
-    RETURN_NOT_OK(file->Write(buffer));
-    RETURN_NOT_OK(file->Close());
+      ARROW_ASSIGN_OR_RAISE(auto sample_fn, dir_fn.Join(sample_name()));
+      std::cerr << sample_fn.ToString() << std::endl;
+      ARROW_ASSIGN_OR_RAISE(auto file, io::FileOutputStream::Open(sample_fn.ToString()));
+      RETURN_NOT_OK(
+          file->Write(header_str.data(), static_cast<int64_t>(header_str.size())));
+      RETURN_NOT_OK(file->Write(buffer));
+      RETURN_NOT_OK(file->Close());
+    }
   }
   return Status::OK();
 }

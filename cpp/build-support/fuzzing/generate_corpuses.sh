@@ -89,4 +89,19 @@ rm -rf "${CORPUS_DIR}"
 cp "${ARROW_ROOT}"/testing/data/csv/*.csv "${CORPUS_DIR}"
 # Add examples from Pandas test suite
 find "${PANDAS_DIR}/" -name "*.csv" -exec cp --backup=numbered '{}' "${CORPUS_DIR}" \;
+# Note: some of the files above may have duplicate content under different
+# names; pack_corpus.py emits a warning and keeps a single copy of them.
+
 "${ARROW_CPP}/build-support/fuzzing/pack_corpus.py" "${CORPUS_DIR}" "${OUT}/arrow-csv-fuzz_seed_corpus.zip"
+
+# Fuzz target dictionaries
+#
+# Dictionaries are shipped under build-support/fuzzing/dicts as
+# "<FUZZ TARGET>.dict" and copied next to the seed corpus zips, so that
+# OSS-Fuzz's build script can pick them up like the corpora above.
+# Note that a dictionary does not restrict the fuzzing engine to generating
+# inputs made of these tokens; it is only a set of hints that the fuzzing
+# engine may try splicing into the inputs it mutates.
+
+find "${ARROW_CPP}/build-support/fuzzing/dicts" -name '*.dict' \
+  -exec cp '{}' "${OUT}/" \;
