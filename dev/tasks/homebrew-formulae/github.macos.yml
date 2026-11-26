@@ -29,8 +29,11 @@ jobs:
       {{ macros.configure_homebrew_arrow(formula)|indent }}
       - name: Test formula
         env:
-          # Workaround for bottle download failures on GitHub Actions runners
+          # Required so brew install/test load our local formulae from homebrew/core
+          # instead of Homebrew's JSON API (and avoids GH-48809 API bottle issues)
           HOMEBREW_NO_INSTALL_FROM_API: 1
+          # Prevent brew from trying to update the shallow homebrew/core clone
+          HOMEBREW_NO_AUTO_UPDATE: 1
         run: |
           brew install -v --HEAD apache-arrow
           brew test apache-arrow
