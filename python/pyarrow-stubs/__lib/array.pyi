@@ -17,6 +17,8 @@
 
 import builtins
 from collections.abc import Collection, Iterable, Iterator, Sequence
+from datetime import date
+from decimal import Decimal
 from typing import Any, ClassVar, Self, SupportsIndex, TypeAlias, overload
 
 import numpy as np
@@ -31,6 +33,8 @@ from pyarrow._stubs_typing import (
     Indices,
     MapsAsPydicts,
     Mask,
+    NonChunkedIndices,
+    NonChunkedMask,
     NullEncoding,
     NullPlacement,
     NullSelectionBehavior,
@@ -196,17 +200,36 @@ class Array(_PandasConvertible):
     def is_null(self, *, nan_is_null: bool = False) -> BooleanArray: ...
     def is_nan(self) -> BooleanArray: ...
     def is_valid(self) -> BooleanArray: ...
-    def fill_null(self, fill_value: Any) -> Self: ...
+    @overload
+    def fill_null(self, fill_value: ChunkedArray) -> ChunkedArray: ...
+    @overload
+    def fill_null(
+        self,
+        fill_value: Array | float | str | bytes | date | Decimal | np.generic | None,
+    ) -> Self: ...
+    @overload
+    def fill_null(self, fill_value: object) -> Self | ChunkedArray: ...
     @overload
     def __getitem__(self, key: SupportsIndex) -> Scalar: ...
     @overload
     def __getitem__(self, key: builtins.slice) -> Self: ...
     def slice(self, offset: int = 0, length: int | None = None) -> Self: ...
-    def take(self, indices: Indices) -> Self: ...
+    @overload
+    def take(self, indices: ChunkedArray) -> ChunkedArray: ...
+    @overload
+    def take(self, indices: NonChunkedIndices) -> Self: ...
     def drop_null(self) -> Self: ...
+    @overload
     def filter(
         self,
-        mask: Mask,
+        mask: ChunkedArray,
+        *,
+        null_selection_behavior: NullSelectionBehavior = "drop",
+    ) -> ChunkedArray: ...
+    @overload
+    def filter(
+        self,
+        mask: NonChunkedMask,
         *,
         null_selection_behavior: NullSelectionBehavior = "drop",
     ) -> Self: ...

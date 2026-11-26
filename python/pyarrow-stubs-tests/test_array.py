@@ -77,6 +77,15 @@ def test_array() -> None:
     bool_mask = cast(pa.BooleanArray, pa.array([True, False, True]))
     check(assert_type(arr.filter(bool_mask), pa.Int64Array), pa.Int64Array)
 
+    chunked = pa.chunked_array([[0, 1, 2]])
+    mask = pa.chunked_array([[True, False, True]])
+    check(assert_type(arr.take(chunked), pa.ChunkedArray), pa.ChunkedArray)
+    check(assert_type(arr.filter(mask), pa.ChunkedArray), pa.ChunkedArray)
+    check(assert_type(arr.fill_null(chunked), pa.ChunkedArray), pa.ChunkedArray)
+    if TYPE_CHECKING:
+        fill = cast(int | pa.ChunkedArray, chunked)
+        assert_type(arr.fill_null(fill), pa.Int64Array | pa.ChunkedArray)
+
 
 def test_array_constructors() -> None:
     check(assert_type(pa.array([1, 2]), pa.Array), pa.Int64Array)
@@ -296,7 +305,7 @@ def test_invalid_usage() -> None:
         # Arrays define __eq__ but not __hash__, hence unhashable at runtime
         _: Hashable = arr  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         arr.sort(null_placement="first")  # type: ignore[arg-type]
-        arr.filter([True], null_selection_behavior="keep")  # type: ignore[arg-type]
+        arr.filter([True], null_selection_behavior="keep")  # type: ignore[call-overload]  # ty: ignore[no-matching-overload]  # noqa: E501
         arr.dictionary_encode("drop")  # type: ignore[arg-type]
         arr.to_pylist(maps_as_pydicts="loose")  # type: ignore[arg-type]
         # Generators aren't accepted, only Sequences

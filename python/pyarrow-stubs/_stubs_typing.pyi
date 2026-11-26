@@ -31,10 +31,10 @@ NullPlacement: TypeAlias = Literal["at_start", "at_end"]
 NullSelectionBehavior: TypeAlias = Literal["drop", "emit_null"]
 TimeUnit: TypeAlias = Literal["s", "ms", "us", "ns"]
 
-Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | Array | ChunkedArray
-Indices: TypeAlias = (
-    Sequence[int | None] | NDArray[np.integer[Any]] | Array | ChunkedArray
-)
+NonChunkedMask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | Array
+Mask: TypeAlias = NonChunkedMask | ChunkedArray
+NonChunkedIndices: TypeAlias = Sequence[int | None] | NDArray[np.integer[Any]] | Array
+Indices: TypeAlias = NonChunkedIndices | ChunkedArray
 
 # Key-value metadata. Mapping is invariant in its key type, so mappings with
 # only str or only bytes keys are listed next to the mixed one.
