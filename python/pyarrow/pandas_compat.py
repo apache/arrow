@@ -1048,8 +1048,36 @@ def _extract_index_level(table, result_table, field_name,
         return result_table, None, None
 
     col = table.column(i)
-    index_level = col.to_pandas(types_mapper=types_mapper)
-    index_level.name = None
+    # restore the pandas extension dtype (e.g. Int64) stored in the metadata,
+    # unless types_mapper handles this type (as for data columns)
+    numpy_type = field_name_to_metadata[field_name]['numpy_type']
+    pandas_dtype = None
+    if (
+        numpy_type not in _pandas_supported_numpy_types
+        and not pa.types.is_dictionary(col.type)
+        and (types_mapper is None or types_mapper(col.type) is None)
+    ):
+        pandas_dtype = _pandas_api.pandas_dtype(numpy_type)
+        if isinstance(pandas_dtype, _pandas_api.pd.StringDtype) and not (
+            pa.types.is_string(col.type)
+            or pa.types.is_large_string(col.type)
+            or pa.types.is_string_view(col.type)
+            or pa.types.is_binary(col.type)
+            or pa.types.is_large_binary(col.type)
+            or pa.types.is_binary_view(col.type)
+            or pa.types.is_null(col.type)
+        ):
+            # the index level was replaced by one of another type after the
+            # metadata was written
+            pandas_dtype = None
+    if (
+        isinstance(pandas_dtype, _pandas_api.extension_dtype)
+        and hasattr(pandas_dtype, "__from_arrow__")
+    ):
+        index_level = _pandas_api.pd.Series(pandas_dtype.__from_arrow__(col))
+    else:
+        index_level = col.to_pandas(types_mapper=types_mapper)
+        index_level.name = None
     result_table = result_table.remove_column(
         result_table.schema.get_field_index(field_name)
     )

@@ -4602,6 +4602,42 @@ def test_roundtrip_empty_table_with_extension_dtype_index():
     tm.assert_index_equal(table.to_pandas().index, df.index)
 
 
+@pytest.mark.parametrize("values, dtype", [
+    ([1, None, 3], "Int64"),
+    ([1.5, None, 3.5], "Float32"),
+    ([True, False, None], "boolean"),
+    (["a", None, "c"], "string"),
+    ([1, 2, 3], "UInt8"),
+    ([1, None, 3], "int64[pyarrow]"),
+])
+def test_roundtrip_index_with_extension_dtype(values, dtype):
+    index = pd.Index(pd.array(values, dtype=dtype), name="idx")
+    df = pd.DataFrame({"a": [1, 2, 3]}, index=index)
+    result = pa.Table.from_pandas(df).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+    mi = pd.MultiIndex.from_arrays([index, ["x", "y", "z"]], names=["i", "j"])
+    df = pd.DataFrame({"a": [1, 2, 3]}, index=mi)
+    result = pa.Table.from_pandas(df).to_pandas()
+    tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.parametrize("dtype", [None, "string"])
+@pytest.mark.parametrize(
+    "new_column",
+    [pa.array([7, 8, 9]), pa.array([1.5, 2.5, 3.5]), pa.array([True, False, None])],
+)
+def test_to_pandas_replaced_string_index_level_with_stale_metadata(new_column,
+                                                                   dtype):
+    # The pandas metadata still describes the replaced index level as a
+    # string column; its values must not be converted to strings.
+    index = pd.Index(pd.Series(["x", "y", "z"], dtype=dtype), name="idx")
+    df = pd.DataFrame({"a": [1, 2, 3]}, index=index)
+    table = pa.Table.from_pandas(df).set_column(1, "idx", new_column)
+    result = table.to_pandas()
+    tm.assert_index_equal(result.index, pd.Index(new_column.to_pandas(), name="idx"))
+
+
 @pytest.mark.parametrize("index", ["a", ["a", "b"]])
 def test_to_pandas_types_mapper_index(index):
     df = pd.DataFrame(
