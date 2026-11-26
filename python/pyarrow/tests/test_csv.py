@@ -825,6 +825,21 @@ class BaseTestCSV(abc.ABC):
             "z": [3, None, None],
         }
 
+        # Short first row with explicit column names
+        rows_short_first = b"1,2\n3,4,5,6\n"
+        read_opts_wide = ReadOptions(column_names=["w", "x", "y", "z"])
+        table = self.read_bytes(
+            rows_short_first,
+            read_options=read_opts_wide,
+            parse_options=ParseOptions(pad_short_rows=True),
+        )
+        assert table.to_pydict() == {
+            "w": [1, 3],
+            "x": [2, 4],
+            "y": [None, 5],
+            "z": [None, 6],
+        }
+
         # Pad short rows with typed converters
         convert_opts = ConvertOptions(
             column_types={"a": pa.int64(), "b": pa.float64(), "c": pa.string()}
@@ -840,7 +855,7 @@ class BaseTestCSV(abc.ABC):
             "c": ["3", None, None],
         }
 
-        # Rows with excess columns still raise error when ignore_extra_columns=False
+        # Rows with excess columns still raise an error
         rows_extra = b"a,b\n1,2\n3,4,5\n"
         with pytest.raises(ValueError, match="Expected 2 columns, got 3"):
             self.read_bytes(rows_extra, parse_options=ParseOptions(pad_short_rows=True))
