@@ -251,7 +251,7 @@ abandon_ship <- function(err, env) {
   .data <- get(".data", envir = env)
   # If there's no call (see comment in try_arrow_dplyr), we can't eval with
   # dplyr even if the data is in memory already
-  call <- try(get("call", envir = env), silent = TRUE)
+  call <- try(get("call", envir = env, inherits = FALSE), silent = TRUE)
   if (query_on_dataset(.data) || inherits(call, "try-error")) {
     # Add a note suggesting `collect()` to the error message.
     # If there are other suggestions already there (with the > arrow name),
