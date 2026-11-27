@@ -495,6 +495,42 @@ std::shared_ptr<Buffer> MakeStripeBatchFile(
   return Buffer::FromString(std::string(stream.getData(), stream.getLength()));
 }
 
+TEST(TestAdapterRead, EmptyProjectionPreservesRowCount) {
+  auto file = std::make_shared<io::BufferReader>(MakeStripeBatchFile(16384, 3));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       adapters::orc::ORCFileReader::Open(file, default_memory_pool()));
+  ASSERT_EQ(3, reader->NumberOfStripes());
+
+  ASSERT_OK_AND_ASSIGN(auto stripe_by_name,
+                       reader->ReadStripe(1, std::vector<std::string>{}));
+  ASSERT_OK_AND_ASSIGN(auto stripe_by_index, reader->ReadStripe(1, std::vector<int>{}));
+  for (const auto& batch : {stripe_by_name, stripe_by_index}) {
+    ASSERT_OK(batch->ValidateFull());
+    ASSERT_EQ(0, batch->num_columns());
+    ASSERT_EQ(16384, batch->num_rows());
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto by_name, reader->Read(std::vector<std::string>{}));
+  ASSERT_OK_AND_ASSIGN(auto by_index, reader->Read(std::vector<int>{}));
+  for (const auto& table : {by_name, by_index}) {
+    ASSERT_OK(table->ValidateFull());
+    ASSERT_EQ(0, table->num_columns());
+    ASSERT_EQ(3 * 16384, table->num_rows());
+  }
+
+  auto metadata = key_value_metadata({"key"}, {"value"});
+  auto empty_schema = ::arrow::schema({}, metadata);
+  ASSERT_OK_AND_ASSIGN(auto with_schema, reader->Read(empty_schema));
+  ASSERT_OK_AND_ASSIGN(auto with_schema_and_indices,
+                       reader->Read(empty_schema, std::vector<int>{}));
+  for (const auto& table : {with_schema, with_schema_and_indices}) {
+    ASSERT_OK(table->ValidateFull());
+    ASSERT_EQ(0, table->num_columns());
+    ASSERT_EQ(3 * 16384, table->num_rows());
+    AssertSchemaEqual(*empty_schema, *table->schema(), /*check_metadata=*/true);
+  }
+}
+
 TEST(TestAdapterRead, StripeBatchSelectionAndState) {
   auto file = std::make_shared<io::BufferReader>(MakeStripeBatchFile(16384, 4));
   ASSERT_OK_AND_ASSIGN(auto reader,

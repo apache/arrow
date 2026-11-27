@@ -217,7 +217,8 @@ def test_timezone_absent(datadir, tmpdir):
 def test_orcfile_empty(datadir):
     from pyarrow import orc
 
-    table = orc.ORCFile(datadir / "TestOrcFile.emptyFile.orc").read()
+    reader = orc.ORCFile(datadir / "TestOrcFile.emptyFile.orc")
+    table = reader.read()
     assert table.num_rows == 0
 
     expected_schema = pa.schema([
@@ -245,6 +246,13 @@ def test_orcfile_empty(datadir):
                         )),
     ])
     assert table.schema == expected_schema
+    empty_result = reader.read(columns=[])
+    assert empty_result.num_columns == 0
+    assert empty_result.num_rows == 0
+    assert empty_result.schema.equals(pa.schema([], metadata=reader.schema.metadata),
+                                      check_metadata=True)
+    with pytest.raises(ValueError):
+        reader.read_stripe(0, columns=[])
 
 
 def test_filesystem_uri(tmpdir):
@@ -700,6 +708,24 @@ def batch_file(request):
     return data, table
 
 
+@pytest.mark.parametrize('batch_file', ['uncompressed'], indirect=True)
+def test_empty_projection_preserves_row_count(batch_file):
+    from pyarrow import orc
+
+    data, table = batch_file
+    reader = orc.ORCFile(data)
+    result = reader.read(columns=[])
+    assert result.num_columns == 0
+    assert result.num_rows == table.num_rows
+    assert result.schema.equals(pa.schema([], metadata=reader.schema.metadata),
+                                check_metadata=True)
+    for stripe in range(reader.nstripes):
+        batch = reader.read_stripe(stripe, columns=[])
+        assert batch.num_columns == 0
+        assert batch.num_rows == 16384
+        batch.validate(full=True)
+
+
 @pytest.mark.parametrize('batch_size', [1000, 16384, 65536])
 @pytest.mark.parametrize('stripes', [None, [2, 0, 2]])
 def test_iter_batches_selection(batch_file, batch_size, stripes):
@@ -864,6 +890,17 @@ class BatchTrackingFile(io.BytesIO):
         data = self.read(len(buffer))
         buffer[:len(data)] = data
         return len(data)
+
+
+@pytest.mark.parametrize('batch_file', ['uncompressed'], indirect=True)
+def test_empty_projection_read_error(batch_file):
+    from pyarrow import orc
+
+    source = BatchTrackingFile(batch_file[0].to_pybytes())
+    reader = orc.ORCFile(source)
+    source.fail = True
+    with pytest.raises((OSError, pa.ArrowException), match='injected ORC read failure'):
+        reader.read_stripe(0, columns=[])
 
 
 @pytest.mark.parametrize('stripes', [None, [2, 0]], ids=['all', 'selected'])
