@@ -87,6 +87,7 @@ class Message::MessageImpl {
       : metadata_(std::move(metadata)), message_(nullptr), body_(std::move(body)) {}
 
   Status Open() {
+    RETURN_NOT_OK(MaybeAlignMetadata(&metadata_));
     RETURN_NOT_OK(
         internal::VerifyMessage(metadata_->data(), metadata_->size(), &message_));
 
