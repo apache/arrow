@@ -214,7 +214,7 @@ Status OutputAllNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
   // should clean this up later. This is used in the dict<null>->null cast
   ArrayData* output = out->array_data().get();
   output->buffers = {nullptr};
-  output->null_count = batch.length;
+  output->null_count = batch[0].array.length;
   return Status::OK();
 }
 
@@ -234,7 +234,8 @@ Status CastFromExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 Status CastFromNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   // TODO(wesm): handle this case more gracefully
   std::shared_ptr<Array> nulls;
-  RETURN_NOT_OK(MakeArrayOfNull(out->type()->GetSharedPtr(), batch.length).Value(&nulls));
+  RETURN_NOT_OK(
+      MakeArrayOfNull(out->type()->GetSharedPtr(), batch[0].array.length).Value(&nulls));
   out->value = nulls->data();
   return Status::OK();
 }
