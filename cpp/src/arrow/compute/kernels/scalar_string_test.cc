@@ -1176,6 +1176,29 @@ TYPED_TEST(TestStringKernels, AsciiSwapCase) {
                    "[\"HeLLo, wOrLD!\", \"$. a35?\"]");
 }
 
+TYPED_TEST(TestStringKernels, AsciiCaseTransformNonZeroFirstOffset) {
+  // GH-54906: the input is valid even though its first value offset is not 0,
+  // so the kernels must not reuse its offsets buffer as is.
+  auto validity =
+      ArrayFromJSON(boolean(), "[true, false, true, true]")->data()->buffers[1];
+  auto offsets =
+      ArrayFromJSON(this->offset_type(), "[5, 8, 8, 8, 10]")->data()->buffers[1];
+  auto data = Buffer::FromString("xxxxxabCDe");
+  auto input =
+      MakeArray(ArrayData::Make(this->type(), /*length=*/4, {validity, offsets, data}));
+  ASSERT_OK(input->ValidateFull());
+  AssertArraysEqual(*ArrayFromJSON(this->type(), R"(["abC", null, "", "De"])"), *input);
+
+  this->CheckUnary("ascii_upper", input, this->type(), R"(["ABC", null, "", "DE"])");
+  this->CheckUnary("ascii_lower", input, this->type(), R"(["abc", null, "", "de"])");
+  this->CheckUnary("ascii_swapcase", input, this->type(), R"(["ABc", null, "", "dE"])");
+
+  // Slices with a non-zero array offset
+  this->CheckUnary("ascii_upper", input->Slice(1), this->type(), R"([null, "", "DE"])");
+  this->CheckUnary("ascii_lower", input->Slice(2, 1), this->type(), R"([""])");
+  this->CheckUnary("ascii_swapcase", input->Slice(3), this->type(), R"(["dE"])");
+}
+
 TYPED_TEST(TestStringKernels, AsciiCapitalize) {
   this->CheckUnary("ascii_capitalize", "[]", this->type(), "[]");
   this->CheckUnary("ascii_capitalize",
