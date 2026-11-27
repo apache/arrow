@@ -167,14 +167,30 @@ class ColumnPopulator {
 
 // Copies the contents of s to out properly escaping any necessary characters.
 // Returns the position next to last copied character.
-char* Escape(std::string_view s, char* out) {
+char* Escape(std::string_view s, char* out, EscapeStyle escape_style) {
   for (const char c : s) {
+    if (c == '"' && escape_style == EscapeStyle::Backslash) {
+      *out++ = '\\';
+    }
     *out++ = c;
-    if (c == '"') {
+    if (c == '"' && escape_style == EscapeStyle::Double) {
       *out++ = '"';
     }
   }
   return out;
+}
+
+// Returns the number of characters needed to escape the given string.
+int64_t EscapedLength(std::string_view s, EscapeStyle escape_style) {
+  int64_t quote_count = static_cast<int64_t>(std::count(s.begin(), s.end(), '"'));
+  switch (escape_style) {
+    case EscapeStyle::Double:
+    case EscapeStyle::Backslash:
+      return static_cast<int64_t>(s.length()) + quote_count;
+    case EscapeStyle::None:
+      return static_cast<int64_t>(s.length());
+  }
+  return static_cast<int64_t>(s.length());
 }
 
 // Return the index of the first structural char in the input. A structural char
@@ -325,8 +341,10 @@ class UnquotedColumnPopulator : public ColumnPopulator {
 class QuotedColumnPopulator : public ColumnPopulator {
  public:
   QuotedColumnPopulator(MemoryPool* pool, std::string end_chars,
-                        std::shared_ptr<Buffer> null_string)
-      : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)) {}
+                        std::shared_ptr<Buffer> null_string,
+                        EscapeStyle escape_style)
+      : ColumnPopulator(pool, std::move(end_chars), std::move(null_string)),
+        escape_style_(escape_style) {}
 
   Status UpdateRowLengths(int64_t* row_lengths) override {
     if (ARROW_PREDICT_TRUE(array_->type_id() == Type::STRING)) {
@@ -366,8 +384,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
             // Each quote in the value string needs to be escaped.
             int64_t escaped_count = CountQuotes(s);
             row_needs_escaping_[row_number] = escaped_count > 0;
-            row_lengths[row_number] +=
-                static_cast<int64_t>(s.length()) + escaped_count + kQuoteCount;
+            row_lengths[row_number] += EscapedLength(s, escape_style_) + kQuoteCount;
             row_number++;
           },
           [&]() {
@@ -401,7 +418,7 @@ class QuotedColumnPopulator : public ColumnPopulator {
             memcpy(row, s.data(), s.length());
             row += s.length();
           } else {
-            row = Escape(s, row);
+            row = Escape(s, row, escape_style_);
           }
           *row++ = '"';
           CopyEndChars(row, end_chars_.data(), end_chars_.length());
@@ -436,12 +453,13 @@ class QuotedColumnPopulator : public ColumnPopulator {
   // at some point we should change this to use memory_pool
   // backed allocator.
   std::vector<bool> row_needs_escaping_;
+  const EscapeStyle escape_style_;
 };
 
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
     const DataType& type, const std::string& end_chars, const char delimiter,
     const std::shared_ptr<Buffer>& null_string, QuotingStyle quoting_style,
-    MemoryPool* pool) {
+    EscapeStyle escape_style, MemoryPool* pool) {
   auto make_populator =
       [&](const auto& type) -> Result<std::unique_ptr<ColumnPopulator>> {
     using Type = std::decay_t<decltype(type)>;
@@ -459,7 +477,8 @@ Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
               pool, end_chars, delimiter, null_string,
               /*reject_values_with_quotes=*/false);
         case QuotingStyle::AllValid:
-          return std::make_unique<QuotedColumnPopulator>(pool, end_chars, null_string);
+          return std::make_unique<QuotedColumnPopulator>(pool, end_chars, null_string,
+                                                        escape_style);
       }
     }
 
@@ -479,13 +498,14 @@ Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
         case QuotingStyle::Needed:
           [[fallthrough]];
         case QuotingStyle::AllValid:
-          return std::make_unique<QuotedColumnPopulator>(pool, end_chars, null_string);
+          return std::make_unique<QuotedColumnPopulator>(pool, end_chars, null_string,
+                                                        escape_style);
       }
     }
 
     if constexpr (std::is_same<Type, DictionaryType>::value) {
       return MakePopulator(*type.value_type(), end_chars, delimiter, null_string,
-                           quoting_style, pool);
+                           quoting_style, escape_style, pool);
     }
 
     return Status::Invalid("Unsupported Type:", type.ToString());
@@ -496,9 +516,9 @@ Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
 Result<std::unique_ptr<ColumnPopulator>> MakePopulator(
     const Field& field, const std::string& end_chars, char delimiter,
     const std::shared_ptr<Buffer>& null_string, QuotingStyle quoting_style,
-    MemoryPool* pool) {
+    EscapeStyle escape_style, MemoryPool* pool) {
   return MakePopulator(*field.type(), end_chars, delimiter, null_string, quoting_style,
-                       pool);
+                       escape_style, pool);
 }
 
 class CSVWriterImpl : public ipc::RecordBatchWriter {
@@ -525,7 +545,8 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
       ARROW_ASSIGN_OR_RAISE(
           populators[col],
           MakePopulator(*schema->field(col), end_chars, options.delimiter, null_string,
-                        options.quoting_style, options.io_context.pool()));
+                        options.quoting_style, options.escape_style,
+                        options.io_context.pool()));
     }
     auto writer = std::make_shared<CSVWriterImpl>(
         sink, std::move(owned_sink), std::move(schema), std::move(populators), options);
@@ -601,13 +622,12 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     int64_t header_length = 0;
     for (int col = 0; col < schema_->num_fields(); col++) {
       const std::string& col_name = schema_->field(col)->name();
-      header_length += col_name.size();
+      header_length += EscapedLength(col_name, options_.escape_style);
       switch (quoting_style) {
         case QuotingStyle::None:
           break;
         case QuotingStyle::Needed:
         case QuotingStyle::AllValid:
-          header_length += CountQuotes(col_name);
           break;
       }
     }
@@ -649,7 +669,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
           // regardless of whether it contains structural chars.
           // We use consistent semantics for header names, which are strings.
           *next++ = '"';
-          next = Escape(schema_->field(col)->name(), next);
+          next = Escape(schema_->field(col)->name(), next, options_.escape_style);
           *next++ = '"';
           break;
       }
