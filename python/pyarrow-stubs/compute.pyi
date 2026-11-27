@@ -1656,7 +1656,7 @@ def list_slice(
     *,
     options: ListSliceOptions | None = None,
     memory_pool: MemoryPool | None = None,
-) -> BaseListArray | ChunkedArray | Expression: ...
+) -> _ListScalar | BaseListArray | ChunkedArray | Expression: ...
 def map_lookup(
     container: _ScalarOrArray | Expression,
     /,

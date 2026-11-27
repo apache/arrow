@@ -250,6 +250,7 @@ def test_array_wise_functions() -> None:
     check(assert_type(pc.list_parent_indices(pa.chunked_array([[[1, 2], [3]]])),
                       pa.Int64Array | pa.ChunkedArray),
           pa.ChunkedArray)
+    check(pc.list_slice(pa.scalar([1, 2, 3]), 1), pa.ListScalar)
     check(pc.struct_field(pa.array([{"a": 1}]), ("a",)), pa.Array)
 
     # Replace functions always return arrays
