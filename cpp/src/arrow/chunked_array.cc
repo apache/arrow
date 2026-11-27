@@ -201,8 +201,17 @@ std::shared_ptr<ChunkedArray> ChunkedArray::Slice(int64_t offset, int64_t length
     new_chunks.push_back(chunk(std::min(curr_chunk, num_chunks() - 1))->Slice(0, 0));
   } else {
     while (curr_chunk < num_chunks() && length > 0) {
-      new_chunks.push_back(chunk(curr_chunk)->Slice(offset, length));
-      length -= chunk(curr_chunk)->length() - offset;
+      const auto& current = chunk(curr_chunk);
+      const auto& data = *current->data();
+      if (offset == 0 && length >= current->length() && !data.statistics &&
+          data.child_data.empty() && !data.dictionary &&
+          current->type_id() != Type::EXTENSION) {
+        // No new bounds or statistics handling is needed for a full plain chunk.
+        new_chunks.push_back(current);
+      } else {
+        new_chunks.push_back(current->Slice(offset, length));
+      }
+      length -= current->length() - offset;
       offset = 0;
       curr_chunk++;
     }
