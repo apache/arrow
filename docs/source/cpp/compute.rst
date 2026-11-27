@@ -1984,19 +1984,19 @@ Structural transforms
   The output type is an Array of items for the ``FIRST``/``LAST`` options
   and an Array of List of items for the ``ALL`` option.
 
-* \(6) Extract a child value based on a sequence of indices passed in
-  the options. The validity bitmap of the result will be the
-  intersection of all intermediate validity bitmaps. For example, for
-  an array with type ``struct<a: int32, b: struct<c: int64, d:
-  float64>>``:
+* \(6) Extract a child value based on the FieldRef passed in the options.
+  A FieldRef can be an index, a name, or a nested sequence of either.
+  The validity bitmap of the result will be the intersection of all
+  intermediate validity bitmaps. For example, for an array with type
+  ``struct<a: int32, b: struct<c: int64, d: float64>>``:
 
   * An empty sequence of indices yields the original value unchanged.
-  * The index ``0`` yields an array of type ``int32`` whose validity
-    bitmap is the intersection of the bitmap for the outermost struct
-    and the bitmap for the child ``a``.
-  * The index ``1, 1`` yields an array of type ``float64`` whose
-    validity bitmap is the intersection of the bitmaps for the
-    outermost struct, for struct ``b``, and for the child ``d``.
+  * The name ``a`` or index ``0`` yields an array of type ``int32`` whose
+    validity bitmap is the intersection of the bitmap for the outermost
+    struct and the bitmap for the child ``a``.
+  * ``FieldRef("b", "d")`` or the dot path ``.b.d`` or the index ``1, 1`` all yield an array of type ``float64`` whose validity bitmap is the
+    intersection of the bitmaps for the outermost struct, for struct ``b``,
+    and for the child ``d``.
 
   For unions, a validity bitmap is synthesized based on the type
   codes. Also, the index is always the child index and not a type code.
