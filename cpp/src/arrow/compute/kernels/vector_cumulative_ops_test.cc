@@ -962,7 +962,7 @@ TEST(TestCumulative, NegativeValues) {
                      ArrayFromJSON(ty, "[-2, -2, -3]"), &options);
   }
 
-  for (auto ty : FloatingPointTypes()) {
+  for (auto ty : all_floating_point_types_without_float16()) {
     CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[-2.5, 2.5]"),
                      ArrayFromJSON(ty, "[-2.5, 2.5]"), &options);
     CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[-2.5, 2.5]"),

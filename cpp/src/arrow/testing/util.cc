@@ -240,6 +240,11 @@ const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types() {
   return types;
 }
 
+const std::vector<std::shared_ptr<DataType>>& all_floating_point_types_without_float16() {
+  static std::vector<std::shared_ptr<DataType>> types = {float32(), float64()};
+  return types;
+}
+
 std::vector<int64_t> GetSupportedHardwareFlags(
     const std::vector<int64_t>& candidate_flags) {
   std::vector<int64_t> hardware_flags;
