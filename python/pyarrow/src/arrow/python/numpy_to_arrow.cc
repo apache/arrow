@@ -94,17 +94,17 @@ inline int64_t ValuesToBitmap(PyArrayObject* arr, uint8_t* bitmap) {
   typedef internal::npy_traits<TYPE> traits;
   typedef typename traits::value_type T;
 
-  int64_t null_count = 0;
-
   Ndarray1DIndexer<T> values(arr);
-  for (int i = 0; i < values.size(); ++i) {
-    if (traits::isnull(values[i])) {
-      ++null_count;
-    } else {
-      bit_util::SetBit(bitmap, i);
-    }
+  const int64_t n = values.size();
+  int64_t null_count = 0;
+  for (int64_t i = 0; i < n; ++i) null_count += traits::isnull(values[i]);
+  if (null_count == 0) {
+    bit_util::SetBitsTo(bitmap, 0, n, true);
+    return 0;
   }
-
+  // Set the validity bitmap for each valid element
+  int64_t k = 0;
+  GenerateBitsUnrolled(bitmap, 0, n, [&] { return !traits::isnull(values[k++]); });
   return null_count;
 }
 
@@ -162,14 +162,14 @@ int64_t MaskToBitmap(PyArrayObject* mask, int64_t length, uint8_t* bitmap) {
   if (!PyArray_Check(mask)) return -1;
 
   Ndarray1DIndexer<uint8_t> mask_values(mask);
-  for (int i = 0; i < length; ++i) {
-    if (mask_values[i]) {
-      ++null_count;
-      bit_util::ClearBit(bitmap, i);
-    } else {
-      bit_util::SetBit(bitmap, i);
-    }
+  for (int64_t i = 0; i < length; ++i) null_count += mask_values[i] != 0;
+  if (null_count == 0) {
+    bit_util::SetBitsTo(bitmap, 0, length, true);
+    return 0;
   }
+  // Set the validity bitmap for each valid element
+  int64_t k = 0;
+  GenerateBitsUnrolled(bitmap, 0, length, [&] { return mask_values[k++] == 0; });
   return null_count;
 }
 
