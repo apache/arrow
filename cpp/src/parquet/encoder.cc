@@ -1471,7 +1471,9 @@ void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
   }
   PARQUET_THROW_NOT_OK(sink_.Reserve(total_increment_size));
   for (int idx = 0; idx < num_values; idx++) {
-    sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
+    if (src[idx].len > 0) {
+  sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
+};
   }
   unencoded_byte_array_data_bytes_ += total_increment_size;
 }
