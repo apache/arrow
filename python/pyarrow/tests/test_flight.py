@@ -72,6 +72,21 @@ def test_import():
     import pyarrow.flight  # noqa
 
 
+def test_auth_reader_sender_exports():
+    import pyarrow._flight as flight_impl
+    from pyarrow.flight import (
+        ClientAuthReader,
+        ClientAuthSender,
+        ServerAuthReader,
+        ServerAuthSender,
+    )
+
+    assert ClientAuthReader is flight_impl.ClientAuthReader
+    assert ClientAuthSender is flight_impl.ClientAuthSender
+    assert ServerAuthReader is flight_impl.ServerAuthReader
+    assert ServerAuthSender is flight_impl.ServerAuthSender
+
+
 def resource_root():
     """Get the path to the test resources directory."""
     if not os.environ.get("ARROW_TEST_DATA"):
