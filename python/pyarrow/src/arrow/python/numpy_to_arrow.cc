@@ -578,10 +578,13 @@ Status NumPyConverter::VisitBinary(T* builder) {
   auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
 
   auto AppendNotNull = [builder, this](const uint8_t* data) {
-    // This is annoying. NumPy allows strings to have nul-terminators, so
-    // we must check for them here
-    const size_t item_size =
-        strnlen(reinterpret_cast<const char*>(data), static_cast<size_t>(itemsize_));
+    // NumPy's fixed-width bytes dtype (``S``) zero-pads values shorter than
+    // the item width. Strip only *trailing* null bytes so that genuine
+    // interior null bytes are preserved (GH-41388).
+    size_t item_size = static_cast<size_t>(itemsize_);
+    while (item_size > 0 && data[item_size - 1] == 0) {
+      --item_size;
+    }
     return builder->Append(data, static_cast<int32_t>(item_size));
   };
 
