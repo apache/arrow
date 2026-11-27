@@ -81,6 +81,13 @@ data in the array to change its type.
 \item \verb{$View(type)}: Construct a zero-copy view of this array with the given type.
 \item \verb{$Validate()} : Perform any validation checks to determine obvious inconsistencies
 within the array's internal data. This can be an expensive check, potentially \code{O(length)}
+\item \verb{$export_to_c(array_ptr, schema_ptr)}: Export this array through the Arrow C Data
+Interface into an \code{ArrowArray} and an \code{ArrowSchema} struct allocated by the caller,
+for example with \code{nanoarrow::nanoarrow_allocate_array()} and
+\code{nanoarrow::nanoarrow_allocate_schema()}.
+\item \code{Array$import_from_c(array_ptr, schema_ptr)}: Create an \code{Array} from an \code{ArrowArray}
+and an \code{ArrowSchema} struct filled by another library (a class method, not an
+instance method).
 }
 }
 

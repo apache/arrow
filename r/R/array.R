@@ -82,6 +82,13 @@
 #' - `$View(type)`: Construct a zero-copy view of this array with the given type.
 #' - `$Validate()` : Perform any validation checks to determine obvious inconsistencies
 #'    within the array's internal data. This can be an expensive check, potentially `O(length)`
+#' - `$export_to_c(array_ptr, schema_ptr)`: Export this array through the Arrow C Data
+#'    Interface into an `ArrowArray` and an `ArrowSchema` struct allocated by the caller,
+#'    for example with `nanoarrow::nanoarrow_allocate_array()` and
+#'    `nanoarrow::nanoarrow_allocate_schema()`.
+#' - `Array$import_from_c(array_ptr, schema_ptr)`: Create an `Array` from an `ArrowArray`
+#'    and an `ArrowSchema` struct filled by another library (a class method, not an
+#'    instance method).
 #'
 #' @rdname array-class
 #' @examples
