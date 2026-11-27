@@ -28,3 +28,4 @@ pyarrow\.__lib\.[a-z]+\.__all__
 
 # The __init__ of Cython extension types takes (*args, **kwargs) at runtime.
 pyarrow\.__lib\.[a-z]+\.[A-Za-z_]+\.__init__
+pyarrow\._compute\.(Expression|Function|FunctionRegistry|Kernel|UdfContext)\.__init__

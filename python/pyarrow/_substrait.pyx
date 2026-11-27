@@ -323,7 +323,7 @@ def serialize_expressions(exprs, names, schema, *, allow_arrow_extensions=False)
 
     Returns
     -------
-    Buffer
+    memoryview
         An ExtendedExpression message containing the serialized expressions
     """
     cdef:

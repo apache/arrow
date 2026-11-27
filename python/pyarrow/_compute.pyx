@@ -1770,7 +1770,7 @@ class SetLookupOptions(_SetLookupOptions):
 
     Parameters
     ----------
-    value_set : Array
+    value_set : Array or ChunkedArray
         Set of values to look for in the input.
     skip_nulls : bool, default False
         If False, nulls in the input are matched in the value_set just
@@ -2751,8 +2751,8 @@ cdef class Expression(_Weakrefable):
 
         Returns
         -------
-        Buffer
-            A buffer containing the serialized Protobuf plan.
+        memoryview
+            A memoryview buffer containing the serialized Protobuf plan.
         """
         return _pas().serialize_expressions([self], ["expression"], schema, allow_arrow_extensions=allow_arrow_extensions)
 
