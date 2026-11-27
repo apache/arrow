@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/util/logging.h"
@@ -73,7 +74,10 @@ class GANDIVA_EXPORT LLVMTypes {
 
   template <typename ctype, size_t N = (sizeof(ctype) * CHAR_BIT)>
   llvm::Constant* int_constant(ctype val) {
-    return llvm::ConstantInt::get(context_, llvm::APInt(N, val));
+    // Preserve signedness so negative narrow values are canonical APInts and
+    // negative values widened to i128 are sign-extended.
+    return llvm::ConstantInt::get(context_,
+                                  llvm::APInt(N, val, std::is_signed<ctype>::value));
   }
 
   llvm::Constant* i1_constant(bool val) { return int_constant<bool, 1>(val); }
