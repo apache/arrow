@@ -20,6 +20,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <utility>
@@ -1044,6 +1045,218 @@ Result<std::shared_ptr<Tensor>> FixedSizeListArray::ToTensorWithNulls() const {
 // ----------------------------------------------------------------------
 // Struct
 
+namespace {
+
+Result<std::shared_ptr<ArrayData>> ApplyValidityBitmap(
+    const std::shared_ptr<ArrayData>& data, const uint8_t* validity,
+    int64_t validity_offset, MemoryPool* pool);
+
+// Sparse union children are aligned with the union's logical slots, so the
+// parent validity can be applied to every child at the same positions.
+Result<std::shared_ptr<ArrayData>> ApplyValidityBitmapToSparseUnion(
+    const std::shared_ptr<ArrayData>& data, const uint8_t* validity,
+    int64_t validity_offset, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto type_codes,
+                        data->buffers[1]->CopySlice(data->offset * sizeof(int8_t),
+                                                    data->length * sizeof(int8_t), pool));
+
+  std::vector<std::shared_ptr<ArrayData>> children;
+  children.reserve(data->child_data.size());
+  for (const auto& child : data->child_data) {
+    auto child_view = child->Copy();
+    if (data->offset != 0 || data->length != child_view->length) {
+      child_view = child_view->Slice(data->offset, data->length);
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        child_view, ApplyValidityBitmap(child_view, validity, validity_offset, pool));
+    children.push_back(std::move(child_view));
+  }
+
+  return ArrayData::Make(data->type, data->length, {nullptr, std::move(type_codes)},
+                         std::move(children), /*null_count=*/0, /*offset=*/0);
+}
+
+struct DenseUnionChildSegment {
+  bool is_null;
+  int32_t input_offset;
+  int64_t length;
+};
+
+// Dense union offsets may be shared by multiple slots. Rebuild each child's
+// referenced values in logical order so a null parent never invalidates a value
+// that is also referenced by a valid parent, while offsets remain non-decreasing.
+Result<std::shared_ptr<ArrayData>> ApplyValidityBitmapToDenseUnion(
+    const std::shared_ptr<ArrayData>& data, const uint8_t* validity,
+    int64_t validity_offset, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto type_codes,
+                        data->buffers[1]->CopySlice(data->offset * sizeof(int8_t),
+                                                    data->length * sizeof(int8_t), pool));
+  ARROW_ASSIGN_OR_RAISE(auto value_offsets, data->buffers[2]->CopySlice(
+                                                data->offset * sizeof(int32_t),
+                                                data->length * sizeof(int32_t), pool));
+
+  const auto& union_type = checked_cast<const UnionType&>(*data->type);
+  const auto* input_type_codes = data->GetValuesSafe<int8_t>(1);
+  const auto* input_value_offsets = data->GetValuesSafe<int32_t>(2);
+  auto* output_value_offsets = reinterpret_cast<int32_t*>(value_offsets->mutable_data());
+
+  const int num_children = union_type.num_fields();
+  std::vector<std::vector<DenseUnionChildSegment>> child_segments(num_children);
+  std::vector<int64_t> child_lengths(num_children, 0);
+  std::vector<bool> has_previous(num_children, false);
+  std::vector<bool> previous_was_valid(num_children, false);
+  std::vector<int32_t> previous_input_offsets(num_children, 0);
+  std::vector<int32_t> previous_output_offsets(num_children, 0);
+
+  for (int64_t i = 0; i < data->length; ++i) {
+    const int child_id = union_type.child_ids()[input_type_codes[i]];
+    const bool is_valid = bit_util::GetBit(validity, validity_offset + i);
+    const int32_t input_offset = input_value_offsets[i];
+
+    bool reuse_previous =
+        has_previous[child_id] && previous_was_valid[child_id] == is_valid;
+    if (reuse_previous && is_valid) {
+      reuse_previous = previous_input_offsets[child_id] == input_offset;
+    }
+
+    if (reuse_previous) {
+      output_value_offsets[i] = previous_output_offsets[child_id];
+    } else {
+      const int64_t output_offset = child_lengths[child_id];
+      if (output_offset > std::numeric_limits<int32_t>::max()) {
+        return Status::CapacityError(
+            "Dense union child offset exceeds the maximum int32 value");
+      }
+      output_value_offsets[i] = static_cast<int32_t>(output_offset);
+      ++child_lengths[child_id];
+
+      auto& segments = child_segments[child_id];
+      const bool extends_previous =
+          is_valid && has_previous[child_id] && previous_was_valid[child_id] &&
+          static_cast<int64_t>(previous_input_offsets[child_id]) + 1 == input_offset;
+      if (extends_previous) {
+        ++segments.back().length;
+      } else {
+        segments.push_back({/*is_null=*/!is_valid, input_offset, /*length=*/1});
+      }
+    }
+
+    has_previous[child_id] = true;
+    previous_was_valid[child_id] = is_valid;
+    previous_input_offsets[child_id] = input_offset;
+    previous_output_offsets[child_id] = output_value_offsets[i];
+  }
+
+  std::vector<std::shared_ptr<ArrayData>> children(num_children);
+  for (int child_id = 0; child_id < num_children; ++child_id) {
+    auto input_child = MakeArray(data->child_data[child_id]);
+    ArrayVector fragments;
+    fragments.reserve(child_segments[child_id].size());
+    std::shared_ptr<Array> null_value;
+    for (const auto& segment : child_segments[child_id]) {
+      if (segment.is_null) {
+        if (!null_value) {
+          ARROW_ASSIGN_OR_RAISE(
+              null_value, MakeArrayOfNull(union_type.field(child_id)->type(), 1, pool));
+        }
+        fragments.push_back(null_value);
+      } else {
+        fragments.push_back(input_child->Slice(segment.input_offset, segment.length));
+      }
+    }
+
+    std::shared_ptr<Array> child;
+    if (fragments.empty()) {
+      ARROW_ASSIGN_OR_RAISE(child,
+                            MakeArrayOfNull(union_type.field(child_id)->type(), 0, pool));
+    } else if (fragments.size() == 1) {
+      child = std::move(fragments[0]);
+    } else {
+      ARROW_ASSIGN_OR_RAISE(child, Concatenate(fragments, pool));
+    }
+    children[child_id] = child->data();
+  }
+
+  return ArrayData::Make(data->type, data->length,
+                         {nullptr, std::move(type_codes), std::move(value_offsets)},
+                         std::move(children),
+                         /*null_count=*/0, /*offset=*/0);
+}
+
+Result<std::shared_ptr<ArrayData>> ApplyValidityBitmapToAlwaysNullType(
+    const std::shared_ptr<ArrayData>& data, const uint8_t* validity,
+    int64_t validity_offset, MemoryPool* pool) {
+  auto array = MakeArray(data);
+  ArrayVector fragments;
+  int64_t run_start = 0;
+  while (run_start < data->length) {
+    const bool is_valid = bit_util::GetBit(validity, validity_offset + run_start);
+    int64_t run_end = run_start + 1;
+    while (run_end < data->length &&
+           bit_util::GetBit(validity, validity_offset + run_end) == is_valid) {
+      ++run_end;
+    }
+    const int64_t run_length = run_end - run_start;
+    if (is_valid) {
+      fragments.push_back(array->Slice(run_start, run_length));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(auto nulls, MakeArrayOfNull(data->type, run_length, pool));
+      fragments.push_back(std::move(nulls));
+    }
+    run_start = run_end;
+  }
+
+  if (fragments.size() == 1) {
+    return fragments[0]->data();
+  }
+  ARROW_ASSIGN_OR_RAISE(auto result, Concatenate(fragments, pool));
+  return result->data();
+}
+
+Result<std::shared_ptr<ArrayData>> ApplyValidityBitmap(
+    const std::shared_ptr<ArrayData>& data, const uint8_t* validity,
+    int64_t validity_offset, MemoryPool* pool) {
+  if (internal::CountSetBits(validity, validity_offset, data->length) == data->length) {
+    return data;
+  }
+
+  if (data->type->id() == Type::SPARSE_UNION) {
+    return ApplyValidityBitmapToSparseUnion(data, validity, validity_offset, pool);
+  }
+  if (data->type->id() == Type::DENSE_UNION) {
+    return ApplyValidityBitmapToDenseUnion(data, validity, validity_offset, pool);
+  }
+
+  const auto layout = data->type->layout();
+  if (!layout.buffers.empty() && layout.buffers[0].kind == DataTypeLayout::BITMAP) {
+    std::shared_ptr<Buffer> null_bitmap;
+    if (data->buffers[0]) {
+      ARROW_ASSIGN_OR_RAISE(
+          null_bitmap, BitmapAnd(pool, data->buffers[0]->data(), data->offset, validity,
+                                 validity_offset, data->length, data->offset));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(null_bitmap,
+                            AllocateEmptyBitmap(data->offset + data->length, pool));
+      CopyBitmap(validity, validity_offset, data->length, null_bitmap->mutable_data(),
+                 data->offset);
+    }
+
+    auto result = data->Copy();
+    result->buffers[0] = std::move(null_bitmap);
+    result->null_count = kUnknownNullCount;
+    return result;
+  }
+
+  if (data->type->id() == Type::NA) {
+    return data;
+  }
+  // Run-end encoded arrays also have no top-level validity bitmap. Rebuild
+  // them from valid and null runs instead of attaching an invalid buffer.
+  return ApplyValidityBitmapToAlwaysNullType(data, validity, validity_offset, pool);
+}
+
+}  // namespace
+
 struct StructArray::Impl {
   mutable ArrayVector boxed_fields_;
 };
@@ -1201,6 +1414,15 @@ Result<std::shared_ptr<Array>> StructArray::GetFlattenedField(int index,
   if (data_->offset != 0 || data_->length != child_data->length) {
     child_data = child_data->Slice(data_->offset, data_->length);
   }
+
+  if (null_bitmap && is_union(child_data->type->id())) {
+    // Union arrays have no top-level validity bitmap. Propagate the struct's
+    // validity into their children while preserving the union type codes.
+    ARROW_ASSIGN_OR_RAISE(child_data, ApplyValidityBitmap(child_data, null_bitmap_data_,
+                                                          data_->offset, pool));
+    return MakeArray(child_data);
+  }
+
   std::shared_ptr<Buffer> child_null_bitmap = child_data->buffers[0];
   const int64_t child_offset = child_data->offset;
 
