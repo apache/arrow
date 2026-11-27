@@ -98,6 +98,47 @@ bool EqualBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type r,
                 l.size() - BinaryViewType::kPrefixSize) == 0;
 }
 
+/// \brief Compare a BinaryView value with contiguous string data.
+///
+/// Performs prefix-accelerated early rejection by checking string length and the
+/// 4-byte inline prefix before dereferencing variadic buffers.
+template <typename BufferPtr>
+bool EqualBinaryViewString(BinaryViewType::c_type view, const uint8_t* str_data,
+                           int64_t str_len, const BufferPtr* view_buffers) {
+  static_assert(BinaryViewType::kPrefixSize == sizeof(uint32_t));
+  if (view.size() != str_len) return false;
+  if (view.size() == 0) return true;
+
+  if (view.size() < BinaryViewType::kPrefixSize) {
+    return memcmp(view.inline_data(), str_data, view.size()) == 0;
+  }
+
+  uint32_t view_prefix, str_prefix;
+  memcpy(&view_prefix, view.inline_data(), sizeof(uint32_t));
+  memcpy(&str_prefix, str_data, sizeof(uint32_t));
+  if (view_prefix != str_prefix) return false;
+
+  if (view.is_inline()) {
+    if (view.size() == BinaryViewType::kPrefixSize) return true;
+    return memcmp(view.inline_data() + BinaryViewType::kPrefixSize,
+                  str_data + BinaryViewType::kPrefixSize,
+                  view.size() - BinaryViewType::kPrefixSize) == 0;
+  }
+
+  const uint8_t* view_payload =
+      view_buffers[view.ref.buffer_index]->data() + view.ref.offset;
+  return memcmp(view_payload + BinaryViewType::kPrefixSize,
+                str_data + BinaryViewType::kPrefixSize,
+                view.size() - BinaryViewType::kPrefixSize) == 0;
+}
+
+template <typename BufferPtr>
+bool EqualBinaryViewString(BinaryViewType::c_type view, std::string_view str,
+                           const BufferPtr* view_buffers) {
+  return EqualBinaryViewString(view, reinterpret_cast<const uint8_t*>(str.data()),
+                               static_cast<int64_t>(str.size()), view_buffers);
+}
+
 /// \brief Compute the total size of a list of binary views including null
 /// views.
 ///
