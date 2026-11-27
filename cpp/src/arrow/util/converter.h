@@ -285,9 +285,10 @@ class Chunker {
   Status AppendNull() {
     auto status = converter_->AppendNull();
     if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
-      if (converter_->builder()->length() == 0) {
-        // Builder length == 0 means the individual element is too large to append.
-        // In this case, no need to try again.
+      if (converter_->builder()->length() == 0 || length_ == 0) {
+        // Builder length == 0 means the individual element is too large to
+        // append. Length == 0 means the current chunk has no rows to finish.
+        // In either case, no need to try again.
         return status;
       }
       ARROW_RETURN_NOT_OK(FinishChunk());
@@ -300,7 +301,10 @@ class Chunker {
   Status Append(InputType value) {
     auto status = converter_->Append(value);
     if (ARROW_PREDICT_FALSE(status.IsCapacityError())) {
-      if (converter_->builder()->length() == 0) {
+      if (converter_->builder()->length() == 0 || length_ == 0) {
+        // Builder length == 0 means the individual element is too large to
+        // append. Length == 0 means the current chunk has no rows to finish.
+        // In either case, no need to try again.
         return status;
       }
       ARROW_RETURN_NOT_OK(FinishChunk());
@@ -334,6 +338,11 @@ class Chunker {
           length_ -= 1;
           offset -= 1;
         }
+        if (length_ == 0) {
+          // Nothing was committed to the current chunk, so retrying the same
+          // element cannot make progress.
+          return status;
+        }
         ARROW_RETURN_NOT_OK(FinishChunk());
       } else if (!status.ok()) {
         return status;
@@ -366,6 +375,11 @@ class Chunker {
           // to rewind (slice) the output chunk by one.
           length_ -= 1;
           offset -= 1;
+        }
+        if (length_ == 0) {
+          // Nothing was committed to the current chunk, so retrying the same
+          // element cannot make progress.
+          return status;
         }
         ARROW_RETURN_NOT_OK(FinishChunk());
       } else if (!status.ok()) {

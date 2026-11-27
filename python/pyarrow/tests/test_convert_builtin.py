@@ -899,6 +899,18 @@ def test_sequence_bytes():
         assert arr.to_pylist() == [b'foo', b'dada', b'data', u1, b'bar', None]
 
 
+def test_sequence_memoryview_releases_buffer():
+    import mmap
+
+    value = mmap.mmap(-1, 1)
+    try:
+        with memoryview(value) as view:
+            arr = pa.array([view], type=pa.binary())
+        assert arr.to_pylist() == [b"\x00"]
+    finally:
+        value.close()
+
+
 @pytest.mark.parametrize("ty", [pa.string(), pa.large_string(), pa.string_view()])
 def test_sequence_utf8_to_unicode(ty):
     # ARROW-1225
@@ -2167,6 +2179,24 @@ def test_map_from_tuples():
             pa.array([entry], type=pa.map_('i4', 'i4'))
 
 
+@pytest.mark.large_memory
+def test_map_child_capacity_error_does_not_abort():
+    # GH-44643: the key is appended before the item raises CapacityError.
+    # The partially appended map row must not make MapBuilder abort on Finish.
+    import mmap
+
+    value = mmap.mmap(-1, 2**31)
+    try:
+        with memoryview(value) as view:
+            with pytest.raises(pa.ArrowCapacityError):
+                pa.array(
+                    [[(b"key", view)]],
+                    type=pa.map_(pa.string(), pa.string()),
+                )
+    finally:
+        value.close()
+
+
 def test_dictionary_from_boolean():
     typ = pa.dictionary(pa.int8(), value_type=pa.bool_())
     a = pa.array([False, False, True, False, True], type=typ)
@@ -2418,6 +2448,21 @@ def test_auto_chunking_map_type():
     assert isinstance(arr, pa.ChunkedArray)
     assert len(arr.chunk(0)) == 7
     assert len(arr.chunk(1)) == 1
+
+
+@pytest.mark.large_memory
+def test_auto_chunking_map_of_strings():
+    # GH-44643: overflow in the item builder must chunk the whole map row.
+    value = b"x" * (50 * 1024 * 1024)
+    data = [[(b"key", value)]] * 41
+    arr = pa.array(data, type=pa.map_(pa.string(), pa.string()))
+
+    assert isinstance(arr, pa.ChunkedArray)
+    assert arr.num_chunks == 2
+    arr.validate(full=True)
+    assert len(arr.chunk(0)) == 40
+    assert len(arr.chunk(1)) == 1
+    assert arr.chunk(1)[0].as_py() == [("key", value.decode("ascii"))]
 
 
 @pytest.mark.large_memory
