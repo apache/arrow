@@ -2940,7 +2940,7 @@ struct SplitWhitespaceAsciiFinder : public StringSplitFinderBase<SplitOptions> {
         *separator_begin = i;
         do {
           i++;
-        } while (IsSpaceCharacterAscii(*i) && i < end);
+        } while (i < end && IsSpaceCharacterAscii(*i));
         *separator_end = i;
         return true;
       }
@@ -2958,7 +2958,7 @@ struct SplitWhitespaceAsciiFinder : public StringSplitFinderBase<SplitOptions> {
         *separator_end = i + 1;
         do {
           i--;
-        } while (IsSpaceCharacterAscii(*i) && i >= begin);
+        } while (i >= begin && IsSpaceCharacterAscii(*i));
         *separator_begin = i + 1;
         return true;
       }
