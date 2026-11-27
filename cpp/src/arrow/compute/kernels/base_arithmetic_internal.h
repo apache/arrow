@@ -834,11 +834,9 @@ template <>
 struct Identity<Max> {
   template <typename Value>
   static constexpr Value value() {
-    // Note that `min()` returns the smallest positive value for
-    // floating-point types, and `lowest()` doesn't satisfy the identity
-    // property for -inf inputs, so use -infinity for those types.
-    if constexpr (std::is_floating_point_v<Value> || std::is_same_v<Float16, Value>) {
-      return -std::numeric_limits<Value>::infinity();
+    // Max ignores NaN when the other operand is a number.
+    if constexpr (std::numeric_limits<Value>::has_quiet_NaN) {
+      return std::numeric_limits<Value>::quiet_NaN();
     } else {
       return std::numeric_limits<Value>::lowest();
     }
@@ -849,9 +847,9 @@ template <>
 struct Identity<Min> {
   template <typename Value>
   static constexpr Value value() {
-    // Mirror of Identity<Max>: use +infinity for floating-point types.
-    if constexpr (std::is_floating_point_v<Value> || std::is_same_v<Float16, Value>) {
-      return std::numeric_limits<Value>::infinity();
+    // Min ignores NaN when the other operand is a number.
+    if constexpr (std::numeric_limits<Value>::has_quiet_NaN) {
+      return std::numeric_limits<Value>::quiet_NaN();
     } else {
       return std::numeric_limits<Value>::max();
     }

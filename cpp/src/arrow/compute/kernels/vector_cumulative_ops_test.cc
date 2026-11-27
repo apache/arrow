@@ -937,13 +937,19 @@ TEST(TestCumulative, NaN) {
   CheckVectorUnary("cumulative_prod", ArrayFromJSON(float64(), "[1, 2, NaN, 4, 5]"),
                    ArrayFromJSON(float64(), "[1, 2, NaN, NaN, NaN]"));
 
-  // max with NaN is always ignored because Nan > a always returns false
-  CheckVectorUnary("cumulative_max", ArrayFromJSON(float64(), "[1, 2, NaN, 4, 5]"),
-                   ArrayFromJSON(float64(), "[1, 2, 2, 4, 5]"));
+  for (const auto& ty : FloatingPointTypes()) {
+    auto values = ArrayFromJSON(ty, "[NaN, NaN, 2, NaN, 1, 3]");
+    CheckVectorUnary("cumulative_max", values,
+                     ArrayFromJSON(ty, "[NaN, NaN, 2, 2, 2, 3]"));
+    CheckVectorUnary("cumulative_min", values,
+                     ArrayFromJSON(ty, "[NaN, NaN, 2, 2, 1, 1]"));
 
-  // min with NaN is always ignored because Nan < a always returns false
-  CheckVectorUnary("cumulative_min", ArrayFromJSON(float64(), "[5, 4, NaN, 2, 1]"),
-                   ArrayFromJSON(float64(), "[5, 4, 4, 2, 1]"));
+    CumulativeOptions start(4.0);
+    CheckVectorUnary("cumulative_max", values, ArrayFromJSON(ty, "[4, 4, 4, 4, 4, 4]"),
+                     &start);
+    CheckVectorUnary("cumulative_min", values, ArrayFromJSON(ty, "[4, 4, 2, 2, 1, 1]"),
+                     &start);
+  }
 
   // mean with NaN is always Nan
   CheckVectorUnary("cumulative_mean", ArrayFromJSON(float64(), "[5, 4, NaN, 2, 1]"),
@@ -970,8 +976,7 @@ TEST(TestCumulative, NegativeValues) {
     CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[-2.5, -1.5, -3.5, -0.5]"),
                      ArrayFromJSON(ty, "[-2.5, -1.5, -1.5, -0.5]"), &options);
 
-    // The default start must compare lower (higher for min) than every value
-    // of the type, including infinities
+    // Infinities are valid extrema.
     CheckVectorUnary("cumulative_max", ArrayFromJSON(ty, "[-Inf, -2.5]"),
                      ArrayFromJSON(ty, "[-Inf, -2.5]"), &options);
     CheckVectorUnary("cumulative_min", ArrayFromJSON(ty, "[Inf, 2.5]"),

@@ -241,26 +241,23 @@ const FunctionDoc cumulative_prod_checked_doc{
 const FunctionDoc cumulative_max_doc{
     "Compute the cumulative max over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
-     "cumulative max computed over `values`. The default start is the minimum\n"
-     "value of input type (so that any other value will replace the\n"
-     "start as the new maximum)."),
+     "cumulative max computed over `values`. NaNs are ignored once a non-NaN\n"
+     "value is available. Without a start value, leading NaNs produce NaN."),
     {"values"},
     "CumulativeOptions"};
 
 const FunctionDoc cumulative_min_doc{
     "Compute the cumulative min over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
-     "cumulative min computed over `values`. The default start is the maximum\n"
-     "value of input type (so that any other value will replace the\n"
-     "start as the new minimum)."),
+     "cumulative min computed over `values`. NaNs are ignored once a non-NaN\n"
+     "value is available. Without a start value, leading NaNs produce NaN."),
     {"values"},
     "CumulativeOptions"};
 
 const FunctionDoc cumulative_mean_doc{
     "Compute the cumulative mean over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
-     "cumulative mean computed over `values`. CumulativeOptions::start_value is \n"
-     "ignored."),
+     "cumulative mean computed over `values`. The start option is ignored."),
     {"values"},
     "CumulativeOptions"};
 
@@ -355,7 +352,7 @@ void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
       registry, "cumulative_max", cumulative_max_doc);
 
   MakeVectorCumulativeStatefulFunction<CumulativeMean, CumulativeOptions>(
-      registry, "cumulative_mean", cumulative_max_doc);
+      registry, "cumulative_mean", cumulative_mean_doc);
 }
 
 }  // namespace arrow::compute::internal
