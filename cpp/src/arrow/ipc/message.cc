@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -479,6 +480,12 @@ static Result<std::unique_ptr<Message>> ReadMessageInternal(
     return Status::Invalid("metadata_length should be at least ",
                            state.decoder->next_required_size());
   }
+  if (body_length.has_value() &&
+      (*body_length < 0 ||
+       *body_length > std::numeric_limits<int64_t>::max() - metadata_length)) {
+    return Status::Invalid("Invalid body_length ", *body_length, " for metadata_length ",
+                           metadata_length);
+  }
   RETURN_NOT_OK(CheckBodyLength(offset + metadata_length, body_length.value_or(0), file));
   // When body_length is known and all fields will be loaded,
   // read metadata + body in one IO call.
@@ -520,6 +527,11 @@ Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metada
   if (metadata_length < state->decoder->next_required_size()) {
     return Status::Invalid("metadata_length should be at least ",
                            state->decoder->next_required_size());
+  }
+  if (body_length < 0 ||
+      body_length > std::numeric_limits<int64_t>::max() - metadata_length) {
+    return Status::Invalid("Invalid body_length ", body_length, " for metadata_length ",
+                           metadata_length);
   }
   return file
       ->ReadAsync(context, offset, metadata_length + body_length,
