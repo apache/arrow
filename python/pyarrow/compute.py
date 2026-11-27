@@ -567,6 +567,27 @@ def fill_null(values, fill_value):
     return call_function("coalesce", [values, fill_value])
 
 
+def _select_k_sort_keys(values, sort_keys, null_placements, order):
+    if isinstance(values, (pa.Array, pa.ChunkedArray)):
+        if sort_keys is not None:
+            raise ValueError(
+                "sort_keys is only supported for table-like input")
+        return [("dummy", order, "at_end")]
+
+    if isinstance(sort_keys, str) or isinstance(null_placements, str):
+        raise TypeError(
+            "sort_keys and null_placements must be list-like, not str")
+    sort_keys = list(sort_keys) if sort_keys is not None else []
+    if null_placements is None:
+        null_placements = ["at_end"] * len(sort_keys)
+    else:
+        null_placements = list(null_placements)
+    if len(null_placements) != len(sort_keys):
+        raise ValueError(
+            "sort_keys and null_placements must have the same length")
+    return [(key, order, null_placements[i]) for i, key in enumerate(sort_keys)]
+
+
 def top_k_unstable(
         values, k, sort_keys=None, null_placements=None, *, memory_pool=None):
     """
@@ -584,9 +605,11 @@ def top_k_unstable(
         The number of `k` elements to keep.
     sort_keys : List-like
         Column key names to order by when input is table-like data.
-    null_placements : A list of "at_start" or "at_end"
-        Whether nulls and NaNs are placed at the start or at the end.
-        Accepted values are "at_end", "at_start".
+        Not supported for array-like input.
+    null_placements : List-like of "at_start" or "at_end", optional
+        Whether nulls and NaNs are placed at the start or at the end,
+        for each key in `sort_keys`. If not passed, "at_end" is used
+        for every key.
     memory_pool : MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
@@ -608,13 +631,8 @@ def top_k_unstable(
       2
     ]
     """
-    if sort_keys is None:
-        sort_keys = []
-    if isinstance(values, (pa.Array, pa.ChunkedArray)):
-        sort_keys.append(("dummy", "descending", "at_end"))
-    else:
-        sort_keys = [(sort_key, "descending", null_placement)
-                     for sort_key, null_placement in zip(sort_keys, null_placements)]
+    sort_keys = _select_k_sort_keys(
+        values, sort_keys, null_placements, "descending")
     options = SelectKOptions(k, sort_keys)
     return call_function("select_k_unstable", [values], options, memory_pool)
 
@@ -636,9 +654,11 @@ def bottom_k_unstable(
         The number of `k` elements to keep.
     sort_keys : List-like
         Column key names to order by when input is table-like data.
-    null_placements : A list of "at_start" or "at_end"
-        Whether nulls and NaNs are placed at the start or at the end.
-        Accepted values are "at_end", "at_start".
+        Not supported for array-like input.
+    null_placements : List-like of "at_start" or "at_end", optional
+        Whether nulls and NaNs are placed at the start or at the end,
+        for each key in `sort_keys`. If not passed, "at_end" is used
+        for every key.
     memory_pool : MemoryPool, optional
         If not passed, will allocate memory from the default memory pool.
 
@@ -660,14 +680,8 @@ def bottom_k_unstable(
       2
     ]
     """
-    if sort_keys is None:
-        sort_keys = []
-    if isinstance(values, (pa.Array, pa.ChunkedArray)):
-        sort_keys.append(("dummy", "ascending", "at_end"))
-    else:
-        sort_keys = [(sort_key, "ascending", null_placement)
-                     for sort_key, null_placement in zip(sort_keys, null_placements)]
-
+    sort_keys = _select_k_sort_keys(
+        values, sort_keys, null_placements, "ascending")
     options = SelectKOptions(k, sort_keys)
     return call_function("select_k_unstable", [values], options, memory_pool)
 
