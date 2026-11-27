@@ -129,6 +129,37 @@ combine and write them manually:
    ...     metadata_collector=metadata_collector
    ... )
 
+If writing a partitioned dataset (i.e. with ``partition_cols``), the partition
+columns are not stored in the data files themselves, but are encoded in the
+directory names. The collected file metadata therefore has a schema without
+the partition columns, and the schema passed to
+:func:`~pyarrow.parquet.write_metadata` for the ``_metadata`` file needs to
+match that:
+
+.. code-block:: python
+
+   >>> # Write a partitioned dataset and collect metadata information of all written files
+   >>> metadata_collector = []
+   >>> root_path = "dataset_name_2"
+   >>> partition_cols = ["one", "two"]
+   >>> pq.write_to_dataset(table, root_path, partition_cols=partition_cols,
+   ...                     metadata_collector=metadata_collector)
+
+   >>> # Write the ``_common_metadata`` parquet file with the schema of the
+   >>> # full dataset, including the partition columns
+   >>> pq.write_metadata(table.schema, root_path + '/_common_metadata')
+
+   >>> # Write the ``_metadata`` parquet file with row groups statistics of all
+   >>> # files. The data files do not include the partition columns, so those
+   >>> # need to be removed from the schema
+   >>> file_schema = table.schema
+   >>> for col in partition_cols:
+   ...     file_schema = file_schema.remove(file_schema.get_field_index(col))
+   >>> pq.write_metadata(
+   ...     file_schema, root_path + '/_metadata',
+   ...     metadata_collector=metadata_collector
+   ... )
+
 When not using the :func:`~pyarrow.parquet.write_to_dataset` function, but
 writing the individual files of the partitioned dataset using
 :func:`~pyarrow.parquet.write_table` or :class:`~pyarrow.parquet.ParquetWriter`,

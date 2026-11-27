@@ -795,6 +795,13 @@ def make_datetimetz(unit, tz):
 def table_to_dataframe(
     options, table, categories=None, ignore_metadata=False, types_mapper=None
 ):
+    # Zero-copy conversion of a Table or RecordBatch into a DataFrame requires
+    # one pandas block per column, as a multi-column block cannot reference the
+    # original Arrow memory; this is only supported with ``split_blocks=True``
+    if options.get('zero_copy_only') and not options.get('split_blocks'):
+        options = dict(options)
+        options['split_blocks'] = True
+
     all_columns = []
     column_indexes = []
     attributes = {}
