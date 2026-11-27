@@ -198,14 +198,19 @@ present if there are dictionary type fields in the schema.
       "dictionary": {
         "id": /* integer */,
         "indexType": /* Type */,
-        "isOrdered": /* boolean */
+        "isOrdered": /* boolean */,
+        "metadata" : /* Metadata */
       },
       "metadata" : /* Metadata */
     }
 
 The ``dictionary`` attribute is present if and only if the ``Field`` corresponds to a
 dictionary type, and its ``id`` maps onto a column in the ``DictionaryBatch``. In this
-case the ``type`` attribute describes the value type of the dictionary.
+case the ``type`` attribute describes the value type of the dictionary, and the
+optional ``metadata`` attribute of ``dictionary`` holds the custom metadata of the
+dictionary value type, as the ``custom_metadata`` of ``DictionaryEncoding`` does in
+the IPC format (see :ref:`format_metadata_extension_types_dictionary`). It may be
+omitted when the dictionary value type has no metadata.
 
 For primitive types, ``children`` is an empty array.
 
@@ -422,6 +427,34 @@ would be represented::
          {"key": "ARROW:extension:name", "value": "rational"},
          {"key": "ARROW:extension:metadata", "value": "rational-serialized"}
       ]
+    }
+
+A dictionary whose value type is an extension type carries the extension
+metadata in the ``metadata`` attribute of its ``dictionary`` object instead of
+the field's ``metadata``. For example, a dictionary of ``arrow.uuid`` values
+with ``int8`` indices would be represented as::
+
+    {
+      "name" : "name_of_the_field",
+      "nullable" : /* boolean */,
+      "type" : {
+        "name" : "fixedsizebinary",
+        "byteWidth" : 16
+      },
+      "children" : [],
+      "dictionary": {
+        "id": 0,
+        "indexType": {
+          "name": "int",
+          "bitWidth": 8,
+          "isSigned": true
+        },
+        "isOrdered": false,
+        "metadata" : [
+          {"key": "ARROW:extension:name", "value": "arrow.uuid"},
+          {"key": "ARROW:extension:metadata", "value": ""}
+        ]
+      }
     }
 
 **RecordBatch**::

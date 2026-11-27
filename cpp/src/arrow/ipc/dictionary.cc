@@ -101,14 +101,17 @@ struct DictionaryFieldMapper::Impl {
 
   void ImportField(const FieldPosition& pos, const Field& field) {
     const DataType* type = field.type().get();
-    if (type->id() == Type::EXTENSION) {
+    while (type->id() == Type::EXTENSION) {
       type = checked_cast<const ExtensionType&>(*type).storage_type().get();
     }
     if (type->id() == Type::DICTIONARY) {
       InsertPath(pos);
       // Import nested dictionaries
-      ImportFields(pos,
-                   checked_cast<const DictionaryType&>(*type).value_type()->fields());
+      type = checked_cast<const DictionaryType&>(*type).value_type().get();
+      while (type->id() == Type::EXTENSION) {
+        type = checked_cast<const ExtensionType&>(*type).storage_type().get();
+      }
+      ImportFields(pos, type->fields());
     } else {
       ImportFields(pos, type->fields());
     }
@@ -304,7 +307,7 @@ struct DictionaryCollector {
                const Array* array) {
     const DataType* type = array->type().get();
 
-    if (type->id() == Type::EXTENSION) {
+    while (type->id() == Type::EXTENSION) {
       type = checked_cast<const ExtensionType&>(*type).storage_type().get();
       array = checked_cast<const ExtensionArray&>(*array).storage().get();
     }
@@ -314,8 +317,11 @@ struct DictionaryCollector {
 
       // Traverse the dictionary to first gather any nested dictionaries
       // (so that they appear in the output before their parent)
-      const auto& dict_type = checked_cast<const DictionaryType&>(*type);
-      RETURN_NOT_OK(WalkChildren(position, *dict_type.value_type(), *dictionary));
+      const Array* storage = dictionary.get();
+      while (storage->type_id() == Type::EXTENSION) {
+        storage = checked_cast<const ExtensionArray&>(*storage).storage().get();
+      }
+      RETURN_NOT_OK(WalkChildren(position, *storage->type(), *storage));
 
       // Then record the dictionary itself
       ARROW_ASSIGN_OR_RAISE(int64_t id, mapper_.GetFieldId(position.path()));

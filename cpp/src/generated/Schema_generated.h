@@ -1960,7 +1960,8 @@ struct DictionaryEncoding FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table
     VT_ID = 4,
     VT_INDEXTYPE = 6,
     VT_ISORDERED = 8,
-    VT_DICTIONARYKIND = 10
+    VT_DICTIONARYKIND = 10,
+    VT_CUSTOM_METADATA = 12
   };
   /// The known dictionary id in the application where this data is used. In
   /// the file or streaming formats, the dictionary ids are found in the
@@ -1986,6 +1987,10 @@ struct DictionaryEncoding FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table
   org::apache::arrow::flatbuf::DictionaryKind dictionaryKind() const {
     return static_cast<org::apache::arrow::flatbuf::DictionaryKind>(GetField<int16_t>(VT_DICTIONARYKIND, 0));
   }
+  /// Metadata for the dictionary value type, e.g. the extension type of the values
+  const ::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *>(VT_CUSTOM_METADATA);
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            VerifyField<int64_t>(verifier, VT_ID, 8) &&
@@ -1993,6 +1998,9 @@ struct DictionaryEncoding FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table
            verifier.VerifyTable(indexType()) &&
            VerifyField<uint8_t>(verifier, VT_ISORDERED, 1) &&
            VerifyField<int16_t>(verifier, VT_DICTIONARYKIND, 2) &&
+           VerifyOffset(verifier, VT_CUSTOM_METADATA) &&
+           verifier.VerifyVector(custom_metadata()) &&
+           verifier.VerifyVectorOfTables(custom_metadata()) &&
            verifier.EndTable();
   }
 };
@@ -2013,6 +2021,9 @@ struct DictionaryEncodingBuilder {
   void add_dictionaryKind(org::apache::arrow::flatbuf::DictionaryKind dictionaryKind) {
     fbb_.AddElement<int16_t>(DictionaryEncoding::VT_DICTIONARYKIND, static_cast<int16_t>(dictionaryKind), 0);
   }
+  void add_custom_metadata(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata) {
+    fbb_.AddOffset(DictionaryEncoding::VT_CUSTOM_METADATA, custom_metadata);
+  }
   explicit DictionaryEncodingBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2029,13 +2040,32 @@ inline ::flatbuffers::Offset<DictionaryEncoding> CreateDictionaryEncoding(
     int64_t id = 0,
     ::flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indexType = 0,
     bool isOrdered = false,
-    org::apache::arrow::flatbuf::DictionaryKind dictionaryKind = org::apache::arrow::flatbuf::DictionaryKind_DenseArray) {
+    org::apache::arrow::flatbuf::DictionaryKind dictionaryKind = org::apache::arrow::flatbuf::DictionaryKind_DenseArray,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>> custom_metadata = 0) {
   DictionaryEncodingBuilder builder_(_fbb);
   builder_.add_id(id);
+  builder_.add_custom_metadata(custom_metadata);
   builder_.add_indexType(indexType);
   builder_.add_dictionaryKind(dictionaryKind);
   builder_.add_isOrdered(isOrdered);
   return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<DictionaryEncoding> CreateDictionaryEncodingDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t id = 0,
+    ::flatbuffers::Offset<org::apache::arrow::flatbuf::Int> indexType = 0,
+    bool isOrdered = false,
+    org::apache::arrow::flatbuf::DictionaryKind dictionaryKind = org::apache::arrow::flatbuf::DictionaryKind_DenseArray,
+    const std::vector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>> *custom_metadata = nullptr) {
+  auto custom_metadata__ = custom_metadata ? _fbb.CreateVector<::flatbuffers::Offset<org::apache::arrow::flatbuf::KeyValue>>(*custom_metadata) : 0;
+  return org::apache::arrow::flatbuf::CreateDictionaryEncoding(
+      _fbb,
+      id,
+      indexType,
+      isOrdered,
+      dictionaryKind,
+      custom_metadata__);
 }
 
 /// ----------------------------------------------------------------------
