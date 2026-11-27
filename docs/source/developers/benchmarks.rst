@@ -51,6 +51,27 @@ Additionally a full CMake build directory may be specified.
 
    archery benchmark run $HOME/arrow/cpp/release-build
 
+Benchmarking a pull request
+===========================
+
+To run the remote benchmark suite for a pull request, add this comment to the
+pull request:
+
+.. code-block:: text
+
+   @ursabot please benchmark
+
+The bot schedules benchmark runs for the pull request commit. When they finish,
+Conbench posts a report comparing the pull request (the contender) with its base
+commit (the baseline).
+
+The benchmark jobs use the environment variables and build hooks in
+``dev/conbench_envs`` from the commit being tested. This means that changes to
+``benchmarks.env`` or ``hooks.sh`` can be tested in the same pull request. See
+the `benchmark build environment and hooks documentation
+<https://github.com/apache/arrow/tree/main/dev/conbench_envs>`_ for details and
+the requirements for changing existing hooks.
+
 Comparison
 ==========
 
