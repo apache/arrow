@@ -546,21 +546,15 @@ def validity_buffer_nan_sentinel(
                 "required which is forbidden by allow_copy=False"
             )
 
-        if kind == DtypeKind.FLOAT and bit_width == 16:
-            # 'pyarrow.compute.is_nan' kernel not yet implemented
-            # for float16
-            raise NotImplementedError(
-                f"{data_type} with {null_kind} is not yet supported.")
-        else:
-            pyarrow_data = pa.Array.from_buffers(
-                data_dtype,
-                length,
-                [None, data_pa_buffer],
-                offset=offset,
-            )
-            mask = pc.is_nan(pyarrow_data)
-            mask = pc.invert(mask)
-            return mask.buffers()[1]
+        pyarrow_data = pa.Array.from_buffers(
+            data_dtype,
+            length,
+            [None, data_pa_buffer],
+            offset=offset,
+        )
+        mask = pc.is_nan(pyarrow_data)
+        mask = pc.invert(mask)
+        return mask.buffers()[1]
 
     # Check for sentinel values
     elif null_kind == ColumnNullType.USE_SENTINEL:
