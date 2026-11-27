@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable, Hashable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Hashable, Iterable, Sequence
 from types import EllipsisType
 from typing import Any, ClassVar, Literal, Protocol, TypeAlias, TypedDict
 
@@ -520,7 +520,7 @@ def register_scalar_function(
     func: Callable[..., Any],
     function_name: str,
     function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType | str],
+    in_types: dict[str, DataType | str],
     out_type: DataType | str,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
@@ -528,7 +528,7 @@ def register_vector_function(
     func: Callable[..., Any],
     function_name: str,
     function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType | str],
+    in_types: dict[str, DataType | str],
     out_type: DataType | str,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
@@ -536,7 +536,7 @@ def register_aggregate_function(
     func: Callable[..., Any],
     function_name: str,
     function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType | str],
+    in_types: dict[str, DataType | str],
     out_type: DataType | str,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
@@ -544,7 +544,7 @@ def register_tabular_function(
     func: Callable[..., Any],
     function_name: str,
     function_doc: _FunctionDoc | dict[str, str],
-    in_types: Mapping[str, DataType | str],
+    in_types: dict[str, DataType | str],
     out_type: DataType | str,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
