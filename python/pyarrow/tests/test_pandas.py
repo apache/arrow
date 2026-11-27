@@ -3791,6 +3791,19 @@ def test_recordbatch_from_to_pandas():
     tm.assert_frame_equal(data, result)
 
 
+def test_recordbatch_from_pandas_concatenated_arrow_backed():
+    # GH-41936: pd.concat of arrow-backed columns produces chunked
+    # arrays, which RecordBatch.from_pandas needs to combine
+    df = pd.DataFrame({'a': [1, 2]}).astype({'a': 'int32[pyarrow]'})
+    concat_df = pd.concat([df, df])
+
+    batch = pa.RecordBatch.from_pandas(concat_df, preserve_index=False)
+    assert batch.column('a').to_pylist() == [1, 2, 1, 2]
+    assert batch.schema.field('a').type == pa.int32()
+    tm.assert_frame_equal(concat_df.reset_index(drop=True),
+                          batch.to_pandas())
+
+
 def test_recordbatchlist_to_pandas():
     data1 = pd.DataFrame({
         'c1': np.array([1, 1, 2], dtype='uint32'),

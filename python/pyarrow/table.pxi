@@ -3425,6 +3425,12 @@ cdef class RecordBatch(_Tabular):
             return pyarrow_wrap_batch(CRecordBatch.Make((<Schema> schema).sp_schema,
                                                         n_rows, c_arrays))
         else:
+            # A pandas column can yield a ChunkedArray, e.g. for an
+            # arrow-backed dtype after pd.concat (GH-41936)
+            arrays = [
+                arr.combine_chunks() if isinstance(arr, ChunkedArray) else arr
+                for arr in arrays
+            ]
             return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
