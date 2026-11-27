@@ -1377,6 +1377,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDurationScalar" arrow::DurationScalar"(CScalar):
         int64_t value
 
+    cdef cppclass CMonthIntervalScalar \
+            "arrow::MonthIntervalScalar"(CScalar):
+        int32_t value
+
+    cdef cppclass CDayMilliseconds" arrow::DayTimeIntervalType::DayMilliseconds":
+        int32_t days
+        int32_t milliseconds
+
+    cdef cppclass CDayTimeIntervalScalar \
+            "arrow::DayTimeIntervalScalar"(CScalar):
+        CDayMilliseconds value
+
     cdef cppclass CMonthDayNanoIntervalScalar \
             "arrow::MonthDayNanoIntervalScalar"(CScalar):
         pass

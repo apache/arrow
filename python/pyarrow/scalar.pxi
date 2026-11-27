@@ -917,8 +917,28 @@ cdef class MonthIntervalScalar(Scalar):
     def __str__(self):
         return frombytes(self.wrapped.get().ToString())
 
-    def as_py(self):
-        raise NotImplementedError()
+    def as_py(self, *, maps_as_pydicts=None):
+        """
+        Return this value as a Python integer.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
+
+        Returns
+        -------
+        int
+        """
+        cdef:
+            CMonthIntervalScalar* scalar
+        scalar = <CMonthIntervalScalar*>self.wrapped.get()
+
+        if not scalar.is_valid:
+            return None
+
+        return scalar.value
 
 
 cdef class DayTimeIntervalScalar(Scalar):
@@ -934,8 +954,28 @@ cdef class DayTimeIntervalScalar(Scalar):
     def __str__(self):
         return frombytes(self.wrapped.get().ToString())
 
-    def as_py(self):
-        raise NotImplementedError()
+    def as_py(self, *, maps_as_pydicts=None):
+        """
+        Return this value as a tuple of Python integers.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
+
+        Returns
+        -------
+        tuple
+        """
+        cdef:
+            CDayTimeIntervalScalar* scalar
+        scalar = <CDayTimeIntervalScalar*>self.wrapped.get()
+
+        if not scalar.is_valid:
+            return None
+
+        return (scalar.value.days, scalar.value.milliseconds)
 
 
 cdef class MonthDayNanoIntervalScalar(Scalar):
