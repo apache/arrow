@@ -1049,10 +1049,9 @@ if(ARROW_FILESYSTEM)
                                      ${_FIRST_GCS_LIB}
                                      TO_MERGE
                                      ${_OTHER_GCS_LIBS})
-      get_target_property(arrow_gcs_bundled_dependencies_path
-                          arrow_gcs_bundled_dependencies IMPORTED_LOCATION)
-      install(FILES ${arrow_gcs_bundled_dependencies_path} ${INSTALL_IS_OPTIONAL}
-              DESTINATION ${CMAKE_INSTALL_LIBDIR})
+      install(TARGETS arrow_gcs_bundled_dependencies ${INSTALL_IS_OPTIONAL}
+              EXPORT arrow_gcs_targets
+              ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
       string(PREPEND ARROW_GCS_PC_LIBS_PRIVATE " -larrow_gcs_bundled_dependencies")
       # Resolve bundled Abseil after SDK
       list(PREPEND ARROW_GCS_STATIC_INSTALL_INTERFACE_LIBS
@@ -1120,6 +1119,56 @@ if(ARROW_FILESYSTEM)
       set(ARROW_GCS_PC_LIBS "")
       set(ARROW_GCS_PC_REQUIRES "")
     endif()
+    if(ARROW_BUILD_STATIC AND ARROW_GCS_BUNDLED_STATIC_LIBS)
+      set(_ARROW_GCS_BUNDLED_DEPENDENCIES_LINK_LIBS)
+      foreach(_bundled_lib IN LISTS ARROW_GCS_BUNDLED_STATIC_LIBS)
+        if(TARGET ${_bundled_lib})
+          get_target_property(_bundled_lib_link_libraries ${_bundled_lib}
+                              INTERFACE_LINK_LIBRARIES)
+          if(_bundled_lib_link_libraries)
+            list(APPEND _ARROW_GCS_BUNDLED_DEPENDENCIES_LINK_LIBS
+                 ${_bundled_lib_link_libraries})
+          endif()
+        endif()
+      endforeach()
+
+      foreach(_bundled_lib IN LISTS ARROW_GCS_BUNDLED_STATIC_LIBS)
+        list(REMOVE_ITEM _ARROW_GCS_BUNDLED_DEPENDENCIES_LINK_LIBS ${_bundled_lib})
+      endforeach()
+
+      if(absl_SOURCE STREQUAL "BUNDLED")
+        list(FILTER
+             _ARROW_GCS_BUNDLED_DEPENDENCIES_LINK_LIBS
+             EXCLUDE
+             REGEX
+             "^absl::")
+        list(APPEND _ARROW_GCS_BUNDLED_DEPENDENCIES_LINK_LIBS
+             Arrow::arrow_bundled_dependencies)
+      endif()
+
+      if(NOT WIN32)
+        list(APPEND ARROW_GCS_SYSTEM_DEPENDENCIES OpenSSL)
+        list(APPEND _ARROW_GCS_BUNDLED_DEPENDENCIES_LINK_LIBS OpenSSL::SSL
+             OpenSSL::Crypto)
+      endif()
+
+      # nlohmann_json is header-only and only needed to compile
+      # google-cloud-cpp (bundled or system), not to link against it.
+      list(FILTER
+           _ARROW_GCS_BUNDLED_DEPENDENCIES_LINK_LIBS
+           EXCLUDE
+           REGEX
+           "nlohmann_json")
+
+      list(REMOVE_DUPLICATES _ARROW_GCS_BUNDLED_DEPENDENCIES_LINK_LIBS)
+
+      if(_ARROW_GCS_BUNDLED_DEPENDENCIES_LINK_LIBS)
+        target_link_libraries(arrow_gcs_bundled_dependencies
+                              INTERFACE "$<INSTALL_INTERFACE:${_ARROW_GCS_BUNDLED_DEPENDENCIES_LINK_LIBS}>"
+        )
+      endif()
+    endif()
+
     add_arrow_lib(arrow_gcs
                   CMAKE_PACKAGE_NAME
                   ArrowGcs
@@ -1299,14 +1348,34 @@ if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
                                  ${_FIRST_LIB}
                                  TO_MERGE
                                  ${_OTHER_LIBS})
-  # We can't use install(TARGETS) here because
-  # arrow_bundled_dependencies is an IMPORTED library.
-  get_target_property(arrow_bundled_dependencies_path arrow_bundled_dependencies
-                      IMPORTED_LOCATION)
-  install(FILES ${arrow_bundled_dependencies_path} ${INSTALL_IS_OPTIONAL}
-          DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  install(TARGETS arrow_bundled_dependencies ${INSTALL_IS_OPTIONAL}
+          EXPORT arrow_targets
+          ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
   string(PREPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
   list(INSERT ARROW_STATIC_INSTALL_INTERFACE_LIBS 0 "Arrow::arrow_bundled_dependencies")
+
+  # Propagate only the external link requirements of libraries merged into
+  # arrow_bundled_dependencies.
+  set(_ARROW_BUNDLED_DEPENDENCIES_LINK_LIBS)
+  foreach(_bundled_lib IN LISTS ARROW_BUNDLED_STATIC_LIBS)
+    if(TARGET ${_bundled_lib})
+      get_target_property(_bundled_lib_link_libraries ${_bundled_lib}
+                          INTERFACE_LINK_LIBRARIES)
+      if(_bundled_lib_link_libraries)
+        list(APPEND _ARROW_BUNDLED_DEPENDENCIES_LINK_LIBS ${_bundled_lib_link_libraries})
+      endif()
+    endif()
+  endforeach()
+  foreach(_bundled_lib IN LISTS ARROW_BUNDLED_STATIC_LIBS)
+    list(REMOVE_ITEM _ARROW_BUNDLED_DEPENDENCIES_LINK_LIBS ${_bundled_lib})
+  endforeach()
+  list(REMOVE_DUPLICATES _ARROW_BUNDLED_DEPENDENCIES_LINK_LIBS)
+  if(_ARROW_BUNDLED_DEPENDENCIES_LINK_LIBS)
+    target_link_libraries(arrow_bundled_dependencies
+                          INTERFACE "$<INSTALL_INTERFACE:${_ARROW_BUNDLED_DEPENDENCIES_LINK_LIBS}>"
+    )
+  endif()
+
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
