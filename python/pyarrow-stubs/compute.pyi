@@ -964,7 +964,7 @@ def split_pattern(
     *,
     max_splits: int | None = None,
     reverse: bool = False,
-    options: SplitOptions | None = None,
+    options: SplitPatternOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> _ListScalar | BaseListArray | ChunkedArray | Expression: ...
 
@@ -980,8 +980,14 @@ def extract_regex(
     options: ExtractRegexOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> StructScalar | StructArray | ChunkedArray | Expression: ...
-
-extract_regex_span = _clone_signature(extract_regex)
+def extract_regex_span(
+    strings: _ComputeInput | str | bytes,
+    /,
+    pattern: str | bytes,
+    *,
+    options: ExtractRegexSpanOptions | None = None,
+    memory_pool: MemoryPool | None = None,
+) -> StructScalar | StructArray | ChunkedArray | Expression: ...
 
 # ========================= String joining =========================
 def binary_join(

@@ -545,7 +545,7 @@ def register_tabular_function(
     function_name: str,
     function_doc: _FunctionDoc | dict[str, str],
     in_types: dict[str, DataType | str],
-    out_type: DataType | str,
+    out_type: Schema | DataType | str,
     func_registry: FunctionRegistry | None = None,
 ) -> None: ...
 def call_tabular_function(
