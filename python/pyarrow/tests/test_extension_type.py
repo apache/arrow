@@ -1455,6 +1455,19 @@ def test_uuid_to_pandas():
 
 
 @pytest.mark.pandas
+@pytest.mark.parametrize("list_array_class", [pa.ListArray, pa.LargeListArray])
+def test_list_of_uuid_to_pandas(list_array_class):
+    # GH-55298
+    import pandas as pd
+    import pandas.testing as tm
+    values = [uuid4(), None, uuid4()]
+    array = list_array_class.from_arrays(
+        [0, 2, 3, 3], pa.array(values, type=pa.uuid()))
+    expected = pd.Series([values[:2], values[2:], []])
+    tm.assert_series_equal(array.to_pandas(), expected)
+
+
+@pytest.mark.pandas
 def test_uuid_to_pandas_options():
     values = [uuid4(), uuid4()] * 2
     array = pa.array(values, type=pa.uuid())

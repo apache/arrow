@@ -193,12 +193,17 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::HALF_FLOAT:
     case Type::FLOAT:
     case Type::DOUBLE:
+    case Type::DECIMAL32:
+    case Type::DECIMAL64:
     case Type::DECIMAL128:
     case Type::DECIMAL256:
     case Type::BINARY:
     case Type::LARGE_BINARY:
+    case Type::BINARY_VIEW:
+    case Type::FIXED_SIZE_BINARY:
     case Type::STRING:
     case Type::LARGE_STRING:
+    case Type::STRING_VIEW:
     case Type::DATE32:
     case Type::DATE64:
     case Type::STRUCT:
@@ -781,7 +786,8 @@ enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options,
     // flattened_values array different.
     std::shared_ptr<Array> flattened_values = arr.values()->Slice(
         arr.value_offset(0), arr.value_offset(arr.length()) - arr.value_offset(0));
-    if (arr.value_type()->id() == Type::EXTENSION) {
+    if (arr.value_type()->id() == Type::EXTENSION &&
+        !IsUuidExtension(*arr.value_type())) {
       const auto& arr_ext = checked_cast<const ExtensionArray&>(*flattened_values);
       value_arrays.emplace_back(arr_ext.storage());
     } else {
@@ -792,7 +798,7 @@ enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options,
   using ListArrayType = typename ListArrayT::TypeClass;
   const auto& list_type = checked_cast<const ListArrayType&>(*data.type());
   auto value_type = list_type.value_type();
-  if (value_type->id() == Type::EXTENSION) {
+  if (value_type->id() == Type::EXTENSION && !IsUuidExtension(*value_type)) {
     value_type = checked_cast<const ExtensionType&>(*value_type).storage_type();
   }
 
