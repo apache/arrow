@@ -42,6 +42,10 @@ class ARROW_EXPORT RecordBatch {
  public:
   virtual ~RecordBatch() = default;
 
+  /// The types of the provided columns are not validated against the schema
+  /// during construction. Call Validate() or ValidateFull() to check that
+  /// the column types match the schema.
+  ///
   /// \param[in] schema The record batch schema
   /// \param[in] num_rows length of fields in the record batch. Each array
   /// should have the same length as num_rows
@@ -57,6 +61,10 @@ class ARROW_EXPORT RecordBatch {
   /// \since 0.5.0
   ///
   /// This class is intended for internal use, or advanced users.
+  ///
+  /// The types of the provided columns are not validated against the schema
+  /// during construction. Call Validate() or ValidateFull() to check that
+  /// the column types match the schema.
   ///
   /// \param schema the record batch schema
   /// \param num_rows the number of semantic rows in the record batch. This
