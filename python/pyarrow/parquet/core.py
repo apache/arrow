@@ -1001,6 +1001,17 @@ min_compression_savings : float, default 0.01
     levels. The default is 0.01, so compression must save at least 1%.
     Using a larger value with V1 data pages or a number outside
     the allowed range raises ``ValueError``.
+use_finite_vector_logical_type : bool, default False
+    EXPERIMENTAL: Write FixedSizeList columns with the Parquet FINITE_VECTOR logical
+    type when their element type maps to a Parquet BOOLEAN, INT32, INT64,
+    FLOAT, DOUBLE, FLOAT16 or DECIMAL primitive. FINITE_VECTOR elements are written
+    as required, and writing fails if a non-null list contains a null or
+    non-finite (NaN or infinite) element. Other FixedSizeList columns are
+    written as ordinary LISTs. The FINITE_VECTOR logical type was added to the
+    Parquet format after version 2.14.0 and is not part of a format release
+    yet. Files containing it cannot be opened by PyArrow releases older than
+    this one and may not be readable by other Parquet readers, so leave this
+    disabled for data that needs to stay portable.
 """
 
 _parquet_writer_example_doc = """\
@@ -1102,6 +1113,7 @@ Examples
                  bloom_filter_options=None,
                  use_content_defined_chunking=False,
                  min_compression_savings=0.01,
+                 use_finite_vector_logical_type=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1160,6 +1172,7 @@ Examples
             bloom_filter_options=bloom_filter_options,
             use_content_defined_chunking=use_content_defined_chunking,
             min_compression_savings=min_compression_savings,
+            use_finite_vector_logical_type=use_finite_vector_logical_type,
             **options)
         self.is_open = True
 
@@ -2065,6 +2078,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 bloom_filter_options=None,
                 use_content_defined_chunking=False,
                 min_compression_savings=0.01,
+                use_finite_vector_logical_type=False,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -2101,6 +2115,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 bloom_filter_options=bloom_filter_options,
                 use_content_defined_chunking=use_content_defined_chunking,
                 min_compression_savings=min_compression_savings,
+                use_finite_vector_logical_type=use_finite_vector_logical_type,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

@@ -428,6 +428,8 @@ class GeographyType;
 
 class FileType;
 
+class FiniteVectorType;
+
 class LogicalType;
 
 class SchemaElement;
@@ -1684,8 +1686,51 @@ void swap(FileType &a, FileType &b) noexcept;
 
 std::ostream& operator<<(std::ostream& out, const FileType& obj);
 
+
+/**
+ * Finite fixed-length vector logical type annotation
+ * 
+ * Annotates the outer group of a three-level structure that is the same as
+ * the one used for LIST-annotated groups. Each non-null vector MUST contain
+ * exactly num_elements elements.
+ * 
+ * See LogicalTypes.md for details.
+ */
+class FiniteVectorType {
+ public:
+
+  FiniteVectorType(const FiniteVectorType&) noexcept;
+  FiniteVectorType(FiniteVectorType&&) noexcept;
+  FiniteVectorType& operator=(const FiniteVectorType&) noexcept;
+  FiniteVectorType& operator=(FiniteVectorType&&) noexcept;
+  FiniteVectorType() noexcept;
+
+  ~FiniteVectorType() noexcept;
+  int32_t num_elements;
+
+  void __set_num_elements(const int32_t val);
+
+  bool operator == (const FiniteVectorType & rhs) const;
+  bool operator != (const FiniteVectorType &rhs) const {
+    return !(*this == rhs);
+  }
+
+  bool operator < (const FiniteVectorType & ) const;
+
+  template <class Protocol_>
+  uint32_t read(Protocol_* iprot);
+  template <class Protocol_>
+  uint32_t write(Protocol_* oprot) const;
+
+  void printTo(std::ostream& out) const;
+};
+
+void swap(FiniteVectorType &a, FiniteVectorType &b) noexcept;
+
+std::ostream& operator<<(std::ostream& out, const FiniteVectorType& obj);
+
 typedef struct _LogicalType__isset {
-  _LogicalType__isset() : STRING(false), MAP(false), LIST(false), ENUM(false), DECIMAL(false), DATE(false), TIME(false), TIMESTAMP(false), INTEGER(false), UNKNOWN(false), JSON(false), BSON(false), UUID(false), FLOAT16(false), VARIANT(false), GEOMETRY(false), GEOGRAPHY(false), FILE(false) {}
+  _LogicalType__isset() : STRING(false), MAP(false), LIST(false), ENUM(false), DECIMAL(false), DATE(false), TIME(false), TIMESTAMP(false), INTEGER(false), UNKNOWN(false), JSON(false), BSON(false), UUID(false), FLOAT16(false), VARIANT(false), GEOMETRY(false), GEOGRAPHY(false), FILE(false), FINITE_VECTOR(false) {}
   bool STRING :1;
   bool MAP :1;
   bool LIST :1;
@@ -1704,6 +1749,7 @@ typedef struct _LogicalType__isset {
   bool GEOMETRY :1;
   bool GEOGRAPHY :1;
   bool FILE :1;
+  bool FINITE_VECTOR :1;
 } _LogicalType__isset;
 
 /**
@@ -1741,6 +1787,7 @@ class LogicalType {
   GeometryType GEOMETRY;
   GeographyType GEOGRAPHY;
   FileType FILE;
+  FiniteVectorType FINITE_VECTOR;
 
   _LogicalType__isset __isset;
 
@@ -1779,6 +1826,8 @@ class LogicalType {
   void __set_GEOGRAPHY(const GeographyType& val);
 
   void __set_FILE(const FileType& val);
+
+  void __set_FINITE_VECTOR(const FiniteVectorType& val);
 
   bool operator == (const LogicalType & rhs) const;
   bool operator != (const LogicalType &rhs) const {
@@ -3424,6 +3473,7 @@ class ColumnOrder {
    *   GEOMETRY - undefined
    *   GEOGRAPHY - undefined
    *   FILE - undefined
+   *   FINITE_VECTOR - undefined
    * 
    * In the absence of logical types, the sort order is determined by the physical type:
    *   BOOLEAN - false, true
