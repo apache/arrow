@@ -36,7 +36,7 @@ repos:
         always_run: true
         pass_filenames: false
   - repo: https://github.com/hadolint/hadolint
-    rev: v2.12.0
+    rev: v2.15.1
     hooks:
       - id: hadolint-docker
         alias: docker
@@ -71,7 +71,7 @@ repos:
           ?^cpp/thirdparty/|
           )
   - repo: https://github.com/cpplint/cpplint
-    rev: 1.6.1
+    rev: 2.0.2
     hooks:
       - id: cpplint
         alias: cpp
@@ -131,7 +131,7 @@ repos:
           ?^python/pyarrow/vendored/|
           )
   - repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
+    rev: 7.5.0
     hooks:
       - id: flake8
         alias: python
@@ -153,7 +153,7 @@ repos:
   # modules that aren't annotated yet, e.g. pyarrow.compute, are treated as Any
   # (see python/pyproject.toml).
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.2
+    rev: v0.17.6
     hooks:
       - id: ruff-check
         alias: python-stubs
@@ -210,7 +210,7 @@ repos:
           ^python/(pyarrow-stubs(-tests)?/|(pyproject\.toml|requirements-stubs\.txt)$)
         additional_dependencies: *uv
   - repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.21.1
+    rev: v0.22.1
     hooks:
       - id: cython-lint
         alias: python
@@ -234,7 +234,7 @@ repos:
           ?^cpp/src/generated/|
           )
   - repo: https://github.com/numpy/numpydoc
-    rev: v1.8.0
+    rev: v1.11.0
     hooks:
       - id: numpydoc-validation
         name: Python (NumPy doc) Lint
@@ -253,13 +253,13 @@ repos:
           ?^python/pyarrow/vendored/|
           )
   - repo: https://github.com/etiennebacher/jarl-pre-commit
-    rev: "0.5.0"
+    rev: "1.0.0"
     hooks:
       - id: jarl-check
         alias: r
         name: R Lint (jarl)
   - repo: https://github.com/posit-dev/air-pre-commit
-    rev: 0.8.2
+    rev: 0.13.0
     hooks:
       - id: air-format
         alias: r
@@ -277,7 +277,7 @@ repos:
           ?^r/src/arrowExports\.cpp$|
           )
   - repo: https://github.com/cpplint/cpplint
-    rev: 1.6.1
+    rev: 2.0.2
     hooks:
       - id: cpplint
         alias: r
@@ -293,7 +293,7 @@ repos:
           ?^r/src/arrowExports\.cpp$|
           )
   - repo: https://github.com/rubocop/rubocop
-    rev: "v1.71.0"
+    rev: "v1.92.3"
     hooks:
       - id: rubocop
         name: Ruby Format
@@ -326,7 +326,7 @@ repos:
           ?^cpp/src/arrow/util/.*\.h\.cmake$|
           )
   - repo: https://github.com/sphinx-contrib/sphinx-lint
-    rev: v0.9.1
+    rev: v1.0.2
     hooks:
       - id: sphinx-lint
         alias: docs
@@ -373,7 +373,7 @@ repos:
     # v3.11.0-1 or later requires pre-commit 3.2.0 or later but Ubuntu
     # 22.04 ships pre-commit 2.17.0. We can use update this rev after
     # Ubuntu 22.04 reached EOL (June 2027).
-    rev: v3.10.0-1
+    rev: v3.14.1-1
     hooks:
       - id: shfmt
         alias: shell
@@ -394,7 +394,7 @@ repos:
           ?^dev/release/post-09-python\.sh$|
           )
   - repo: https://github.com/trim21/pre-commit-mirror-meson
-    rev: v1.9.0
+    rev: v1.12.1
     hooks:
       - id: meson-fmt
         alias: cpp
