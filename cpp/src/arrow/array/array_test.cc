@@ -4006,6 +4006,28 @@ TEST(TestSwapEndianArrayData, StructType) {
   AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
 }
 
+TEST(TestSwapEndianArrayData, RunEndEncodedType) {
+  auto run_ends = ArrayFromJSON(int32(), "[2, 5]");
+  auto values = ArrayFromJSON(int16(), "[4, 5]");
+  ASSERT_OK_AND_ASSIGN(auto array, RunEndEncodedArray::Make(5, run_ends, values));
+  auto expected_data = array->data();
+  const std::vector<uint8_t> run_ends_data =
+#if ARROW_LITTLE_ENDIAN
+      {0, 0, 0, 2, 0, 0, 0, 5};
+#else
+      {2, 0, 0, 0, 5, 0, 0, 0};
+#endif
+  const std::vector<uint8_t> values_data =
+#if ARROW_LITTLE_ENDIAN
+      {0, 4, 0, 5};
+#else
+      {4, 0, 5, 0};
+#endif
+  auto test_data = ReplaceBuffersInChild(expected_data, 0, run_ends_data);
+  test_data = ReplaceBuffersInChild(test_data, 1, values_data);
+  AssertArrayDataEqualsWithSwapEndian(test_data, expected_data);
+}
+
 TEST(TestSwapEndianArrayData, UnionType) {
   auto expected_i8 = ArrayFromJSON(int8(), "[127, null, null, null, null]");
   auto expected_str = ArrayFromJSON(utf8(), R"([null, "abcd", null, null, ""])");
