@@ -526,11 +526,12 @@ class RawBuilderSet {
 
   /// Appending null is slightly tricky since null count is stored inline
   /// for builders of Kind::kNull. Append nulls using this helper
-  Result<BuilderPtr> AppendNull(BuilderPtr parent, int field_index) {
+  Result<BuilderPtr> AppendNull(BuilderPtr parent, int field_index,
+                                bool parent_is_null = false) {
     BuilderPtr builder = parent.kind == Kind::kArray
                              ? Cast<Kind::kArray>(parent)->value_builder()
                              : Cast<Kind::kObject>(parent)->field_builder(field_index);
-    if (ARROW_PREDICT_FALSE(!builder.nullable)) {
+    if (ARROW_PREDICT_FALSE(!builder.nullable && !parent_is_null)) {
       return ParseError("a required field was null");
     }
     switch (builder.kind) {
@@ -572,7 +573,8 @@ class RawBuilderSet {
         RETURN_NOT_OK(struct_builder->AppendNull());
 
         for (int i = 0; i < struct_builder->num_fields(); ++i) {
-          RETURN_NOT_OK(AppendNull(builder, i));
+          // Child slots are masked by the null struct, regardless of nullability.
+          RETURN_NOT_OK(AppendNull(builder, i, /*parent_is_null=*/true));
         }
         break;
       }
