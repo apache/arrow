@@ -59,22 +59,21 @@ if(WIN32)
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SRCS odbc.def install/versioninfo.rc)
 endif()
 
-# Initialize install interface libs (only set in Windows static build)
+# Initialize install interface libs (only set on Windows and Linux)
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
 
-if(WIN32)
-  if(ARROW_BUILD_STATIC)
-    # Static Arrow deps on Windows — self-contained ODBC DLL
-    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_static
-                                               arrow_odbc_spi_impl)
-    set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
-    list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
-         ArrowFlight::arrow_flight_sql_static)
-    list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
-         ArrowFlight::arrow_flight_sql_static)
-  else()
+# On macOS, always link Arrow libraries statically.
+# On Windows and Linux, link Arrow libraries dynamically if the shared libraries are
+# built, and statically otherwise.
+if(APPLE)
+  # macOS: arrow_odbc_spi_impl always links Arrow statically.
+  # ODBC libraries are linked through STATIC_LINK_LIBS.
+  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_odbc_spi_impl)
+  set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS ODBC::ODBC ${ODBCINST})
+else()
+  if(ARROW_BUILD_SHARED)
     set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared
                                                arrow_odbc_spi_impl)
     set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
@@ -82,13 +81,17 @@ if(WIN32)
          ArrowFlight::arrow_flight_sql_shared)
     list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
          ArrowFlight::arrow_flight_sql_static)
+  else()
+    # Static Arrow deps — self-contained ODBC library
+    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_static
+                                               arrow_odbc_spi_impl)
+    set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_static)
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
+         ArrowFlight::arrow_flight_sql_static)
   endif()
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS ODBC::ODBC ${ODBCINST})
-else()
-  # Unix/macOS: driver dynamically links arrow_flight_sql so the driver and test
-  # binary share the same grpc/arrow_flight runtime.
-  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_odbc_spi_impl)
-  set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS ODBC::ODBC ${ODBCINST})
 endif()
 
 add_arrow_lib(arrow_flight_sql_odbc
