@@ -169,6 +169,10 @@ class ReaderV1 : public Reader {
                           source->ReadAt(size - footer_size - metadata_length,
                                          metadata_length, /*allow_short_read=*/false));
 
+    flatbuffers::Verifier verifier(metadata_buffer_->data(), metadata_buffer_->size());
+    if (!fbs::VerifyCTableBuffer(verifier)) {
+      return Status::Invalid("Feather V1 metadata failed flatbuffer verification");
+    }
     metadata_ = fbs::GetCTable(metadata_buffer_->data());
     return ReadSchema();
   }
