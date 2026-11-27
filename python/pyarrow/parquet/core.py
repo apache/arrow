@@ -43,7 +43,8 @@ from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               ParquetLogicalType,
                               FileEncryptionProperties,
                               FileDecryptionProperties,
-                              SortingColumn)
+                              SortingColumn, WriterProperties,
+                              ArrowWriterProperties)
 from pyarrow.fs import (LocalFileSystem, FileType, _resolve_filesystem_and_path,
                         _ensure_filesystem)
 from pyarrow.util import guid, _is_path_like, _stringify_path, _deprecate_api
@@ -1162,6 +1163,16 @@ Examples
             min_compression_savings=min_compression_savings,
             **options)
         self.is_open = True
+
+    @property
+    def properties(self):
+        """Read-only Parquet settings (:class:`WriterProperties`)."""
+        return self.writer.properties
+
+    @property
+    def arrow_properties(self):
+        """Read-only Arrow settings (:class:`ArrowWriterProperties`)."""
+        return self.writer.arrow_properties
 
     def __del__(self):
         if getattr(self, 'is_open', False):
@@ -2532,6 +2543,7 @@ def read_schema(where, memory_map=False, decryption_properties=None,
 
 
 __all__ = (
+    "ArrowWriterProperties",
     "ColumnChunkMetaData",
     "ColumnSchema",
     "FileDecryptionProperties",
@@ -2546,6 +2558,7 @@ __all__ = (
     "RowGroupMetaData",
     "SortingColumn",
     "Statistics",
+    "WriterProperties",
     "read_metadata",
     "read_pandas",
     "read_schema",

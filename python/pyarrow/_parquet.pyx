@@ -39,7 +39,7 @@ from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           pyarrow_wrap_batch,
                           pyarrow_wrap_scalar,
                           NativeFile, get_reader, get_writer,
-                          string_to_timeunit)
+                          string_to_timeunit, timeunit_to_string)
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
                          ListType, LargeListType,
@@ -2004,7 +2004,7 @@ cdef vector[CSortingColumn] _convert_sorting_columns(sorting_columns) except *:
     return c_sorting_columns
 
 cdef void _set_bloom_opts_for_column(
-        WriterProperties.Builder* props,
+        CWriterProperties.Builder* props,
         column,
         column_bloom_opts) except *:
     """Set Bloom filter options for a single column"""
@@ -2045,7 +2045,7 @@ cdef void _set_bloom_opts_for_column(
 
 
 cdef void _set_bloom_filter_opts(
-        WriterProperties.Builder* props,
+        CWriterProperties.Builder* props,
         bloom_filter_options) except *:
     """Set Bloom filter options for all columns"""
     if bloom_filter_options is not None:
@@ -2058,7 +2058,7 @@ cdef void _set_bloom_filter_opts(
             raise TypeError("'bloom_filter_options' must be a dictionary")
 
 
-cdef shared_ptr[WriterProperties] _create_writer_properties(
+cdef shared_ptr[CWriterProperties] _create_writer_properties(
         use_dictionary=None,
         compression=None,
         version=None,
@@ -2082,8 +2082,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     """General writer properties"""
     cdef:
-        shared_ptr[WriterProperties] properties
-        WriterProperties.Builder props
+        shared_ptr[CWriterProperties] properties
+        CWriterProperties.Builder props
         CdcOptions cdc_options
         double savings
         double default_min_savings = 0.01
@@ -2294,7 +2294,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     return properties
 
 
-cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
+cdef shared_ptr[CArrowWriterProperties] _create_arrow_writer_properties(
         use_deprecated_int96_timestamps=False,
         coerce_timestamps=None,
         allow_truncated_timestamps=False,
@@ -2304,8 +2304,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         write_time_adjusted_to_utc=False) except *:
     """Arrow writer properties"""
     cdef:
-        shared_ptr[ArrowWriterProperties] arrow_properties
-        ArrowWriterProperties.Builder arrow_props
+        shared_ptr[CArrowWriterProperties] arrow_properties
+        CArrowWriterProperties.Builder arrow_props
 
     # Store the original Arrow schema so things like dictionary types can
     # be automatically reconstructed
@@ -2360,8 +2360,8 @@ cdef _name_to_index_map(Schema arrow_schema):
     cdef:
         shared_ptr[CSchema] sp_arrow_schema
         shared_ptr[SchemaDescriptor] sp_parquet_schema
-        shared_ptr[WriterProperties] props = _create_writer_properties()
-        shared_ptr[ArrowWriterProperties] arrow_props = _create_arrow_writer_properties(
+        shared_ptr[CWriterProperties] props = _create_writer_properties()
+        shared_ptr[CArrowWriterProperties] arrow_props = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=False,
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
@@ -2385,11 +2385,173 @@ cdef _name_to_index_map(Schema arrow_schema):
     return out
 
 
+cdef class WriterProperties(_Weakrefable):
+    """Parquet file and column settings for a ParquetWriter.
+
+    Obtain this read-only object from a ParquetWriter.
+    """
+
+    cdef shared_ptr[CWriterProperties] _properties
+
+    def __init__(self):
+        raise TypeError("WriterProperties must be obtained from a ParquetWriter")
+
+    @property
+    def dictionary_pagesize_limit(self):
+        """Maximum dictionary page size in bytes."""
+        return self._properties.get().dictionary_pagesize_limit()
+
+    @property
+    def write_batch_size(self):
+        """Number of values written per batch."""
+        return self._properties.get().write_batch_size()
+
+    @property
+    def max_row_group_length(self):
+        """Maximum number of rows per row group."""
+        return self._properties.get().max_row_group_length()
+
+    @property
+    def data_pagesize(self):
+        """Target data page size in bytes."""
+        return self._properties.get().data_pagesize()
+
+    @property
+    def max_rows_per_page(self):
+        """Maximum number of rows per data page."""
+        return self._properties.get().max_rows_per_page()
+
+    @property
+    def min_compression_savings(self):
+        """Minimum fractional savings required for compression."""
+        return self._properties.get().min_compression_savings()
+
+    @property
+    def store_decimal_as_integer(self):
+        """Whether eligible decimals are stored as integers."""
+        return self._properties.get().store_decimal_as_integer()
+
+    @property
+    def page_checksum_enabled(self):
+        """Whether page checksums are enabled."""
+        return self._properties.get().page_checksum_enabled()
+
+    @property
+    def content_defined_chunking_enabled(self):
+        """Whether content-defined chunking is enabled."""
+        return self._properties.get().content_defined_chunking_enabled()
+
+    @property
+    def version(self):
+        """Parquet logical type version."""
+        return {
+            ParquetVersion_V1: '1.0',
+            ParquetVersion_V2_4: '2.4',
+            ParquetVersion_V2_6: '2.6',
+        }[self._properties.get().version()]
+
+    @property
+    def data_page_version(self):
+        """Parquet data page format version."""
+        if self._properties.get().data_page_version() == ParquetDataPageVersion_V1:
+            return '1.0'
+        return '2.0'
+
+    def compression(self, column_path):
+        """Compression codec for a dot-separated Parquet column path."""
+        cdef shared_ptr[ColumnPath] path = ColumnPath.FromDotString(
+            tobytes(column_path))
+        return compression_name_from_enum(self._properties.get().compression(path))
+
+    def compression_level(self, column_path):
+        """Compression level for a column path, or None for the codec default."""
+        cdef shared_ptr[ColumnPath] path = ColumnPath.FromDotString(
+            tobytes(column_path))
+        cdef int level = self._properties.get().compression_level(path)
+        if level == CCodec.UseDefaultCompressionLevel():
+            return None
+        return level
+
+    def dictionary_enabled(self, column_path):
+        """Whether dictionary encoding is enabled for a dot-separated Parquet column path."""
+        cdef shared_ptr[ColumnPath] path = ColumnPath.FromDotString(
+            tobytes(column_path))
+        return self._properties.get().dictionary_enabled(path)
+
+    def statistics_enabled(self, column_path):
+        """Whether statistics are enabled for a dot-separated Parquet column path."""
+        cdef shared_ptr[ColumnPath] path = ColumnPath.FromDotString(
+            tobytes(column_path))
+        return self._properties.get().statistics_enabled(path)
+
+    def page_index_enabled(self, column_path):
+        """Whether the page index is enabled for a dot-separated Parquet column path."""
+        cdef shared_ptr[ColumnPath] path = ColumnPath.FromDotString(
+            tobytes(column_path))
+        return self._properties.get().page_index_enabled(path)
+
+
+cdef class ArrowWriterProperties(_Weakrefable):
+    """Arrow-to-Parquet conversion settings for a ParquetWriter.
+
+    Obtain this read-only object from a ParquetWriter.
+    """
+
+    cdef shared_ptr[CArrowWriterProperties] _properties
+
+    def __init__(self):
+        raise TypeError("ArrowWriterProperties must be obtained from a ParquetWriter")
+
+    @property
+    def support_deprecated_int96_timestamps(self):
+        """Whether timestamps are written as INT96."""
+        return self._properties.get().support_deprecated_int96_timestamps()
+
+    @property
+    def truncated_timestamps_allowed(self):
+        """Whether timestamp truncation is allowed."""
+        return self._properties.get().truncated_timestamps_allowed()
+
+    @property
+    def store_schema(self):
+        """Whether the Arrow schema is stored in file metadata."""
+        return self._properties.get().store_schema()
+
+    @property
+    def compliant_nested_types(self):
+        """Whether compliant nested types are used."""
+        return self._properties.get().compliant_nested_types()
+
+    @property
+    def write_time_adjusted_to_utc(self):
+        """Whether TIME columns are marked as adjusted to UTC."""
+        return self._properties.get().write_time_adjusted_to_utc()
+
+    @property
+    def use_threads(self):
+        """Whether columns may be written in parallel."""
+        return self._properties.get().use_threads()
+
+    @property
+    def coerce_timestamps(self):
+        """Target timestamp unit, or None if coercion is disabled."""
+        if self._properties.get().coerce_timestamps_enabled():
+            return timeunit_to_string(self._properties.get().coerce_timestamps_unit())
+        return None
+
+    @property
+    def engine_version(self):
+        """Arrow writer engine version."""
+        return {V1: 'V1', V2: 'V2'}[self._properties.get().engine_version()]
+
+
 cdef class ParquetWriter(_Weakrefable):
     cdef:
         unique_ptr[FileWriter] writer
         shared_ptr[COutputStream] sink
         bint own_sink
+        shared_ptr[CWriterProperties] _properties
+        shared_ptr[CArrowWriterProperties] _arrow_properties
 
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
@@ -2419,8 +2581,8 @@ cdef class ParquetWriter(_Weakrefable):
                   bloom_filter_options=None,
                   min_compression_savings=0.01):
         cdef:
-            shared_ptr[WriterProperties] properties
-            shared_ptr[ArrowWriterProperties] arrow_properties
+            shared_ptr[CWriterProperties] properties
+            shared_ptr[CArrowWriterProperties] arrow_properties
             c_string c_where
             CMemoryPool* pool
 
@@ -2472,6 +2634,22 @@ cdef class ParquetWriter(_Weakrefable):
             self.writer = move(GetResultValue(
                 FileWriter.Open(deref(schema.schema), pool,
                                 self.sink, properties, arrow_properties)))
+
+        self._properties = properties
+        self._arrow_properties = arrow_properties
+
+    @property
+    def properties(self):
+        cdef WriterProperties result = WriterProperties.__new__(WriterProperties)
+        result._properties = self._properties
+        return result
+
+    @property
+    def arrow_properties(self):
+        cdef ArrowWriterProperties result = ArrowWriterProperties.__new__(
+            ArrowWriterProperties)
+        result._properties = self._arrow_properties
+        return result
 
     def close(self):
         with nogil:

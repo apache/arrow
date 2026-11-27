@@ -82,6 +82,8 @@ Parquet Files
    ParquetDataset
    ParquetFile
    ParquetWriter
+   WriterProperties
+   ArrowWriterProperties
    filters_to_expression
    read_table
    read_metadata

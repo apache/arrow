@@ -43,8 +43,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CParquetFileWriteOptions \
             "arrow::dataset::ParquetFileWriteOptions"(CFileWriteOptions):
-        shared_ptr[WriterProperties] writer_properties
-        shared_ptr[ArrowWriterProperties] arrow_writer_properties
+        shared_ptr[CWriterProperties] writer_properties
+        shared_ptr[CArrowWriterProperties] arrow_writer_properties
         shared_ptr[CParquetEncryptionConfig] parquet_encryption_config
 
     cdef cppclass CParquetFileFragment "arrow::dataset::ParquetFileFragment"(

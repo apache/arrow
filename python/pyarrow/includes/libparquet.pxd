@@ -37,6 +37,8 @@ cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
         pass
 
     cdef cppclass ColumnPath:
+        @staticmethod
+        shared_ptr[ColumnPath] FromDotString(const c_string& path) except +
         c_string ToDotString()
         vector[c_string] ToDotVector()
 
@@ -482,7 +484,24 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
         int64_t max_chunk_size
         int norm_level
 
-    cdef cppclass WriterProperties:
+    cdef cppclass CWriterProperties "parquet::WriterProperties":
+        int64_t dictionary_pagesize_limit() const
+        int64_t write_batch_size() const
+        int64_t max_row_group_length() const
+        int64_t data_pagesize() const
+        int64_t max_rows_per_page() const
+        double min_compression_savings() const
+        c_bool store_decimal_as_integer() const
+        c_bool page_checksum_enabled() const
+        c_bool content_defined_chunking_enabled() const
+        ParquetVersion version() const
+        ParquetDataPageVersion data_page_version() const
+        ParquetCompression compression(const shared_ptr[ColumnPath]& path) const
+        int compression_level(const shared_ptr[ColumnPath]& path) const
+        c_bool dictionary_enabled(const shared_ptr[ColumnPath]& path) const
+        c_bool statistics_enabled(const shared_ptr[ColumnPath]& path) const
+        c_bool page_index_enabled(const shared_ptr[ColumnPath]& path) const
+
         cppclass Builder:
             Builder* data_page_version(ParquetDataPageVersion version)
             Builder* min_compression_savings(double min_compression_savings) except +
@@ -523,9 +542,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_bloom_filter(const c_string& path)
             Builder* enable_bloom_filter(const c_string& path,
                                          BloomFilterOptions bloom_filter_options)
-            shared_ptr[WriterProperties] build()
+            shared_ptr[CWriterProperties] build()
 
-    cdef cppclass ArrowWriterProperties:
+    cdef cppclass CArrowWriterProperties "parquet::ArrowWriterProperties":
         cppclass Builder:
             Builder()
             Builder* disable_deprecated_int96_timestamps()
@@ -538,8 +557,17 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_compliant_nested_types()
             Builder* set_engine_version(ArrowWriterEngineVersion version)
             Builder* set_time_adjusted_to_utc(c_bool adjusted)
-            shared_ptr[ArrowWriterProperties] build()
-        c_bool support_deprecated_int96_timestamps()
+            shared_ptr[CArrowWriterProperties] build()
+
+        c_bool support_deprecated_int96_timestamps() const
+        c_bool truncated_timestamps_allowed() const
+        c_bool store_schema() const
+        c_bool compliant_nested_types() const
+        c_bool write_time_adjusted_to_utc() const
+        c_bool use_threads() const
+        c_bool coerce_timestamps_enabled() const
+        TimeUnit coerce_timestamps_unit() const
+        ArrowWriterEngineVersion engine_version() const
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
     cdef cppclass FileReader:
@@ -600,23 +628,19 @@ cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
     CStatus ToParquetSchema(
         const CSchema* arrow_schema,
-        const WriterProperties& properties,
-        const ArrowWriterProperties& arrow_properties,
+        const CWriterProperties& properties,
+        const CArrowWriterProperties& arrow_properties,
         shared_ptr[SchemaDescriptor]* out)
 
 
 cdef extern from "parquet/properties.h" namespace "parquet" nogil:
-    cdef enum ArrowWriterEngineVersion:
+    cdef enum ArrowWriterEngineVersion "parquet::ArrowWriterProperties::EngineVersion":
         V1 "parquet::ArrowWriterProperties::V1",
         V2 "parquet::ArrowWriterProperties::V2"
 
-    cdef cppclass ParquetDataPageVersion:
-        pass
-
-    cdef ParquetDataPageVersion ParquetDataPageVersion_V1 \
-        " parquet::ParquetDataPageVersion::V1"
-    cdef ParquetDataPageVersion ParquetDataPageVersion_V2 \
-        " parquet::ParquetDataPageVersion::V2"
+    cdef enum ParquetDataPageVersion "parquet::ParquetDataPageVersion":
+        ParquetDataPageVersion_V1 "parquet::ParquetDataPageVersion::V1"
+        ParquetDataPageVersion_V2 "parquet::ParquetDataPageVersion::V2"
 
 cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
     cdef cppclass FileWriter:
@@ -624,8 +648,8 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         @staticmethod
         CResult[unique_ptr[FileWriter]] Open(const CSchema& schema, CMemoryPool* pool,
                                              const shared_ptr[COutputStream]& sink,
-                                             const shared_ptr[WriterProperties]& properties,
-                                             const shared_ptr[ArrowWriterProperties]& arrow_properties)
+                                             const shared_ptr[CWriterProperties]& properties,
+                                             const shared_ptr[CArrowWriterProperties]& arrow_properties)
 
         CStatus WriteTable(const CTable& table, int64_t chunk_size)
         CStatus NewRowGroup()
