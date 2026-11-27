@@ -43,6 +43,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/byte_size.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/range.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
@@ -2144,6 +2145,32 @@ TEST_F(TestScannerBuilder, TestProject) {
   // provided more field names than column exprs or vice versa
   ASSERT_RAISES(Invalid, builder.Project({}, {"i16 renamed", "i16 * 2"}));
   ASSERT_RAISES(Invalid, builder.Project({literal(2), field_ref("a")}, {"a"}));
+}
+
+TEST_F(TestScannerBuilder, TestProjectPreservesNullabilityThroughCast) {
+  auto metadata = key_value_metadata({{"key", "value"}});
+  auto dataset_schema = schema({
+      field("required", int32(), /*nullable=*/false, metadata),
+      field("optional", int16(), /*nullable=*/true),
+  });
+  auto cast_to_i64 =
+      compute::call("cast", {field_ref("required")}, compute::CastOptions::Safe(int64()));
+  auto cast_to_f64 = compute::call("cast", {field_ref("optional")},
+                                   compute::CastOptions::Safe(float64()));
+
+  ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::FromExpressions(
+                                            {cast_to_i64, cast_to_f64},
+                                            {"required", "optional"}, *dataset_schema));
+
+  const auto& required = projection.schema->field(0);
+  EXPECT_EQ(*required->type(), *int64());
+  EXPECT_FALSE(required->nullable());
+  ASSERT_NE(required->metadata(), nullptr);
+  EXPECT_TRUE(required->metadata()->Equals(*metadata));
+
+  const auto& optional = projection.schema->field(1);
+  EXPECT_EQ(*optional->type(), *float64());
+  EXPECT_TRUE(optional->nullable());
 }
 
 TEST_F(TestScannerBuilder, TestFilter) {

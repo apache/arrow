@@ -830,8 +830,15 @@ Result<ProjectionDescr> ProjectionDescr::FromExpressions(
   compute::MakeStructOptions project_options{std::move(names)};
 
   for (size_t i = 0; i < exprs.size(); ++i) {
-    if (auto ref = exprs[i].field_ref()) {
-      // set metadata and nullability for plain field references
+    compute::Expression expr = exprs[i];
+    while (const auto* call = expr.call()) {
+      if (call->function_name != "cast" || call->arguments.size() != 1) {
+        break;
+      }
+      expr = call->arguments[0];
+    }
+    if (auto ref = expr.field_ref()) {
+      // Preserve metadata and nullability through casts rooted at a field.
       ARROW_ASSIGN_OR_RAISE(auto field, ref->GetOne(dataset_schema));
       project_options.field_nullability[i] = field->nullable();
       project_options.field_metadata[i] = field->metadata();
