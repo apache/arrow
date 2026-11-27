@@ -216,6 +216,41 @@ Expression$op <- function(FUN, ..., args = list(...)) {
     }
     return(out)
   } else if (FUN == "%%") {
+    # Prefer `modulo` for exact types over rewriting through `%/%`, which goes
+    # via float64 and loses int64/decimal precision.
+    exact_type_ids <- .exact_arithmetic_type_ids()
+    is_exact <- function(x) {
+      is.integer(x) ||
+        (inherits(x, "ArrowObject") && x$type_id() %in% exact_type_ids)
+    }
+
+    if (is_exact(args[[1]]) && is_exact(args[[2]])) {
+      if (inherits(args[[1]], "ArrowObject")) {
+        out_type <- args[[1]]$type()
+      } else {
+        out_type <- int32()
+      }
+      if (inherits(args[[2]], "ArrowObject")) {
+        divisor_type <- args[[2]]$type()
+      } else {
+        divisor_type <- int32()
+      }
+      # `modulo` errors on divide-by-zero; R returns NA for integer `%% 0`.
+      zero <- Expression$op("==", args[[2]], 0L)
+      safe_divisor <- Expression$create(
+        "if_else",
+        zero,
+        Scalar$create(1L, divisor_type),
+        args[[2]]
+      )
+      rem <- Expression$create("modulo", args = list(args[[1]], safe_divisor))
+      return(Expression$create(
+        "if_else",
+        zero,
+        Scalar$create(NA_integer_, out_type),
+        rem
+      ))
+    }
     return(args[[1]] - args[[2]] * (args[[1]] %/% args[[2]]))
   }
 

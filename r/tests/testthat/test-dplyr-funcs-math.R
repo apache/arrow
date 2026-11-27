@@ -464,6 +464,52 @@ test_that("floor division maintains type consistency with R", {
   )
 })
 
+test_that("%% uses the modulo kernel for large int64 and decimals", {
+  skip_if_not_installed("bit64")
+
+  # 2^60 + 5 needs 61 bits, so the old %% rewrite, which divided through
+  # float64, could not return its exact remainder. 2^60 = (2^3)^20 = 1 mod 7,
+  # so the exact remainder is 6.
+  big <- Array$create(bit64::as.integer64("1152921504606846981"))
+  expect_equal(as.double(as.vector(big %% 7L)), 6)
+  expect_equal((big %% 7L)$type, int64())
+  # R rounds towards negative infinity for %%, which the kernel also does.
+  negative <- Array$create(bit64::as.integer64("-7"))
+  expect_equal(as.double(as.vector(negative %% 3L)), 2)
+
+  # Decimal with many significant digits: the old rewrite was silently wrong.
+  d <- Scalar$create("12345678901234567890.12", string())$cast(decimal128(25, 2))
+  expect_equal(as.vector(d %% 7L), 1.12)
+})
+
+test_that("integer %% 0 returns NA like base R", {
+  expect_true(is.na(as.vector(Array$create(5L) %% 0L)))
+  expect_equal(
+    as.vector(Array$create(c(5L, 0L, NA_integer_)) %% 0L),
+    as.vector(c(5L, 0L, NA_integer_) %% 0L)
+  )
+})
+
+test_that("dplyr %% matches base R for int64 and zero divisor", {
+  skip_if_not_installed("bit64")
+
+  df <- tibble(
+    integers = c(1:4, NA_integer_),
+    big = bit64::as.integer64(c("9007199254740993", "10", "0", "-3", NA))
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      transmute(
+        mod_int = integers %% 3L,
+        mod_zero = integers %% 0L,
+        mod_big = big %% 7L
+      ) |>
+      collect(),
+    df
+  )
+})
+
 test_that("exp()", {
   df <- tibble(x = c(1:5, NA))
 
