@@ -86,7 +86,12 @@ const FunctionDoc search_sorted_doc(
   VISIT(DoubleType)                               \
   VISIT(BinaryType)                               \
   VISIT(LargeBinaryType)                          \
-  VISIT(BinaryViewType)
+  VISIT(BinaryViewType)                           \
+  VISIT(FixedSizeBinaryType)                      \
+  VISIT(Decimal32Type)                            \
+  VISIT(Decimal64Type)                            \
+  VISIT(Decimal128Type)                           \
+  VISIT(Decimal256Type)
 
 template <typename ArrowType>
 using SearchValue = typename GetViewType<ArrowType>::T;
@@ -568,8 +573,13 @@ Status VisitArrayNeedleRuns(const std::shared_ptr<ArrayData>& needles_data,
                             Visitor&& visitor) {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
-  auto physical_type = TypeTraits<ArrowType>::type_singleton();
-  auto physical_data = ToPhysicalData(needles_data, physical_type);
+  std::shared_ptr<ArrayData> physical_data;
+  if constexpr (TypeTraits<ArrowType>::is_parameter_free) {
+    physical_data = ToPhysicalData(needles_data, TypeTraits<ArrowType>::type_singleton());
+  } else {
+    // Parametric types (decimals, fixed_size_binary) are their own physical type
+    physical_data = needles_data;
+  }
   ArrayType array(physical_data);
   for (int64_t index = 0; index < array.length(); ++index) {
     RETURN_NOT_OK(visitor(ReadVisitedNeedle<ArrowType>(array, index)));
@@ -706,8 +716,7 @@ Result<Datum> ComputeInsertionIndices(const Datum& sorted_values, const Datum& n
                                       SearchSortedOptions::Side side,
                                       NullPlacement null_placement,
                                       uint64_t insertion_offset, ExecContext* ctx) {
-  auto physical_type = TypeTraits<ArrowType>::type_singleton();
-  DCHECK_NE(physical_type->id(), Type::RUN_END_ENCODED);
+  static_assert(ArrowType::type_id != Type::RUN_END_ENCODED);
 
   if (sorted_values.type()->id() == Type::RUN_END_ENCODED) {
     return ComputeInsertionIndicesWithAccessor<ArrowType,
