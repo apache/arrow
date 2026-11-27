@@ -241,6 +241,7 @@ def test_array_wise_functions() -> None:
 
     # Structural transforms
     check(pc.list_contains([[1, 2, 3]], 1), pa.BooleanArray)
+    check(pc.list_contains(pa.chunked_array([[[1, 2, 3]]]), 1), pa.ChunkedArray)
     check(pc.list_element([[1, 2, 3]], 1), pa.Int64Array)
     check(assert_type(pc.list_flatten([[1, 2], [3]]), pa.Array | pa.ChunkedArray),
           pa.Int64Array)

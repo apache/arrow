@@ -1624,7 +1624,7 @@ def list_contains(
     /,
     *,
     memory_pool: MemoryPool | None = None,
-) -> BooleanScalar | BooleanArray | Expression: ...
+) -> BooleanScalar | BooleanArray | ChunkedArray | Expression: ...
 def list_element(
     lists: _ComputeInput,
     index: _ComputeInput | int,
