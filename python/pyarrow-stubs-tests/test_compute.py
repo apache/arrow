@@ -353,6 +353,8 @@ def test_element_wise_functions() -> None:
     check(pc.fill_null(pa.array([1, None]), 5), pa.Int64Array)
     check(pc.equal([1, 2, 1], [1, 2, 3]), pa.BooleanArray)
 
+    check(pc.make_struct(1, 'a', field_nullability=[True]), pa.StructScalar)
+    check(pc.make_struct(1, 'a', field_metadata=[None]), pa.StructScalar)
     cond = pc.make_struct([True, False], [False, None])
     check(pc.case_when(cond, [1, 2], [12, 13]), pa.Int64Array)
     cond = pa.scalar({"a": False, "b": True})
@@ -417,6 +419,7 @@ def test_element_wise_functions() -> None:
     if TYPE_CHECKING:
         pc.is_in([1, 2, 3], pc.field("a"))  # type: ignore[arg-type]
         pc.random(3.14)  # type: ignore[arg-type]
+        pc.make_struct(1, 'a', field_nullability=True)  # type: ignore[arg-type]
         # Fails when evaluated (ds.dataset(table).to_table(columns={"r": ...})):
         pc.run_end_encode(pc.field("a"))  # type: ignore[arg-type]
         # TODO: test invalid code once the scalar stubs are annotated

@@ -1163,8 +1163,8 @@ def list_value_length(
 def make_struct(
     *args: _ComputeInput,
     field_names: Sequence[str] = (),
-    field_nullability: bool | None = None,
-    field_metadata: Sequence[KeyValueMetadata] | None = None,
+    field_nullability: Sequence[bool] | None = None,
+    field_metadata: Sequence[KeyValueMetadata | None] | None = None,
     options: MakeStructOptions | None = None,
     memory_pool: MemoryPool | None = None,
 ) -> StructScalar | StructArray | ChunkedArray | Expression: ...
