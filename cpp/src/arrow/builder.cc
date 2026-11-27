@@ -27,7 +27,6 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/util/unreachable.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -50,27 +49,6 @@ namespace internal {
 /// width stays adaptive, as it is for signed index types, and it widens on the signed
 /// threshold: a uint8 index widens after 128 distinct values rather than the 256 a real
 /// uint8 could hold, so the extra bit does not delay widening.
-std::shared_ptr<DataType> MaybeUnsignedIndexType(
-    const std::shared_ptr<DataType>& index_type, bool use_unsigned_index) {
-  if (!use_unsigned_index) {
-    return index_type;
-  }
-  switch (index_type->id()) {
-    case Type::INT8:
-      return ::arrow::uint8();
-    case Type::INT16:
-      return ::arrow::uint16();
-    case Type::INT32:
-      return ::arrow::uint32();
-    case Type::INT64:
-      return ::arrow::uint64();
-    default:
-      // The adaptive index builder only ever produces signed int8/16/32/64, so no
-      // other type reaches this point when an unsigned index was requested.
-      Unreachable("MaybeUnsignedIndexType: adaptive dictionary index type is not signed");
-  }
-}
-
 }  // namespace internal
 
 // Generic int builder that delegates to the builder for a specific
