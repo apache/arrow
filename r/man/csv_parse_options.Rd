@@ -12,7 +12,9 @@ csv_parse_options(
   escaping = FALSE,
   escape_char = "\\\\",
   newlines_in_values = FALSE,
-  ignore_empty_lines = TRUE
+  ignore_empty_lines = TRUE,
+  pad_short_rows = FALSE,
+  ignore_extra_columns = FALSE
 )
 }
 \arguments{
@@ -33,6 +35,12 @@ and LF (\code{0x0a}) characters?}
 
 \item{ignore_empty_lines}{Logical: should empty lines be ignored (default) or
 generate a row of missing values (if \code{FALSE})?}
+
+\item{pad_short_rows}{Logical: should rows with fewer columns than expected be
+padded with missing values (default \code{FALSE}) or raise an error?}
+
+\item{ignore_extra_columns}{Logical: should columns beyond the number expected be
+ignored (default \code{FALSE}) or raise an error?}
 }
 \description{
 CSV Parsing Options
