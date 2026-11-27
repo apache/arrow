@@ -79,6 +79,7 @@ class ARROW_EXPORT KeyValueMetadata {
  private:
   std::vector<std::string> keys_;
   std::vector<std::string> values_;
+  std::unordered_map<std::string, size_t> map_;
 
   ARROW_DISALLOW_COPY_AND_ASSIGN(KeyValueMetadata);
 };
