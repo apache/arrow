@@ -18,10 +18,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <cctype>
 #include <cstring>
 #include <limits>
 #include <memory>
 
+#include "arrow/testing/gtest_util.h"
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
 
@@ -2927,6 +2929,38 @@ TEST(TestStringOps, TestFromHex) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "");
   EXPECT_EQ(out_valid, false);
+}
+
+static void CheckSoundexNonAsciiBytes() {
+  for (int byte = 128; byte <= 255; ++byte) {
+    const std::string non_ascii(1, static_cast<char>(byte));
+    for (const auto& input : {non_ascii + "Robert", "R" + non_ascii + "obert"}) {
+      gandiva::ExecutionContext ctx;
+      auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
+      int32_t out_len = -1;
+      bool validity = false;
+      const auto* out =
+          soundex_utf8(ctx_ptr, input.data(), static_cast<int32_t>(input.size()), true,
+                       &validity, &out_len);
+      ASSERT_TRUE(validity);
+      ASSERT_EQ(out_len, 4);
+      EXPECT_EQ(std::string(out, out_len), "R163");
+      EXPECT_FALSE(ctx.has_error());
+    }
+  }
+}
+
+TEST(TestStringOps, TestSoundexNonAsciiBytes) {
+  arrow::LocaleGuard locale_guard("C");
+  CheckSoundexNonAsciiBytes();
+}
+
+TEST(TestStringOps, TestSoundexNonAsciiLocale) {
+  arrow::LocaleGuard locale_guard("en_US.ISO-8859-1");
+  if (std::isalpha(static_cast<unsigned char>(0xe9)) == 0) {
+    GTEST_SKIP() << "Requires an ISO-8859-1 locale classifying high bytes as letters";
+  }
+  CheckSoundexNonAsciiBytes();
 }
 
 TEST(TestStringOps, TestSoundex) {
