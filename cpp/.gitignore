@@ -27,6 +27,7 @@ build/
 Testing/
 build-support/boost_*
 vcpkg_installed/
+_deps/
 
 # Build directories created by Clion
 cmake-build-*/
