@@ -110,6 +110,7 @@ TEST(DefaultMemoryPool, Identity) {
             specific_pools.end());
 }
 
+#ifdef ENABLE_MEMORY_POOL_STATS
 TEST(DefaultMemoryPoolDeathTest, Statistics) {
   MemoryPool* pool = default_memory_pool();
   uint8_t* data1;
@@ -184,6 +185,7 @@ TEST(ProxyMemoryPool, Logging) {
   ASSERT_EQ(0, pool->bytes_allocated());
   ASSERT_EQ(0, pp.bytes_allocated());
 }
+#endif
 
 TEST(Jemalloc, SetDirtyPageDecayMillis) {
   // ARROW-6910
@@ -322,6 +324,7 @@ TEST_F(TestCappedMemoryPool, Reallocate) { this->TestReallocate(); }
 
 TEST_F(TestCappedMemoryPool, Alignment) { this->TestAlignment(); }
 
+#ifdef ENABLE_MEMORY_POOL_STATS
 TEST_F(TestCappedMemoryPool, AllocateLimit) {
   auto pool = InitPool(/*limit=*/1000);
 
@@ -382,5 +385,5 @@ TEST_F(TestCappedMemoryPool, ReallocateLimit) {
   pool->Free(data1, 600);
   pool->Free(data2, 300);
 }
-
+#endif
 }  // namespace arrow
