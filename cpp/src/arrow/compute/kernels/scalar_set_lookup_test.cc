@@ -203,6 +203,12 @@ TEST_F(TestIsInKernel, ImplicitlyCastValueSet) {
             ArrayFromJSON(utf8(), R"(["aaa", "bbb"])"),
             "[true, true, false, false, true]");
 
+  // An empty null value set can be safely cast to the input string type.
+  CheckIsIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb"])"), ArrayFromJSON(null(), "[]"),
+            "[false, false]");
+  CheckIsIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"), ArrayFromJSON(null(), "[]"),
+            "[false, false]");
+
   // But explicitly deny implicit casts from non-binary to utf8 to
   // avoid surprises
   ASSERT_RAISES(TypeError,
@@ -1455,6 +1461,13 @@ TEST_F(TestIndexInKernel, ImplicitlyCastValueSet) {
                ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"), "[0, 1, null, null, 1]");
   CheckIndexIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb", "ccc", null, "bbb"])"),
                ArrayFromJSON(utf8(), R"(["aaa", "bbb"])"), "[0, 1, null, null, 1]");
+
+  // An empty null value set can be safely cast to the input string type.
+  CheckIndexIn(ArrayFromJSON(utf8(), R"(["aaa", "bbb"])"), ArrayFromJSON(null(), "[]"),
+               "[null, null]");
+  CheckIndexIn(ArrayFromJSON(large_utf8(), R"(["aaa", "bbb"])"),
+               ArrayFromJSON(null(), "[]"), "[null, null]");
+
   // But explicitly deny implicit casts from non-binary to utf8 to
   // avoid surprises
   ASSERT_RAISES(TypeError,
