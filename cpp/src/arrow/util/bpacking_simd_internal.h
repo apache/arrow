@@ -26,6 +26,8 @@ namespace arrow::internal::bpacking {
 
 #if defined(ARROW_HAVE_NEON)
 #  define UNPACK_ARCH128 unpack_neon
+#elif defined(ARROW_HAVE_RVV128) || defined(ARROW_HAVE_RUNTIME_RVV128)
+#  define UNPACK_ARCH128 unpack_rvv128
 #elif defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 #  define UNPACK_ARCH128 unpack_sse4_2
 #endif
@@ -55,6 +57,8 @@ extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128<uint64_t>(
 
 #if defined(ARROW_HAVE_SVE256) || defined(ARROW_HAVE_RUNTIME_SVE256)
 #  define UNPACK_ARCH256 unpack_sve256
+#elif defined(ARROW_HAVE_RVV256) || defined(ARROW_HAVE_RUNTIME_RVV256)
+#  define UNPACK_ARCH256 unpack_rvv256
 #elif defined(UNPACK_ARCH256) || defined(ARROW_HAVE_RUNTIME_AVX2)
 #  define UNPACK_ARCH256 unpack_avx2
 #endif
