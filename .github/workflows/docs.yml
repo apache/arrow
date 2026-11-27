@@ -18,10 +18,12 @@
 name: Docs
 
 on:
+  workflow_call:
   push:
     branches:
       - '**'
       - '!dependabot/**'
+      - '!gh-readonly-queue/**'
     tags:
       - '**'
   pull_request:
