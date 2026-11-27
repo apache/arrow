@@ -198,13 +198,23 @@ download_binary <- function(lib) {
 #    * "linux-x86_64"
 #    * "darwin-arm64"
 #    * "darwin-x86_64"
-#    * "windows-x86_64"
 #   These string values, along with `NULL`, are the potential return values of
-#   this function.
-identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
+#   this function. On Windows, LIBARROW_BINARY is ignored and the binary is
+#   chosen by R version: "windows-x86_64-rtools40" or "windows-x86_64-rtools45".
+identify_binary <- function(
+  lib = Sys.getenv("LIBARROW_BINARY"),
+  info = distro(),
+  r_version = getRversion()
+) {
   if (on_windows) {
     if (VERSION_22_OR_LATER) {
-      return("windows-x86_64")
+      # The binary built with Rtools45 can't be linked by Rtools43 or earlier,
+      # which R < 4.4 uses, so those get the one built with Rtools40.
+      if (package_version(r_version) < "4.4") {
+        return("windows-x86_64-rtools40")
+      } else {
+        return("windows-x86_64-rtools45")
+      }
     } else {
       return("windows")
     }

@@ -229,11 +229,13 @@ env:
     shell: bash
     run: mkdir repo
   {% if get_win %}
-  - name: Get windows binary
+    {% for rtools in ["40", "45"] %}
+  - name: Get windows Rtools{{ rtools }} binary
     uses: actions/download-artifact@v4
     with:
-      name: r-libarrow-windows-x86_64
+      name: r-libarrow-windows-x86_64-rtools{{ rtools }}
       path: repo/libarrow
+    {% endfor %}
   {% endif %}
   {% if get_nix %}
     {% for arch in ["x86_64", "arm64"] %}
