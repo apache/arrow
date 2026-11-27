@@ -384,12 +384,16 @@ class PARQUET_EXPORT RecordReader {
 
   /// \brief Decoded definition levels
   ///
+  /// May rebuild both level buffers if the fixed-size list fast path skipped them
+  ///
   /// This always return a valid pointer, except:
   /// - when the max definition level is zero (non-repeated required values).
   /// - when `allow_levels_optimization` is true and the column is a flat optional type.
   virtual int16_t* def_levels() const = 0;
 
   /// \brief Decoded repetition levels
+  ///
+  /// May rebuild both level buffers if the fixed-size list fast path skipped them
   ///
   /// This always return a valid pointer, except when the max repetition level is
   /// zero (no repeated fields).
