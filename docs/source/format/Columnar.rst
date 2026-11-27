@@ -21,7 +21,7 @@
 Arrow Columnar Format
 *********************
 
-*Version: 1.5*
+*Version: 1.6*
 
 .. seealso:: :ref:`Additions to the Arrow columnar format since version 1.0.0
    <post-1-0-0-format-versions>`
@@ -1289,7 +1289,10 @@ array. This includes:
 * A ``dictionary`` property indicating whether the field is
   dictionary-encoded or not. If it is, a dictionary "id" is assigned
   to allow matching a subsequent dictionary IPC message with the
-  appropriate field.
+  appropriate field. In this case, the field's data type is the
+  dictionary value type, and the ``dictionary`` property may carry the
+  ``custom_metadata`` of the dictionary value type (see
+  :ref:`format_metadata_extension_types_dictionary`).
 
 We additionally provide both schema-level and field-level
 ``custom_metadata`` attributes allowing for systems to insert their
@@ -1677,7 +1680,10 @@ Custom Application Metadata
 We provide a ``custom_metadata`` field at three levels to provide a
 mechanism for developers to pass application-specific metadata in
 Arrow protocol messages. This includes ``Field``, ``Schema``, and
-``Message``.
+``Message``. The ``DictionaryEncoding`` of a dictionary-encoded ``Field``
+additionally has a ``custom_metadata`` field, with the same semantics as
+the ``Field``'s ``custom_metadata`` but applied to the dictionary value
+type (see :ref:`format_metadata_extension_types_dictionary`).
 
 The colon symbol ``:`` is to be used as a namespace separator. It can
 be used multiple times in a key.
@@ -1731,6 +1737,55 @@ extension types:
 * ``trading-time`` represented as ``Timestamp`` with serialized
   metadata indicating the market trading calendar the data corresponds
   to
+
+.. _format_metadata_extension_types_dictionary:
+
+Dictionary-encoded extension types
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A dictionary-encoded field is serialized as a single ``Field`` whose data
+type is the dictionary value type and whose ``dictionary`` property is a
+``DictionaryEncoding`` giving the index type. The ``Field``'s
+``custom_metadata`` describes the field's own type, so an extension type
+whose storage type is a dictionary type stores its extension keys in the
+``Field``'s ``custom_metadata``, as any other extension type does.
+
+The ``custom_metadata`` of the ``DictionaryEncoding`` is the
+``custom_metadata`` of the dictionary value type. It has the same semantics
+as a ``Field``'s ``custom_metadata``, including the reserved
+``'ARROW:extension:*'`` keys, but applies to the dictionary values rather
+than to the field. It is the IPC counterpart of the metadata of the
+dictionary value ``ArrowSchema`` in the :ref:`C Data Interface
+<c-data-interface>` (``ArrowSchema.dictionary->metadata``), while the
+``Field``'s ``custom_metadata`` corresponds to the metadata of the parent
+``ArrowSchema`` (``ArrowSchema.metadata``).
+
+If the dictionary *value* type is an extension type, for example a
+dictionary of ``arrow.uuid`` values, writers should store the
+``'ARROW:extension:name'`` and ``'ARROW:extension:metadata'`` keys of the
+value type in the ``custom_metadata`` of the ``DictionaryEncoding`` rather
+than in the ``Field``'s ``custom_metadata``. Both may be present, such as
+for an extension type whose storage type is a dictionary of extension
+values. Writers should omit the ``DictionaryEncoding``'s ``custom_metadata``
+when the dictionary value type has no metadata.
+
+When reading a dictionary-encoded field, the dictionary value type is
+reconstructed from the ``Field``'s data type and the ``DictionaryEncoding``'s
+``custom_metadata``. The result is wrapped in the dictionary type given by
+the ``DictionaryEncoding``, and then the ``Field``'s ``custom_metadata`` is
+applied to that dictionary type. As for other extension types, a reader
+that does not recognize the extension name in the ``DictionaryEncoding``'s
+``custom_metadata`` uses the dictionary value's storage type.
+
+Readers that predate this ``custom_metadata`` field (added in format version
+1.6) ignore it and read a dictionary of the storage type. The field is
+additive: the ``MetadataVersion`` remains ``V5``, and the IPC file footer
+and Arrow Flight, which embed the same ``Schema``, need no other change.
+
+.. note::
+   Before format version 1.6, a dictionary whose value type is an extension
+   type could not be distinguished from an extension type whose storage type
+   is a dictionary, as only the ``Field``'s ``custom_metadata`` was available.
 
 .. seealso::
    :ref:`format_canonical_extensions`
