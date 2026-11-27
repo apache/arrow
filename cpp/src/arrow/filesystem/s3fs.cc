@@ -3413,6 +3413,10 @@ Status S3FileSystem::Move(const std::string& src, const std::string& dest) {
   }
   RETURN_NOT_OK(impl_->CopyObject(src_path, dest_path));
   RETURN_NOT_OK(impl_->DeleteObject(src_path.bucket, src_path.key));
+  if (src_path.parent() == dest_path.parent()) {
+    // The destination keeps the source parent from becoming empty.
+    return Status::OK();
+  }
   // Source parent may be implicitly deleted if it became empty, recreate it
   return impl_->EnsureParentExists(src_path);
 }

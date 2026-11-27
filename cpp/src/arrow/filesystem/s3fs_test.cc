@@ -1385,6 +1385,56 @@ TEST_F(TestS3FS, Move) {
   AssertFileInfo(fs_.get(), "bucket/newfile2", FileType::NotFound);
 }
 
+TEST_F(TestS3FS, MoveWithinDirectoryDoesNotCreateMarker) {
+  ASSERT_OK(fs_->Move("bucket/somedir/subdir/subfile", "bucket/somedir/subdir/renamed"));
+  AssertFileInfo(fs_.get(), "bucket/somedir/subdir", FileType::Directory);
+  AssertObjectContents(client_.get(), "bucket", "somedir/subdir/renamed", "sub data");
+
+  Aws::S3::Model::ListObjectsV2Request req;
+  req.SetBucket(ToAwsString("bucket"));
+  req.SetPrefix(ToAwsString("somedir/subdir/"));
+  ARROW_AWS_ASSIGN_OR_FAIL(auto objects, client_->ListObjectsV2(req));
+  ASSERT_EQ(objects.GetContents().size(), 1);
+  EXPECT_EQ(objects.GetContents()[0].GetKey(), "somedir/subdir/renamed");
+}
+
+TEST_F(TestS3FS, MoveWithinDirectoryPreservesMarkerMetadata) {
+  Aws::S3::Model::PutObjectRequest put_req;
+  put_req.SetBucket(ToAwsString("bucket"));
+  put_req.SetKey(ToAwsString("somedir/subdir/"));
+  put_req.AddMetadata("preserve", "original");
+  ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(put_req)));
+
+  ASSERT_OK(fs_->Move("bucket/somedir/subdir/subfile", "bucket/somedir/subdir/renamed"));
+
+  Aws::S3::Model::GetObjectRequest get_req;
+  get_req.SetBucket(ToAwsString("bucket"));
+  get_req.SetKey(ToAwsString("somedir/subdir/"));
+  ARROW_AWS_ASSIGN_OR_FAIL(auto marker, client_->GetObject(get_req));
+  EXPECT_THAT(marker.GetMetadata(),
+              ::testing::Contains(::testing::Pair("preserve", "original")));
+}
+
+TEST_F(TestS3FS, MoveBetweenDirectoriesPreservesSourceParent) {
+  for (const auto& dest_bucket : {"bucket", "empty-bucket"}) {
+    SCOPED_TRACE(dest_bucket);
+    ASSERT_OK(RestoreTestBucket());
+    const auto dest_key = std::string(dest_bucket) == "bucket" ? "somedir/other/renamed"
+                                                               : "somedir/subdir/renamed";
+    ASSERT_OK(fs_->Move("bucket/somedir/subdir/subfile",
+                        std::string(dest_bucket) + "/" + dest_key));
+    AssertFileInfo(fs_.get(), "bucket/somedir/subdir", FileType::Directory);
+    AssertObjectContents(client_.get(), dest_bucket, dest_key, "sub data");
+
+    Aws::S3::Model::ListObjectsV2Request req;
+    req.SetBucket(ToAwsString("bucket"));
+    req.SetPrefix(ToAwsString("somedir/subdir/"));
+    ARROW_AWS_ASSIGN_OR_FAIL(auto objects, client_->ListObjectsV2(req));
+    ASSERT_EQ(objects.GetContents().size(), 1);
+    EXPECT_EQ(objects.GetContents()[0].GetKey(), "somedir/subdir/");
+  }
+}
+
 TEST_F(TestS3FS, OpenInputStream) {
   std::shared_ptr<io::InputStream> stream;
   std::shared_ptr<Buffer> buf;
