@@ -38,6 +38,7 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_run_end.h"
 #include "arrow/array/builder_time.h"
@@ -1000,6 +1001,50 @@ TEST_F(TestArray, TestAppendArraySlice) {
     ASSERT_OK(result->ValidateFull());
     ASSERT_EQ(8, result->length());
     ASSERT_EQ(8, result->null_count());
+  }
+}
+
+// Reserve space for `length` empty values in `builder` and its children
+static void ReserveEmptyValues(ArrayBuilder* builder, int64_t length) {
+  ASSERT_OK(builder->Reserve(length));
+  if (builder->type()->id() == Type::FIXED_SIZE_LIST) {
+    // The value builder is not registered as a child
+    auto list_size = checked_cast<const FixedSizeListType&>(*builder->type()).list_size();
+    ReserveEmptyValues(checked_cast<FixedSizeListBuilder*>(builder)->value_builder(),
+                       length * list_size);
+    return;
+  }
+  for (int i = 0; i < builder->num_children(); ++i) {
+    ReserveEmptyValues(builder->child(i), length);
+  }
+}
+
+TEST_F(TestArray, TestUnsafeAppendEmptyValue) {
+  auto types = TestArrayUtilitiesAgainstTheseTypes();
+  types.push_back(struct_({field("a", fixed_size_list(int16(), 2)),
+                           field("b", struct_({field("c", boolean())}))}));
+  for (const auto& type : types) {
+    if (type->id() == Type::EXTENSION) continue;  // no builder
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    std::unique_ptr<ArrayBuilder> builder, unsafe_builder;
+    ASSERT_OK(MakeBuilder(pool_, type, &builder));
+    ASSERT_OK(MakeBuilder(pool_, type, &unsafe_builder));
+
+    ASSERT_OK(builder->AppendEmptyValue());
+    ASSERT_OK(builder->AppendEmptyValues(0));
+    ASSERT_OK(builder->AppendEmptyValues(3));
+
+    ReserveEmptyValues(unsafe_builder.get(), 4);
+    unsafe_builder->UnsafeAppendEmptyValue();
+    unsafe_builder->UnsafeAppendEmptyValues(0);
+    unsafe_builder->UnsafeAppendEmptyValues(3);
+    ASSERT_EQ(unsafe_builder->length(), 4);
+
+    ASSERT_OK_AND_ASSIGN(auto expected, builder->Finish());
+    ASSERT_OK_AND_ASSIGN(auto actual, unsafe_builder->Finish());
+    // Not ValidateFull(): empty dictionary values index into an empty dictionary
+    ASSERT_OK(actual->Validate());
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
   }
 }
 

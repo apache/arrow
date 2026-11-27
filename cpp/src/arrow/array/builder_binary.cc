@@ -145,15 +145,13 @@ Status FixedSizeBinaryBuilder::AppendNulls(int64_t length) {
 
 Status FixedSizeBinaryBuilder::AppendEmptyValue() {
   RETURN_NOT_OK(Reserve(1));
-  UnsafeAppendToBitmap(true);
-  byte_builder_.UnsafeAppend(/*num_copies=*/byte_width_, 0);
+  UnsafeAppendEmptyValue();
   return Status::OK();
 }
 
 Status FixedSizeBinaryBuilder::AppendEmptyValues(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
-  UnsafeAppendToBitmap(length, true);
-  byte_builder_.UnsafeAppend(/*num_copies=*/length * byte_width_, 0);
+  UnsafeAppendEmptyValues(length);
   return Status::OK();
 }
 

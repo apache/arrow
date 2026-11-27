@@ -146,7 +146,11 @@ class VarLengthListLikeBuilder : public ArrayBuilder {
   ///
   /// \post Another call to Append* or Finish should be made before appending to
   /// the values builder to ensure list slot remains empty
-  Status AppendEmptyValue() final { return Append(true, 0); }
+  Status AppendEmptyValue() final {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendEmptyValue();
+    return Status::OK();
+  }
 
   /// \brief Append an empty list slot
   ///
@@ -154,9 +158,26 @@ class VarLengthListLikeBuilder : public ArrayBuilder {
   /// the values builder to ensure the last list slot remains empty
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendEmptyValues(length);
+    return Status::OK();
+  }
+
+  /// \brief Append an empty list slot, without checking capacity
+  ///
+  /// \post Another call to Append* or Finish should be made before appending to
+  /// the values builder to ensure list slot remains empty
+  void UnsafeAppendEmptyValue() final {
+    UnsafeAppendToBitmap(true);
+    UnsafeAppendDimensions(/*offset=*/value_builder_->length(), /*size=*/0);
+  }
+
+  /// \brief Append empty list slots, without checking capacity
+  ///
+  /// \post Another call to Append* or Finish should be made before appending to
+  /// the values builder to ensure the last list slot remains empty
+  void UnsafeAppendEmptyValues(int64_t length) final {
     UnsafeAppendToBitmap(length, true);
     UnsafeAppendEmptyDimensions(/*num_values=*/length);
-    return Status::OK();
   }
 
   /// \brief Vector append
@@ -700,6 +721,18 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   Status AppendEmptyValues(int64_t length) final;
 
+  /// \brief Append an empty fixed size list, without checking capacity
+  ///
+  /// The caller must also have reserved enough space in the child builder,
+  /// as one list's worth of empty values is appended to it.
+  void UnsafeAppendEmptyValue() final;
+
+  /// \brief Append empty fixed size lists, without checking capacity
+  ///
+  /// The caller must also have reserved enough space in the child builder,
+  /// as `length` lists' worth of empty values are appended to it.
+  void UnsafeAppendEmptyValues(int64_t length) final;
+
   Status AppendArraySlice(const ArraySpan& array, int64_t offset, int64_t length) final {
     const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
@@ -805,6 +838,28 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(length, true);
     return Status::OK();
+  }
+
+  /// \brief Append an empty struct value, without checking capacity
+  ///
+  /// An empty value is also appended to each child builder, so the caller
+  /// must have reserved space in the child builders as well.
+  void UnsafeAppendEmptyValue() final {
+    for (const auto& field : children_) {
+      field->UnsafeAppendEmptyValue();
+    }
+    UnsafeAppendToBitmap(true);
+  }
+
+  /// \brief Append empty struct values, without checking capacity
+  ///
+  /// Empty values are also appended to each child builder, so the caller
+  /// must have reserved space in the child builders as well.
+  void UnsafeAppendEmptyValues(int64_t length) final {
+    for (const auto& field : children_) {
+      field->UnsafeAppendEmptyValues(length);
+    }
+    UnsafeAppendToBitmap(length, true);
   }
 
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,

@@ -316,6 +316,12 @@ struct DerefConstIterator {
 
 }  // namespace
 
+void ArrayBuilder::UnsafeAppendEmptyValue() { ARROW_CHECK_OK(AppendEmptyValue()); }
+
+void ArrayBuilder::UnsafeAppendEmptyValues(int64_t length) {
+  ARROW_CHECK_OK(AppendEmptyValues(length));
+}
+
 Status ArrayBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
   if (!scalar.type->Equals(type())) {
     return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
