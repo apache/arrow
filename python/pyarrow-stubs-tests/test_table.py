@@ -153,7 +153,14 @@ def test_record_batch() -> None:
     check(assert_type(batch.column(0), pa.Array | pa.ChunkedArray),
           pa.Array)
     check(assert_type(batch.slice(1), pa.RecordBatch), pa.RecordBatch)
-    check(assert_type(pa.Table.from_batches([batch]), pa.Table), pa.Table)
+    table = check(assert_type(pa.Table.from_batches([batch]), pa.Table), pa.Table)
+    indices = pa.chunked_array([[1, 0]])
+    check(assert_type(batch.take(indices.chunk(0)), pa.RecordBatch),
+          pa.RecordBatch)
+    check(assert_type(table.take(indices), pa.Table), pa.Table)
+    with pytest.raises(pa.ArrowNotImplementedError):
+        batch.take(indices)  # type: ignore[arg-type]
+
     check(assert_type(pa.concat_batches([batch, batch]), pa.RecordBatch),
           pa.RecordBatch)
     check(assert_type(batch.add_column(0, "b", pa.array([3, 4])),
@@ -177,6 +184,26 @@ def test_record_batch() -> None:
     check(assert_type(pa.RecordBatch.from_struct_array(struct_array),
                       pa.RecordBatch),
           pa.RecordBatch)
+
+
+def test_metadata_mappings() -> None:
+    # Mappings with only str or only bytes keys are accepted, not just
+    # Mapping[str | bytes, ...] (Mapping is invariant in its key type).
+    str_meta: dict[str, str] = {"k": "v"}
+    bytes_meta: dict[bytes, bytes] = {b"k": b"v"}
+    expected = {b"k": b"v"}
+
+    table = pa.table({"a": [1]}, metadata=str_meta)
+    batch = pa.record_batch({"a": [1]}, metadata=bytes_meta)
+    assert table.schema.metadata == batch.schema.metadata == expected
+    from_dict = pa.Table.from_pydict({"a": [1]}, metadata=str_meta)
+    from_rows = pa.RecordBatch.from_pylist([{"a": 1}], metadata=bytes_meta)
+    assert from_dict.schema.metadata == from_rows.schema.metadata == expected
+
+    replacement = MappingProxyType({"k": "updated"})
+    table = table.replace_schema_metadata(replacement)
+    batch = batch.replace_schema_metadata(replacement)
+    assert table.schema.metadata == batch.schema.metadata == {b"k": b"updated"}
 
 
 def test_record_batch_from_pandas() -> None:

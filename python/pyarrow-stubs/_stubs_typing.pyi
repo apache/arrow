@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any, Literal, Protocol, TypeAlias
 
 import numpy as np
@@ -31,9 +31,17 @@ NullPlacement: TypeAlias = Literal["at_start", "at_end"]
 NullSelectionBehavior: TypeAlias = Literal["drop", "emit_null"]
 TimeUnit: TypeAlias = Literal["s", "ms", "us", "ns"]
 
-Mask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | Array | ChunkedArray
-Indices: TypeAlias = (
-    Sequence[int | None] | NDArray[np.integer[Any]] | Array | ChunkedArray
+NonChunkedMask: TypeAlias = Sequence[bool | None] | NDArray[np.bool_] | Array
+Mask: TypeAlias = NonChunkedMask | ChunkedArray
+NonChunkedIndices: TypeAlias = Sequence[int | None] | NDArray[np.integer[Any]] | Array
+Indices: TypeAlias = NonChunkedIndices | ChunkedArray
+
+# Key-value metadata. Mapping is invariant in its key type, so mappings with
+# only str or only bytes keys are listed next to the mixed one.
+MetadataMapping: TypeAlias = (
+    Mapping[str, str | bytes]
+    | Mapping[bytes, str | bytes]
+    | Mapping[str | bytes, str | bytes]
 )
 
 class SupportsArrowStream(Protocol):
