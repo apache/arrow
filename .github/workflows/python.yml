@@ -66,6 +66,7 @@ jobs:
       matrix:
         name:
           - conda-python-docs
+          - conda-python-type-annotations
           - conda-python-3.12-nopandas
           - conda-python-3.11-pandas-2.2.2-numpy-2.0.2
           - conda-python-3.14-pandas-latest
@@ -74,6 +75,10 @@ jobs:
           - name: conda-python-docs
             image: conda-python-docs
             title: AMD64 Conda Python 3.12 Sphinx & Numpydoc
+            python: "3.12"
+          - name: conda-python-type-annotations
+            image: conda-python-type-annotations
+            title: AMD64 Conda Python 3.12 Type Annotations
             python: "3.12"
           - name: conda-python-3.12-nopandas
             image: conda-python
