@@ -2511,6 +2511,13 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
+std::shared_ptr<arrow::DataType> Utf8View__initialize();
+extern "C" SEXP _arrow_Utf8View__initialize(){
+BEGIN_CPP11
+	return cpp11::as_sexp(Utf8View__initialize());
+END_CPP11
+}
+// datatype.cpp
 std::shared_ptr<arrow::DataType> LargeUtf8__initialize();
 extern "C" SEXP _arrow_LargeUtf8__initialize(){
 BEGIN_CPP11
@@ -2529,6 +2536,13 @@ std::shared_ptr<arrow::DataType> LargeBinary__initialize();
 extern "C" SEXP _arrow_LargeBinary__initialize(){
 BEGIN_CPP11
 	return cpp11::as_sexp(LargeBinary__initialize());
+END_CPP11
+}
+// datatype.cpp
+std::shared_ptr<arrow::DataType> BinaryView__initialize();
+extern "C" SEXP _arrow_BinaryView__initialize(){
+BEGIN_CPP11
+	return cpp11::as_sexp(BinaryView__initialize());
 END_CPP11
 }
 // datatype.cpp
@@ -5992,9 +6006,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Float64__initialize", (DL_FUNC) &_arrow_Float64__initialize, 0}, 
 		{ "_arrow_Boolean__initialize", (DL_FUNC) &_arrow_Boolean__initialize, 0}, 
 		{ "_arrow_Utf8__initialize", (DL_FUNC) &_arrow_Utf8__initialize, 0}, 
+		{ "_arrow_Utf8View__initialize", (DL_FUNC) &_arrow_Utf8View__initialize, 0}, 
 		{ "_arrow_LargeUtf8__initialize", (DL_FUNC) &_arrow_LargeUtf8__initialize, 0}, 
 		{ "_arrow_Binary__initialize", (DL_FUNC) &_arrow_Binary__initialize, 0}, 
 		{ "_arrow_LargeBinary__initialize", (DL_FUNC) &_arrow_LargeBinary__initialize, 0}, 
+		{ "_arrow_BinaryView__initialize", (DL_FUNC) &_arrow_BinaryView__initialize, 0}, 
 		{ "_arrow_Date32__initialize", (DL_FUNC) &_arrow_Date32__initialize, 0}, 
 		{ "_arrow_Date64__initialize", (DL_FUNC) &_arrow_Date64__initialize, 0}, 
 		{ "_arrow_Null__initialize", (DL_FUNC) &_arrow_Null__initialize, 0}, 
