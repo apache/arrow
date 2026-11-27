@@ -41,7 +41,9 @@ on:
       - 'compose.yaml'
       - 'format/Flight.proto'
       - 'testing'
+  workflow_dispatch:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
     paths:
       - '.dockerignore'
       - '.github/workflows/cpp.yml'
@@ -61,7 +63,8 @@ on:
       - 'testing'
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  # Cancel superseded fork pushes; unrelated labels must not cancel running builds.
+  group: "${{ github.workflow }}-${{ github.repository }}-${{ github.event.pull_request.number || (github.repository != 'apache/arrow' && github.ref) || github.sha }}-${{ github.event.action == 'labeled' && github.event.label.name != 'CI: Upstream' }}"
   cancel-in-progress: true
 
 permissions:
@@ -73,11 +76,19 @@ env:
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
 
+# Fork PRs to main run in the contributor's fork; CI: Upstream requests merge-ref validation.
 jobs:
   docker:
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: &run-builds >-
+      !contains(github.event.pull_request.title, 'WIP') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'CI: Upstream') &&
+      (github.event_name != 'pull_request' ||
+       github.repository != 'apache/arrow' ||
+       github.base_ref != 'main' ||
+       github.event.pull_request.head.repo.full_name == github.repository ||
+       contains(github.event.pull_request.labels.*.name, 'CI: Upstream'))
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -174,7 +185,7 @@ jobs:
   build-example:
     name: C++ Minimal Build Example
     runs-on: ubuntu-24.04
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: *run-builds
     timeout-minutes: 45
     steps:
       - name: Checkout Arrow
@@ -195,7 +206,7 @@ jobs:
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} C++
     runs-on: macos-${{ matrix.macos-version }}
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: *run-builds
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -300,7 +311,7 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: *run-builds
     name: AMD64 Windows 2022 AVX2 C++
     uses: ./.github/workflows/cpp_windows.yml
     with:
@@ -311,7 +322,7 @@ jobs:
   windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.msystem_upper }} C++
     runs-on: windows-2022
-    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    if: *run-builds
     # Build may take 1h+ without cache.
     timeout-minutes: 120
     strategy:
