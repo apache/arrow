@@ -27,6 +27,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/simdjson_internal.h"
@@ -113,6 +114,15 @@ std::enable_if_t<std::is_arithmetic_v<T>, std::string> FormatNumericValue(
   // the bytes that are actually present and leave the rest zero-padded.
   T value{};
   std::memcpy(&value, val.data(), std::min(sizeof(T), val.size()));
+
+#if !ARROW_LITTLE_ENDIAN
+  // Parquet stores numeric stats in little-endian. Convert to native-endian
+  // before printing to avoid endianness mismatches on big-endian platforms.
+  if constexpr (std::is_integral_v<T> && sizeof(T) > 1) {
+    value = ::arrow::bit_util::FromLittleEndian(value);
+  }
+#endif
+
   result << value;
   return result.str();
 }
@@ -220,9 +230,12 @@ std::string FormatStatValue(Type::type parquet_type, ::std::string_view val,
       return FormatNumericValue<float>(val);
     }
     case Type::INT96: {
-      std::array<int32_t, 3> values{};
-      std::memcpy(values.data(), bytes, std::min(sizeof(values), val.size()));
-      result << values[0] << " " << values[1] << " " << values[2];
+      std::array<uint32_t, 3> values{};
+      std::memcpy(values.data(), bytes, 3 * sizeof(uint32_t));
+      // INT96 values are stored in little-endian format
+      result << ::arrow::bit_util::FromLittleEndian(values[0]) << " "
+             << ::arrow::bit_util::FromLittleEndian(values[1]) << " "
+             << ::arrow::bit_util::FromLittleEndian(values[2]);
       break;
     }
     case Type::BYTE_ARRAY:
