@@ -57,15 +57,6 @@ jobs:
         run: |
           brew list
 
-      # vcpkg uses the first CMake on PATH that meets its minimum version.
-      # Pin it so Homebrew's CMake (4.5.0 fails to configure boost-locale 1.92)
-      # isn't picked up. See GH-55737.
-      - name: Install CMake 4.4.5
-        shell: bash
-        run: |
-          arrow/ci/scripts/install_cmake.sh 4.4.5 ${PWD}/local
-          echo "${PWD}/local/bin" >> $GITHUB_PATH
-
       - name: Retrieve VCPKG version from arrow/.env
         run: |
           vcpkg_version=$(. "arrow/.env" && echo "${VCPKG}")
