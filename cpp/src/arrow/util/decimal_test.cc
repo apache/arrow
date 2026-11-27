@@ -241,6 +241,25 @@ TEST(Decimal64Test, TestIntMinFitsPrecision) {
   ASSERT_FALSE(d.FitsInPrecision(18));
 }
 
+TEST(Decimal32Test, FromStringOverflow) {
+  AssertDecimalFromString("2147483647", Decimal32(INT32_MAX), 10, 0);
+  ASSERT_RAISES(Invalid, Decimal32::FromString("2147483648"));
+  // 2**64 + 5
+  ASSERT_RAISES(Invalid, Decimal32::FromString("18446744073709551621"));
+  ASSERT_RAISES(Invalid, Decimal32::FromString("-18446744073709551621"));
+  ASSERT_RAISES(Invalid, Decimal32::FromString("9e9"));
+}
+
+TEST(Decimal64Test, FromStringOverflow) {
+  AssertDecimalFromString("9223372036854775807", Decimal64(INT64_MAX), 19, 0);
+  ASSERT_RAISES(Invalid, Decimal64::FromString("9223372036854775808"));
+  // 2**64
+  ASSERT_RAISES(Invalid, Decimal64::FromString("18446744073709551616"));
+  ASSERT_RAISES(Invalid, Decimal64::FromString("-18446744073709551616"));
+  ASSERT_RAISES(Invalid, Decimal64::FromString("9.3e18"));
+  ASSERT_RAISES(Invalid, Decimal64::FromString("99e18"));
+}
+
 TYPED_TEST_SUITE(DecimalFromStringTest, DecimalTypes);
 
 TYPED_TEST(DecimalFromStringTest, Basics) { this->TestBasics(); }
@@ -435,15 +454,33 @@ TEST(Decimal128Test, FromStringLimits) {
   ASSERT_RAISES(Invalid, Decimal128::FromString("-9e39"));
   ASSERT_RAISES(Invalid, Decimal128::FromString("9.9e40"));
   ASSERT_RAISES(Invalid, Decimal128::FromString("-9.9e40"));
-  // XXX conversion overflows are currently not detected
-  //   ASSERT_RAISES(Invalid, Decimal128::FromString("99e38"));
-  //   ASSERT_RAISES(Invalid, Decimal128::FromString("-99e38"));
-  //   ASSERT_RAISES(Invalid,
-  //   Decimal128::FromString("999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //   Decimal128::FromString("-999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //   Decimal128::FromString("999999999999999999999999999999999999999"));
+  // Conversion overflows (GH-55606)
+  ASSERT_RAISES(Invalid, Decimal128::FromString("99e38"));
+  ASSERT_RAISES(Invalid, Decimal128::FromString("-99e38"));
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("999999999999999999999999999999999999999e1"));
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("-999999999999999999999999999999999999999e1"));
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("999999999999999999999999999999999999999"));
+  // 2**127 - 1 is the largest representable value
+  AssertDecimalFromString(
+      "170141183460469231731687303715884105727",
+      Decimal128FromLE({18446744073709551615ULL, 9223372036854775807ULL}), 39, 0);
+  // 2**127
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("170141183460469231731687303715884105728"));
+  // -2**127 is the smallest representable value
+  AssertDecimalFromString("-170141183460469231731687303715884105728",
+                          Decimal128FromLE({0, 9223372036854775808ULL}), 39, 0);
+  // -2**127 - 1
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("-170141183460469231731687303715884105729"));
+  // 2**128
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("340282366920938463463374607431768211456"));
+  ASSERT_RAISES(Invalid,
+                Decimal128::FromString("-340282366920938463463374607431768211456"));
 
   // No exponent, many fractional digits
   AssertDecimalFromString("9.9999999999999999999999999999999999999", dec38times9pos, 38,
@@ -541,15 +578,30 @@ TEST(Decimal256Test, FromStringLimits) {
   ASSERT_RAISES(Invalid, Decimal256::FromString("9.9e78"));
   ASSERT_RAISES(Invalid, Decimal256::FromString("-9.9e78"));
 
-  // XXX conversion overflows are currently not detected
-  //   ASSERT_RAISES(Invalid, Decimal256::FromString("99e76"));
-  //   ASSERT_RAISES(Invalid, Decimal256::FromString("-99e76"));
-  //   ASSERT_RAISES(Invalid,
-  //     Decimal256::FromString("9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //     Decimal256::FromString("-9999999999999999999999999999999999999999999999999999999999999999999999999999e1"));
-  //   ASSERT_RAISES(Invalid,
-  //     Decimal256::FromString("99999999999999999999999999999999999999999999999999999999999999999999999999999"));
+  // Conversion overflows (GH-55606)
+  ASSERT_RAISES(Invalid, Decimal256::FromString("99e76"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("-99e76"));
+  ASSERT_RAISES(Invalid,
+                Decimal256::FromString("9999999999999999999999999999999999999999"
+                                       "999999999999999999999999999999999999e1"));
+  ASSERT_RAISES(Invalid,
+                Decimal256::FromString("-999999999999999999999999999999999999999"
+                                       "9999999999999999999999999999999999999e1"));
+  ASSERT_RAISES(Invalid, Decimal256::FromString("9999999999999999999999999999999999999999"
+                                                "9999999999999999999999999999999999999"));
+  // 2**255 - 1 is the largest representable value
+  AssertDecimalFromString(
+      "57896044618658097711785492504343953926634992332820282019728792003956564819967",
+      Decimal256FromLE({18446744073709551615ULL, 18446744073709551615ULL,
+                        18446744073709551615ULL, 9223372036854775807ULL}),
+      77, 0);
+  // 2**255
+  ASSERT_RAISES(Invalid, Decimal256::FromString("5789604461865809771178549250434395392663"
+                                                "4992332820282019728792003956564819968"));
+  // 2**256 + 7
+  ASSERT_RAISES(Invalid,
+                Decimal256::FromString("1157920892373161954235709850086879078532"
+                                       "69984665640564039457584007913129639943"));
 
   // No exponent, many fractional digits
   AssertDecimalFromString(
