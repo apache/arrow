@@ -2480,6 +2480,34 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
   }
 }
 
+TEST(DeltaLengthByteArrayEncodingAdHoc, ZeroLengthNullPtr) {
+  auto descr = ExampleDescr<ByteArrayType>();
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                                 /*use_dictionary=*/false, descr.get());
+
+  std::vector<ByteArray> mixed = {
+      ByteArray(0, nullptr),
+      ByteArray("abc"),
+      ByteArray(0, nullptr),
+  };
+  encoder->Put(mixed.data(), static_cast<int>(mixed.size()));
+  EXPECT_EQ(3, encoder->ReportUnencodedDataBytes());
+  auto buf = encoder->FlushValues();
+  EXPECT_EQ(DeltaEncode({0, 3, 0})->ToString() + "abc", buf->ToString());
+
+  std::vector<ByteArray> all_zero_null(4, ByteArray(0, nullptr));
+  encoder->Put(all_zero_null.data(), static_cast<int>(all_zero_null.size()));
+  EXPECT_EQ(0, encoder->ReportUnencodedDataBytes());
+  auto zero_buf = encoder->FlushValues();
+  EXPECT_EQ(DeltaEncode({0, 0, 0, 0})->ToString(), zero_buf->ToString());
+
+  const uint8_t valid_bits = 0b00001010;  // indices 1 and 3 valid (both 0-len nullptr)
+  encoder->PutSpaced(all_zero_null.data(), 4, &valid_bits, /*valid_bits_offset=*/0);
+  EXPECT_EQ(0, encoder->ReportUnencodedDataBytes());
+  auto spaced_buf = encoder->FlushValues();
+  EXPECT_EQ(DeltaEncode(std::vector<int32_t>{0, 0})->ToString(), spaced_buf->ToString());
+}
+
 // ----------------------------------------------------------------------
 // DELTA_BYTE_ARRAY encode/decode tests.
 

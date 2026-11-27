@@ -1385,8 +1385,7 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
                                     virtual public TypedEncoder<ByteArrayType> {
  public:
   explicit DeltaLengthByteArrayEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
-      : EncoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY,
-                    pool = ::arrow::default_memory_pool()),
+      : EncoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY, pool),
         sink_(pool),
         length_encoder_(nullptr, pool) {}
 
@@ -1469,11 +1468,15 @@ void DeltaLengthByteArrayEncoder::Put(const T* src, int num_values) {
   if (sink_.length() + total_increment_size > std::numeric_limits<int32_t>::max()) {
     throw ParquetException("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
   }
-  PARQUET_THROW_NOT_OK(sink_.Reserve(total_increment_size));
-  for (int idx = 0; idx < num_values; idx++) {
-    sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
+  if (total_increment_size > 0) {
+    PARQUET_THROW_NOT_OK(sink_.Reserve(total_increment_size));
+    for (int idx = 0; idx < num_values; idx++) {
+      if (src[idx].len > 0) {
+        sink_.UnsafeAppend(src[idx].ptr, src[idx].len);
+      }
+    }
+    unencoded_byte_array_data_bytes_ += total_increment_size;
   }
-  unencoded_byte_array_data_bytes_ += total_increment_size;
 }
 
 void DeltaLengthByteArrayEncoder::PutSpaced(const T* src, int num_values,
