@@ -23,9 +23,6 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-# Placeholders (Any) until scalar.pyi is annotated; mypy rejects them as
-# types when imported through pyarrow.lib.
-from pyarrow.__lib.scalar import Int64Scalar, Scalar
 from pyarrow._compute import CastOptions
 from pyarrow._stubs_typing import (
     Indices,
@@ -47,8 +44,10 @@ from pyarrow.lib import (
     Device,
     DeviceAllocationType,
     Field,
+    Int64Scalar,
     MemoryManager,
     MemoryPool,
+    Scalar,
     Tensor,
     _Weakrefable,
 )
@@ -75,9 +74,7 @@ def array(
     memory_pool: MemoryPool | None = None,
 ) -> Array: ...
 @overload
-def asarray(  # type: ignore[overload-overlap]
-    values: ChunkedArray, type: Any | None = None
-) -> ChunkedArray: ...
+def asarray(values: ChunkedArray, type: Any | None = None) -> ChunkedArray: ...
 @overload
 def asarray(
     values: _ArrayConstructorInput,
