@@ -304,11 +304,19 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
                                            std::move(doc), default_options),
         is_pure_(is_pure) {}
 
-  /// \brief Add a kernel with given input/output types, no required state
-  /// initialization, preallocation for fixed-width types, and default null
-  /// handling (intersect validity bitmaps of inputs).
+  /// \brief Add a kernel with given input/output types and exec API, no selective exec
+  /// API, no required state initialization, preallocation for fixed-width types, and
+  /// default null handling (intersect validity bitmaps of inputs).
   Status AddKernel(std::vector<InputType> in_types, OutputType out_type,
                    ArrayKernelExec exec, KernelInit init = NULLPTR,
+                   std::shared_ptr<MatchConstraint> constraint = NULLPTR);
+
+  /// \brief Add a kernel with given input/output types, exec and selective exec APIs, no
+  /// required state initialization, preallocation for fixed-width types, and default null
+  /// handling (intersect validity bitmaps of inputs).
+  Status AddKernel(std::vector<InputType> in_types, OutputType out_type,
+                   ArrayKernelExec exec, ArrayKernelSelectiveExec selective_exec,
+                   KernelInit init = NULLPTR,
                    std::shared_ptr<MatchConstraint> constraint = NULLPTR);
 
   /// \brief Add a kernel (function implementation). Returns error if the
