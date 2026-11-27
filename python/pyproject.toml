@@ -169,7 +169,7 @@ include = ["pyarrow-stubs", "pyarrow-stubs-tests"]
 include = ["pyarrow-stubs/__lib/array.pyi"]
 [tool.ty.overrides.rules]
 # Some array classes override methods with a different signature at runtime.
-invalid-method-override = "ignore"
+incompatible-method-override = "ignore"
 
 [[tool.ty.overrides]]
 include = ["pyarrow-stubs-tests/**"]

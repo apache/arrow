@@ -291,7 +291,7 @@ def test_invalid_usage() -> None:
         arr.slice("1")  # type: ignore[arg-type]
         arr.equals(object())  # type: ignore[arg-type]
         arr.equals(None)  # type: ignore[arg-type]
-        arr.format()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]  # noqa: E501
+        arr.format()  # type: ignore[attr-defined]  # ty: ignore[missing-attribute]  # noqa: E501
         pa.Array.from_pandas(1)  # type: ignore[arg-type]
         # Arrays define __eq__ but not __hash__, hence unhashable at runtime
         _: Hashable = arr  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
