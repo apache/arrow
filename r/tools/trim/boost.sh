@@ -53,6 +53,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IN="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 OUT="$(cd "$(dirname "$2")" && pwd)/$(basename "$2")"
 
+# tools/cpp is the synced copy of cpp/ (`make sync-cpp`); fall back to the
+# repository's cpp/ so this can also be run by hand from a git checkout.
+CPP_DIR=""
+for dir in "${SCRIPT_DIR}/../cpp" "${SCRIPT_DIR}/../../../cpp"; do
+  if [ -f "${dir}/cmake_modules/ThirdpartyToolchain.cmake" ]; then
+    CPP_DIR="$(cd "${dir}" && pwd)"
+    break
+  fi
+done
+if [ -z "${CPP_DIR}" ]; then
+  echo "Can't find cpp/; run \`make sync-cpp\` first" >&2
+  exit 1
+fi
+
 # Libraries that build_boost() can add to BOOST_INCLUDE_LIBRARIES but that
 # the R package's libarrow build never needs. If you add a library here,
 # say why.
@@ -107,20 +121,7 @@ boost_libraries_from_cmake() {
 }
 
 if [ -z "${BOOST_INCLUDE_LIBRARIES:-}" ]; then
-  # tools/cpp is the synced copy of cpp/ (`make sync-cpp`); fall back to the
-  # repository's cpp/ so this can also be run by hand from a git checkout.
-  TOOLCHAIN=""
-  for dir in "${SCRIPT_DIR}/../cpp" "${SCRIPT_DIR}/../../../cpp"; do
-    if [ -f "${dir}/cmake_modules/ThirdpartyToolchain.cmake" ]; then
-      TOOLCHAIN="${dir}/cmake_modules/ThirdpartyToolchain.cmake"
-      break
-    fi
-  done
-  if [ -z "${TOOLCHAIN}" ]; then
-    echo "Can't find ThirdpartyToolchain.cmake; run \`make sync-cpp\` first" >&2
-    exit 1
-  fi
-
+  TOOLCHAIN="${CPP_DIR}/cmake_modules/ThirdpartyToolchain.cmake"
   ALL_LIBRARIES="$(boost_libraries_from_cmake "${TOOLCHAIN}")"
   if [ -z "${ALL_LIBRARIES}" ]; then
     echo "No BOOST_INCLUDE_LIBRARIES found in build_boost() in ${TOOLCHAIN}." >&2
@@ -152,6 +153,16 @@ if [ ! -f "${SRC}/tools/cmake/include/BoostRoot.cmake" ]; then
   exit 1
 fi
 
+# Boost.Locale 1.92.0 fails to configure with CMake 4.5.0, so patch it for
+# the configure step below. 
+# The patch is reverted right after configuring, because the trimmed
+# tarball must stay unpatched to allow build_boost() to apply the patch when
+# libarrow is built.
+# TODO: Remove this once we use a Boost release that includes
+# https://github.com/boostorg/locale/pull/273
+BOOST_PATCH="${CPP_DIR}/cmake_modules/boost-locale-source-group.patch"
+(cd "${SRC}" && patch -p1 -N -s -i "${BOOST_PATCH}")
+
 # Let Boost's CMake resolve the transitive dependencies. With
 # --log-level=VERBOSE, BoostRoot.cmake logs "Adding Boost library 'x'" for
 # each requested library and "Adding Boost dependency 'x'" for each
@@ -167,6 +178,7 @@ cmake -S "${SRC}" -B "${WORK}/build" \
   echo "Configuring Boost failed" >&2
   exit 1
 }
+(cd "${SRC}" && patch -R -p1 -s -i "${BOOST_PATCH}")
 if grep -q "has not been found" "${WORK}/cmake.log"; then
   grep "has not been found" "${WORK}/cmake.log" >&2
   echo "A library in BOOST_INCLUDE_LIBRARIES doesn't exist in ${SRC_NAME}" >&2
