@@ -164,7 +164,9 @@ std::shared_ptr<Buffer> SliceMutableBuffer(std::shared_ptr<Buffer> buffer,
 
 MutableBuffer::MutableBuffer(const std::shared_ptr<Buffer>& parent, const int64_t offset,
                              const int64_t size)
-    : MutableBuffer(reinterpret_cast<uint8_t*>(parent->mutable_address()) + offset,
+    : MutableBuffer(parent->mutable_address()
+                        ? reinterpret_cast<uint8_t*>(parent->mutable_address() + offset)
+                        : nullptr,
                     size) {
   DCHECK(parent->is_mutable()) << "Must pass mutable buffer";
   parent_ = parent;
