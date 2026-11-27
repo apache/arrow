@@ -27,6 +27,12 @@ github:
     projects: true
     discussions: true
 
+  enabled_merge_buttons:
+    merge: false
+    rebase: false
+    squash: true
+    squash_commit_message: PR_TITLE_AND_DESC
+
   protected_branches:
     # protect main against force push
     main: {}

@@ -99,14 +99,17 @@ assigned.
     # Setup gpg agent for signing binary artifacts
     source dev/release/setup-gpg-agent.sh
 
+    # Ensure closed issues have their milestone set before curating
+    archery release update-milestones --execute
+
     # Curate the release
     # The end of the generated report shows any GitHub issues with the wrong
     # version number assigned.
     archery release curate <version>
 
 Ensure a major version milestone for a follow up release is created on GitHub. This will
-automatically be used by our merge script as the new version for issues closed when
-the maintenance branch is created.
+automatically be used by ``archery release update-milestones`` as the new version for
+issues closed after the maintenance branch is created.
 
 Patch Releases
 ==============
@@ -400,7 +403,8 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
-   Add a release note for the new version to our website and update the latest release information:
+   Add a release note for the new version to our website and update the latest release information.
+   The script reads ``GH_TOKEN`` from ``dev/release/.env`` to ask GitHub who merged the pull requests of the release:
 
    .. code-block:: Bash
 

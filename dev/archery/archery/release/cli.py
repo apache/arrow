@@ -15,12 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import os
 import pathlib
 
 import click
+from git import Repo
 
 from ..utils.cli import validate_arrow_sources
-from .core import IssueTracker, Release
+from .core import (
+    IssueTracker,
+    Release,
+    count_committers,
+    update_milestones,
+)
 
 
 @click.group('release')
@@ -50,6 +57,36 @@ def release_curate(obj, version, minimal):
     curation = release.curate(minimal)
 
     click.echo(curation.render('console'))
+
+
+@release.command('committers')
+@click.argument('previous_version')
+@click.argument('version')
+@click.pass_obj
+def release_committers(obj, previous_version, version):
+    """Count the pull requests of a release by who merged them."""
+    commit_range = f"apache-arrow-{previous_version}..apache-arrow-{version}"
+    commits = Repo(obj['repo']).iter_commits(commit_range)
+    committers = count_committers(commits, obj['issue_tracker'])
+    for name, count in committers:
+        click.echo(f"{count:6d}\t{name}")
+
+
+@release.command('update-milestones')
+@click.option('--dry-run/--execute', default=True,
+              help="Display milestone updates instead of applying them.")
+@click.pass_obj
+def release_update_milestones(obj, dry_run):
+    """Set milestones on closed issues merged since the last major release."""
+    updates = update_milestones(
+        Repo(obj['repo']),
+        obj['issue_tracker'],
+        branch=os.getenv('ARCHERY_DEFAULT_BRANCH', 'main'),
+        dry_run=dry_run,
+    )
+    for issue_number, milestone in updates:
+        action = "Would set" if dry_run else "Set"
+        click.echo(f"{action} milestone {milestone} on #{issue_number}")
 
 
 @release.group('changelog')
