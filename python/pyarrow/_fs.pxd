@@ -53,6 +53,25 @@ cdef class FileSelector(_Weakrefable):
     cdef inline CFileSelector unwrap(self) nogil
 
 
+cdef class FileInfoIterator(_Weakrefable):
+    cdef:
+        object iterator_owner
+        object iteration_lock
+        FileSelector selector
+        vector[CFileInfo] batch
+        size_t batch_index
+        c_bool started
+        c_bool finished
+        SharedPtrNoGIL[CFileInfoVectorIterator] iterator
+
+    @staticmethod
+    cdef wrap(object owner, FileSelector selector)
+
+    cdef _start(self)
+
+    cdef _close(self)
+
+
 cdef class FileSystem(_Weakrefable):
     cdef:
         shared_ptr[CFileSystem] wrapped

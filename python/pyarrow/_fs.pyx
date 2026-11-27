@@ -27,6 +27,7 @@ from pyarrow.util import _stringify_path
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from threading import Lock
 import os
 import pathlib
 import sys
@@ -408,6 +409,100 @@ cdef class FileSelector(_Weakrefable):
         return f"<FileSelector base_dir={self.base_dir!r} recursive={self.recursive}>"
 
 
+cdef class FileInfoIterator(_Weakrefable):
+    """
+    An iterator over FileInfo objects produced by a file selector.
+
+    Create an iterator with ``FileSystem.get_file_info_iterator()``.
+
+    File discovery starts on the first ``next()`` call, not when the
+    iterator is created. Entries are fetched from the filesystem in
+    batches and yielded one at a time. Iteration releases its resources
+    on exhaustion or error. Call ``close()`` to release them when
+    stopping early. Concurrent calls to ``next()`` or ``close()`` on the
+    same iterator raise ``ValueError``.
+    """
+
+    def __cinit__(self):
+        self.iteration_lock = Lock()
+        self.batch_index = 0
+        self.started = False
+        self.finished = False
+
+    def __init__(self):
+        raise TypeError(
+            "FileInfoIterator cannot be instantiated directly; "
+            "use FileSystem.get_file_info_iterator() instead")
+
+    @staticmethod
+    cdef wrap(object owner, FileSelector selector):
+        cdef FileInfoIterator self = \
+            FileInfoIterator.__new__(FileInfoIterator)
+        self.iterator_owner = owner
+        self.selector = selector
+        return self
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        cdef CFileInfo info
+        if not self.iteration_lock.acquire(blocking=False):
+            raise ValueError("iterator already executing")
+        try:
+            if self.finished:
+                raise StopIteration
+            try:
+                if not self.started:
+                    self._start()
+                while self.batch_index == self.batch.size():
+                    with nogil:
+                        self.batch = GetResultValue(
+                            self.iterator.get().Next())
+                    self.batch_index = 0
+                    if self.batch.empty():
+                        raise StopIteration
+                info = self.batch[self.batch_index]
+                result = FileInfo.wrap(info)
+                self.batch_index += 1
+                return result
+            except BaseException:
+                self._close()
+                raise
+        finally:
+            self.iteration_lock.release()
+
+    def close(self):
+        """Stop iteration and release the underlying C++ resources."""
+        if not self.iteration_lock.acquire(blocking=False):
+            raise ValueError("iterator already executing")
+        try:
+            self._close()
+        finally:
+            self.iteration_lock.release()
+
+    cdef _start(self):
+        cdef:
+            CFileSelector c_selector = self.selector.selector
+            shared_ptr[CFileSystem] filesystem = \
+                (<FileSystem> self.iterator_owner).wrapped
+            CFileInfoVectorIterator iterator
+        with nogil:
+            iterator = MakeFileInfoVectorIterator(filesystem, c_selector)
+        self.iterator = make_shared[CFileInfoVectorIterator](move(iterator))
+        self.started = True
+
+    cdef _close(self):
+        cdef vector[CFileInfo] empty_batch
+        with nogil:
+            self.iterator.reset()
+            self.batch.swap(empty_batch)
+        self.batch_index = 0
+        self.finished = True
+        self.iterator_owner = None
+        self.selector = None
+
+
 cdef class FileSystem(_Weakrefable):
     """
     Abstract file system API.
@@ -619,6 +714,45 @@ cdef class FileSystem(_Weakrefable):
             raise TypeError('Must pass either path(s) or a FileSelector')
 
         return [FileInfo.wrap(info) for info in infos]
+
+    def get_file_info_iterator(self, FileSelector selector not None):
+        """
+        Get file information from a selector as an iterator of FileInfo.
+
+        Unlike :meth:`get_file_info`, which returns a list once the whole
+        selection has been listed, this method returns an iterator that
+        yields ``FileInfo`` objects one at a time. File discovery starts
+        on the first ``next()`` call, and entries are fetched from the
+        filesystem in batches.
+
+        Whether discovery is actually incremental depends on the
+        filesystem. ``LocalFileSystem`` and ``S3FileSystem`` expose batches
+        as discovery progresses, allowing processing to overlap with listing.
+        Other filesystems, including ``GcsFileSystem``,
+        ``AzureFileSystem``, ``HadoopFileSystem`` and ``PyFileSystem``
+        (which backs the fsspec integration), currently list the whole
+        selection on the first ``next()`` call and then yield it from
+        memory; for those, stopping early saves no listing work. In all
+        cases the entries yielded are the same as ``get_file_info``.
+
+        The order in which entries are yielded is not guaranteed.
+
+        Call :meth:`FileInfoIterator.close` to release resources when
+        stopping early; exhausting the iterator releases them
+        automatically. Filesystems that prefetch results may already have
+        started work that closing does not cancel.
+
+        Parameters
+        ----------
+        selector : FileSelector
+            The selector describing the directory to list.
+
+        Returns
+        -------
+        FileInfoIterator
+            A closeable iterator yielding ``FileInfo`` objects.
+        """
+        return FileInfoIterator.wrap(self, selector)
 
     def create_dir(self, path, *, bint recursive=True):
         """

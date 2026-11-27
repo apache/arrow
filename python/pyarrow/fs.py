@@ -25,6 +25,7 @@ from pyarrow._fs import (  # noqa
     FileSelector,
     FileType,
     FileInfo,
+    FileInfoIterator,
     FileSystem,
     LocalFileSystem,
     SubTreeFileSystem,

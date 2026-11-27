@@ -21,6 +21,16 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_python cimport CTimePoint
 
+cdef extern from "arrow/python/filesystem_iterator.h" namespace "arrow::py::fs" nogil:
+    cdef cppclass CFileInfoVectorIterator \
+            "arrow::py::fs::FileInfoVectorIterator":
+        CResult[vector[CFileInfo]] Next()
+
+    CFileInfoVectorIterator MakeFileInfoVectorIterator(
+        const shared_ptr[CFileSystem]& filesystem,
+        const CFileSelector& selector)
+
+
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     ctypedef enum CFileType "arrow::fs::FileType":
