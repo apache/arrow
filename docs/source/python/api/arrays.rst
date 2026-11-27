@@ -101,6 +101,8 @@ may expose data type-specific methods or properties.
    JsonArray
    UuidArray
    Bool8Array
+   FixedClosednessRangeArray
+   VariableClosednessRangeArray
 
 .. _api.scalar:
 
@@ -169,3 +171,5 @@ classes may expose data type-specific methods or properties.
    JsonScalar
    UuidScalar
    Bool8Scalar
+   FixedClosednessRangeScalar
+   VariableClosednessRangeScalar
