@@ -1433,7 +1433,7 @@ provided by a concrete function :func:`~arrow::compute::Cast`.
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
 | strftime        | Unary      | Temporal           | String           | :struct:`StrftimeOptions`      | \(1)  |
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
-| strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`      |       |
+| strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`      | \(2)  |
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
 
 The conversions available with ``cast`` are listed below.  In all cases, a
@@ -1446,6 +1446,11 @@ null input value is converted into a null output value.
   seconds, cast to timestamp with second resolution.
   The character for the decimal point is localized according to the locale.
   See `detailed formatting documentation`_ for descriptions of other flags.
+
+* \(2) The ``%Z`` directive (time zone name) does not set the result's time
+  zone or adjust the parsed time. Depending on the platform, it may match any
+  word, only some time zone names, or nothing at all. Use ``%z`` to parse UTC
+  offsets.
 
 .. _detailed formatting documentation: https://howardhinnant.github.io/date/date.html#to_stream_formatting
 
