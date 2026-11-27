@@ -2518,6 +2518,24 @@ class TestConvertListTypes:
         expected[2] = None
         tm.assert_series_equal(arr.to_pandas(), expected)
 
+    def test_list_of_dictionary_without_decoding(self):
+        # GH-50842: the dictionary child is converted to objects without
+        # being decoded into a dense array, which would overflow its 32-bit
+        # offsets (16385 * 2**17 > INT32_MAX bytes here)
+        value = "a" * 2**17
+        child = pa.DictionaryArray.from_arrays(
+            np.zeros(16385, dtype=np.int16), pa.array([value]))
+        arr = pa.ListArray.from_arrays([0, len(child)], child)
+        result = arr.to_pandas()
+        assert len(result[0]) == len(child)
+        assert result[0][0] == value
+
+        # Also with several chunks
+        result = pa.chunked_array([arr, arr]).to_pandas()
+        assert len(result) == 2
+        assert len(result[1]) == len(child)
+        assert result[1][-1] == value
+
     @pytest.mark.large_memory
     def test_auto_chunking_on_list_overflow(self):
         # ARROW-9976
