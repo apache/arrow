@@ -3442,6 +3442,107 @@ def test_orc_format(tempdir, dataset_reader):
 
 
 @pytest.mark.orc
+@pytest.mark.parametrize('nested', [False, True])
+@pytest.mark.parametrize('use_filter', [False, True])
+def test_orc_positional_field_identity(tempdir, dataset_reader, nested, use_filter):
+    from pyarrow import orc
+    table = pa.table({'a': [{'b': 10}, None, {'b': None}], 'a.b': [1, 2, 3]})
+    path = str(tempdir / 'positional.orc')
+    orc.write_table(table.select(['a.b', 'a']), path)
+    dataset = ds.dataset(path, format='orc', schema=table.schema)
+    reference = ds.field((0, 0)) if nested else ds.field(0)
+    if use_filter:
+        actual = dataset_reader.to_table(
+            dataset, columns=['a.b'], filter=reference.is_valid())
+        expected = pa.table({'a.b': [1] if nested else [1, 3]})
+    else:
+        actual = dataset_reader.to_table(dataset, columns={'selected': reference})
+        values = table['a'].flatten()[0] if nested else table['a']
+        expected = pa.table({'selected': values})
+    assert actual.equals(expected)
+
+
+@pytest.mark.orc
+def test_orc_duplicate_field_positional_projection(dataset_reader):
+    from pyarrow import orc
+    table = pa.Table.from_arrays([[1, 2], [3, 4]], names=['f', 'f'])
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    fragment = ds.OrcFileFormat().make_fragment(pa.BufferReader(sink.getvalue()))
+    actual = dataset_reader.to_table(
+        fragment, schema=table.schema, columns={'selected': ds.field(0)})
+    assert actual.equals(table.select([0]).rename_columns(['selected']))
+
+
+@pytest.fixture
+def orc_duplicate_schema_fragment():
+    from pyarrow import orc
+    table = pa.Table.from_arrays([[101, 102], [1, 2], [3, 4]],
+                                 names=['x', 'f', 'f'])
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    return table.schema, ds.OrcFileFormat().make_fragment(
+        pa.BufferReader(sink.getvalue()))
+
+
+@pytest.mark.orc
+@pytest.mark.parametrize('use_filter', [False, True])
+def test_orc_duplicate_last_position_schema_change(
+        dataset_reader, orc_duplicate_schema_fragment, use_filter):
+    physical, fragment = orc_duplicate_schema_fragment
+    schema = pa.schema([physical.field(1), physical.field(0), physical.field(2)])
+    reference = ds.field(2)
+    if use_filter:
+        actual = dataset_reader.to_table(
+            fragment, schema=schema, columns=['x'], filter=reference > 3)
+        expected = pa.table({'x': pa.array([102], type=schema.field('x').type)})
+    else:
+        actual = dataset_reader.to_table(
+            fragment, schema=schema, columns={'selected': reference})
+        expected = pa.table({'selected': [3, 4]})
+    assert actual.equals(expected)
+
+
+@pytest.mark.orc
+@pytest.mark.parametrize(('names', 'index'), [
+    pytest.param(['x', 'y', 'f', 'f'], 2, id='logical-position'),
+    pytest.param(['f', 'f', 'x'], 1, id='physical-position'),
+    pytest.param(['f', 'f', 'f'], 2, id='different-count'),
+])
+def test_orc_duplicate_position_ambiguous_schema(
+        dataset_reader, orc_duplicate_schema_fragment, names, index):
+    _, fragment = orc_duplicate_schema_fragment
+    schema = pa.schema([pa.field(name, pa.int64()) for name in names])
+    with pytest.raises(pa.ArrowInvalid, match='Multiple matches'):
+        dataset_reader.to_table(
+            fragment, schema=schema, columns={'selected': ds.field(index)})
+
+
+@pytest.mark.orc
+def test_orc_dotted_field_schema_evolution(tempdir, dataset_reader):
+    from pyarrow import orc
+    table = pa.table({'a.b': [1, 2], 'a': [{'b': 10}, {'b': 20}]})
+    paths = []
+    for i, columns in enumerate([['a.b', 'a'], ['a', 'a.b'], ['a']]):
+        path = str(tempdir / f'part{i}.orc')
+        orc.write_table(table.select(columns), path)
+        paths.append(path)
+    dataset = ds.dataset(paths, format='orc')
+    missing = table.set_column(0, table.schema.field(0), pa.nulls(2, pa.int64()))
+    expected = pa.concat_tables([table, table, missing])
+    assert dataset_reader.to_table(dataset).equals(expected)
+    predicate = ds.field('a.b') > 1
+    assert dataset_reader.to_table(dataset, columns=['a'], filter=predicate).equals(
+        expected.filter(predicate).select(['a']))
+    columns = {'literal': ds.field('a.b'), 'nested': ds.field(('a', 'b'))}
+    projected = pa.table({'literal': expected['a.b'],
+                          'nested': expected['a'].flatten()[0]})
+    actual = dataset_reader.to_table(dataset, columns=columns, batch_size=1)
+    assert actual.equals(projected)
+    assert all(len(chunk) <= 1 for chunk in actual['literal'].chunks)
+
+
+@pytest.mark.orc
 def test_orc_scan_options(tempdir, dataset_reader):
     from pyarrow import orc
     table = pa.table({'a': pa.array([1, 2, 3], type="int8"),

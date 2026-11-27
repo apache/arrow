@@ -21,6 +21,8 @@
 #include <optional>
 #include <orc/OrcFile.hh>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "arrow/adapters/orc/adapter.h"
 #include "arrow/adapters/orc/util.h"
@@ -33,6 +35,7 @@
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
 #include "arrow/memory_pool.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -458,6 +461,49 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   }
   EXPECT_EQ(num_rows, stripe_row_count * stripe_count);
   EXPECT_EQ(num_rows / reader_batch_size, batches);
+
+  ASSERT_OK_AND_ASSIGN(auto indexed,
+                       reader->GetRecordBatchReaderByIndices(reader_batch_size, {1}));
+  ASSERT_OK_AND_ASSIGN(auto indexed_table, indexed->ToTable());
+  ASSERT_OK_AND_ASSIGN(auto expected_table, reader->Read());
+  ASSERT_OK_AND_ASSIGN(auto projected, expected_table->SelectColumns({1}));
+  AssertTablesEqual(*projected, *indexed_table, false, false);
+}
+
+TEST(TestAdapterRead, RecordBatchReaderByIndices) {
+  auto input = TableFromJSON(
+      schema({field("a", struct_({field("b", int64())})),
+              field("a.b", int64(), true, key_value_metadata({"role"}, {"literal"})),
+              field("other", struct_({field("v", int64())}))}),
+      {R"([[{"b": 10}, 1, {"v": 101}], [null, 2, {"v": 102}],
+          [{"b": 30}, null, null]])"});
+  for (const auto& table : {input, input->Slice(0, 0)}) {
+    ASSERT_OK_AND_ASSIGN(auto sink, io::BufferOutputStream::Create());
+    ASSERT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(sink.get()));
+    ASSERT_OK(writer->Write(*table));
+    ASSERT_OK(writer->Close());
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+    ASSERT_OK_AND_ASSIGN(auto reader, adapters::orc::ORCFileReader::Open(
+                                          std::make_shared<io::BufferReader>(buffer),
+                                          default_memory_pool()));
+    auto check = [&](Result<std::shared_ptr<RecordBatchReader>> maybe_stream,
+                     const std::vector<int>& columns) {
+      ASSERT_OK_AND_ASSIGN(auto stream, std::move(maybe_stream));
+      ASSERT_OK_AND_ASSIGN(auto expected, table->SelectColumns(columns));
+      AssertSchemaEqual(expected->schema(), stream->schema(), /*check_metadata=*/true);
+      ASSERT_OK_AND_ASSIGN(auto actual, stream->ToTable());
+      AssertTablesEqual(*expected, *actual, false, false);
+    };
+    using Selection = std::pair<std::vector<int>, std::vector<int>>;
+    for (const auto& [indices, columns] :
+         {Selection{{1}, {1}}, {{0}, {0}}, {{2, 1, 1}, {1, 2}}, {{}, {0, 1, 2}}}) {
+      check(reader->GetRecordBatchReaderByIndices(2, indices), columns);
+    }
+    ASSERT_RAISES(Invalid, reader->GetRecordBatchReaderByIndices(2, {-1}));
+    ASSERT_RAISES(IOError, reader->GetRecordBatchReaderByIndices(2, {3}));
+    ASSERT_RAISES(Invalid, reader->GetRecordBatchReaderByIndices(0, {1}));
+    ASSERT_RAISES(Invalid, reader->GetRecordBatchReaderByIndices(-1, {1}));
+  }
 }
 
 int64_t StripeBatchValue(int64_t row, int column) {
