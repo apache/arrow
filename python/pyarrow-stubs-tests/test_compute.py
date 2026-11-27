@@ -408,6 +408,8 @@ def test_element_wise_functions() -> None:
     date = dt.datetime(2026, 1, 1)
     check(pc.day(date), pa.Int64Scalar)
     check(pc.day([date]), pa.Int64Array)
+    check(pc.hour(date), pa.Int64Scalar)
+    check(pc.subsecond(date), pa.DoubleScalar)
     check(pc.is_leap_year((date,)), pa.BooleanArray)
     check(pc.days_between(date, date), pa.Int64Scalar)
     check(pc.month_day_nano_interval_between([date], [date]),

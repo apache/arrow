@@ -1281,7 +1281,14 @@ month = _clone_signature(day)
 nanosecond = _clone_signature(hour)
 quarter = _clone_signature(day)
 second = _clone_signature(hour)
-subsecond = _clone_signature(hour)
+
+def subsecond(
+    values: _ComputeInput | _TemporalLiteral,
+    /,
+    *,
+    memory_pool: MemoryPool | None = None,
+) -> DoubleScalar | DoubleArray | ChunkedArray | Expression: ...
+
 us_week = _clone_signature(iso_week)
 us_year = _clone_signature(iso_week)
 
