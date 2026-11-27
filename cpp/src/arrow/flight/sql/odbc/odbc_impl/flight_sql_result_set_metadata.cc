@@ -65,6 +65,11 @@ std::string FlightSqlResultSetMetadata::GetName(int column_position) {
 size_t FlightSqlResultSetMetadata::GetPrecision(int column_position) {
   const std::shared_ptr<Field>& field = schema_->field(column_position - 1);
 
+  // For decimals, report the declared server precision
+  if (field->type()->id() == Type::DECIMAL128) {
+    return util::GetDecimalTypePrecision(field->type());
+  }
+
   int32_t column_size = GetFieldPrecision(field).ValueOrElse([] { return 0; });
   SqlDataType data_type_v3 =
       GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char);
@@ -191,9 +196,7 @@ size_t FlightSqlResultSetMetadata::GetOctetLength(int column_position) {
   SqlDataType data_type_v3 =
       GetDataTypeFromArrowFieldV3(field, metadata_settings_.use_wide_char);
 
-  // Workaround to get the precision for Decimal and Numeric types, since server doesn't
-  // return it currently.
-  // TODO: Use the server precision when its fixed.
+  // Workaround to get the precision for Decimal and Numeric types
   std::shared_ptr<DataType> arrow_type = field->type();
   if (arrow_type->id() == Type::DECIMAL128) {
     int32_t precision = util::GetDecimalTypePrecision(arrow_type);

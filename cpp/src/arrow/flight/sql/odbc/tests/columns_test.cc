@@ -1503,7 +1503,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColAttributeAllTypes) {
                        19,                  // expected_length
                        "",                  // expected_literal_prefix
                        "",                  // expected_literal_suffix
-                       19,                  // expected_column_size
+                       38,                  // expected_column_size
                        0,                   // expected_column_scale
                        SQL_NULLABLE,        // expected_column_nullability
                        10,                  // expected_num_prec_radix
@@ -1667,7 +1667,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributeAllTypes) {
                        19,                  // expected_length
                        "",                  // expected_literal_prefix
                        "",                  // expected_literal_suffix
-                       19,                  // expected_column_size
+                       38,                  // expected_column_size
                        0,                   // expected_column_scale
                        SQL_NULLABLE,        // expected_column_nullability
                        10,                  // expected_num_prec_radix
@@ -1818,7 +1818,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributesAllTypes) {
                         40,                  // expected_display_size
                         SQL_FALSE,           // expected_prec_scale
                         19,                  // expected_length
-                        19,                  // expected_column_size
+                        38,                  // expected_column_size
                         0,                   // expected_column_scale
                         SQL_NULLABLE,        // expected_column_nullability
                         SQL_SEARCHABLE,      // expected_searchable
@@ -2367,7 +2367,7 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColQueryAllDataTypesMetadata) {
       SQL_WVARCHAR,       SQL_WVARCHAR,      SQL_WVARCHAR, SQL_TYPE_DATE, SQL_TYPE_DATE,
       SQL_TYPE_TIMESTAMP, SQL_TYPE_TIMESTAMP};
   SQLULEN column_sizes[] = {4, 4, 4,     4,     4,     4,     4,  4,  4,  4, 8,
-                            8, 8, 8,     8,     65536, 19,    19, 8,  8,  8, 8,
+                            8, 8, 8,     8,     65536, 38,    38, 8,  8,  8, 8,
                             1, 1, 65536, 65536, 65536, 65536, 10, 10, 23, 23};
   SQLULEN column_decimal_digits[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  0,  0,  0,
                                      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 10, 23, 23};
@@ -2422,7 +2422,7 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColODBCTestTableMetadata) {
   SQLSMALLINT column_data_types[] = {SQL_INTEGER,   SQL_BIGINT,    SQL_DECIMAL,
                                      SQL_FLOAT,     SQL_DOUBLE,    SQL_BIT,
                                      SQL_TYPE_DATE, SQL_TYPE_TIME, SQL_TYPE_TIMESTAMP};
-  SQLULEN column_sizes[] = {4, 8, 19, 8, 8, 1, 10, 12, 23};
+  SQLULEN column_sizes[] = {4, 8, 38, 8, 8, 1, 10, 12, 23};
   SQLULEN columndecimal_digits[] = {0, 0, 0, 0, 0, 0, 10, 12, 23};
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, sql_query_len));
@@ -2493,11 +2493,60 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColDecimalColumnSizeIsFullyWritten) {
   // If only the low 2 bytes were written, the sentinel's upper 6 bytes would
   // remain set and the full 8-byte value would be enormous rather than the
   // expected precision. Comparing the whole SQLULEN is what catches the short
-  // write. Expected values match SQLDescribeColQueryAllDataTypesMetadata.
+  // write. Expected values match SQLDescribeColQueryAllDataTypesMetadata. The column
+  // size is the declared decimal precision (38), not sizeof(SQL_NUMERIC_STRUCT).
   EXPECT_NE(kColumnSizeSentinel, column_size);
-  EXPECT_EQ(19u, column_size) << "column_size upper bytes look uninitialized: 0x"
+  EXPECT_EQ(38u, column_size) << "column_size upper bytes look uninitialized: 0x"
                               << std::hex << column_size;
   EXPECT_EQ(0, decimal_digits);
+}
+
+// Verify that SQL_DESC_PRECISION, SQL_DESC_SCALE and SQLDescribeCol report the declared
+// precision and scale of DECIMAL columns.
+// Remote-only because the mock server does not support decimal types
+TEST_F(ColumnsRemoteTest, SQLColAttributeDecimalPrecisionAndScale) {
+  std::string query =
+      "SELECT "
+      "CAST(1 AS DECIMAL(10,5)) AS decimal_10_5, "
+      "CAST(1 AS DECIMAL(5,2)) AS decimal_5_2, "
+      "CAST(1 AS DECIMAL(37,20)) AS decimal_37_20, "
+      "CAST(1 AS DECIMAL(19,0)) AS decimal_19_0, "
+      "CAST(1 AS DECIMAL(38,0)) AS decimal_38_0";
+  const SQLLEN expected_precisions[] = {10, 5, 37, 19, 38};
+  const SQLLEN expected_scales[] = {5, 2, 20, 0, 0};
+  std::wstring wsql(query.begin(), query.end());
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  for (size_t i = 0; i < std::size(expected_precisions); ++i) {
+    const SQLUSMALLINT col = static_cast<SQLUSMALLINT>(i + 1);
+
+    SQLLEN precision = -1;
+    ASSERT_EQ(SQL_SUCCESS, SQLColAttribute(this->stmt, col, SQL_DESC_PRECISION, 0, 0,
+                                           nullptr, &precision));
+    EXPECT_EQ(expected_precisions[i], precision);
+
+    SQLLEN scale = -1;
+    ASSERT_EQ(SQL_SUCCESS,
+              SQLColAttribute(this->stmt, col, SQL_DESC_SCALE, 0, 0, nullptr, &scale));
+    EXPECT_EQ(expected_scales[i], scale);
+
+    SQLWCHAR column_name[1024];
+    SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
+    SQLSMALLINT name_length = 0;
+    SQLSMALLINT data_type = 0;
+    SQLULEN column_size = kColumnSizeSentinel;
+    SQLSMALLINT decimal_digits = -1;
+    SQLSMALLINT nullable = 0;
+    ASSERT_EQ(SQL_SUCCESS,
+              SQLDescribeCol(this->stmt, col, column_name, buf_char_len, &name_length,
+                             &data_type, &column_size, &decimal_digits, &nullable));
+    EXPECT_EQ(SQL_DECIMAL, data_type);
+    EXPECT_EQ(static_cast<SQLULEN>(expected_precisions[i]), column_size);
+    EXPECT_EQ(expected_scales[i], decimal_digits);
+  }
 }
 
 // Verify SQLDescribeCol reports a fully-written column_size for a TIMESTAMP
@@ -2555,7 +2604,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, SQLDescribeColODBCTestTableMetadataODBCVer2) {
   SQLSMALLINT column_data_types[] = {SQL_INTEGER, SQL_BIGINT, SQL_DECIMAL,
                                      SQL_FLOAT,   SQL_DOUBLE, SQL_BIT,
                                      SQL_DATE,    SQL_TIME,   SQL_TIMESTAMP};
-  SQLULEN column_sizes[] = {4, 8, 19, 8, 8, 1, 10, 12, 23};
+  SQLULEN column_sizes[] = {4, 8, 38, 8, 8, 1, 10, 12, 23};
   SQLULEN columndecimal_digits[] = {0, 0, 0, 0, 0, 0, 10, 12, 23};
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, sql_query_len));
