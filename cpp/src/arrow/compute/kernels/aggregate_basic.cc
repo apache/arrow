@@ -172,7 +172,12 @@ struct CountDistinctImpl : public ScalarAggregator {
       auto visit_null = []() { return Status::OK(); };
       auto visit_value = [&](VisitorArgType arg) {
         int32_t y;
-        return memo_table_->GetOrInsert(arg, &y);
+        if constexpr (std::is_same_v<Type, HalfFloatType>) {
+          // `arg` holds the raw bits, don't let `Float16` read them as a number.
+          return memo_table_->GetOrInsert(::arrow::util::Float16::FromBits(arg), &y);
+        } else {
+          return memo_table_->GetOrInsert(arg, &y);
+        }
       };
       RETURN_NOT_OK(VisitArraySpanInline<Type>(arr, visit_value, visit_null));
     } else {
