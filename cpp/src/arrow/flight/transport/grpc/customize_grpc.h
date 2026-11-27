@@ -112,6 +112,13 @@ namespace grpc {
 // protobuf without copying
 ARROW_FLIGHT_EXPORT ::grpc::Status FlightDataDeserialize(
     ::grpc::ByteBuffer* buffer, arrow::flight::internal::FlightData* out);
+
+// The Arrow structs carried by the `pb::FlightData` messages that WritePayload()
+// and ReadPayload() give to gRPC (see serialization_internal.cc).
+ARROW_FLIGHT_EXPORT const arrow::flight::FlightPayload& FlightPayloadOfMessage(
+    const void* message);
+ARROW_FLIGHT_EXPORT arrow::flight::internal::FlightData* FlightDataOfMessage(
+    void* message);
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight
@@ -128,16 +135,16 @@ class SerializationTraits<arrow::flight::protocol::FlightData> {
 #endif
 
  public:
-  // In the functions below, we cast back the Message argument to its real
-  // type (see ReadPayload() and WritePayload() for the initial cast).
+  // The message carries the Arrow struct to serialize or to deserialize into
+  // (see ReadPayload() and WritePayload()).
   static Status Serialize(const MessageType& msg, ByteBuffer* bb, bool* own_buffer) {
     return arrow::flight::transport::grpc::FlightDataSerialize(
-        *reinterpret_cast<const arrow::flight::FlightPayload*>(&msg), bb, own_buffer);
+        arrow::flight::transport::grpc::FlightPayloadOfMessage(&msg), bb, own_buffer);
   }
 
   static Status Deserialize(ByteBuffer* buffer, MessageType* msg) {
     return arrow::flight::transport::grpc::FlightDataDeserialize(
-        buffer, reinterpret_cast<arrow::flight::internal::FlightData*>(msg));
+        buffer, arrow::flight::transport::grpc::FlightDataOfMessage(msg));
   }
 };
 
