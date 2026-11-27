@@ -226,6 +226,34 @@ TEST(KeyValueMetadataTest, Delete) {
     ASSERT_OK(metadata.DeleteMany({}));
     ASSERT_TRUE(metadata.Equals(KeyValueMetadata({"bb", "dd", "ee"}, {"2", "4", "5"})));
   }
+  {
+    KeyValueMetadata metadata(keys, values);
+    ASSERT_OK(metadata.DeleteMany({0, 0}));
+    ASSERT_TRUE(metadata.Equals(KeyValueMetadata({"bb", "cc", "dd", "ee", "ff", "gg"},
+                                                 {"2", "3", "4", "5", "6", "7"})));
+
+    ASSERT_OK(metadata.DeleteMany({1, 3, 1, 3, 1}));
+    ASSERT_TRUE(metadata.Equals(
+        KeyValueMetadata({"bb", "dd", "ff", "gg"}, {"2", "4", "6", "7"})));
+  }
+  {
+    KeyValueMetadata metadata(keys, values);
+    std::string expected_error_message =
+        "Index error: KeyValueMetadata::DeleteMany: index 7 is out of bounds for "
+        "metadata "
+        "of size 7";
+    ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message,
+                               metadata.DeleteMany({7}));
+    expected_error_message =
+        "Index error: KeyValueMetadata::DeleteMany: index -1 is out of bounds for "
+        "metadata "
+        "of size 7";
+    ASSERT_RAISES_WITH_MESSAGE(IndexError, expected_error_message,
+                               metadata.DeleteMany({-1}));
+    ASSERT_RAISES(IndexError, metadata.DeleteMany({0, 3, 7}));
+    ASSERT_RAISES(IndexError, metadata.DeleteMany({-1, 0, 3}));
+    ASSERT_TRUE(metadata.Equals(KeyValueMetadata(keys, values)));
+  }
 }
 
 }  // namespace arrow
