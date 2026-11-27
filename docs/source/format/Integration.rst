@@ -137,11 +137,14 @@ For Java, it may look like:
    export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
    archery integration --run-ipc --with-cpp=1 --with-java=1
 
-To run all tests, including Flight and C Data Interface integration tests, do:
+To run all tests, including Flight and C Data Interface integration tests,
+enable each implementation explicitly:
 
 .. code-block:: shell
 
-   archery integration --with-all --run-flight --run-ipc --run-c-data
+   archery integration --run-flight --run-ipc --run-c-data \
+       --with-cpp=1 --with-dotnet=1 --with-go=1 --with-java=1 \
+       --with-js=1 --with-nanoarrow=1 --with-ruby=1 --with-rust=1
 
 Note that we run these tests in continuous integration, and the CI job uses
 Docker Compose. You may also run the Docker Compose job locally, or at least

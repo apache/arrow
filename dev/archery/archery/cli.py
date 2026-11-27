@@ -707,9 +707,6 @@ def _set_default(opt, default):
 
 
 @archery.command(short_help="Execute protocol and Flight integration tests")
-@click.option('--with-all', is_flag=True, default=False,
-              help=('Include all known implementations by default '
-                    'in integration tests'))
 @click.option('--random-seed', type=int, default=12345,
               help="Seed for PRNG when generating test data")
 @click.option('--with-cpp', type=bool, default=False,
@@ -764,7 +761,7 @@ def _set_default(opt, default):
 @click.option('-k', '--match',
               help=("Substring for test names to include in run, "
                     "e.g. -k primitive"))
-def integration(with_all=False, random_seed=12345, write_generated_json="",
+def integration(random_seed=12345, write_generated_json="",
                 write_gold_files="", **args):
     """If you don't specify the "--target-implementations" option nor
     the "ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS" environment
