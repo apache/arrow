@@ -57,6 +57,7 @@
 #include "arrow/util/unreachable.h"
 #include "arrow/visit_scalar_inline.h"
 #include "arrow/visit_type_inline.h"
+#include "arrow/csv/lexing_internal.h"
 
 namespace arrow {
 
@@ -147,50 +148,25 @@ struct FloatingEquality<uint16_t, Flags> {
   const int32_t ulp_distance;
 };
 
+
 template <typename T, typename Visitor>
 struct FloatingEqualityDispatcher {
   const EqualOptions& options;
   Visitor&& visit;
 
-  template <bool AbsoluteTolerance, bool NansEqual, bool SignedZero>
-  void DispatchL4() {
-    if (options.ulp_distance()) {
-      visit(FloatingEquality<
-            T, FloatingEqualityFlags<AbsoluteTolerance, NansEqual, SignedZero, true>>{
-          options});
-    } else {
-      visit(FloatingEquality<
-            T, FloatingEqualityFlags<AbsoluteTolerance, NansEqual, SignedZero, false>>{
-          options});
-    }
-  }
-
-  template <bool AbsoluteTolerance, bool NansEqual>
-  void DispatchL3() {
-    if (options.signed_zeros_equal()) {
-      DispatchL4<AbsoluteTolerance, NansEqual, true>();
-    } else {
-      DispatchL4<AbsoluteTolerance, NansEqual, false>();
-    }
-  }
-
-  template <bool AbsoluteTolerance>
-  void DispatchL2() {
-    if (options.nans_equal()) {
-      DispatchL3<AbsoluteTolerance, true>();
-    } else {
-      DispatchL3<AbsoluteTolerance, false>();
-    }
-  }
-
   void Dispatch() {
-    if (options.atol()) {
-      DispatchL2<true>();
-    } else {
-      DispatchL2<false>();
-    }
+    csv::internal::DispatchBool(
+        [&]<bool AbsoluteTolerance, bool NansEqual, bool SignedZero,
+            bool UlpDistance>() {
+          visit(FloatingEquality<
+                T, FloatingEqualityFlags<AbsoluteTolerance, NansEqual, SignedZero,
+                                         UlpDistance>>{options});
+        },
+        options.atol().has_value(), options.nans_equal(),
+        options.signed_zeros_equal(), options.ulp_distance().has_value());
   }
 };
+
 
 // Call `visit(equality_func)` where `equality_func` has the signature `bool(T, T)`
 // and returns true if the two values compare equal.
