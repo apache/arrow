@@ -3787,6 +3787,149 @@ TEST(Cast, ListToFSL) {
   // Invalid fixed_size_list cast if inconsistent size
   ASSERT_RAISES(Invalid, Cast(ArrayFromJSON(list(int32()), "[[0, 1, 2], null, [3, 4]]"),
                               CastOptions::Safe(fixed_size_list(int32(), 3))));
+
+  // GH-54570: Null list array with empty child array cast to FixedSizeList
+  {
+    auto child = ArrayFromJSON(int64(), "[]");
+    auto null_bitmap = ArrayFromJSON(boolean(), "[false]")->data()->buffers[1];
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 0]"), *child,
+                              default_memory_pool(), null_bitmap));
+    auto to = ArrayFromJSON(fixed_size_list(int64(), 3), "[null]");
+    CheckCast(from, to);
+  }
+
+  // GH-54570: LargeList with empty child cast to FixedSizeList
+  {
+    auto child = ArrayFromJSON(int64(), "[]");
+    auto null_bitmap = ArrayFromJSON(boolean(), "[false]")->data()->buffers[1];
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        LargeListArray::FromArrays(*ArrayFromJSON(int64(), "[0, 0]"), *child,
+                                   default_memory_pool(), null_bitmap));
+    auto to = ArrayFromJSON(fixed_size_list(int64(), 3), "[null]");
+    CheckCast(from, to);
+  }
+
+  // GH-54570: All-null ListView with empty child cast to FixedSizeList
+  {
+    auto child = ArrayFromJSON(int64(), "[]");
+    auto null_bitmap = ArrayFromJSON(boolean(), "[false]")->data()->buffers[1];
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0]"),
+                                  *ArrayFromJSON(int32(), "[0]"), *child,
+                                  default_memory_pool(), null_bitmap));
+    auto to = ArrayFromJSON(fixed_size_list(int64(), 3), "[null]");
+    CheckCast(from, to);
+  }
+
+  // GH-54570: All-null LargeListView with empty child cast to FixedSizeList
+  {
+    auto child = ArrayFromJSON(int64(), "[]");
+    auto null_bitmap = ArrayFromJSON(boolean(), "[false]")->data()->buffers[1];
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        LargeListViewArray::FromArrays(*ArrayFromJSON(int64(), "[0]"),
+                                       *ArrayFromJSON(int64(), "[0]"), *child,
+                                       default_memory_pool(), null_bitmap));
+    auto to = ArrayFromJSON(fixed_size_list(int64(), 3), "[null]");
+    CheckCast(from, to);
+  }
+
+  // GH-54570: Multiple null lists with empty child
+  {
+    auto child = ArrayFromJSON(int64(), "[]");
+    auto null_bitmap = ArrayFromJSON(boolean(), "[false, false]")->data()->buffers[1];
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 0, 0]"), *child,
+                              default_memory_pool(), null_bitmap));
+    auto to = ArrayFromJSON(fixed_size_list(int64(), 2), "[null, null]");
+    CheckCast(from, to);
+  }
+
+  // GH-54570: Null list with unallocated/null child data buffers
+  {
+    auto child_data = ArrayData::Make(int64(), 0, {nullptr, nullptr});
+    auto list_bitmap = ArrayFromJSON(boolean(), "[false]")->data()->buffers[1];
+    auto list_offsets = ArrayFromJSON(int32(), "[0, 0]")->data()->buffers[1];
+    auto list_data = ArrayData::Make(list(int64()), 1, {list_bitmap, list_offsets},
+                                     {child_data}, 1);
+    auto from = MakeArray(list_data);
+    auto to = ArrayFromJSON(fixed_size_list(int64(), 3), "[null]");
+    CheckCast(from, to);
+  }
+
+  // GH-54570: Null slots with length 0 alongside valid slots
+  {
+    auto child = ArrayFromJSON(int32(), "[10, 20]");
+    auto null_bitmap = ArrayFromJSON(boolean(), "[false, true]")->data()->buffers[1];
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 0, 2]"), *child,
+                              default_memory_pool(), null_bitmap));
+    auto to = ArrayFromJSON(fixed_size_list(int32(), 2), "[null, [10, 20]]");
+    CheckCast(from, to);
+  }
+
+  {
+    auto child = ArrayFromJSON(int32(), "[10, 20]");
+    auto null_bitmap = ArrayFromJSON(boolean(), "[true, false]")->data()->buffers[1];
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 2]"), *child,
+                              default_memory_pool(), null_bitmap));
+    auto to = ArrayFromJSON(fixed_size_list(int32(), 2), "[[10, 20], null]");
+    CheckCast(from, to);
+  }
+
+  // GH-54570: Non-contiguous ListView with gaps and no nulls
+  {
+    auto child = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]");
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0, 3]"),
+                                  *ArrayFromJSON(int32(), "[2, 2]"), *child));
+    auto to = ArrayFromJSON(fixed_size_list(int32(), 2), "[[1, 2], [4, 5]]");
+    CheckCast(from, to);
+  }
+
+  // GH-54570: Reordered ListView with no nulls
+  {
+    auto child = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]");
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[2, 0]"),
+                                  *ArrayFromJSON(int32(), "[2, 2]"), *child));
+    auto to = ArrayFromJSON(fixed_size_list(int32(), 2), "[[3, 4], [1, 2]]");
+    CheckCast(from, to);
+  }
+
+  // GH-54570: LargeListView with gaps and reordering with no nulls
+  {
+    auto child = ArrayFromJSON(int64(), "[10, 20, 30, 40, 50]");
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        LargeListViewArray::FromArrays(*ArrayFromJSON(int64(), "[3, 0]"),
+                                       *ArrayFromJSON(int64(), "[2, 2]"), *child));
+    auto to = ArrayFromJSON(fixed_size_list(int64(), 2), "[[40, 50], [10, 20]]");
+    CheckCast(from, to);
+  }
+
+  // GH-54570: ListView with gaps and nulls
+  {
+    auto child = ArrayFromJSON(int32(), "[1, 2, 99, 99, 5, 6]");
+    auto null_bitmap = ArrayFromJSON(boolean(), "[true, false, true]")->data()->buffers[1];
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        ListViewArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 4]"),
+                                  *ArrayFromJSON(int32(), "[2, 0, 2]"), *child,
+                                  default_memory_pool(), null_bitmap));
+    auto to = ArrayFromJSON(fixed_size_list(int32(), 2), "[[1, 2], null, [5, 6]]");
+    CheckCast(from, to);
+  }
 }
 
 TEST(Cast, CastMap) {
