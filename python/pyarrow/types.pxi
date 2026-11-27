@@ -4350,6 +4350,81 @@ def duration(unit):
     return out
 
 
+def month_interval():
+    """
+    Create instance of an interval type representing months
+    between two dates.
+
+    Examples
+    --------
+    Create an instance of an month_interval type:
+
+    >>> import pyarrow as pa
+    >>> pa.month_interval()
+    DataType(month_interval)
+
+    The type can't be created from Python values yet, but
+    compute functions return it:
+
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> import datetime
+    >>> arr1 = pa.array([datetime.datetime(2020, 1, 1)], type=pa.timestamp('s'))
+    >>> arr2 = pa.array([datetime.datetime(2020, 5, 5)], type=pa.timestamp('s'))
+
+    Create an array with month_interval type:
+
+    >>> pc.month_interval_between(arr1, arr2)
+    <pyarrow.lib.MonthIntervalArray object at ...>
+    [
+      4M
+    ]
+
+    or select a scalar with the same type:
+
+    >>> pc.month_interval_between(arr1, arr2)[0]
+    <pyarrow.MonthIntervalScalar: 4M>
+    """
+    return primitive_type(_Type_INTERVAL_MONTHS)
+
+
+def day_time_interval():
+    """
+    Create instance of an interval type representing day and
+    milliseconds between two dates.
+
+    Examples
+    --------
+    Create an instance of an day_time_interval type:
+
+    >>> import pyarrow as pa
+    >>> pa.day_time_interval()
+    DataType(day_time_interval)
+
+    The type can't be created from Python values yet, but
+    compute functions return it:
+
+    >>> import pyarrow.compute as pc
+    >>> import datetime
+    >>> arr1 = pa.array([datetime.datetime(2020, 1, 1)], type=pa.timestamp('s'))
+    >>> arr2 = pa.array([datetime.datetime(2020, 5, 5)], type=pa.timestamp('s'))
+
+    Create an array with day_time_interval type:
+
+    >>> pc.day_time_interval_between(arr1, arr2)
+    <pyarrow.lib.DayTimeIntervalArray object at ...>
+    [
+      125d0ms
+    ]
+
+    or select a scalar with the same type:
+
+    >>> pc.day_time_interval_between(arr1, arr2)[0]
+    <pyarrow.DayTimeIntervalScalar: 125d0ms>
+    """
+    return primitive_type(_Type_INTERVAL_DAY_TIME)
+
+
 def month_day_nano_interval():
     """
     Create instance of an interval type representing months, days and
@@ -5779,6 +5854,8 @@ cdef dict _type_aliases = {
     'duration[ms]': duration('ms'),
     'duration[us]': duration('us'),
     'duration[ns]': duration('ns'),
+    'month_interval': month_interval(),
+    'day_time_interval': day_time_interval(),
     'month_day_nano_interval': month_day_nano_interval(),
 }
 

@@ -55,6 +55,9 @@ def get_many_types():
         pa.timestamp('us', tz='UTC'),
         pa.timestamp('us', tz='Europe/Paris'),
         pa.duration('s'),
+        pa.month_interval(),
+        pa.day_time_interval(),
+        pa.month_day_nano_interval(),
         pa.float16(),
         pa.float32(),
         pa.float64(),
@@ -301,7 +304,8 @@ def test_is_temporal_date_time_timestamp():
     time_types = [pa.time32('s'), pa.time64('ns')]
     timestamp_types = [pa.timestamp('ms')]
     duration_types = [pa.duration('ms')]
-    interval_types = [pa.month_day_nano_interval()]
+    interval_types = [pa.month_interval(), pa.day_time_interval(),
+                      pa.month_day_nano_interval()]
 
     for case in (date_types + time_types + timestamp_types + duration_types +
                  interval_types):

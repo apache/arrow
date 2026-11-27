@@ -4631,3 +4631,30 @@ def test_winsorize():
     result = pc.winsorize(
         arr, options=pc.WinsorizeOptions(lower_limit=0.1, upper_limit=0.8))
     assert result.to_pylist() == [8, 4, 8, 8, 5, 3, 7, 2, 2, 6]
+
+
+def test_interval_between():
+    arr1 = pa.array(
+        [datetime.datetime(2020, 1, 1), None, datetime.datetime(1900, 12, 13)],
+        type=pa.timestamp('s')
+    )
+    arr2 = pa.array(
+        [datetime.datetime(2020, 5, 5), datetime.datetime(2020, 10, 1),
+         datetime.datetime(2020, 1, 1)],
+        type=pa.timestamp('s')
+    )
+    result = pc.month_day_nano_interval_between(arr1, arr2)
+    assert isinstance(result, pa.MonthDayNanoIntervalArray)
+    assert isinstance(result[0], pa.MonthDayNanoIntervalScalar)
+
+    result = pc.month_interval_between(arr1, arr2)
+    assert isinstance(result, pa.MonthIntervalArray)
+    assert isinstance(result[0], pa.MonthIntervalScalar)
+    assert str(result[0]) == "4M"
+    assert result.to_pylist() == [4, None, 1429]
+
+    result = pc.day_time_interval_between(arr1, arr2)
+    assert isinstance(result, pa.DayTimeIntervalArray)
+    assert isinstance(result[0], pa.DayTimeIntervalScalar)
+    assert str(result[0]) == "125d0ms"
+    assert result.to_pylist() == [(125, 0), None, (43483, 0)]

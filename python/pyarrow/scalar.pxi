@@ -904,6 +904,80 @@ cdef class DurationScalar(Scalar):
             return datetime.timedelta(microseconds=sp.value // 1000)
 
 
+cdef class MonthIntervalScalar(Scalar):
+    """
+    Concrete class for month interval scalars.
+    """
+
+    def __repr__(self):
+        return '<pyarrow.{}: {}>'.format(
+            self.__class__.__name__, frombytes(self.wrapped.get().ToString())
+        )
+
+    def __str__(self):
+        return frombytes(self.wrapped.get().ToString())
+
+    def as_py(self, *, maps_as_pydicts=None):
+        """
+        Return this value as a Python integer.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
+
+        Returns
+        -------
+        int
+        """
+        cdef:
+            CMonthIntervalScalar* scalar
+        scalar = <CMonthIntervalScalar*>self.wrapped.get()
+
+        if not scalar.is_valid:
+            return None
+
+        return scalar.value
+
+
+cdef class DayTimeIntervalScalar(Scalar):
+    """
+    Concrete class for day-time interval scalars.
+    """
+
+    def __repr__(self):
+        return '<pyarrow.{}: {}>'.format(
+            self.__class__.__name__, frombytes(self.wrapped.get().ToString())
+        )
+
+    def __str__(self):
+        return frombytes(self.wrapped.get().ToString())
+
+    def as_py(self, *, maps_as_pydicts=None):
+        """
+        Return this value as a tuple of Python integers.
+
+        Parameters
+        ----------
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            This parameter is ignored for non-nested Scalars.
+
+        Returns
+        -------
+        tuple
+        """
+        cdef:
+            CDayTimeIntervalScalar* scalar
+        scalar = <CDayTimeIntervalScalar*>self.wrapped.get()
+
+        if not scalar.is_valid:
+            return None
+
+        return (scalar.value.days, scalar.value.milliseconds)
+
+
 cdef class MonthDayNanoIntervalScalar(Scalar):
     """
     Concrete class for month, day, nanosecond interval scalars.
@@ -1681,6 +1755,8 @@ cdef dict _scalar_classes = {
     _Type_RUN_END_ENCODED: RunEndEncodedScalar,
     _Type_SPARSE_UNION: UnionScalar,
     _Type_DENSE_UNION: UnionScalar,
+    _Type_INTERVAL_MONTHS: MonthIntervalScalar,
+    _Type_INTERVAL_DAY_TIME: DayTimeIntervalScalar,
     _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalScalar,
     _Type_EXTENSION: ExtensionScalar,
 }

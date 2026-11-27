@@ -503,6 +503,14 @@ cdef class ExtensionArray(Array):
     pass
 
 
+cdef class MonthIntervalArray(Array):
+    pass
+
+
+cdef class DayTimeIntervalArray(Array):
+    pass
+
+
 cdef class MonthDayNanoIntervalArray(Array):
     pass
 

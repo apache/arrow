@@ -48,6 +48,8 @@ These should be used to create Arrow data types and schemas.
    date32
    date64
    duration
+   month_interval
+   day_time_interval
    month_day_nano_interval
    binary
    string
