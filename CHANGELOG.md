@@ -4077,7 +4077,7 @@
 * [GH-37539](https://github.com/apache/arrow/issues/37539) - [C++][FlightRPC] Fix binding to IPv6 addresses (#37552)
 * [GH-37555](https://github.com/apache/arrow/issues/37555) - [Python] Update get_file_info_selector to ignore base directory (#37558)
 * [GH-37560](https://github.com/apache/arrow/issues/37560) - [Python][Documentation] Replacing confusing batch size from 128Ki to 128_000 (#37605)
-* [GH-37574](https://github.com/apache/arrow/issues/37574) - [Python] Compatibilty with numpy 2.0 (#38040)
+* [GH-37574](https://github.com/apache/arrow/issues/37574) - [Python] Compatibility with numpy 2.0 (#38040)
 * [GH-37576](https://github.com/apache/arrow/issues/37576) - [R] Use `SafeCallIntoR()` to call garbage collector after a failed allocation (#37565)
 * [GH-37601](https://github.com/apache/arrow/issues/37601) - [C++][Parquet] Add missing GoogleMock dependency (#37602)
 * [GH-37608](https://github.com/apache/arrow/issues/37608) - [C++][Gandiva] TO_DATE function supports YYYY-MM and YYYY (#37609)
@@ -4092,7 +4092,7 @@
 * [GH-37730](https://github.com/apache/arrow/issues/37730) - [C#] throw OverflowException in DecimalUtility if fractionalPart is too large (#37731)
 * [GH-37735](https://github.com/apache/arrow/issues/37735) - [C++][FreeBSD] Suppress a shorten-64-to-32 warning (#38004)
 * [GH-37738](https://github.com/apache/arrow/issues/37738) - [Go][CI] Update Go version for verification (#37745)
-* [GH-37750](https://github.com/apache/arrow/issues/37750) - [R][C++] Add compatability with IntelLLVM (#37781)
+* [GH-37750](https://github.com/apache/arrow/issues/37750) - [R][C++] Add compatibility with IntelLLVM (#37781)
 * [GH-37767](https://github.com/apache/arrow/issues/37767) - [C++][CMake] Don't touch .git/index (#38003)
 * [GH-37771](https://github.com/apache/arrow/issues/37771) - [Go][Benchmarking] Update Conbench git info (#37772)
 * [GH-37803](https://github.com/apache/arrow/issues/37803) - [Python][CI] Pin setuptools_scm to fix release verification scripts (#37930)
@@ -9720,7 +9720,7 @@
 * [ARROW-8796](https://issues.apache.org/jira/browse/ARROW-8796) - [Rust] Allow parquet to be written directly to memory
 * [ARROW-8797](https://issues.apache.org/jira/browse/ARROW-8797) - [C++] Read RecordBatch in a different endian
 * [ARROW-8900](https://issues.apache.org/jira/browse/ARROW-8900) - [C++][Python] Expose Proxy Options as parameters for S3FileSystem
-* [ARROW-8919](https://issues.apache.org/jira/browse/ARROW-8919) - [C++][Compute][Dataset] Add Function::DispatchBest to accomodate implicit casts
+* [ARROW-8919](https://issues.apache.org/jira/browse/ARROW-8919) - [C++][Compute][Dataset] Add Function::DispatchBest to accommodate implicit casts
 * [ARROW-9128](https://issues.apache.org/jira/browse/ARROW-9128) - [C++] Implement string space trimming kernels: trim, ltrim, and rtrim
 * [ARROW-9149](https://issues.apache.org/jira/browse/ARROW-9149) - [C++] Improve configurability of RandomArrayGenerator::ArrayOf
 * [ARROW-9196](https://issues.apache.org/jira/browse/ARROW-9196) - [C++][Compute] All casts accept scalar and sliced inputs
@@ -10350,7 +10350,7 @@
 * [ARROW-10385](https://issues.apache.org/jira/browse/ARROW-10385) - [C++][Gandiva] Add support for LLVM 11
 * [ARROW-10389](https://issues.apache.org/jira/browse/ARROW-10389) - [Rust][DataFusion] Make the custom source implementation API more explicit
 * [ARROW-10392](https://issues.apache.org/jira/browse/ARROW-10392) - [C++][Gandiva] Avoid string copy while evaluating IN expression
-* [ARROW-10396](https://issues.apache.org/jira/browse/ARROW-10396) - [Rust][Parquet] Publically export SliceableCursor and FileSource
+* [ARROW-10396](https://issues.apache.org/jira/browse/ARROW-10396) - [Rust][Parquet] Publicly export SliceableCursor and FileSource
 * [ARROW-10398](https://issues.apache.org/jira/browse/ARROW-10398) - [Rust][Parquet] Re-Export parquet::record::api::Field
 * [ARROW-10400](https://issues.apache.org/jira/browse/ARROW-10400) - [C++] Propagate TLS client peer_identity when using mutual TLS
 * [ARROW-10402](https://issues.apache.org/jira/browse/ARROW-10402) - [Rust] Refactor array equality
@@ -15028,7 +15028,7 @@
 * [ARROW-5486](https://issues.apache.org/jira/browse/ARROW-5486) - [GLib] Add binding of gandiva::FunctionRegistry and related things
 * [ARROW-5488](https://issues.apache.org/jira/browse/ARROW-5488) - [R] Workaround when C++ lib not available
 * [ARROW-5490](https://issues.apache.org/jira/browse/ARROW-5490) - [C++] Remove ARROW_BOOST_HEADER_ONLY
-* [ARROW-5491](https://issues.apache.org/jira/browse/ARROW-5491) - [C++] Remove unecessary semicolons following MACRO definitions
+* [ARROW-5491](https://issues.apache.org/jira/browse/ARROW-5491) - [C++] Remove unnecessary semicolons following MACRO definitions
 * [ARROW-5492](https://issues.apache.org/jira/browse/ARROW-5492) - [R] Add "col_select" argument to read_* functions to read subset of columns
 * [ARROW-5495](https://issues.apache.org/jira/browse/ARROW-5495) - [C++] Update some dependency URLs from http to https
 * [ARROW-5496](https://issues.apache.org/jira/browse/ARROW-5496) - [R][CI] Fix relative paths in R codecov.io reporting
@@ -18140,7 +18140,7 @@
 * [ARROW-1347](https://issues.apache.org/jira/browse/ARROW-1347) - [JAVA] Return consistent child field name for List Vectors
 * [ARROW-1398](https://issues.apache.org/jira/browse/ARROW-1398) - [Python] No support reading columns of type decimal(19,4)
 * [ARROW-1409](https://issues.apache.org/jira/browse/ARROW-1409) - [Format] Remove page id from Buffer metadata, increment metadata version number
-* [ARROW-1431](https://issues.apache.org/jira/browse/ARROW-1431) - [Java] JsonFileReader doesn't intialize some vectors approperately 
+* [ARROW-1431](https://issues.apache.org/jira/browse/ARROW-1431) - [Java] JsonFileReader doesn't initialize some vectors appropriately
 * [ARROW-1436](https://issues.apache.org/jira/browse/ARROW-1436) - PyArrow Timestamps written to Parquet as INT96 appear in Spark as 'bigint'
 * [ARROW-1540](https://issues.apache.org/jira/browse/ARROW-1540) - Add NO_VALGRIND option to ADD_ARROW_TEST and disable valgrind in a few problematic tests
 * [ARROW-1541](https://issues.apache.org/jira/browse/ARROW-1541) - [C++] Fix race conditions in arrow_gpu with generated Flatbuffers files. Do not put generated files in source tree
