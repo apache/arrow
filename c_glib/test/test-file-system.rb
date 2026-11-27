@@ -58,4 +58,27 @@ class TestFileSystem < Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case(".ensure_finalized") do
+    def test_create_after_finalization
+      # Finalization affects the whole process, so isolate it from the test runner.
+      pid = spawn(RbConfig.ruby, "-e", <<-SCRIPT)
+require "gi"
+require "test/unit/assertions"
+
+include Test::Unit::Assertions
+
+Gio = GI.load("Gio")
+Arrow = GI.load("Arrow")
+
+Arrow::FileSystem.create("mock://")
+Arrow::FileSystem.ensure_finalized
+assert_raise(Arrow::Error::Invalid) do
+  Arrow::FileSystem.create("mock://")
+end
+      SCRIPT
+      _, status = Process.wait2(pid)
+      assert_predicate(status, :success?)
+    end
+  end
 end
