@@ -11,7 +11,7 @@ mypy==2.4.1
 pandas-stubs==3.1.0.261029
 pyright==1.1.414
 # The scipy extra installs the matching scipy, which the type stub tests import.
-scipy-stubs[scipy]==1.18.1.1
+scipy-stubs[scipy]==1.17.1.5
 ty==0.0.107
 types-cffi==2.1.0.20261122
 types-psutil==7.2.2.20261122
