@@ -248,6 +248,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         uint64_t max_rows_per_file
         uint64_t min_rows_per_group
         uint64_t max_rows_per_group
+        uint64_t max_rows_queued
 
     cdef cppclass CFileSystemDataset \
             "arrow::dataset::FileSystemDataset"(CDataset):

@@ -4588,6 +4588,57 @@ def test_write_dataset_min_rows_per_group(tempdir):
                 assert rows_per_batch <= max_rows_per_group
 
 
+def _row_group_sizes_per_file(base_dir):
+    return {
+        pathlib.Path(os.path.relpath(path, base_dir)).as_posix(): [
+            md.row_group(i).num_rows for i in range(md.num_row_groups)]
+        for path in sorted(ds.dataset(base_dir, format="parquet").files)
+        for md in [pq.ParquetFile(path).metadata]
+    }
+
+
+@pytest.mark.parquet
+def test_write_dataset_min_rows_per_group_single_file(tempdir):
+    # GH-55642: a single file reaches min_rows_per_group even when that is
+    # more rows than the writer would otherwise hold back
+    table = pa.table({"x": pa.array(range(100_000), type=pa.int32())})
+    ds.write_dataset(table.to_batches(max_chunksize=1_000), tempdir / "ds",
+                     schema=table.schema, format="parquet",
+                     min_rows_per_group=30_000, max_rows_per_group=30_000,
+                     max_rows_queued=40_000)
+    assert _row_group_sizes_per_file(tempdir / "ds") == {
+        "part-0.parquet": [30_000, 30_000, 30_000, 10_000]}
+
+
+@pytest.mark.parquet
+def test_write_dataset_min_rows_per_group_partitioned(tempdir):
+    # GH-55642: every partition reaches min_rows_per_group when
+    # max_rows_queued leaves room to hold that many rows for each of them
+    num_rows, num_parts, rows_per_group = 120_000, 4, 10_000
+    table = pa.table({
+        "x": pa.array(range(num_rows), type=pa.int32()),
+        "p": pa.array([i % num_parts for i in range(num_rows)], type=pa.int32()),
+    })
+    ds.write_dataset(table.to_batches(max_chunksize=1_000), tempdir / "ds",
+                     schema=table.schema, format="parquet",
+                     partitioning=["p"], partitioning_flavor="hive",
+                     min_rows_per_group=rows_per_group,
+                     max_rows_per_group=rows_per_group,
+                     max_rows_queued=4 * num_parts * rows_per_group,
+                     use_threads=False)
+    assert _row_group_sizes_per_file(tempdir / "ds") == {
+        f"p={p}/part-0.parquet": [rows_per_group] * 3 for p in range(num_parts)}
+
+
+def test_write_dataset_max_rows_queued_too_small(tempdir):
+    # GH-55642: rows held back for min_rows_per_group count as queued rows
+    table = pa.table({"x": pa.array(range(100), type=pa.int32())})
+    with pytest.raises(pa.ArrowInvalid, match="max_rows_queued"):
+        ds.write_dataset(table, tempdir / "ds", format="ipc",
+                         min_rows_per_group=50, max_rows_per_group=50,
+                         max_rows_queued=49)
+
+
 @pytest.mark.parquet
 def test_write_dataset_max_rows_per_group(tempdir):
     directory = tempdir / 'ds'

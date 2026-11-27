@@ -29,9 +29,6 @@ namespace arrow {
 namespace dataset {
 namespace internal {
 
-// This lines up with our other defaults in the scanner and execution plan
-constexpr uint64_t kDefaultDatasetWriterMaxRowsQueued = 8 * 1024 * 1024;
-
 /// \brief Utility class that manages a set of writers to different paths
 ///
 /// Writers may be closed and reopened (and a new file created) based on the dataset
@@ -46,14 +43,13 @@ class ARROW_DS_EXPORT DatasetWriter {
   /// Will fail if basename_template is invalid or if there is existing data and
   /// existing_data_behavior is kError
   ///
-  /// \param write_options options to control how the data should be written
-  /// \param max_rows_queued max # of rows allowed to be queued before the dataset_writer
-  ///                        will ask for backpressure
+  /// \param write_options options to control how the data should be written, including
+  ///                      max_rows_queued, the max # of rows allowed to be queued before
+  ///                      the dataset_writer will ask for backpressure
   static Result<std::unique_ptr<DatasetWriter>> Make(
       FileSystemDatasetWriteOptions write_options, util::AsyncTaskScheduler* scheduler,
       std::function<void()> pause_callback, std::function<void()> resume_callback,
-      std::function<void()> finish_callback,
-      uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued);
+      std::function<void()> finish_callback);
 
   ~DatasetWriter();
 
@@ -91,8 +87,7 @@ class ARROW_DS_EXPORT DatasetWriter {
   DatasetWriter(FileSystemDatasetWriteOptions write_options,
                 util::AsyncTaskScheduler* scheduler, std::function<void()> pause_callback,
                 std::function<void()> resume_callback,
-                std::function<void()> finish_callback,
-                uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued);
+                std::function<void()> finish_callback);
 
   class DatasetWriterImpl;
   std::unique_ptr<DatasetWriterImpl> impl_;

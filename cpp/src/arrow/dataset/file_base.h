@@ -385,6 +385,11 @@ class ARROW_DS_EXPORT FileWriter {
   std::optional<int64_t> bytes_written_;
 };
 
+/// \brief The default for FileSystemDatasetWriteOptions::max_rows_queued
+///
+/// This lines up with our other defaults in the scanner and execution plan
+constexpr uint64_t kDefaultDatasetWriterMaxRowsQueued = 8 * 1024 * 1024;
+
 /// \brief Options for writing a dataset.
 struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// Options for individual fragment writing.
@@ -434,6 +439,14 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// and only write the row groups to the disk when sufficient rows have accumulated.
   /// The final row group size may be less than this value and other options such as
   /// `max_open_files` or `max_rows_per_file` lead to smaller row group sizes.
+  ///
+  /// Rows waiting for a row group to fill are held in memory.  The dataset writer
+  /// limits how many rows it holds this way, across all files being written, to the
+  /// larger of `max_rows_queued` / 4 and this value.  When the limit is reached the file
+  /// holding the most waiting rows has them written out as a smaller row group.  A
+  /// single file therefore always reaches this value, but a partitioned write may not
+  /// unless `max_rows_queued` is 0 or at least 4 times this value multiplied by the
+  /// number of partitions being written at the same time.
   uint64_t min_rows_per_group = 0;
 
   /// If greater than 0 then the dataset writer may split up large incoming batches into
@@ -441,6 +454,12 @@ struct ARROW_DS_EXPORT FileSystemDatasetWriteOptions {
   /// set or else you may end up with very small row groups (e.g. if the incoming row
   /// group size is just barely larger than this value).
   uint64_t max_rows_per_group = 1 << 20;
+
+  /// The maximum number of rows the dataset writer will hold in memory, either waiting
+  /// to form a row group or waiting to be written to disk, before it applies
+  /// backpressure.  If 0 then there is no limit, on queued rows or on rows waiting to
+  /// form a row group.  Otherwise this must be at least `min_rows_per_group`.
+  uint64_t max_rows_queued = kDefaultDatasetWriterMaxRowsQueued;
 
   /// Controls what happens if an output directory already exists.
   ExistingDataBehavior existing_data_behavior = ExistingDataBehavior::kError;

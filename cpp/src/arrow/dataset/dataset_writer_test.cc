@@ -104,10 +104,11 @@ class DatasetWriterTestFixture : public testing::Test {
 
   std::unique_ptr<DatasetWriter> MakeDatasetWriter(
       uint64_t max_rows = kDefaultDatasetWriterMaxRowsQueued) {
+    write_options_.max_rows_queued = max_rows;
     EXPECT_OK_AND_ASSIGN(auto dataset_writer,
                          DatasetWriter::Make(
                              write_options_, scheduler_, [this] { paused_ = true; },
-                             [this] { paused_ = false; }, [] {}, max_rows));
+                             [this] { paused_ = false; }, [] {}));
     return dataset_writer;
   }
 
@@ -464,6 +465,85 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
   }
   EndWriterChecked(dataset_writer.get());
   AssertCreatedData(expected_files);
+}
+
+TEST_F(DatasetWriterTestFixture, MinRowGroupLargerThanStagingLimit) {
+  // GH-55642: a single file should reach min_rows_per_group even when that is more
+  // rows than the dataset writer would otherwise be willing to stage
+  write_options_.min_rows_per_group = 60;
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/100);
+  for (int i = 0; i < 12; i++) {
+    dataset_writer->WriteRecordBatch(MakeBatch(10), "");
+  }
+  EndWriterChecked(dataset_writer.get());
+  AssertCreatedData({{"testdir/chunk-0.arrow", 0, 120, 2}});
+}
+
+TEST_F(DatasetWriterTestFixture, MinRowGroupEvictsLargestStaged) {
+  // GH-55642: when too many rows are staged the file with the most staged rows should
+  // be written out, not the file that happened to receive the latest batch
+  write_options_.min_rows_per_group = 50;
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/100);
+  dataset_writer->WriteRecordBatch(MakeBatch(30), "a");
+  for (int i = 0; i < 4; i++) {
+    dataset_writer->WriteRecordBatch(MakeBatch(5), "b");
+  }
+  EndWriterChecked(dataset_writer.get());
+  AssertCreatedData(
+      {{"testdir/a/chunk-0.arrow", 0, 30, 1}, {"testdir/b/chunk-0.arrow", 30, 20, 1}});
+}
+
+TEST_F(DatasetWriterTestFixture, MinRowGroupManyFilesWithRoomToStage) {
+  // GH-55642: every file should reach min_rows_per_group when max_rows_queued leaves
+  // enough room to stage min_rows_per_group rows for each of them
+  write_options_.min_rows_per_group = 50;
+  write_options_.max_rows_per_group = 50;
+  // 4 files * 50 rows = 200 rows staged at most, the staging limit is 1000 / 4
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/1000);
+  for (int i = 0; i < 30; i++) {
+    for (int file = 0; file < 4; file++) {
+      dataset_writer->WriteRecordBatch(MakeBatch(0, 5), std::to_string(file));
+    }
+  }
+  EndWriterChecked(dataset_writer.get());
+  for (int file = 0; file < 4; file++) {
+    auto written = FindFile("testdir/" + std::to_string(file) + "/chunk-0.arrow");
+    ASSERT_TRUE(written.has_value());
+    int num_batches = 0;
+    auto batch = ReadAsBatch(written->data, &num_batches);
+    ASSERT_EQ(150, batch->num_rows());
+    ASSERT_EQ(3, num_batches);
+  }
+}
+
+TEST_F(DatasetWriterTestFixture, MinRowGroupUnlimitedRowsQueued) {
+  // GH-55642: with no limit on queued rows there is no limit on staged rows either
+  write_options_.min_rows_per_group = 50;
+  write_options_.max_rows_per_group = 50;
+  auto dataset_writer = MakeDatasetWriter(/*max_rows=*/0);
+  for (int i = 0; i < 30; i++) {
+    for (int file = 0; file < 8; file++) {
+      dataset_writer->WriteRecordBatch(MakeBatch(0, 5), std::to_string(file));
+    }
+  }
+  EndWriterChecked(dataset_writer.get());
+  for (int file = 0; file < 8; file++) {
+    auto written = FindFile("testdir/" + std::to_string(file) + "/chunk-0.arrow");
+    ASSERT_TRUE(written.has_value());
+    int num_batches = 0;
+    auto batch = ReadAsBatch(written->data, &num_batches);
+    ASSERT_EQ(150, batch->num_rows());
+    ASSERT_EQ(3, num_batches);
+  }
+}
+
+TEST_F(DatasetWriterTestFixture, MinRowGroupLargerThanMaxRowsQueued) {
+  // GH-55642: rows staged to reach min_rows_per_group count as queued rows so
+  // max_rows_queued can not be smaller
+  write_options_.min_rows_per_group = 60;
+  write_options_.max_rows_queued = 59;
+  ASSERT_RAISES(Invalid,
+                DatasetWriter::Make(write_options_, scheduler_, [] {}, [] {}, [] {}));
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
