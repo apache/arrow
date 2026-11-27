@@ -83,7 +83,6 @@ Here are steps how `@ursabot` benchmark builds use `benchmarks.env` and `hooks.s
             ninja-build \
             pkg-config \
             protobuf-compiler \
-            rapidjson-dev \
             tzdata \
             wget && \
         apt-get clean && \

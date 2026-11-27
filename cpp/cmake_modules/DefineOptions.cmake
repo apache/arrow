@@ -365,7 +365,7 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_JEMALLOC "Build the Arrow jemalloc-based allocator" OFF)
 
-  define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" OFF)
+  define_option(ARROW_JSON "Build Arrow with JSON support" OFF)
 
   define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" ON)
 

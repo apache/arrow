@@ -287,7 +287,6 @@ else
     -DPARQUET_BUILD_EXECUTABLES="${PARQUET_BUILD_EXECUTABLES:-OFF}" \
     -DPARQUET_REQUIRE_ENCRYPTION="${PARQUET_REQUIRE_ENCRYPTION:-ON}" \
     -DProtobuf_SOURCE="${Protobuf_SOURCE:-}" \
-    -DRapidJSON_SOURCE="${RapidJSON_SOURCE:-}" \
     -Dre2_SOURCE="${re2_SOURCE:-}" \
     -Dsimdjson_SOURCE="${simdjson_SOURCE:-}" \
     -DSnappy_SOURCE="${Snappy_SOURCE:-}" \

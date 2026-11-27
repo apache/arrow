@@ -124,7 +124,6 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-lz4 \
      mingw-w64-${MSYSTEM_CARCH}-protobuf \
      mingw-w64-${MSYSTEM_CARCH}-python3-numpy \
-     mingw-w64-${MSYSTEM_CARCH}-rapidjson \
      mingw-w64-${MSYSTEM_CARCH}-snappy \
      mingw-w64-${MSYSTEM_CARCH}-thrift \
      mingw-w64-${MSYSTEM_CARCH}-zlib \
@@ -504,7 +503,6 @@ The build system supports a number of third-party dependencies
   * ``ORC``: for Apache ORC format support
   * ``re2``: for compute kernels and Gandiva, a dependency of gRPC
   * ``Protobuf``: Google Protocol Buffers, for data serialization
-  * ``RapidJSON``: for data serialization
   * ``Snappy``: for data compression
   * ``Thrift``: Apache Thrift, for data serialization
   * ``uriparser``: for URI parsing, used by core Arrow
