@@ -787,6 +787,9 @@ class ColumnWriterImpl {
  protected:
   virtual std::shared_ptr<Buffer> GetValuesBuffer() = 0;
 
+  // Encoding of the buffer returned by the most recent GetValuesBuffer()
+  virtual Encoding::type GetValuesEncoding() const = 0;
+
   // Serializes Dictionary Page if enabled
   virtual void WriteDictionaryPage() = 0;
 
@@ -814,10 +817,10 @@ class ColumnWriterImpl {
 
   void BuildDataPageV1(int64_t definition_levels_rle_size,
                        int64_t repetition_levels_rle_size, int64_t uncompressed_size,
-                       const std::shared_ptr<Buffer>& values);
+                       const std::shared_ptr<Buffer>& values, Encoding::type encoding);
   void BuildDataPageV2(int64_t definition_levels_rle_size,
                        int64_t repetition_levels_rle_size, int64_t uncompressed_size,
-                       const std::shared_ptr<Buffer>& values);
+                       const std::shared_ptr<Buffer>& values, Encoding::type encoding);
 
   // Serializes Data Pages
   void WriteDataPage(const DataPage& page) {
@@ -968,6 +971,7 @@ void ColumnWriterImpl::AddDataPage() {
   int64_t repetition_levels_rle_size = 0;
 
   std::shared_ptr<Buffer> values = GetValuesBuffer();
+  const Encoding::type encoding = GetValuesEncoding();
   bool is_v1_data_page = properties_->data_page_version() == ParquetDataPageVersion::V1;
 
   if (descr_->max_definition_level() > 0) {
@@ -987,10 +991,10 @@ void ColumnWriterImpl::AddDataPage() {
 
   if (is_v1_data_page) {
     BuildDataPageV1(definition_levels_rle_size, repetition_levels_rle_size,
-                    uncompressed_size, values);
+                    uncompressed_size, values, encoding);
   } else {
     BuildDataPageV2(definition_levels_rle_size, repetition_levels_rle_size,
-                    uncompressed_size, values);
+                    uncompressed_size, values, encoding);
   }
 
   // Re-initialize the sinks for next Page.
@@ -1004,7 +1008,8 @@ void ColumnWriterImpl::AddDataPage() {
 void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
                                        int64_t repetition_levels_rle_size,
                                        int64_t uncompressed_size,
-                                       const std::shared_ptr<Buffer>& values) {
+                                       const std::shared_ptr<Buffer>& values,
+                                       Encoding::type encoding) {
   auto uncompressed_data = values;
   if (definition_levels_rle_size > 0 || repetition_levels_rle_size > 0) {
     // Underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
@@ -1037,14 +1042,14 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
         auto compressed_data_copy,
         compressed_data->CopySlice(0, compressed_data->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV1>(
-        compressed_data_copy, num_values, encoding_, Encoding::RLE, Encoding::RLE,
+        compressed_data_copy, num_values, encoding, Encoding::RLE, Encoding::RLE,
         uncompressed_size, std::move(page_stats), first_row_index,
         std::move(page_size_stats));
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
 
     data_pages_.push_back(std::move(page_ptr));
   } else {  // Eagerly write pages
-    DataPageV1 page(compressed_data, num_values, encoding_, Encoding::RLE, Encoding::RLE,
+    DataPageV1 page(compressed_data, num_values, encoding, Encoding::RLE, Encoding::RLE,
                     uncompressed_size, std::move(page_stats), first_row_index,
                     std::move(page_size_stats));
     WriteDataPage(page);
@@ -1054,7 +1059,8 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
 void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
                                        int64_t repetition_levels_rle_size,
                                        int64_t uncompressed_size,
-                                       const std::shared_ptr<Buffer>& values) {
+                                       const std::shared_ptr<Buffer>& values,
+                                       Encoding::type encoding) {
   // Compress the values if needed. Repetition and definition levels are uncompressed in
   // V2.
   bool page_is_compressed = false;
@@ -1097,13 +1103,13 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
   // if dictionary encoding has fallen back to PLAIN
   if (has_dictionary_ && !fallback_) {  // Save pages until end of dictionary encoding
     std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV2>(
-        combined, num_values, null_count, num_rows, encoding_, def_levels_byte_length,
+        combined, num_values, null_count, num_rows, encoding, def_levels_byte_length,
         rep_levels_byte_length, uncompressed_size, page_is_compressed,
         std::move(page_stats), first_row_index, std::move(page_size_stats));
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
     data_pages_.push_back(std::move(page_ptr));
   } else {
-    DataPageV2 page(combined, num_values, null_count, num_rows, encoding_,
+    DataPageV2 page(combined, num_values, null_count, num_rows, encoding,
                     def_levels_byte_length, rep_levels_byte_length, uncompressed_size,
                     page_is_compressed, std::move(page_stats), first_row_index,
                     std::move(page_size_stats));
@@ -1531,6 +1537,13 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
  protected:
   std::shared_ptr<Buffer> GetValuesBuffer() override {
     return current_encoder_->FlushValues();
+  }
+
+  // Dictionary index pages carry the configured index encoding. Other encoders
+  // may write a page in an encoding other than their own, so ask them.
+  Encoding::type GetValuesEncoding() const override {
+    return current_dict_encoder_ != nullptr ? encoding_
+                                            : current_encoder_->flushed_encoding();
   }
 
   // Internal function to handle direct writing of ::arrow::DictionaryArray,

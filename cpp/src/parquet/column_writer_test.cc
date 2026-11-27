@@ -18,6 +18,7 @@
 #include <cmath>
 #include <memory>
 #include <optional>
+#include <random>
 #include <utility>
 #include <vector>
 
@@ -191,6 +192,11 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     this->SetUpSchema(Repetition::OPTIONAL);
     this->descr_ = this->schema_.Column(0);
     this->GenerateData(SMALL_SIZE);
+    // Multiples of 0.25 keep the page in ALP.
+    for (int i = 0; i < SMALL_SIZE; ++i) {
+      this->values_[i] =
+          static_cast<typename TestType::c_type>(static_cast<double>(i * 37 % 997) / 4.0);
+    }
 
     // The nulls come first, so the values the writer consumes are the leading
     // SMALL_SIZE - num_nulls entries of `values_`.
@@ -208,6 +214,9 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     writer->Close();
 
     ASSERT_EQ(SMALL_SIZE, this->metadata_num_values());
+    ASSERT_THAT(this->metadata_encodings(), ::testing::Contains(Encoding::ALP));
+    ASSERT_THAT(this->metadata_encodings(),
+                ::testing::Not(::testing::Contains(Encoding::PLAIN)));
 
     this->ReadColumn();
     const int64_t num_expected = SMALL_SIZE - num_nulls;
@@ -2619,6 +2628,66 @@ TEST_F(TestFloatValuesWriter, AlpAllNullDataPageV2) {
 
 TEST_F(TestDoubleValuesWriter, AlpAllNullDataPageV2) {
   this->TestAlpOptionalDataPageV2(/*num_nulls=*/SMALL_SIZE);
+}
+
+// A page whose ALP encoding would be larger than PLAIN is written as PLAIN, and its
+// page header says so. Here decimal pages, which ALP compresses, alternate with
+// pages of full-precision values, which it cannot.
+TEST(TestAlpColumnWriter, PageHeadersRecordEachPageEncoding) {
+  constexpr int kPageSize = 20000;
+  constexpr int kNumPages = 4;
+  std::mt19937_64 rng(42);
+  std::uniform_real_distribution<double> dist(-1.0, 1.0);
+  std::vector<double> values(kPageSize * kNumPages);
+  for (size_t i = 0; i < values.size(); ++i) {
+    values[i] =
+        (i / kPageSize) % 2 == 0 ? static_cast<double>(i % 1000) / 100.0 : dist(rng);
+  }
+
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED,
+                      {PrimitiveNode::Make("x", Repetition::REQUIRED, Type::DOUBLE)}));
+  for (const auto data_page_version :
+       {ParquetDataPageVersion::V1, ParquetDataPageVersion::V2}) {
+    SCOPED_TRACE(static_cast<int>(data_page_version));
+    auto properties = WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->encoding(Encoding::ALP)
+                          ->max_rows_per_page(kPageSize)
+                          ->data_page_version(data_page_version)
+                          ->build();
+    auto sink = CreateOutputStream();
+    auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
+    auto col_writer =
+        static_cast<DoubleWriter*>(file_writer->AppendRowGroup()->NextColumn());
+    col_writer->WriteBatch(static_cast<int64_t>(values.size()), nullptr, nullptr,
+                           values.data());
+    file_writer->Close();
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+    auto file_reader = ParquetFileReader::Open(
+        std::make_shared<::arrow::io::BufferReader>(buffer), default_reader_properties());
+    auto page_reader = file_reader->RowGroup(0)->GetColumnPageReader(0);
+    std::vector<Encoding::type> page_encodings;
+    while (auto page = page_reader->NextPage()) {
+      page_encodings.push_back(static_cast<const DataPage&>(*page).encoding());
+    }
+    EXPECT_THAT(page_encodings, ::testing::ElementsAre(Encoding::ALP, Encoding::PLAIN,
+                                                       Encoding::ALP, Encoding::PLAIN));
+
+    auto column_reader =
+        std::static_pointer_cast<DoubleReader>(file_reader->RowGroup(0)->Column(0));
+    std::vector<double> read_back(values.size());
+    int64_t total_read = 0;
+    while (column_reader->HasNext()) {
+      int64_t values_read = 0;
+      column_reader->ReadBatch(static_cast<int64_t>(values.size()) - total_read, nullptr,
+                               nullptr, read_back.data() + total_read, &values_read);
+      total_read += values_read;
+    }
+    ASSERT_EQ(static_cast<int64_t>(values.size()), total_read);
+    EXPECT_EQ(values, read_back);
+  }
 }
 
 }  // namespace test
