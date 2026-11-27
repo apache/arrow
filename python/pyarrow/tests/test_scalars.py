@@ -542,12 +542,12 @@ def test_day_time_and_month_interval():
     arr = pc.month_interval_between(arr1, arr2)
     assert isinstance(arr[0].as_py(), int)
     assert arr[0].as_py() == 4
-    assert arr[1].as_py(maps_as_pydicts="strict") == None
+    assert arr[1].as_py(maps_as_pydicts="strict") is None
 
     arr = pc.day_time_interval_between(arr1, arr2)
     assert isinstance(arr[0].as_py(), tuple)
     assert arr[0].as_py() == (125, 5400000)
-    assert arr[1].as_py(maps_as_pydicts="strict") == None
+    assert arr[1].as_py(maps_as_pydicts="strict") is None
 
 
 def test_month_day_nano_interval():

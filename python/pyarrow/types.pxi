@@ -4396,11 +4396,11 @@ def day_time_interval():
     Examples
     --------
     Create an instance of an day_time_interval type:
-    
+
     >>> import pyarrow as pa
     >>> pa.day_time_interval()
     DataType(day_time_interval)
-    
+
     The type can't be created from Python values yet, but
     compute functions return it:
 
