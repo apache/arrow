@@ -250,31 +250,51 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   //@{
   // @name FileInterface
   Status Close() override {
-    ARROW_RETURN_NOT_OK(InitializeStream());
-    return stream_->Close();
+    closed_ = true;
+    if (stream_) {
+      return stream_->Close();
+    }
+    return Status::OK();
   }
   Status Abort() override {
-    ARROW_RETURN_NOT_OK(InitializeStream());
-    return stream_->Abort();
+    closed_ = true;
+    if (stream_) {
+      return stream_->Abort();
+    }
+    return Status::OK();
   }
   Result<int64_t> Tell() const override {
-    ARROW_RETURN_NOT_OK(InitializeStream());
-    return stream_->TellOr(metadata_.size());
+    if (closed()) return Status::Invalid("Cannot use Tell() on a closed stream");
+    if (!stream_) {
+      return offset_;
+    }
+    return stream_->TellOr(file_size());
   }
-  bool closed() const override {
-    auto status = InitializeStream();
-    if (!status.ok()) return true;
-    return stream_->closed();
-  }
+  bool closed() const override { return closed_ || (stream_ && stream_->closed()); }
   //@}
 
   //@{
   // @name Readable
   Result<int64_t> Read(int64_t nbytes, void* out) override {
+    if (closed()) return Status::Invalid("Cannot read from a closed stream");
+    if (nbytes < 0) {
+      return Status::Invalid("Cannot read a negative number of bytes");
+    }
+    if (nbytes == 0 || (!stream_ && offset_ == file_size())) {
+      return 0;
+    }
     ARROW_RETURN_NOT_OK(InitializeStream());
     return stream_->Read(nbytes, out);
   }
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    if (closed()) return Status::Invalid("Cannot read from a closed stream");
+    if (nbytes < 0) {
+      return Status::Invalid("Cannot read a negative number of bytes");
+    }
+    if (nbytes == 0 || (!stream_ && offset_ == file_size())) {
+      ARROW_ASSIGN_OR_RAISE(auto buffer, arrow::AllocateResizableBuffer(0));
+      return std::shared_ptr<Buffer>(std::move(buffer));
+    }
     ARROW_RETURN_NOT_OK(InitializeStream());
     return stream_->Read(nbytes);
   }
@@ -289,7 +309,7 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
 
   //@{
   // @name RandomAccessFile
-  Result<int64_t> GetSize() override { return metadata_.size(); }
+  Result<int64_t> GetSize() override { return file_size(); }
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
     if (closed()) return Status::Invalid("Cannot read from closed file");
     std::shared_ptr<io::InputStream> stream;
@@ -311,23 +331,34 @@ class GcsRandomAccessFile : public arrow::io::RandomAccessFile {
   // from Seekable
   Status Seek(int64_t position) override {
     if (closed()) return Status::Invalid("Cannot seek in a closed file");
-    ARROW_ASSIGN_OR_RAISE(
-        stream_, factory_(gcs::Generation(metadata_.generation()), gcs::ReadRange(),
-                          gcs::ReadFromOffset(position)));
+    if (position < 0) {
+      return Status::Invalid("Cannot seek to negative position ", position);
+    }
+    if (position > file_size()) {
+      return Status::Invalid("Cannot seek past end of file (position = ", position,
+                             ", file size = ", file_size(), ")");
+    }
+    stream_.reset();
+    offset_ = position;
     return Status::OK();
   }
 
  private:
+  int64_t file_size() const { return static_cast<int64_t>(metadata_.size()); }
+
   Status InitializeStream() const {
     if (!stream_) {
+      auto offset = offset_ == 0 ? gcs::ReadFromOffset() : gcs::ReadFromOffset(offset_);
       ARROW_ASSIGN_OR_RAISE(stream_, factory_(gcs::Generation(metadata_.generation()),
-                                              gcs::ReadRange(), gcs::ReadFromOffset()));
+                                              gcs::ReadRange(), offset));
     }
     return Status::OK();
   }
   InputStreamFactory factory_;
   gcs::ObjectMetadata metadata_;
   std::shared_ptr<GcsInputStream> mutable stream_;
+  int64_t offset_ = 0;
+  bool closed_ = false;
 };
 
 }  // namespace

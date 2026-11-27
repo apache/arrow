@@ -1448,6 +1448,79 @@ TEST_F(GcsIntegrationTest, OpenInputFileClosed) {
   ASSERT_RAISES(Invalid, stream->Seek(2));
 }
 
+TEST_F(GcsIntegrationTest, OpenInputFileSeekToEnd) {
+  ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(TestGcsOptions()));
+
+  const auto path =
+      internal::ConcatAbstractPath(PreexistingBucketName(), "seek-eof-object.txt");
+  CreateFile(fs.get(), path, "abc");
+
+  ASSERT_OK_AND_ASSIGN(auto file, fs->OpenInputFile(path));
+  ASSERT_FALSE(file->closed());
+  ASSERT_OK_AND_EQ(3, file->GetSize());
+  ASSERT_OK_AND_EQ(0, file->Tell());
+  ASSERT_OK_AND_EQ(0, file->Read(0, nullptr));
+
+  ASSERT_OK(file->Seek(3));
+  ASSERT_FALSE(file->closed());
+  ASSERT_OK_AND_EQ(3, file->Tell());
+  std::array<char, 4> raw_buf{};
+  ASSERT_OK_AND_EQ(0, file->Read(raw_buf.size(), raw_buf.data()));
+  ASSERT_OK_AND_ASSIGN(auto buffer, file->Read(raw_buf.size()));
+  AssertBufferEqual(*buffer, "");
+  ASSERT_OK_AND_EQ(3, file->Tell());
+
+  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(0, 1));
+  AssertBufferEqual(*buffer, "a");
+  ASSERT_OK_AND_EQ(3, file->Tell());
+
+  ASSERT_OK(file->Seek(1));
+  ASSERT_OK_AND_EQ(1, file->Tell());
+  ASSERT_OK_AND_ASSIGN(buffer, file->Read(1));
+  AssertBufferEqual(*buffer, "b");
+  ASSERT_OK_AND_EQ(2, file->Tell());
+
+  ASSERT_RAISES(Invalid, file->Seek(-1));
+  ASSERT_RAISES(Invalid, file->Seek(4));
+  ASSERT_OK_AND_EQ(2, file->Tell());
+
+  ASSERT_OK(file->Seek(2));
+  ASSERT_OK_AND_ASSIGN(buffer, file->Read(2));
+  AssertBufferEqual(*buffer, "c");
+  ASSERT_OK_AND_EQ(3, file->Tell());
+
+  ASSERT_OK(file->Close());
+  ASSERT_TRUE(file->closed());
+  ASSERT_RAISES(Invalid, file->Seek(0));
+}
+
+TEST_F(GcsIntegrationTest, OpenInputFileEmpty) {
+  ASSERT_OK_AND_ASSIGN(auto fs, GcsFileSystem::Make(TestGcsOptions()));
+
+  const auto path =
+      internal::ConcatAbstractPath(PreexistingBucketName(), "empty-input-file.txt");
+  CreateFile(fs.get(), path, "");
+
+  ASSERT_OK_AND_ASSIGN(auto file, fs->OpenInputFile(path));
+  ASSERT_FALSE(file->closed());
+  ASSERT_OK_AND_EQ(0, file->GetSize());
+  ASSERT_OK_AND_EQ(0, file->Tell());
+
+  std::array<char, 4> raw_buf{};
+  ASSERT_OK_AND_EQ(0, file->Read(raw_buf.size(), raw_buf.data()));
+  ASSERT_OK_AND_ASSIGN(auto buffer, file->Read(raw_buf.size()));
+  AssertBufferEqual(*buffer, "");
+
+  ASSERT_OK(file->Seek(0));
+  ASSERT_OK_AND_EQ(0, file->Tell());
+  ASSERT_RAISES(Invalid, file->Seek(-1));
+  ASSERT_RAISES(Invalid, file->Seek(1));
+
+  ASSERT_OK(file->Close());
+  ASSERT_TRUE(file->closed());
+  ASSERT_RAISES(Invalid, file->Seek(0));
+}
+
 TEST_F(GcsIntegrationTest, TestFileSystemFromUri) {
   // Smoke test for FileSystemFromUri
   std::string path;
