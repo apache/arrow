@@ -980,6 +980,7 @@ Result<std::unique_ptr<Message>> GetTensorMessage(const Tensor& tensor,
 
   IpcWriteOptions options;
   options.alignment = kTensorAlignment;
+  options.memory_pool = pool;
   std::shared_ptr<Buffer> metadata;
   ARROW_ASSIGN_OR_RAISE(metadata,
                         internal::WriteTensorMessage(*tensor_to_write, 0, options));
@@ -990,10 +991,12 @@ namespace internal {
 
 class SparseTensorSerializer {
  public:
-  SparseTensorSerializer(int64_t buffer_start_offset, IpcPayload* out)
+  SparseTensorSerializer(int64_t buffer_start_offset, MemoryPool* pool, IpcPayload* out)
       : out_(out),
         buffer_start_offset_(buffer_start_offset),
-        options_(IpcWriteOptions::Defaults()) {}
+        options_(IpcWriteOptions::Defaults()) {
+    options_.memory_pool = pool;
+  }
 
   ~SparseTensorSerializer() = default;
 
@@ -1103,7 +1106,7 @@ class SparseTensorSerializer {
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
                          int32_t* metadata_length, int64_t* body_length) {
   IpcPayload payload;
-  internal::SparseTensorSerializer writer(0, &payload);
+  internal::SparseTensorSerializer writer(0, default_memory_pool(), &payload);
   RETURN_NOT_OK(writer.Assemble(sparse_tensor));
 
   *body_length = payload.body_length;
@@ -1112,7 +1115,7 @@ Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* ds
 
 Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* pool,
                               IpcPayload* out) {
-  internal::SparseTensorSerializer writer(0, out);
+  internal::SparseTensorSerializer writer(0, pool, out);
   return writer.Assemble(sparse_tensor);
 }
 
@@ -1664,6 +1667,7 @@ Result<std::shared_ptr<Buffer>> SerializeSchema(const Schema& schema, MemoryPool
   ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create(1024, pool));
 
   auto options = IpcWriteOptions::Defaults();
+  options.memory_pool = pool;
   const bool is_file_format = false;  // indifferent as we don't write dictionaries
   internal::IpcFormatWriter writer(
       std::make_unique<internal::PayloadStreamWriter>(stream.get()), schema, options,
