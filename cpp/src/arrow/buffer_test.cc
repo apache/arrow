@@ -21,6 +21,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -807,6 +808,7 @@ TEST(TestBufferBuilder, FinishEmpty) {
   for (const bool shrink_to_fit : {true, false}) {
     ARROW_SCOPED_TRACE("shrink_to_fit = ", shrink_to_fit);
     BufferBuilder builder;
+    ASSERT_OK(builder.Append(std::string_view{}));
     ASSERT_EQ(0, builder.length());
     ASSERT_EQ(0, builder.capacity());
 
@@ -818,6 +820,7 @@ TEST(TestBufferBuilder, FinishEmpty) {
     ARROW_SCOPED_TRACE("shrink_to_fit = ", shrink_to_fit);
     BufferBuilder builder;
     ASSERT_OK(builder.Reserve(1024));
+    builder.UnsafeAppend(std::string_view{});
     ASSERT_EQ(0, builder.length());
     ASSERT_EQ(1024, builder.capacity());
 
