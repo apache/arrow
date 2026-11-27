@@ -167,6 +167,9 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override;
 
+  using ArrayBuilder::AppendScalar;
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
+
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
  private:
@@ -247,6 +250,9 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
 
   Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override;
+
+  using ArrayBuilder::AppendScalar;
+  Status AppendScalar(const Scalar& scalar, int64_t n_repeats) override;
 };
 
 /// @}
