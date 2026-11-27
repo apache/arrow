@@ -406,7 +406,12 @@ BasicDecimal128& BasicDecimal128::Negate() {
   return *this;
 }
 
-BasicDecimal128& BasicDecimal128::Abs() { return *this < 0 ? Negate() : *this; }
+BasicDecimal128& BasicDecimal128::Abs() {
+  if (IsNegative()) {
+    Negate();
+  }
+  return *this;
+}
 
 BasicDecimal128 BasicDecimal128::Abs(const BasicDecimal128& in) {
   BasicDecimal128 result(in);
