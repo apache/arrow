@@ -1459,7 +1459,7 @@ ARROW_EXPORT
 bool HasDecimal(const std::vector<TypeHolder>& types);
 
 ARROW_EXPORT
-void PromoteIntegerForDurationArithmetic(std::vector<TypeHolder>* types);
+void PromoteNumericForDurationArithmetic(std::vector<TypeHolder>* types);
 
 // END of DispatchBest helpers
 // ----------------------------------------------------------------------
