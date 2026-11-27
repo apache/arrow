@@ -616,6 +616,51 @@ Status SwissTable::map_new_keys(uint32_t num_ids, uint16_t* ids, const uint32_t*
   ARROW_DCHECK(static_cast<int>(num_ids) <= (1 << log_minibatch_));
   ARROW_DCHECK(static_cast<int>(max_id + 1) <= (1 << log_minibatch_));
 
+  // --- Optimization: Pre-grow the hash table if we estimate that this batch of new
+  // keys would trigger many individual grow_double calls. When num_ids is large (e.g.,
+  // every row in a minibatch is a new key) and the hash table is still small, the
+  // original do-while loop would call grow_double once per capacity threshold, resulting
+  // in O(log(num_final_slots)) individual grows, each reprocessing all existing entries.
+  // Instead, grow to the estimated required capacity upfront so map_new_keys_helper can
+  // insert all new keys without repeated resize breaks.
+  {
+    // Conservative estimate: assume all num_ids are genuinely new (best upper bound).
+    int64_t new_total =
+        static_cast<int64_t>(num_inserted_) + static_cast<int64_t>(num_ids);
+
+    // Find the smallest log_blocks whose load-factor capacity strictly exceeds
+    // new_total (one above the exact count). Using a strict greater-than avoids a
+    // corner case where capacity == new_total would still let map_new_keys_helper
+    // trigger an out_of_capacity stop (which fires when num_inserted_ ==
+    // num_groups_limit).
+    //
+    // Mirrors num_groups_for_resize():
+    //   small tables (log_blocks <= 9): 50% load factor
+    //   large tables (log_blocks > 9):  75% load factor
+    int target_log_blocks = log_blocks_;
+    while (target_log_blocks < 31) {
+      int64_t num_slots = num_slots_from_log_blocks(target_log_blocks);
+      int64_t capacity;
+      if (target_log_blocks <= 9) {
+        capacity = num_slots / 2;
+      } else {
+        capacity = num_slots * 3 / 4;
+      }
+      if (capacity > new_total) break;
+      ++target_log_blocks;
+    }
+
+    // Only pre-grow if it actually saves work: more than one grow_double would
+    // otherwise be required.  A single grow_double is cheap enough to keep the
+    // fast path untouched.
+    int grows_needed = target_log_blocks - log_blocks_;
+    if (grows_needed > 1) {
+      RETURN_NOT_OK(grow_to(target_log_blocks));
+      // init_slot_ids_for_new_keys below will recompute starting slot ids using the
+      // new log_blocks_, so no extra bookkeeping is needed here.
+    }
+  }
+
   // Allocate temporary buffers for slot ids and initialize them
   auto slot_ids_buf = util::TempVectorHolder<uint32_t>(temp_stack, max_id + 1);
   uint32_t* slot_ids = slot_ids_buf.mutable_data();
@@ -729,6 +774,145 @@ Status SwissTable::grow_double() {
       uint32_t hash = hashes()[slot_id];
       uint32_t block_id_new = block_id_from_hash(hash, log_blocks_after);
       bool is_overflow_entry = ((block_id_new >> 1) != static_cast<uint64_t>(i));
+      if (!is_overflow_entry) {
+        continue;
+      }
+
+      uint32_t group_id =
+          extract_group_id(block_base, j, num_group_id_bits_before, group_id_mask_before);
+      uint8_t stamp_new = (hash >> bits_shift_for_block_and_stamp_after) & stamp_mask;
+
+      uint8_t* block_base_new =
+          mutable_block_data(blocks_new->mutable_data(), block_id_new, block_size_after);
+      uint64_t block_new = util::SafeLoadAs<uint64_t>(block_base_new);
+      int full_slots_new =
+          static_cast<int>(std::countl_zero(block_new & kHighBitOfEachByte) >> 3);
+      while (full_slots_new == kSlotsPerBlock) {
+        block_id_new = (block_id_new + 1) & ((1 << log_blocks_after) - 1);
+        block_base_new = mutable_block_data(blocks_new->mutable_data(), block_id_new,
+                                            block_size_after);
+        block_new = util::SafeLoadAs<uint64_t>(block_base_new);
+        full_slots_new =
+            static_cast<int>(std::countl_zero(block_new & kHighBitOfEachByte) >> 3);
+      }
+
+      hashes_new[block_id_new * kSlotsPerBlock + full_slots_new] = hash;
+      block_base_new[kMaxLocalSlot - full_slots_new] = stamp_new;
+      int group_id_bit_offs_new = full_slots_new * num_group_id_bits_after;
+      uint64_t* ptr = reinterpret_cast<uint64_t*>(
+          block_base_new + bytes_status_in_block_ + (group_id_bit_offs_new >> 3));
+      util::SafeStore(ptr, util::SafeLoad(ptr) | (static_cast<uint64_t>(group_id)
+                                                  << (group_id_bit_offs_new & 7)));
+    }
+  }
+
+  blocks_ = std::move(blocks_new);
+  hashes_ = std::move(hashes_new_buffer);
+  log_blocks_ = log_blocks_after;
+  bits_shift_for_block_and_stamp_ = bits_shift_for_block_and_stamp_after;
+  bits_shift_for_block_ = bits_shift_for_block_after;
+
+  return Status::OK();
+}
+
+Status SwissTable::grow_to(int target_log_blocks) {
+  ARROW_DCHECK(target_log_blocks > log_blocks_);
+
+  const int log_blocks_before = log_blocks_;
+  const int log_blocks_after = target_log_blocks;
+  const int log_grow_factor = log_blocks_after - log_blocks_before;
+
+  int num_group_id_bits_before = num_groupid_bits_from_log_blocks(log_blocks_before);
+  int num_group_id_bits_after = num_groupid_bits_from_log_blocks(log_blocks_after);
+  uint32_t group_id_mask_before =
+      group_id_mask_from_num_groupid_bits(num_group_id_bits_before);
+  int bits_shift_for_block_and_stamp_after =
+      ComputeBitsShiftForBlockAndStamp(log_blocks_after);
+  int bits_shift_for_block_after = ComputeBitsShiftForBlock(log_blocks_after);
+  int block_size_before = num_block_bytes_from_num_groupid_bits(num_group_id_bits_before);
+  int block_size_after = num_block_bytes_from_num_groupid_bits(num_group_id_bits_after);
+  int64_t block_size_total_after =
+      num_bytes_total_blocks(block_size_after, log_blocks_after);
+  int64_t hashes_size_total_after =
+      (bits_hash_ / 8 * num_slots_from_log_blocks(log_blocks_after)) + padding_;
+  constexpr uint32_t stamp_mask = (1 << bits_stamp_) - 1;
+
+  // Allocate new buffers
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> blocks_new,
+                        AllocateBuffer(block_size_total_after, pool_));
+  memset(blocks_new->mutable_data(), 0, block_size_total_after);
+  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> hashes_new_buffer,
+                        AllocateBuffer(hashes_size_total_after, pool_));
+  auto hashes_new = reinterpret_cast<uint32_t*>(hashes_new_buffer->mutable_data());
+
+  // First pass over all old blocks.
+  // Reinsert entries whose high (log_blocks_before) bits of their new block_id
+  // match their old block index (non-overflow entries).
+  for (int i = 0; i < (1 << log_blocks_before); ++i) {
+    const uint8_t* block_base = block_data(i, block_size_before);
+    uint64_t block = *reinterpret_cast<const uint64_t*>(block_base);
+
+    uint32_t full_slots = std::countl_zero(block & kHighBitOfEachByte) >> 3;
+
+    // Initialize the group of 2^log_grow_factor new blocks corresponding to old block i
+    for (int k = 0; k < (1 << log_grow_factor); ++k) {
+      uint32_t new_block_id = (i << log_grow_factor) | k;
+      uint8_t* new_block_base =
+          mutable_block_data(blocks_new->mutable_data(), new_block_id, block_size_after);
+      util::SafeStore(new_block_base, kHighBitOfEachByte);
+    }
+
+    // Track how many entries we've inserted into each new block within this group
+    // We accumulate and flush after sorting by new_block_id to avoid per-entry scans.
+    // Simpler approach: process entries, use a local counter array.
+    uint32_t new_block_full_slots[1 << 5] = {};  // max 2^5 = 32 per grow step, enough
+
+    for (uint32_t j = 0; j < full_slots; ++j) {
+      uint32_t slot_id = global_slot_id(i, j);
+      uint32_t hash = hashes()[slot_id];
+      uint32_t block_id_new = block_id_from_hash(hash, log_blocks_after);
+      bool is_overflow_entry =
+          ((block_id_new >> log_grow_factor) != static_cast<uint32_t>(i));
+      if (is_overflow_entry) {
+        continue;
+      }
+
+      uint32_t local_new_block = block_id_new & ((1 << log_grow_factor) - 1);
+      uint8_t stamp_new = (hash >> bits_shift_for_block_and_stamp_after) & stamp_mask;
+      uint32_t group_id =
+          extract_group_id(block_base, j, num_group_id_bits_before, group_id_mask_before);
+      uint32_t new_full = new_block_full_slots[local_new_block];
+      uint32_t slot_id_new = global_slot_id(
+          static_cast<uint32_t>((i << log_grow_factor) | local_new_block), new_full);
+      hashes_new[slot_id_new] = hash;
+      uint8_t* block_base_new = mutable_block_data(
+          blocks_new->mutable_data(),
+          static_cast<uint32_t>((i << log_grow_factor) | local_new_block),
+          block_size_after);
+      block_base_new[kMaxLocalSlot - new_full] = stamp_new;
+      int group_id_bit_offs_new = new_full * num_group_id_bits_after;
+      uint64_t* ptr = reinterpret_cast<uint64_t*>(
+          block_base_new + bytes_status_in_block_ + (group_id_bit_offs_new >> 3));
+      util::SafeStore(ptr, util::SafeLoad(ptr) | (static_cast<uint64_t>(group_id)
+                                                  << (group_id_bit_offs_new & 7)));
+      new_block_full_slots[local_new_block]++;
+    }
+  }
+
+  // Second pass over all old blocks.
+  // Reinsert entries whose new block_id high bits do NOT match the old block index
+  // (overflow entries that hash to a different "new block group").
+  for (int i = 0; i < (1 << log_blocks_before); ++i) {
+    const uint8_t* block_base = block_data(i, block_size_before);
+    uint64_t block = util::SafeLoadAs<uint64_t>(block_base);
+    uint32_t full_slots = std::countl_zero(block & kHighBitOfEachByte) >> 3;
+
+    for (uint32_t j = 0; j < full_slots; ++j) {
+      uint32_t slot_id = global_slot_id(i, j);
+      uint32_t hash = hashes()[slot_id];
+      uint32_t block_id_new = block_id_from_hash(hash, log_blocks_after);
+      bool is_overflow_entry =
+          ((block_id_new >> log_grow_factor) != static_cast<uint32_t>(i));
       if (!is_overflow_entry) {
         continue;
       }
