@@ -58,8 +58,31 @@ export ARROW_TEST_DATA=${source_dir}/testing/data
 export PARQUET_TEST_DATA=${source_dir}/cpp/submodules/parquet-testing/data
 
 if [ "${INSTALL_PYARROW}" == "ON" ]; then
-  # Install the built wheels
-  python -m pip install "${source_dir}"/python/repaired_wheels/*.whl
+  # TODO: We probably want to cover this case in isolation on it's own internal unit test.
+  # Install the core wheel alone first: S3 ships in the separate pyarrow-s3
+  # wheel, so check that S3 fails with an actionable message without it.
+  python -m pip install "${source_dir}"/python/repaired_wheels/pyarrow-*.whl
+  if [ "${ARROW_S3}" == "ON" ]; then
+    python -c "
+import pyarrow.fs as fs
+try:
+    fs.S3FileSystem
+except ImportError as e:
+    assert 'pyarrow-s3' in str(e), e
+else:
+    raise AssertionError('S3FileSystem available without pyarrow-s3')
+try:
+    fs.FileSystem.from_uri('s3://bucket/key?region=us-east-1')
+except ValueError as e:
+    assert 'pyarrow-s3' in str(e), e
+else:
+    raise AssertionError('from_uri resolved s3:// without pyarrow-s3')
+"
+    python -m pip install "${source_dir}"/python/repaired_wheels/pyarrow_s3-*.whl
+    # With pyarrow-s3 installed, from_uri must work even if pyarrow.fs was
+    # never imported (it loads pyarrow-s3 on demand).
+    python -c "from pyarrow._fs import FileSystem; FileSystem.from_uri('s3://bucket/key?region=us-east-1')"
+  fi
 fi
 
 if [ "${CHECK_IMPORTS}" == "ON" ]; then
@@ -78,7 +101,8 @@ import pyarrow.parquet
     python -c "import pyarrow._gcsfs"
   fi
   if [ "${PYARROW_TEST_S3}" == "ON" ]; then
-    python -c "import pyarrow._s3fs"
+    # S3 ships in the separate pyarrow-s3 wheel; Load via pyarrow.fs.
+    python -c "import pyarrow.fs; pyarrow.fs.S3FileSystem"
   fi
   if [ "${PYARROW_TEST_FLIGHT}" == "ON" ]; then
     python -c "import pyarrow.flight"
