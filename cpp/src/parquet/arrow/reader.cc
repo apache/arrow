@@ -347,6 +347,10 @@ class FileReaderImpl : public FileReader {
       const std::vector<int>& row_group_indices,
       const std::vector<int>& column_indices) override;
 
+  Result<std::unique_ptr<RecordBatchReader>> GetRecordBatchReaderInternal(
+      const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
+      ::arrow::internal::Executor* cpu_executor);
+
   Result<std::unique_ptr<RecordBatchReader>> GetRecordBatchReader(
       const std::vector<int>& row_group_indices) override {
     return GetRecordBatchReader(row_group_indices,
@@ -1129,6 +1133,13 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
     END_PARQUET_CATCH_EXCEPTIONS
   }
 
+  return GetRecordBatchReaderInternal(row_groups, column_indices,
+                                      /*cpu_executor=*/nullptr);
+}
+
+Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReaderInternal(
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+    ::arrow::internal::Executor* cpu_executor) {
   std::vector<std::shared_ptr<ColumnReaderImpl>> readers;
   std::shared_ptr<::arrow::Schema> batch_schema;
   std::vector<int> field_indices;
@@ -1162,7 +1173,6 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
   for (int row_group : row_groups) {
     num_rows += parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
   }
-
   using ::arrow::RecordBatchIterator;
 
   // NB: This lambda will be invoked outside the scope of this call to
@@ -1170,8 +1180,14 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
   // `this` is a non-owning pointer so we are relying on the parent FileReader outliving
   // this RecordBatchReader.
   ::arrow::Iterator<RecordBatchIterator> batches = ::arrow::MakeFunctionIterator(
-      [readers, batch_schema, num_rows,
+      [readers, batch_schema, num_rows, cpu_executor,
        this]() mutable -> ::arrow::Result<RecordBatchIterator> {
+        // The incremental pre-buffered path bypasses DecodeRowGroups(), so preserve
+        // per-column parallelism here.
+        const bool use_threads =
+            reader_properties_.use_threads() &&
+            (cpu_executor == nullptr ||
+             cpu_executor != reader_properties_.io_context().executor());
         ::arrow::ChunkedArrayVector columns(readers.size());
 
         // don't reserve more rows than necessary
@@ -1179,8 +1195,9 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
         num_rows -= batch_size;
 
         RETURN_NOT_OK(::arrow::internal::OptionalParallelFor(
-            reader_properties_.use_threads(), static_cast<int>(readers.size()),
-            [&](int i) { return readers[i]->NextBatch(batch_size, &columns[i]); }));
+            use_threads, static_cast<int>(readers.size()),
+            [&](int i) { return readers[i]->NextBatch(batch_size, &columns[i]); },
+            cpu_executor ? cpu_executor : ::arrow::internal::GetCpuThreadPool()));
 
         for (const auto& column : columns) {
           if (column == nullptr || column->length() == 0) {
@@ -1211,7 +1228,8 @@ Result<std::unique_ptr<RecordBatchReader>> FileReaderImpl::GetRecordBatchReader(
 }
 
 /// Given a file reader and a list of row groups, this is a generator of record
-/// batch generators (where each sub-generator is the contents of a single row group).
+/// batch generators. Each sub-generator yields one row group in batches no larger
+/// than ArrowReaderProperties::batch_size().
 class RowGroupGenerator {
  public:
   using RecordBatchGenerator =
@@ -1270,17 +1288,28 @@ class RowGroupGenerator {
         reader->parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
     rows_in_flight_ += num_rows;
     ::arrow::Future<RecordBatchGenerator> row_group_read;
-    if (!reader->properties().pre_buffer()) {
+    // For threaded scans using a caller-owned CPU executor distinct from the I/O
+    // executor, retain eager row-group decoding so incremental asynchronous work
+    // cannot outlive the non-owning executor. This configuration does not receive
+    // bounded batch-level decoded memory without cancellation or executor ownership.
+    const bool has_external_cpu_executor =
+        cpu_executor_ != nullptr &&
+        cpu_executor_ != ::arrow::internal::GetCpuThreadPool();
+    const bool uses_distinct_executors =
+        cpu_executor_ != reader->properties().io_context().executor();
+    const bool can_decode_incrementally = !reader->properties().use_threads() ||
+                                          !has_external_cpu_executor ||
+                                          !uses_distinct_executors;
+    if (!reader->properties().pre_buffer() || !can_decode_incrementally) {
       row_group_read = SubmitRead(cpu_executor_, reader, row_group, column_indices);
     } else {
       auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
       if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
-      row_group_read =
-          ready.Then([cpu_executor = cpu_executor_, reader, row_group,
-                      column_indices = std::move(
-                          column_indices)]() -> ::arrow::Future<RecordBatchGenerator> {
-            return ReadOneRowGroup(cpu_executor, reader, row_group, column_indices);
-          });
+      row_group_read = ready.Then([cpu_executor = cpu_executor_, reader, row_group,
+                                   column_indices = std::move(column_indices)]()
+                                      -> ::arrow::Future<RecordBatchGenerator> {
+        return ReadOneRowGroupInBatches(cpu_executor, reader, row_group, column_indices);
+      });
     }
     in_flight_reads_.push({std::move(row_group_read), num_rows});
   }
@@ -1314,6 +1343,38 @@ class RowGroupGenerator {
           ARROW_ASSIGN_OR_RAISE(auto batches, table_reader.ToRecordBatches());
           return ::arrow::MakeVectorGenerator(std::move(batches));
         });
+  }
+
+  static ::arrow::Future<RecordBatchGenerator> ReadOneRowGroupInBatches(
+      ::arrow::internal::Executor* cpu_executor, std::shared_ptr<FileReaderImpl> self,
+      const int row_group, const std::vector<int>& column_indices) {
+    if (!cpu_executor) {
+      cpu_executor = ::arrow::internal::GetCpuThreadPool();
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        auto batch_reader,
+        self->GetRecordBatchReaderInternal({row_group}, column_indices, cpu_executor));
+    // Threaded Next() waits for column tasks on the CPU executor, so coordinate it on
+    // the I/O executor. Serial Next() performs CPU work directly on the CPU executor.
+    auto next_executor = self->properties().use_threads()
+                             ? self->properties().io_context().executor()
+                             : cpu_executor;
+    auto shared_reader = std::shared_ptr<RecordBatchReader>(std::move(batch_reader));
+    // The batch reader uses the parent FileReaderImpl without owning it.
+    // Capturing self keeps the parent alive for the generator's lifetime. Capture
+    // it again in the submitted task so the parent also survives any Next() call
+    // that finishes after the generator is destroyed.
+    RecordBatchGenerator generator =
+        [self = std::move(self), shared_reader, next_executor,
+         cpu_executor]() -> ::arrow::Future<std::shared_ptr<::arrow::RecordBatch>> {
+      auto next = ::arrow::DeferNotOk(
+          next_executor->Submit([self, shared_reader] { return shared_reader->Next(); }));
+      if (next_executor == cpu_executor) {
+        return next;
+      }
+      return cpu_executor->Transfer(std::move(next));
+    };
+    return generator;
   }
 
   std::shared_ptr<FileReaderImpl> arrow_reader_;
