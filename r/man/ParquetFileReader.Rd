@@ -33,15 +33,24 @@ The optional \verb{column_indices=} argument is a 0-based integer vector indicat
 groups (0-based integers).
 The optional \verb{column_indices=} argument is a 0-based integer vector indicating which columns to retain.
 \item \verb{$GetSchema()}: get the \code{arrow::Schema} of the data in the file
-\item \verb{$ReadColumn(i)}: read the \code{i}th column (0-based) as a \link{ChunkedArray}.
+\item \verb{$ReadColumn(i)}: read the \code{i}th field (1-based) of the schema returned by
+\verb{$GetSchema()} as a \link{ChunkedArray}.
 }
+
+\code{column_indices} count Parquet leaf columns, not the fields of the schema
+returned by \verb{$GetSchema()}. Parquet stores each non-nested value as its own
+column, called a leaf column, so a nested field takes up one leaf column per
+innermost child. For example, in a file with fields \code{a}, \code{s} (a struct with
+children \code{x} and \code{y}) and \code{b}, the leaf columns are \code{a} (0), \code{s.x} (1),
+\code{s.y} (2) and \code{b} (3). Selecting only some of a nested field's leaves
+returns that field with only those children.
 }
 
 \section{Active bindings}{
 
 \itemize{
 \item \verb{$num_rows}: number of rows.
-\item \verb{$num_columns}: number of columns.
+\item \verb{$num_columns}: number of Parquet leaf columns.
 \item \verb{$num_row_groups}: number of row groups.
 }
 }
