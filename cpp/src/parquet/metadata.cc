@@ -954,7 +954,7 @@ class FileMetaData::FileMetaDataImpl {
 
   std::shared_ptr<FileMetaData> Subset(const std::vector<int>& row_groups) {
     for (int i : row_groups) {
-      if (i < num_row_groups()) continue;
+      if (i >= 0 && i < num_row_groups()) continue;
 
       throw ParquetException(
           "The file only has ", num_row_groups(),
