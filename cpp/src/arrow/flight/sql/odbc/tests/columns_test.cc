@@ -2501,6 +2501,54 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColDecimalColumnSizeIsFullyWritten) {
   EXPECT_EQ(0, decimal_digits);
 }
 
+// Verify that SQL_DESC_PRECISION, SQL_DESC_SCALE and SQLDescribeCol report the declared
+// precision and scale of DECIMAL columns.
+// Remote-only because the mock server does not support decimal types
+TEST_F(ColumnsRemoteTest, SQLColAttributeDecimalPrecisionAndScale) {
+  std::string query =
+      "SELECT "
+      "CAST(1 AS DECIMAL(10,5)) AS decimal_10_5, "
+      "CAST(1 AS DECIMAL(5,2)) AS decimal_5_2, "
+      "CAST(1 AS DECIMAL(37,20)) AS decimal_37_20, "
+      "CAST(1 AS DECIMAL(19,0)) AS decimal_19_0, "
+      "CAST(1 AS DECIMAL(38,0)) AS decimal_38_0";
+  const SQLLEN expected_precisions[] = {10, 5, 37, 19, 38};
+  const SQLLEN expected_scales[] = {5, 2, 20, 0, 0};
+  std::wstring wsql(query.begin(), query.end());
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  for (size_t i = 0; i < std::size(expected_precisions); ++i) {
+    const SQLUSMALLINT col = static_cast<SQLUSMALLINT>(i + 1);
+
+    SQLLEN precision = -1;
+    ASSERT_EQ(SQL_SUCCESS, SQLColAttribute(this->stmt, col, SQL_DESC_PRECISION, 0, 0,
+                                           nullptr, &precision));
+    EXPECT_EQ(expected_precisions[i], precision);
+
+    SQLLEN scale = -1;
+    ASSERT_EQ(SQL_SUCCESS,
+              SQLColAttribute(this->stmt, col, SQL_DESC_SCALE, 0, 0, nullptr, &scale));
+    EXPECT_EQ(expected_scales[i], scale);
+
+    SQLWCHAR column_name[1024];
+    SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
+    SQLSMALLINT name_length = 0;
+    SQLSMALLINT data_type = 0;
+    SQLULEN column_size = kColumnSizeSentinel;
+    SQLSMALLINT decimal_digits = -1;
+    SQLSMALLINT nullable = 0;
+    ASSERT_EQ(SQL_SUCCESS,
+              SQLDescribeCol(this->stmt, col, column_name, buf_char_len, &name_length,
+                             &data_type, &column_size, &decimal_digits, &nullable));
+    EXPECT_EQ(SQL_DECIMAL, data_type);
+    EXPECT_EQ(static_cast<SQLULEN>(expected_precisions[i]), column_size);
+    EXPECT_EQ(expected_scales[i], decimal_digits);
+  }
+}
+
 // Verify SQLDescribeCol reports a fully-written column_size for a TIMESTAMP
 // column, exercising the datetime branch. Remote-only for the same reason as
 // the DECIMAL test above.

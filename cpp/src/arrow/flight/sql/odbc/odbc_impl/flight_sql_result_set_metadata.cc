@@ -65,8 +65,7 @@ std::string FlightSqlResultSetMetadata::GetName(int column_position) {
 size_t FlightSqlResultSetMetadata::GetPrecision(int column_position) {
   const std::shared_ptr<Field>& field = schema_->field(column_position - 1);
 
-  // For decimals, report the declared server precision from the Arrow type instead of the
-  // fixed size of SQL_NUMERIC_STRUCT (19)
+  // For decimals, report the declared server precision
   if (field->type()->id() == Type::DECIMAL128) {
     return util::GetDecimalTypePrecision(field->type());
   }
