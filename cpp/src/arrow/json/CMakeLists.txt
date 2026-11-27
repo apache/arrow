@@ -36,6 +36,12 @@ add_arrow_benchmark(parser_benchmark
                     RapidJSON
                     simdjson::simdjson)
 
+if(ARROW_BUILD_FUZZING_UTILITIES)
+  add_executable(arrow-json-generate-fuzz-corpus generate_fuzz_corpus.cc)
+endif()
+
+add_arrow_fuzz_target(fuzz PREFIX "arrow-json")
+
 arrow_install_all_headers("arrow/json")
 
 # pkg-config support
