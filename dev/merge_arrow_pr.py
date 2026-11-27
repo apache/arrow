@@ -580,6 +580,11 @@ def get_pr_num():
 
 
 def cli():
+    print(
+        'WARNING: Using GitHub\'s "Squash and merge" button is now '
+        "recommended instead of this script. See dev/README.md for details.\n"
+    )
+
     # Location of your Arrow git clone
     ARROW_HOME = os.path.abspath(os.path.dirname(__file__))
     print(f"ARROW_HOME = {ARROW_HOME}")
