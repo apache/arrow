@@ -359,6 +359,11 @@ Status CheckReplaceMaskInputs(const DataType& value_type, int64_t arr_length,
 template <typename Type>
 struct ReplaceMask {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    // Scalar values are only promoted to an array when all arguments are scalars
+    if (batch[0].is_scalar()) {
+      return Status::Invalid(
+          "Values must be an array when mask or replacements is an array, not a scalar");
+    }
     const ArraySpan& arr = batch[0].array;
     const ExecValue& mask = batch[1];
     const ExecValue& replacements = batch[2];

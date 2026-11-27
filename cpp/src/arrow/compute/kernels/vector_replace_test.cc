@@ -478,6 +478,22 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskErrors) {
       this->AssertRaises(ReplaceWithMask, this->array("[1, 2]"),
                          ChunkedArrayFromJSON(boolean(), {"[true]", "[false]"}),
                          this->array({"[0]"})));
+
+  // GH-55761: scalar values with an array mask or replacements
+  const auto scalar_values_message = ::testing::HasSubstr(
+      "Values must be an array when mask or replacements is an array, not a scalar");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, scalar_values_message,
+      this->AssertRaises(ReplaceWithMask, this->scalar("1"), this->mask("[true]"),
+                         this->array("[2]")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, scalar_values_message,
+      this->AssertRaises(ReplaceWithMask, this->scalar("1"), this->mask("[true]"),
+                         this->scalar("2")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, scalar_values_message,
+      this->AssertRaises(ReplaceWithMask, this->scalar("1"), this->mask_scalar(true),
+                         this->array("[2]")));
 }
 
 TEST_F(TestReplaceBoolean, ReplaceWithMask) {
@@ -1094,6 +1110,20 @@ TYPED_TEST(TestReplaceBinary, ReplaceWithMask) {
     this->Assert(ReplaceWithMask, test_case.input, test_case.mask, test_case.replacements,
                  test_case.expected);
   }
+}
+
+// GH-55761
+TYPED_TEST(TestReplaceBinary, ReplaceWithMaskScalarValues) {
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "Values must be an array when mask or replacements is an array, not a scalar"),
+      this->AssertRaises(ReplaceWithMask, this->scalar(R"("foo")"), this->mask("[true]"),
+                         this->array(R"(["bar"])")));
+
+  // With all arguments scalar, the values are promoted to an array of length 1
+  this->Assert(ReplaceWithMask, this->scalar(R"("foo")"), this->mask_scalar(true),
+               this->scalar(R"("bar")"), this->array(R"(["bar"])"));
 }
 
 TYPED_TEST(TestReplaceBinary, ReplaceWithMaskRandom) {

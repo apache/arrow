@@ -1412,6 +1412,23 @@ def test_replace_with_mask_error_mask_length_mismatch():
         pc.replace_with_mask(arr, mask, replacements)
 
 
+def test_replace_with_mask_scalar_values_with_array_arguments():
+    # GH-55761: scalar values with an array mask or replacements crashed
+    message = "Values must be an array"
+    with pytest.raises(pa.ArrowInvalid, match=message):
+        pc.replace_with_mask(pa.scalar(1), pa.array([True]), pa.array([2]))
+    with pytest.raises(pa.ArrowInvalid, match=message):
+        pc.replace_with_mask(pa.scalar(1), pa.array([True]), pa.scalar(2))
+    with pytest.raises(pa.ArrowInvalid, match=message):
+        pc.replace_with_mask(pa.scalar(1), True, pa.array([2]))
+    with pytest.raises(pa.ArrowInvalid, match=message):
+        pc.replace_with_mask(pa.scalar("a"), pa.array([True]), pa.array(["b"]))
+
+    # With all arguments scalar, the values are promoted to an array of length 1
+    result = pc.replace_with_mask(pa.scalar(1), True, pa.scalar(2))
+    assert result.equals(pa.array([2]))
+
+
 def test_binary_join():
     ar_list = pa.array([['foo', 'bar'], None, []])
     expected = pa.array(['foo-bar', None, ''])
