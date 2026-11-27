@@ -468,13 +468,26 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def to_numpy(self, zero_copy_only=False):
         """
-        Return a NumPy copy of this array (experimental).
+        Return a NumPy view or copy of this array (experimental).
+
+        A zero-copy view of the underlying Arrow buffers is returned when
+        possible, i.e. for a single chunk without nulls of a primitive type.
+        Such a view is not writable, as the Arrow data is immutable. In all
+        other cases (multiple chunks or in the presence of nulls), a new
+        writable NumPy array is returned that does not share memory with the
+        Arrow data.
+
+        The returned array never owns its data itself (the OWNDATA flag is
+        False in both cases), so use the WRITEABLE flag or ``.copy()`` to
+        obtain an array that is safe to modify.
 
         Parameters
         ----------
         zero_copy_only : bool, default False
             Introduced for signature consistence with pyarrow.Array.to_numpy.
-            This must be False here since NumPy arrays' buffer must be contiguous.
+            This must be False here since a ChunkedArray consisting of
+            multiple chunks cannot be viewed as a single contiguous NumPy
+            array.
 
         Returns
         -------
