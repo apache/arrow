@@ -214,7 +214,9 @@ cdef class S3FileSystem(FileSystem):
     scheme : str, default 'https'
         S3 connection transport scheme.
     endpoint_override : str, default None
-        Override region with a connect string such as "localhost:9000"
+        Override region with a connect string such as "localhost:9000".
+        If not set, the ``AWS_ENDPOINT_URL_S3`` or ``AWS_ENDPOINT_URL``
+        environment variable is used, if defined.
     background_writes : bool, default True
         Whether file writes will be issued in the background, without
         blocking.
