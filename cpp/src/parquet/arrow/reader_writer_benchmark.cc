@@ -222,6 +222,63 @@ BENCHMARK_TEMPLATE2(BM_WriteColumn, true, DoubleType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, false, BooleanType);
 BENCHMARK_TEMPLATE2(BM_WriteColumn, true, BooleanType);
 
+static void WriteFixedSizeFloatLists(::benchmark::State& state, int64_t num_lists) {
+  const int32_t list_size = static_cast<int32_t>(state.range(0));
+
+  ::arrow::random::RandomArrayGenerator rng(500);
+  auto values = rng.Float32(list_size, -1.0f, 1.0f, 0.0);
+  auto item_field = ::arrow::field("item", ::arrow::float32(), false);
+  auto list_type = ::arrow::fixed_size_list(item_field, list_size);
+  auto lists = ::arrow::FixedSizeListArray::FromArrays(values, list_type);
+  EXIT_NOT_OK(lists.status());
+  auto column_field = ::arrow::field("column", list_type, false);
+  auto schema = ::arrow::schema({column_field});
+  // Share the input values across rows to limit memory use for large lists
+  auto column = std::make_shared<::arrow::ChunkedArray>(ArrayVector(num_lists, *lists));
+  auto table = ::arrow::Table::Make(schema, {column});
+
+  WriterProperties::Builder builder;
+  builder.disable_dictionary();
+  builder.compression(Compression::UNCOMPRESSED);
+  builder.data_page_version(ParquetDataPageVersion::V2);
+  if (num_lists > 1) {
+    builder.max_rows_per_page(1);
+  }
+  auto properties = builder.build();
+
+  while (state.KeepRunning()) {
+    // Count the output bytes without keeping a copy of the whole file
+    auto output = std::make_shared<::arrow::io::MockOutputStream>();
+    EXIT_NOT_OK(WriteTable(*table, ::arrow::default_memory_pool(), output,
+                           table->num_rows(), properties));
+  }
+
+  const int64_t total_values = state.iterations() * num_lists * list_size;
+  state.SetItemsProcessed(total_values);
+  state.SetBytesProcessed(total_values * sizeof(float));
+}
+
+// Measure writing one fixed-size list with V2 data pages
+static void BM_WriteFloatLayout(::benchmark::State& state) {
+  WriteFixedSizeFloatLists(state, 1);
+}
+
+// Write two pages with the same level pattern within one row group
+static void BM_WriteFloatLayoutMatchingPages(::benchmark::State& state) {
+  WriteFixedSizeFloatLists(state, 2);
+}
+
+static void FloatLayoutWriteArguments(::benchmark::internal::Benchmark* b) {
+  const std::array<int64_t, 13> list_sizes = {
+      1, 3, 8, 9, 15, 16, 768, 1024, 2048, 4096, 1'000'000, 10'000'000, 100'000'000};
+  for (int64_t list_size : list_sizes) {
+    b->Arg(list_size);
+  }
+}
+
+BENCHMARK(BM_WriteFloatLayout)->Apply(FloatLayoutWriteArguments);
+BENCHMARK(BM_WriteFloatLayoutMatchingPages)->Apply(FloatLayoutWriteArguments);
+
 int32_t kInfiniteUniqueValues = -1;
 
 std::shared_ptr<Table> RandomStringTable(std::shared_ptr<::arrow::DataType> type,
