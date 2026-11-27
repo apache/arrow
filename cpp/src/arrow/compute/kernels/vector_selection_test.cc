@@ -634,6 +634,29 @@ TEST_F(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
   AssertArraysEqual(*expected, *result);
 }
 
+// GH-55780
+TEST_F(TestFilterKernel, MixedScalarAndArrayArguments) {
+  const auto message = ::testing::HasSubstr(
+      "Function 'array_filter' cannot mix scalar and array arguments");
+  auto scalar_values = ScalarFromJSON(int32(), "1");
+  for (const std::string func_name : {"filter", "array_filter"}) {
+    ARROW_SCOPED_TRACE(func_name);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        TypeError, message,
+        CallFunction(func_name, {scalar_values, ArrayFromJSON(boolean(), "[true]")}));
+  }
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError, message,
+      CallFunction("array_filter",
+                   {ArrayFromJSON(int32(), "[1]"), ScalarFromJSON(boolean(), "true")}));
+
+  // With all arguments scalar, the values are promoted to an array of length 1
+  ASSERT_OK_AND_ASSIGN(
+      Datum result,
+      CallFunction("array_filter", {scalar_values, ScalarFromJSON(boolean(), "true")}));
+  AssertDatumsEqual(ArrayFromJSON(int32(), "[1]"), result);
+}
+
 template <typename TypeClass>
 class TestFilterKernelWithString : public TestFilterKernel {
  protected:
@@ -1564,6 +1587,26 @@ TEST_F(TestTakeKernel, InvalidIndexType) {
   ASSERT_RAISES(NotImplemented,
                 TakeCAC(null(), {kNull3, kNull3}, "[0.0, 1.0, 0.1]", float32())
                     .Value(&chunked_arr));
+}
+
+// GH-55780
+TEST_F(TestTakeKernel, MixedScalarAndArrayArguments) {
+  const auto message =
+      ::testing::HasSubstr("Function 'array_take' cannot mix scalar and array arguments");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError, message,
+      CallFunction("array_take",
+                   {ArrayFromJSON(int32(), "[1]"), ScalarFromJSON(int32(), "0")}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError, message,
+      CallFunction("array_take",
+                   {ScalarFromJSON(int32(), "1"), ArrayFromJSON(int32(), "[0]")}));
+
+  // With all arguments scalar, the values are promoted to an array of length 1
+  ASSERT_OK_AND_ASSIGN(Datum result,
+                       CallFunction("array_take", {ScalarFromJSON(int32(), "1"),
+                                                   ScalarFromJSON(int32(), "0")}));
+  AssertDatumsEqual(ArrayFromJSON(int32(), "[1]"), result);
 }
 
 TEST_F(TestTakeKernel, TakeXCCEmptyIndices) {
