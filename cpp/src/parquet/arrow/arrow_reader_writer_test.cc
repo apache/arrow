@@ -5370,6 +5370,66 @@ TEST_P(TestArrowWriteDictionary, NestedDictionaryParentNullStatistics) {
   }
 }
 
+TEST_P(TestArrowWriteDictionary, FallbackUsesConfiguredEncoding) {
+  ASSERT_OK_AND_ASSIGN(auto chunk0, ::arrow::DictionaryArray::FromArrays(
+                                        ArrayFromJSON(::arrow::int32(), "[0, 1, 0, 1]"),
+                                        ArrayFromJSON(::arrow::utf8(), R"(["a", "b"])")));
+  ASSERT_OK_AND_ASSIGN(auto chunk1, ::arrow::DictionaryArray::FromArrays(
+                                        ArrayFromJSON(::arrow::int32(), "[0, 1, 0, 1]"),
+                                        ArrayFromJSON(::arrow::utf8(), R"(["c", "d"])")));
+
+  auto schema = ::arrow::schema({::arrow::field("values", chunk0->type())});
+  auto chunked = std::make_shared<ChunkedArray>(::arrow::ArrayVector{chunk0, chunk1});
+  auto table = ::arrow::Table::Make(schema, {chunked});
+
+  auto sink = CreateOutputStream();
+  auto writer_properties = WriterProperties::Builder()
+                               .version(ParquetVersion::PARQUET_2_6)
+                               ->data_page_version(this->GetParquetDataPageVersion())
+                               ->enable_dictionary()
+                               ->encoding("values", Encoding::DELTA_LENGTH_BYTE_ARRAY)
+                               ->build();
+  ASSERT_OK_AND_ASSIGN(
+      auto writer,
+      FileWriter::Open(*schema, ::arrow::default_memory_pool(), sink, writer_properties,
+                       default_arrow_writer_properties()));
+  ASSERT_OK(writer->WriteTable(*table, std::numeric_limits<int64_t>::max()));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto parquet_reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  auto col_meta = parquet_reader->metadata()->RowGroup(0)->ColumnChunk(0);
+  int32_t dict_pages = 0;
+  int32_t rle_dict_pages = 0;
+  int32_t dlba_pages = 0;
+  int32_t plain_data_pages = 0;
+  for (const auto& stat : col_meta->encoding_stats()) {
+    if (stat.page_type == PageType::DICTIONARY_PAGE && stat.encoding == Encoding::PLAIN) {
+      dict_pages += stat.count;
+    } else if (stat.page_type == PageType::DATA_PAGE) {
+      if (stat.encoding == Encoding::RLE_DICTIONARY) {
+        rle_dict_pages += stat.count;
+      } else if (stat.encoding == Encoding::DELTA_LENGTH_BYTE_ARRAY) {
+        dlba_pages += stat.count;
+      } else if (stat.encoding == Encoding::PLAIN) {
+        plain_data_pages += stat.count;
+      }
+    }
+  }
+  EXPECT_EQ(dict_pages, 1);
+  EXPECT_GE(rle_dict_pages, 1);
+  EXPECT_GE(dlba_pages, 1);
+  EXPECT_EQ(plain_data_pages, 0);
+
+  ASSERT_OK_AND_ASSIGN(auto reader, OpenFile(std::make_shared<BufferReader>(buffer),
+                                             ::arrow::default_memory_pool()));
+  ASSERT_OK_AND_ASSIGN(auto actual, reader->ReadTable());
+  auto expected = ::arrow::Table::Make(
+      ::arrow::schema({::arrow::field("values", ::arrow::utf8())}),
+      {ArrayFromJSON(::arrow::utf8(), R"(["a", "b", "a", "b", "c", "d", "c", "d"])")});
+  ::arrow::AssertTablesEqual(*expected, *actual);
+}
+
 // ----------------------------------------------------------------------
 // Tests for directly reading DictionaryArray
 
