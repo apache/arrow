@@ -18,6 +18,7 @@
 #include <span>
 #include <unordered_set>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernels/chunked_internal.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
@@ -362,19 +363,9 @@ class ConcreteRecordBatchColumnSorter<NullType> : public RecordBatchColumnSorter
 };
 
 Result<std::vector<ResolvedRecordBatchSortKey>> ResolveRecordBatchSortKeys(
-    const RecordBatch& batch, const std::vector<SortKey>& sort_keys) {
+    const RecordBatch& batch, const std::vector<SortKey>& sort_keys, ExecContext* ctx) {
   return ::arrow::compute::internal::ResolveSortKeys<ResolvedRecordBatchSortKey>(
-      batch, sort_keys);
-}
-
-std::vector<ResolvedRecordBatchSortKey> ResolveRecordBatchSortKeys(
-    const RecordBatch& batch, const std::vector<SortKey>& sort_keys, Status* status) {
-  const auto maybe_resolved = ResolveRecordBatchSortKeys(batch, sort_keys);
-  if (!maybe_resolved.ok()) {
-    *status = maybe_resolved.status();
-    return {};
-  }
-  return *std::move(maybe_resolved);
+      batch, sort_keys, ctx);
 }
 
 // Radix sorting is consistently faster except when there is a large number of sort keys,
@@ -391,15 +382,8 @@ class RadixRecordBatchSorter {
                          std::vector<ResolvedSortKey> sort_keys)
       : sort_keys_(std::move(sort_keys)), indices_(indices) {}
 
-  RadixRecordBatchSorter(std::span<uint64_t> indices, const RecordBatch& batch,
-                         const SortOptions& options)
-      : sort_keys_(ResolveRecordBatchSortKeys(batch, options.GetSortKeys(), &status_)),
-        indices_(indices) {}
-
   // Offset is for table sorting
   Result<NullLikePartition> Sort(int64_t offset = 0) {
-    ARROW_RETURN_NOT_OK(status_);
-
     // Create column sorters from right to left
     std::vector<std::unique_ptr<RecordBatchColumnSorter>> column_sorts(sort_keys_.size());
     RecordBatchColumnSorter* next_column = nullptr;
@@ -457,14 +441,8 @@ class RadixRecordBatchSorter {
     std::unique_ptr<RecordBatchColumnSorter> result;
   };
 
-  static Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
-      const RecordBatch& batch, const std::vector<SortKey>& sort_keys) {
-    return ::arrow::compute::internal::ResolveSortKeys<ResolvedSortKey>(batch, sort_keys);
-  }
-
   const std::vector<ResolvedSortKey> sort_keys_;
   std::span<uint64_t> indices_;
-  Status status_;
 };
 
 // Sort a batch using a single sort and multiple-key comparisons.
@@ -476,19 +454,10 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
                                std::vector<ResolvedSortKey> sort_keys)
       : indices_(indices), sort_keys_(std::move(sort_keys)), comparator_(sort_keys_) {}
 
-  MultipleKeyRecordBatchSorter(std::span<uint64_t> indices, const RecordBatch& batch,
-                               const SortOptions& options)
-      : indices_(indices),
-        sort_keys_(ResolveSortKeys(batch, options.GetSortKeys(), &status_)),
-        comparator_(sort_keys_) {}
-
   // This is optimized for the first sort key. The first sort key sort
   // is processed in this class. The second and following sort keys
   // are processed in Comparator.
-  Status Sort() {
-    RETURN_NOT_OK(status_);
-    return sort_keys_[0].type->Accept(this);
-  }
+  Status Sort() { return sort_keys_[0].type->Accept(this); }
 
 #define VISIT(TYPE) \
   Status Visit(const TYPE& type) override { return SortInternal<TYPE>(); }
@@ -500,17 +469,6 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
 
  private:
   using Comparator = MultipleKeyComparator<ResolvedSortKey>;
-
-  static std::vector<ResolvedSortKey> ResolveSortKeys(
-      const RecordBatch& batch, const std::vector<SortKey>& sort_keys, Status* status) {
-    const auto maybe_resolved =
-        ::arrow::compute::internal::ResolveSortKeys<ResolvedSortKey>(batch, sort_keys);
-    if (!maybe_resolved.ok()) {
-      *status = maybe_resolved.status();
-      return {};
-    }
-    return *std::move(maybe_resolved);
-  }
 
   template <typename Type>
   enable_if_t<!is_null_type<Type>::value, Status> SortInternal() {
@@ -589,7 +547,6 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
   }
 
   std::span<uint64_t> indices_;
-  Status status_;
   std::vector<ResolvedSortKey> sort_keys_;
   Comparator comparator_;
 };
@@ -613,8 +570,8 @@ class TableSorter {
       : ctx_(ctx),
         table_(table),
         batches_(MakeBatches(table, &status_)),
-        options_(options),
-        sort_keys_(ResolveSortKeys(table, batches_, options.GetSortKeys(), &status_)),
+        sort_keys_(
+            ResolveSortKeys(table, batches_, options.GetSortKeys(), ctx, &status_)),
         indices_(indices),
         comparator_(sort_keys_) {}
 
@@ -637,8 +594,8 @@ class TableSorter {
 
   static std::vector<ResolvedSortKey> ResolveSortKeys(
       const Table& table, const RecordBatchVector& batches,
-      const std::vector<SortKey>& sort_keys, Status* status) {
-    const auto maybe_resolved = ResolvedSortKey::Make(table, batches, sort_keys);
+      const std::vector<SortKey>& sort_keys, ExecContext* ctx, Status* status) {
+    const auto maybe_resolved = ResolvedSortKey::Make(table, batches, sort_keys, ctx);
     if (!maybe_resolved.ok()) {
       *status = maybe_resolved.status();
       return {};
@@ -660,9 +617,16 @@ class TableSorter {
     for (int64_t i = 0; i < num_batches; ++i) {
       const auto& batch = *batches_[i];
       end_offset += batch.num_rows();
+      // Reuse the table-wide resolved keys
+      std::vector<ResolvedRecordBatchSortKey> batch_sort_keys;
+      batch_sort_keys.reserve(sort_keys_.size());
+      for (const auto& sort_key : sort_keys_) {
+        batch_sort_keys.emplace_back(sort_key.owned_chunks[i], sort_key.order,
+                                     sort_key.null_placement);
+      }
       RadixRecordBatchSorter sorter(
-          {indices_.data() + begin_offset, indices_.data() + end_offset}, batch,
-          options_);
+          {indices_.data() + begin_offset, indices_.data() + end_offset},
+          std::move(batch_sort_keys));
       ARROW_ASSIGN_OR_RAISE(sorted[i], sorter.Sort(begin_offset));
       DCHECK_EQ(sorted[i].overall_begin(), indices_.data() + begin_offset);
       DCHECK_EQ(sorted[i].overall_end(), indices_.data() + end_offset);
@@ -822,7 +786,6 @@ class TableSorter {
   ExecContext* ctx_;
   const Table& table_;
   const RecordBatchVector batches_;
-  const SortOptions& options_;
   const std::vector<ResolvedSortKey> sort_keys_;
   std::span<uint64_t> indices_;
   Comparator comparator_;
@@ -956,7 +919,7 @@ class SortIndicesMetaFunction : public MetaFunction {
   Result<Datum> SortIndices(const RecordBatch& batch, const SortOptions& options,
                             ExecContext* ctx) const {
     ARROW_ASSIGN_OR_RAISE(auto sort_keys,
-                          ResolveRecordBatchSortKeys(batch, options.GetSortKeys()));
+                          ResolveRecordBatchSortKeys(batch, options.GetSortKeys(), ctx));
 
     auto n_sort_keys = sort_keys.size();
     if (n_sort_keys == 0) {
@@ -1094,6 +1057,19 @@ Result<NullLikePartition> SortChunkedArray(ExecContext* ctx, std::span<uint64_t>
                                            const ChunkedArray& chunked_array,
                                            SortOrder sort_order,
                                            NullPlacement null_placement) {
+  if (chunked_array.type()->id() == Type::DICTIONARY) {
+    ARROW_ASSIGN_OR_RAISE(auto sortable, DictionaryToSortable(chunked_array, ctx));
+    if (sortable->num_chunks() <= 1) {
+      return SortChunkedArray(ctx, indices, *sortable, sort_order, null_placement);
+    }
+    // Sort the fixed-width converted values whole, so that a single counting sort
+    // can replace sorting and merging each chunk.
+    ARROW_ASSIGN_OR_RAISE(auto contiguous,
+                          Concatenate(sortable->chunks(), ctx->memory_pool()));
+    ARROW_ASSIGN_OR_RAISE(auto sorter, GetArraySorter(*contiguous->type()));
+    return sorter(indices, *contiguous, /*offset=*/0,
+                  ArraySortOptions(sort_order, null_placement), ctx);
+  }
   auto physical_type = GetPhysicalType(chunked_array.type());
   auto physical_chunks = GetPhysicalChunks(chunked_array, physical_type);
   return SortChunkedArray(ctx, indices, physical_type, physical_chunks, sort_order,
@@ -1126,7 +1102,7 @@ Result<NullLikePartition> SortStructArray(ExecContext* ctx, std::span<uint64_t> 
   }
 
   ARROW_ASSIGN_OR_RAISE(auto sort_keys,
-                        ResolveRecordBatchSortKeys(*batch, options.GetSortKeys()));
+                        ResolveRecordBatchSortKeys(*batch, options.GetSortKeys(), ctx));
   if (sort_keys.size() <= kMaxRadixSortKeys) {
     RadixRecordBatchSorter sorter(indices, std::move(sort_keys));
     return sorter.Sort();
