@@ -18,15 +18,36 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 #include "arrow/extension_type.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow::extension {
 
+/// \brief The extension name for the Variant extension type.
+inline constexpr std::string_view kVariantExtensionName = "arrow.parquet.variant";
+
 class ARROW_EXPORT VariantArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
+
+  /// \brief The metadata child array.
+  ///
+  /// Binary, LargeBinary, or BinaryView, optionally dictionary- or run-end-encoded.
+  std::shared_ptr<Array> metadata() const;
+
+  /// \brief The residual value child array.
+  ///
+  /// This is always present in compliant Variant storage, but may be null when
+  /// reading an out-of-spec typed-only Variant from Parquet.
+  std::shared_ptr<Array> value() const;
+
+  /// \brief The typed value child array, or null for an unshredded Variant array.
+  std::shared_ptr<Array> typed_value() const;
+
+  /// \brief Whether the storage schema contains a typed value field.
+  bool is_shredded() const;
 };
 
 /// EXPERIMENTAL: Variant is not yet fully supported.
@@ -43,13 +64,28 @@ class ARROW_EXPORT VariantArray : public ExtensionArray {
 /// To read more about variant encoding, see the variant encoding spec at
 /// https://github.com/apache/parquet-format/blob/master/VariantEncoding.md
 ///
+/// Shredded variant representation:
+/// optional group shredded_variant_name (VARIANT) {
+///   required binary metadata;
+///   optional binary value;
+///   optional &lt;type&gt; typed_value;
+/// }
+///
+/// The metadata and value fields must be present in the storage schema. The value
+/// field is non-nullable for unshredded storage and nullable for shredded storage.
+/// The typed_value field is present only for shredded storage.
+/// In Arrow storage, metadata may be dictionary- or run-end-encoded with
+/// binary-like values.
+///
 /// To read more about variant shredding, see the variant shredding spec at
 /// https://github.com/apache/parquet-format/blob/master/VariantShredding.md
 class ARROW_EXPORT VariantExtensionType : public ExtensionType {
  public:
   explicit VariantExtensionType(const std::shared_ptr<DataType>& storage_type);
 
-  std::string extension_name() const override { return "arrow.parquet.variant"; }
+  std::string extension_name() const override {
+    return std::string(kVariantExtensionName);
+  }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
 
@@ -69,10 +105,12 @@ class ARROW_EXPORT VariantExtensionType : public ExtensionType {
 
   std::shared_ptr<Field> value() const { return value_; }
 
+  std::shared_ptr<Field> typed_value() const { return typed_value_; }
+
  private:
-  // TODO GH-45948 added shredded_value
   std::shared_ptr<Field> metadata_;
   std::shared_ptr<Field> value_;
+  std::shared_ptr<Field> typed_value_;
 };
 
 /// \brief Return a VariantExtensionType instance.
