@@ -38,6 +38,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
@@ -369,6 +370,29 @@ struct ArrayIterator<Type, enable_if_binary_view_like<Type>> {
   }
 };
 
+// Descriptor-aware iterator yielding BinaryViewAccessor for binary view types
+// and delegating to ArrayIterator for all other types.
+template <typename Type, typename Enable = void>
+struct ViewDescriptorIterator : public ArrayIterator<Type> {
+  using ArrayIterator<Type>::ArrayIterator;
+};
+
+template <typename Type>
+struct ViewDescriptorIterator<Type, enable_if_binary_view_like<Type>> {
+  const BinaryViewType::c_type* views;
+  const std::shared_ptr<Buffer>* data_buffers;
+  int64_t position;
+
+  explicit ViewDescriptorIterator(const ArraySpan& arr)
+      : views(arr.GetValues<BinaryViewType::c_type>(1)),
+        data_buffers(arr.GetVariadicBuffers().data()),
+        position(0) {}
+
+  util::BinaryViewAccessor operator()() {
+    return util::BinaryViewAccessor{views[position++], data_buffers};
+  }
+};
+
 template <>
 struct ArrayIterator<FixedSizeBinaryType> {
   const ArraySpan& arr;
@@ -477,6 +501,26 @@ struct UnboxScalar<Decimal256Type> {
   }
 };
 
+// Descriptor-aware scalar unboxer hoisting PinnedBinaryScalar metadata for
+// string/binary/view types and delegating to UnboxScalar for all other types.
+template <typename Type, typename Enable = void>
+struct ViewScalarUnboxer : public UnboxScalar<Type> {};
+
+template <typename Type>
+struct ViewScalarUnboxer<Type, enable_if_t<is_base_binary_type<Type>::value ||
+                                           is_binary_view_like_type<Type>::value>> {
+  using T = util::PinnedBinaryScalar;
+  static T Unbox(const Scalar& val) {
+    if (!val.is_valid) {
+      return util::PinnedBinaryScalar::FromString(/*is_valid=*/false, {});
+    }
+    const auto& scalar = checked_cast<const BaseBinaryScalar&>(val);
+    std::string_view str =
+        scalar.value ? std::string_view(*scalar.value) : std::string_view();
+    return util::PinnedBinaryScalar::FromString(/*is_valid=*/true, str);
+  }
+};
+
 // A VisitArraySpanInline variant that calls its visitor function with logical
 // values, such as Decimal128 rather than std::string_view.
 
@@ -505,19 +549,48 @@ Status VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
       std::forward<NullFunc>(null_func));
 }
 
-// Like VisitArrayValuesInline, but for binary functions.
+// Like VisitArrayValuesInline, but yields lazy BinaryViewAccessor descriptors.
+template <typename T, typename VisitFunc, typename NullFunc>
+  requires is_binary_view_like_type<T>::value
+void VisitBinaryViewValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
+                                 NullFunc&& null_func) {
+  if (arr.length == 0) {
+    return;
+  }
+  const auto* views = arr.GetValues<BinaryViewType::c_type>(1);
+  const auto* data_buffers = arr.GetVariadicBuffers().data();
+  ::arrow::internal::VisitBitBlocksVoid(
+      arr.buffers[0].data, arr.offset, arr.length,
+      [&](int64_t index) {
+        valid_func(util::BinaryViewAccessor{views[index], data_buffers});
+      },
+      std::forward<NullFunc>(null_func));
+}
 
-template <typename Arg0Type, typename Arg1Type, typename VisitFunc, typename NullFunc>
-void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& arr1,
-                               VisitFunc&& valid_func, NullFunc&& null_func) {
-  ArrayIterator<Arg0Type> arr0_it(arr0);
-  ArrayIterator<Arg1Type> arr1_it(arr1);
+namespace detail {
+
+template <typename Type, typename Value>
+decltype(auto) MaybeLogicalValue(Value&& v) {
+  if constexpr (std::is_same_v<std::remove_cvref_t<Value>, util::BinaryViewAccessor>) {
+    return std::forward<Value>(v);
+  } else {
+    return GetViewType<Type>::LogicalValue(std::forward<Value>(v));
+  }
+}
+
+template <template <typename, typename = void> class Iter0,
+          template <typename, typename = void> class Iter1, typename Arg0Type,
+          typename Arg1Type, typename VisitFunc, typename NullFunc>
+void VisitTwoArrayIteratorsInline(const ArraySpan& arr0, const ArraySpan& arr1,
+                                  VisitFunc&& valid_func, NullFunc&& null_func) {
+  Iter0<Arg0Type> arr0_it(arr0);
+  Iter1<Arg1Type> arr1_it(arr1);
 
   auto visit_run = [&](int64_t position, int64_t run_length, bool is_set) {
     if (is_set) {
       for (int64_t i = 0; i < run_length; ++i) {
-        valid_func(GetViewType<Arg0Type>::LogicalValue(arr0_it()),
-                   GetViewType<Arg1Type>::LogicalValue(arr1_it()));
+        valid_func(MaybeLogicalValue<Arg0Type>(arr0_it()),
+                   MaybeLogicalValue<Arg1Type>(arr1_it()));
       }
     } else {
       for (int64_t i = 0; i < run_length; ++i) {
@@ -531,6 +604,27 @@ void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& arr1,
   ::arrow::internal::VisitTwoBitRunsVoid(arr0.buffers[0].data, arr0.offset,
                                          arr1.buffers[0].data, arr1.offset, arr0.length,
                                          std::move(visit_run));
+}
+
+}  // namespace detail
+
+// Like VisitArrayValuesInline, but for binary functions.
+
+template <typename Arg0Type, typename Arg1Type, typename VisitFunc, typename NullFunc>
+void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& arr1,
+                               VisitFunc&& valid_func, NullFunc&& null_func) {
+  detail::VisitTwoArrayIteratorsInline<ArrayIterator, ArrayIterator, Arg0Type, Arg1Type>(
+      arr0, arr1, std::forward<VisitFunc>(valid_func), std::forward<NullFunc>(null_func));
+}
+
+template <typename Arg0Type, typename Arg1Type, typename VisitFunc, typename NullFunc>
+  requires(is_binary_view_like_type<Arg0Type>::value ||
+           is_binary_view_like_type<Arg1Type>::value)
+void VisitTwoBinaryViewValuesInline(const ArraySpan& arr0, const ArraySpan& arr1,
+                                    VisitFunc&& valid_func, NullFunc&& null_func) {
+  detail::VisitTwoArrayIteratorsInline<ViewDescriptorIterator, ViewDescriptorIterator,
+                                       Arg0Type, Arg1Type>(
+      arr0, arr1, std::forward<VisitFunc>(valid_func), std::forward<NullFunc>(null_func));
 }
 
 // ----------------------------------------------------------------------
@@ -572,6 +666,122 @@ const std::vector<std::shared_ptr<DataType>>& ExampleParametricTypes();
 // which can be used to add a kernel to a Function.
 
 namespace applicator {
+
+namespace detail {
+
+template <typename Op, typename OutValue, typename Arg0Value>
+concept HasUnaryBinaryViewCall =
+    requires(KernelContext* ctx, const Arg0Value& a0, Status* st) {
+      { Op::template CallView<OutValue>(ctx, a0, st) } -> std::convertible_to<OutValue>;
+    };  // NOLINT(readability/braces)
+
+template <typename Op, typename OutValue, typename Arg0Value>
+concept HasStatefulUnaryBinaryViewCall =
+    requires(const Op& op, KernelContext* ctx, const Arg0Value& a0, Status* st) {
+      { op.template CallView<OutValue>(ctx, a0, st) } -> std::convertible_to<OutValue>;
+    };  // NOLINT(readability/braces)
+
+template <typename Op, typename OutValue, typename Arg0Value, typename Arg1Value>
+concept HasBinaryViewCall =
+    requires(KernelContext* ctx, const Arg0Value& a0, const Arg1Value& a1, Status* st) {
+      {
+        Op::template CallView<OutValue>(ctx, a0, a1, st)
+      } -> std::convertible_to<OutValue>;
+    };  // NOLINT(readability/braces)
+
+template <typename Op, typename OutValue, typename Arg0Value, typename Arg1Value>
+concept HasStatefulBinaryViewCall = requires(
+    Op& op, KernelContext* ctx, const Arg0Value& a0, const Arg1Value& a1, Status* st) {
+  { op.template CallView<OutValue>(ctx, a0, a1, st) } -> std::convertible_to<OutValue>;
+};  // NOLINT(readability/braces)
+
+template <typename Op, typename OutValue, typename Arg0Type>
+constexpr bool UseUnaryBinaryView() {
+  if constexpr (is_binary_view_like_type<Arg0Type>::value) {
+    return HasUnaryBinaryViewCall<Op, OutValue,
+                                  std::invoke_result_t<ViewDescriptorIterator<Arg0Type>>>;
+  }
+  return false;
+}
+
+template <typename Op, typename OutValue, typename Arg0Type>
+constexpr bool UseStatefulUnaryBinaryView() {
+  if constexpr (is_binary_view_like_type<Arg0Type>::value) {
+    return HasStatefulUnaryBinaryViewCall<
+        Op, OutValue, std::invoke_result_t<ViewDescriptorIterator<Arg0Type>>>;
+  }
+  return false;
+}
+
+template <typename Op, typename OutValue, typename Arg0Type, typename Arg1Type>
+constexpr bool UseBinaryViewArrayArray() {
+  if constexpr (is_binary_view_like_type<Arg0Type>::value ||
+                is_binary_view_like_type<Arg1Type>::value) {
+    return HasBinaryViewCall<Op, OutValue,
+                             std::invoke_result_t<ViewDescriptorIterator<Arg0Type>>,
+                             std::invoke_result_t<ViewDescriptorIterator<Arg1Type>>>;
+  }
+  return false;
+}
+
+template <typename Op, typename OutValue, typename Arg0Type, typename Arg1Type>
+constexpr bool UseBinaryViewArrayScalar() {
+  if constexpr (is_binary_view_like_type<Arg0Type>::value ||
+                is_binary_view_like_type<Arg1Type>::value) {
+    return HasBinaryViewCall<
+        Op, OutValue, std::invoke_result_t<ViewDescriptorIterator<Arg0Type>>,
+        decltype(ViewScalarUnboxer<Arg1Type>::Unbox(std::declval<const Scalar&>()))>;
+  }
+  return false;
+}
+
+template <typename Op, typename OutValue, typename Arg0Type, typename Arg1Type>
+constexpr bool UseBinaryViewScalarArray() {
+  if constexpr (is_binary_view_like_type<Arg0Type>::value ||
+                is_binary_view_like_type<Arg1Type>::value) {
+    return HasBinaryViewCall<Op, OutValue,
+                             decltype(ViewScalarUnboxer<Arg0Type>::Unbox(
+                                 std::declval<const Scalar&>())),
+                             std::invoke_result_t<ViewDescriptorIterator<Arg1Type>>>;
+  }
+  return false;
+}
+
+template <typename Op, typename OutValue, typename Arg0Type, typename Arg1Type>
+constexpr bool UseStatefulBinaryViewArrayArray() {
+  if constexpr (is_binary_view_like_type<Arg0Type>::value ||
+                is_binary_view_like_type<Arg1Type>::value) {
+    return HasStatefulBinaryViewCall<
+        Op, OutValue, std::invoke_result_t<ViewDescriptorIterator<Arg0Type>>,
+        std::invoke_result_t<ViewDescriptorIterator<Arg1Type>>>;
+  }
+  return false;
+}
+
+template <typename Op, typename OutValue, typename Arg0Type, typename Arg1Type>
+constexpr bool UseStatefulBinaryViewArrayScalar() {
+  if constexpr (is_binary_view_like_type<Arg0Type>::value ||
+                is_binary_view_like_type<Arg1Type>::value) {
+    return HasStatefulBinaryViewCall<
+        Op, OutValue, std::invoke_result_t<ViewDescriptorIterator<Arg0Type>>,
+        decltype(ViewScalarUnboxer<Arg1Type>::Unbox(std::declval<const Scalar&>()))>;
+  }
+  return false;
+}
+
+template <typename Op, typename OutValue, typename Arg0Type, typename Arg1Type>
+constexpr bool UseStatefulBinaryViewScalarArray() {
+  if constexpr (is_binary_view_like_type<Arg0Type>::value ||
+                is_binary_view_like_type<Arg1Type>::value) {
+    return HasStatefulBinaryViewCall<
+        Op, OutValue,
+        decltype(ViewScalarUnboxer<Arg0Type>::Unbox(std::declval<const Scalar&>())),
+        std::invoke_result_t<ViewDescriptorIterator<Arg1Type>>>;
+  }
+  return false;
+}
+
+}  // namespace detail
 
 // Generate an ArrayKernelExec given a functor that handles all of its own
 // iteration, etc.
@@ -672,10 +882,17 @@ struct ScalarUnary {
     ARROW_DCHECK(batch[0].is_array());
     const ArraySpan& arg0 = batch[0].array;
     Status st = Status::OK();
-    ArrayIterator<Arg0Type> arg0_it(arg0);
+    constexpr bool kUseView = detail::UseUnaryBinaryView<Op, OutValue, Arg0Type>();
+    using It0 = std::conditional_t<kUseView, ViewDescriptorIterator<Arg0Type>,
+                                   ArrayIterator<Arg0Type>>;
+    It0 arg0_it(arg0);
     RETURN_NOT_OK(
         OutputAdapter<OutType>::Write(ctx, out->array_span_mutable(), [&]() -> OutValue {
-          return Op::template Call<OutValue, Arg0Value>(ctx, arg0_it(), &st);
+          if constexpr (kUseView) {
+            return Op::template CallView<OutValue>(ctx, arg0_it(), &st);
+          } else {
+            return Op::template Call<OutValue, Arg0Value>(ctx, arg0_it(), &st);
+          }
         }));
     return st;
   }
@@ -710,15 +927,24 @@ struct ScalarUnaryNotNullStateful {
                        ExecResult* out) {
       Status st = Status::OK();
       auto out_data = out->array_span_mutable()->GetValues<OutValue>(1);
-      VisitArrayValuesInline<Arg0Type>(
-          arg0,
-          [&](Arg0Value v) {
-            *out_data++ = functor.op.template Call<OutValue, Arg0Value>(ctx, v, &st);
-          },
-          [&]() {
-            // null
-            *out_data++ = OutValue{};
-          });
+      constexpr bool kUseView =
+          detail::UseStatefulUnaryBinaryView<Op, OutValue, Arg0Type>();
+      auto visit_valid = [&](const auto& v) {
+        if constexpr (kUseView) {
+          *out_data++ = functor.op.template CallView<OutValue>(ctx, v, &st);
+        } else {
+          *out_data++ = functor.op.template Call<OutValue, Arg0Value>(ctx, v, &st);
+        }
+      };
+      auto visit_null = [&]() {
+        // null
+        *out_data++ = OutValue{};
+      };
+      if constexpr (kUseView) {
+        VisitBinaryViewValuesInline<Arg0Type>(arg0, visit_valid, visit_null);
+      } else {
+        VisitArrayValuesInline<Arg0Type>(arg0, visit_valid, visit_null);
+      }
       return st;
     }
   };
@@ -753,19 +979,30 @@ struct ScalarUnaryNotNullStateful {
       ArraySpan* out_arr = out->array_span_mutable();
       FirstTimeBitmapWriter out_writer(out_arr->buffers[1].data, out_arr->offset,
                                        out_arr->length);
-      VisitArrayValuesInline<Arg0Type>(
-          arg0,
-          [&](Arg0Value v) {
-            if (functor.op.template Call<OutValue, Arg0Value>(ctx, v, &st)) {
-              out_writer.Set();
-            }
-            out_writer.Next();
-          },
-          [&]() {
-            // null
-            out_writer.Clear();
-            out_writer.Next();
-          });
+      constexpr bool kUseView =
+          detail::UseStatefulUnaryBinaryView<Op, OutValue, Arg0Type>();
+      auto visit_valid = [&](const auto& v) {
+        bool result;
+        if constexpr (kUseView) {
+          result = functor.op.template CallView<OutValue>(ctx, v, &st);
+        } else {
+          result = functor.op.template Call<OutValue, Arg0Value>(ctx, v, &st);
+        }
+        if (result) {
+          out_writer.Set();
+        }
+        out_writer.Next();
+      };
+      auto visit_null = [&]() {
+        // null
+        out_writer.Clear();
+        out_writer.Next();
+      };
+      if constexpr (kUseView) {
+        VisitBinaryViewValuesInline<Arg0Type>(arg0, visit_valid, visit_null);
+      } else {
+        VisitArrayValuesInline<Arg0Type>(arg0, visit_valid, visit_null);
+      }
       out_writer.Finish();
       return st;
     }
@@ -820,12 +1057,22 @@ struct ScalarBinary {
   static Status ArrayArray(KernelContext* ctx, const ArraySpan& arg0,
                            const ArraySpan& arg1, ExecResult* out) {
     Status st = Status::OK();
-    ArrayIterator<Arg0Type> arg0_it(arg0);
-    ArrayIterator<Arg1Type> arg1_it(arg1);
+    constexpr bool kUseView =
+        detail::UseBinaryViewArrayArray<Op, OutValue, Arg0Type, Arg1Type>();
+    using It0 = std::conditional_t<kUseView, ViewDescriptorIterator<Arg0Type>,
+                                   ArrayIterator<Arg0Type>>;
+    using It1 = std::conditional_t<kUseView, ViewDescriptorIterator<Arg1Type>,
+                                   ArrayIterator<Arg1Type>>;
+    It0 arg0_it(arg0);
+    It1 arg1_it(arg1);
     RETURN_NOT_OK(
         OutputAdapter<OutType>::Write(ctx, out->array_span_mutable(), [&]() -> OutValue {
-          return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(),
-                                                                   arg1_it(), &st);
+          if constexpr (kUseView) {
+            return Op::template CallView<OutValue>(ctx, arg0_it(), arg1_it(), &st);
+          } else {
+            return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(),
+                                                                     arg1_it(), &st);
+          }
         }));
     return st;
   }
@@ -833,12 +1080,22 @@ struct ScalarBinary {
   static Status ArrayScalar(KernelContext* ctx, const ArraySpan& arg0, const Scalar& arg1,
                             ExecResult* out) {
     Status st = Status::OK();
-    ArrayIterator<Arg0Type> arg0_it(arg0);
-    auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
+    constexpr bool kUseView =
+        detail::UseBinaryViewArrayScalar<Op, OutValue, Arg0Type, Arg1Type>();
+    using It0 = std::conditional_t<kUseView, ViewDescriptorIterator<Arg0Type>,
+                                   ArrayIterator<Arg0Type>>;
+    using Unboxer1 =
+        std::conditional_t<kUseView, ViewScalarUnboxer<Arg1Type>, UnboxScalar<Arg1Type>>;
+    It0 arg0_it(arg0);
+    auto arg1_val = Unboxer1::Unbox(arg1);
     RETURN_NOT_OK(
         OutputAdapter<OutType>::Write(ctx, out->array_span_mutable(), [&]() -> OutValue {
-          return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(),
-                                                                   arg1_val, &st);
+          if constexpr (kUseView) {
+            return Op::template CallView<OutValue>(ctx, arg0_it(), arg1_val, &st);
+          } else {
+            return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_it(),
+                                                                     arg1_val, &st);
+          }
         }));
     return st;
   }
@@ -846,12 +1103,22 @@ struct ScalarBinary {
   static Status ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArraySpan& arg1,
                             ExecResult* out) {
     Status st = Status::OK();
-    auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-    ArrayIterator<Arg1Type> arg1_it(arg1);
+    constexpr bool kUseView =
+        detail::UseBinaryViewScalarArray<Op, OutValue, Arg0Type, Arg1Type>();
+    using Unboxer0 =
+        std::conditional_t<kUseView, ViewScalarUnboxer<Arg0Type>, UnboxScalar<Arg0Type>>;
+    using It1 = std::conditional_t<kUseView, ViewDescriptorIterator<Arg1Type>,
+                                   ArrayIterator<Arg1Type>>;
+    auto arg0_val = Unboxer0::Unbox(arg0);
+    It1 arg1_it(arg1);
     RETURN_NOT_OK(
         OutputAdapter<OutType>::Write(ctx, out->array_span_mutable(), [&]() -> OutValue {
-          return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val,
-                                                                   arg1_it(), &st);
+          if constexpr (kUseView) {
+            return Op::template CallView<OutValue>(ctx, arg0_val, arg1_it(), &st);
+          } else {
+            return Op::template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val,
+                                                                     arg1_it(), &st);
+          }
         }));
     return st;
   }
@@ -892,12 +1159,22 @@ struct ScalarBinaryNotNullStateful {
                     ExecResult* out) {
     Status st = Status::OK();
     OutputArrayWriter<OutType> writer(out->array_span_mutable());
-    VisitTwoArrayValuesInline<Arg0Type, Arg1Type>(
-        arg0, arg1,
-        [&](Arg0Value u, Arg1Value v) {
-          writer.Write(op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, u, v, &st));
-        },
-        [&]() { writer.WriteNull(); });
+    constexpr bool kUseView =
+        detail::UseStatefulBinaryViewArrayArray<Op, OutValue, Arg0Type, Arg1Type>();
+    auto visit_valid = [&](const auto& u, const auto& v) {
+      if constexpr (kUseView) {
+        writer.Write(op.template CallView<OutValue>(ctx, u, v, &st));
+      } else {
+        writer.Write(op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, u, v, &st));
+      }
+    };
+    auto visit_null = [&]() { writer.WriteNull(); };
+    if constexpr (kUseView) {
+      VisitTwoBinaryViewValuesInline<Arg0Type, Arg1Type>(arg0, arg1, visit_valid,
+                                                         visit_null);
+    } else {
+      VisitTwoArrayValuesInline<Arg0Type, Arg1Type>(arg0, arg1, visit_valid, visit_null);
+    }
     return st;
   }
 
@@ -907,14 +1184,25 @@ struct ScalarBinaryNotNullStateful {
     ArraySpan* out_span = out->array_span_mutable();
     OutputArrayWriter<OutType> writer(out_span);
     if (arg1.is_valid) {
-      const auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
-      VisitArrayValuesInline<Arg0Type>(
-          arg0,
-          [&](Arg0Value u) {
-            writer.Write(
-                op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, u, arg1_val, &st));
-          },
-          [&]() { writer.WriteNull(); });
+      constexpr bool kUseView =
+          detail::UseStatefulBinaryViewArrayScalar<Op, OutValue, Arg0Type, Arg1Type>();
+      using Unboxer1 = std::conditional_t<kUseView, ViewScalarUnboxer<Arg1Type>,
+                                          UnboxScalar<Arg1Type>>;
+      const auto arg1_val = Unboxer1::Unbox(arg1);
+      auto visit_valid = [&](const auto& u) {
+        if constexpr (kUseView) {
+          writer.Write(op.template CallView<OutValue>(ctx, u, arg1_val, &st));
+        } else {
+          writer.Write(
+              op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, u, arg1_val, &st));
+        }
+      };
+      auto visit_null = [&]() { writer.WriteNull(); };
+      if constexpr (kUseView && is_binary_view_like_type<Arg0Type>::value) {
+        VisitBinaryViewValuesInline<Arg0Type>(arg0, visit_valid, visit_null);
+      } else {
+        VisitArrayValuesInline<Arg0Type>(arg0, visit_valid, visit_null);
+      }
     } else {
       writer.WriteAllNull(out_span->length);
     }
@@ -927,14 +1215,25 @@ struct ScalarBinaryNotNullStateful {
     ArraySpan* out_span = out->array_span_mutable();
     OutputArrayWriter<OutType> writer(out_span);
     if (arg0.is_valid) {
-      const auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
-      VisitArrayValuesInline<Arg1Type>(
-          arg1,
-          [&](Arg1Value v) {
-            writer.Write(
-                op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, v, &st));
-          },
-          [&]() { writer.WriteNull(); });
+      constexpr bool kUseView =
+          detail::UseStatefulBinaryViewScalarArray<Op, OutValue, Arg0Type, Arg1Type>();
+      using Unboxer0 = std::conditional_t<kUseView, ViewScalarUnboxer<Arg0Type>,
+                                          UnboxScalar<Arg0Type>>;
+      const auto arg0_val = Unboxer0::Unbox(arg0);
+      auto visit_valid = [&](const auto& v) {
+        if constexpr (kUseView) {
+          writer.Write(op.template CallView<OutValue>(ctx, arg0_val, v, &st));
+        } else {
+          writer.Write(
+              op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, v, &st));
+        }
+      };
+      auto visit_null = [&]() { writer.WriteNull(); };
+      if constexpr (kUseView && is_binary_view_like_type<Arg1Type>::value) {
+        VisitBinaryViewValuesInline<Arg1Type>(arg1, visit_valid, visit_null);
+      } else {
+        VisitArrayValuesInline<Arg1Type>(arg1, visit_valid, visit_null);
+      }
     } else {
       writer.WriteAllNull(out_span->length);
     }

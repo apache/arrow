@@ -24,6 +24,7 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/type.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging_internal.h"
@@ -45,6 +46,13 @@ struct Equal {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left == right;
   }
+
+  template <typename T, typename Arg0, typename Arg1>
+    requires util::IsBinaryViewOperand<Arg0> || util::IsBinaryViewOperand<Arg1>
+  static T CallView(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value, "");
+    return util::EqualBinaryViewValue(left, right);
+  }
 };
 
 struct NotEqual {
@@ -52,6 +60,13 @@ struct NotEqual {
   static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
     static_assert(std::is_same<T, bool>::value && std::is_same<Arg0, Arg1>::value, "");
     return left != right;
+  }
+
+  template <typename T, typename Arg0, typename Arg1>
+    requires util::IsBinaryViewOperand<Arg0> || util::IsBinaryViewOperand<Arg1>
+  static T CallView(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
+    static_assert(std::is_same<T, bool>::value, "");
+    return !util::EqualBinaryViewValue(left, right);
   }
 };
 

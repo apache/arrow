@@ -17,10 +17,18 @@
 
 #pragma once
 
+#include <concepts>
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <memory>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
+#include "arrow/buffer.h"
 #include "arrow/type.h"
+#include "arrow/util/macros.h"
 
 namespace arrow::util {
 
@@ -96,6 +104,196 @@ bool EqualBinaryView(BinaryViewType::c_type l, BinaryViewType::c_type r,
   return memcmp(l_data + BinaryViewType::kPrefixSize,
                 r_data + BinaryViewType::kPrefixSize,
                 l.size() - BinaryViewType::kPrefixSize) == 0;
+}
+
+/// \brief Compare a BinaryView value with contiguous string data.
+///
+/// Performs prefix-accelerated early rejection by checking string length and the
+/// 4-byte inline prefix before dereferencing variadic buffers.
+template <typename BufferPtr>
+bool EqualBinaryViewString(BinaryViewType::c_type view, const uint8_t* str_data,
+                           int64_t str_len, const BufferPtr* view_buffers) {
+  static_assert(BinaryViewType::kPrefixSize == sizeof(uint32_t));
+  if (view.size() != str_len) return false;
+  if (view.size() == 0) return true;
+
+  if (view.size() < BinaryViewType::kPrefixSize) {
+    return memcmp(view.inline_data(), str_data, view.size()) == 0;
+  }
+
+  uint32_t view_prefix, str_prefix;
+  memcpy(&view_prefix, view.inline_data(), sizeof(uint32_t));
+  memcpy(&str_prefix, str_data, sizeof(uint32_t));
+  if (view_prefix != str_prefix) return false;
+
+  if (view.is_inline()) {
+    if (view.size() == BinaryViewType::kPrefixSize) return true;
+    return memcmp(view.inline_data() + BinaryViewType::kPrefixSize,
+                  str_data + BinaryViewType::kPrefixSize,
+                  view.size() - BinaryViewType::kPrefixSize) == 0;
+  }
+
+  const uint8_t* view_payload =
+      view_buffers[view.ref.buffer_index]->data() + view.ref.offset;
+  return memcmp(view_payload + BinaryViewType::kPrefixSize,
+                str_data + BinaryViewType::kPrefixSize,
+                view.size() - BinaryViewType::kPrefixSize) == 0;
+}
+
+template <typename BufferPtr>
+bool EqualBinaryViewString(BinaryViewType::c_type view, std::string_view str,
+                           const BufferPtr* view_buffers) {
+  return EqualBinaryViewString(view, reinterpret_cast<const uint8_t*>(str.data()),
+                               static_cast<int64_t>(str.size()), view_buffers);
+}
+
+/// \brief Lazy descriptor view of a BinaryView array element.
+///
+/// Allows operators that opt into CallView to inspect inline size and 4-byte
+/// prefix metadata before materializing a variadic buffer string_view.
+struct BinaryViewAccessor {
+  BinaryViewType::c_type view;
+  const std::shared_ptr<Buffer>* buffers;
+
+  int32_t size() const { return view.size(); }
+  bool is_inline() const { return view.is_inline(); }
+  std::string_view value() const& { return FromBinaryView(view, buffers); }
+  std::string_view value() && = delete;
+  operator std::string_view() const& { return value(); }
+  operator std::string_view() && = delete;
+};
+
+/// \brief Hoisted metadata for comparing a scalar string/binary value against
+/// BinaryView descriptors without per-row prefix extraction.
+struct PinnedBinaryScalar {
+  std::string_view str;
+  int64_t len = 0;
+  uint32_t prefix = 0;
+  int64_t size_and_prefix = 0;
+  int64_t inlined = 0;
+  bool is_inline = true;
+  bool fits_in_binary_view = true;
+
+  static PinnedBinaryScalar FromString(bool is_valid, std::string_view s) {
+    static_assert(BinaryViewType::kPrefixSize == sizeof(uint32_t));
+    static_assert(sizeof(int32_t) + BinaryViewType::kPrefixSize == sizeof(int64_t));
+    static_assert(BinaryViewType::kInlineSize - BinaryViewType::kPrefixSize ==
+                  sizeof(int64_t));
+
+    PinnedBinaryScalar out;
+    if (!is_valid) {
+      return out;
+    }
+
+    out.str = s;
+    out.len = static_cast<int64_t>(s.size());
+    out.fits_in_binary_view = (out.len <= std::numeric_limits<int32_t>::max());
+    if (out.len >= BinaryViewType::kPrefixSize) {
+      memcpy(&out.prefix, s.data(), sizeof(out.prefix));
+    }
+
+    if (out.fits_in_binary_view) {
+      BinaryViewType::c_type scalar_view;
+      if (out.len == 0) {
+        scalar_view.inlined = {0, {}};
+      } else {
+        scalar_view = ToBinaryView(s.data(), static_cast<int32_t>(out.len), 0, 0);
+      }
+      memcpy(&out.size_and_prefix, &scalar_view, sizeof(out.size_and_prefix));
+      out.is_inline = scalar_view.is_inline();
+      if (out.is_inline) {
+        memcpy(&out.inlined, scalar_view.inline_data() + BinaryViewType::kPrefixSize,
+               sizeof(out.inlined));
+      }
+    } else {
+      out.is_inline = false;
+    }
+    return out;
+  }
+};
+
+template <typename T>
+concept IsBinaryViewOperand = std::same_as<std::remove_cvref_t<T>, BinaryViewAccessor> ||
+                              std::same_as<std::remove_cvref_t<T>, PinnedBinaryScalar>;
+
+inline bool EqualBinaryViewValue(const BinaryViewAccessor& lhs,
+                                 const BinaryViewAccessor& rhs) {
+  return EqualBinaryView(lhs.view, rhs.view, lhs.buffers, rhs.buffers);
+}
+
+inline bool EqualBinaryViewValue(const BinaryViewAccessor& lhs, std::string_view rhs) {
+  return EqualBinaryViewString(lhs.view, rhs, lhs.buffers);
+}
+
+inline bool EqualBinaryViewValue(std::string_view lhs, const BinaryViewAccessor& rhs) {
+  return EqualBinaryViewString(rhs.view, lhs, rhs.buffers);
+}
+
+inline bool EqualBinaryViewValue(const BinaryViewAccessor& lhs,
+                                 const PinnedBinaryScalar& rhs) {
+  static_assert(BinaryViewType::kPrefixSize == sizeof(uint32_t));
+  static_assert(sizeof(int32_t) + BinaryViewType::kPrefixSize == sizeof(int64_t));
+  static_assert(BinaryViewType::kInlineSize - BinaryViewType::kPrefixSize ==
+                sizeof(int64_t));
+
+  if (ARROW_PREDICT_FALSE(!rhs.fits_in_binary_view)) {
+    return false;
+  }
+
+  int64_t view_size_and_prefix;
+  memcpy(&view_size_and_prefix, &lhs.view, sizeof(view_size_and_prefix));
+  if (view_size_and_prefix != rhs.size_and_prefix) {
+    return false;
+  }
+
+  if (rhs.is_inline) {
+    int64_t view_inlined;
+    memcpy(&view_inlined, lhs.view.inline_data() + BinaryViewType::kPrefixSize,
+           sizeof(view_inlined));
+    return view_inlined == rhs.inlined;
+  }
+
+  const uint8_t* view_payload =
+      lhs.buffers[lhs.view.ref.buffer_index]->data() + lhs.view.ref.offset;
+  return memcmp(view_payload + BinaryViewType::kPrefixSize,
+                rhs.str.data() + BinaryViewType::kPrefixSize,
+                lhs.view.size() - BinaryViewType::kPrefixSize) == 0;
+}
+
+inline bool EqualBinaryViewValue(const PinnedBinaryScalar& lhs,
+                                 const BinaryViewAccessor& rhs) {
+  return EqualBinaryViewValue(rhs, lhs);
+}
+
+inline bool EqualBinaryViewValue(std::string_view lhs, const PinnedBinaryScalar& rhs) {
+  static_assert(BinaryViewType::kPrefixSize == sizeof(uint32_t));
+  if (static_cast<int64_t>(lhs.size()) != rhs.len) {
+    return false;
+  }
+  if (rhs.len == 0) {
+    return true;
+  }
+
+  if (rhs.len < BinaryViewType::kPrefixSize) {
+    return memcmp(lhs.data(), rhs.str.data(), static_cast<size_t>(rhs.len)) == 0;
+  }
+
+  uint32_t lhs_prefix;
+  memcpy(&lhs_prefix, lhs.data(), sizeof(uint32_t));
+  if (lhs_prefix != rhs.prefix) {
+    return false;
+  }
+
+  if (rhs.len == BinaryViewType::kPrefixSize) {
+    return true;
+  }
+  return memcmp(lhs.data() + BinaryViewType::kPrefixSize,
+                rhs.str.data() + BinaryViewType::kPrefixSize,
+                static_cast<size_t>(rhs.len - BinaryViewType::kPrefixSize)) == 0;
+}
+
+inline bool EqualBinaryViewValue(const PinnedBinaryScalar& lhs, std::string_view rhs) {
+  return EqualBinaryViewValue(rhs, lhs);
 }
 
 /// \brief Compute the total size of a list of binary views including null
