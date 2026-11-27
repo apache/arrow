@@ -167,8 +167,9 @@ struct TDigestInitState {
 
 Result<std::unique_ptr<KernelState>> TDigestInit(KernelContext* ctx,
                                                  const KernelInitArgs& args) {
-  TDigestInitState visitor(ctx, *args.inputs[0].type,
-                           static_cast<const TDigestOptions&>(*args.options));
+  const auto& options = static_cast<const TDigestOptions&>(*args.options);
+  RETURN_NOT_OK(ValidateQuantileLevels(options.q));
+  TDigestInitState visitor(ctx, *args.inputs[0].type, options);
   return visitor.Create();
 }
 

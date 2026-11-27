@@ -1316,6 +1316,24 @@ TEST_P(GroupBy, TDigest) {
       /*verbose=*/true);
 }
 
+TEST_P(GroupBy, TDigestInvalidQuantileLevel) {
+  auto argument = ArrayFromJSON(float64(), "[1.0, 2.0, 3.0]");
+  auto key = ArrayFromJSON(int64(), "[1, 1, 2]");
+  auto empty_argument = ArrayFromJSON(float64(), "[]");
+  auto empty_key = ArrayFromJSON(int64(), "[]");
+  for (double q : {-0.1, 1.1, std::numeric_limits<double>::quiet_NaN()}) {
+    auto options = std::make_shared<TDigestOptions>(q);
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, HasSubstr("Quantile must be between 0 and 1"),
+        GroupByTest({argument}, {key}, {{"hash_tdigest", options}},
+                    /*use_threads=*/false));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, HasSubstr("Quantile must be between 0 and 1"),
+        GroupByTest({empty_argument}, {empty_key}, {{"hash_tdigest", options}},
+                    /*use_threads=*/false));
+  }
+}
+
 TEST_P(GroupBy, TDigestDecimal) {
   auto batch = RecordBatchFromJSON(
       schema({field("argument0", decimal128(3, 2)), field("argument1", decimal256(3, 2)),

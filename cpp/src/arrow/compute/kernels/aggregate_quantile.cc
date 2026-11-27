@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/compute/registry_internal.h"
@@ -488,12 +489,7 @@ Status CheckQuantileOptions(KernelContext* ctx) {
   if (options.q.empty()) {
     return Status::Invalid("Requires quantile argument");
   }
-  for (double q : options.q) {
-    if (q < 0 || q > 1) {
-      return Status::Invalid("Quantile must be between 0 and 1");
-    }
-  }
-  return Status::OK();
+  return ValidateQuantileLevels(options.q);
 }
 
 template <typename InType>
