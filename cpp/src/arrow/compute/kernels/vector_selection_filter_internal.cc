@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -41,8 +42,10 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 
@@ -118,34 +121,66 @@ namespace {
 // ----------------------------------------------------------------------
 // Optimized and streamlined filter for primitive types
 
-// Use either BitBlockCounter or BinaryBitBlockCounter to quickly scan filter a
-// word at a time for the DROP selection type.
-class DropNullCounter {
- public:
-  // validity bitmap may be null
-  DropNullCounter(const uint8_t* validity, const uint8_t* data, int64_t offset,
-                  int64_t length)
-      : data_counter_(data, offset, length),
-        data_and_validity_counter_(data, offset, validity, offset, length),
-        has_validity_(validity != nullptr) {}
-
-  BitBlockCount NextBlock() {
-    if (has_validity_) {
-      // filter is true AND not null
-      return data_and_validity_counter_.NextAndWord();
+// Write `num_bits` (1 <= num_bits <= 64) from the low bits of `bits` into `dst` at
+// `bit_offset`, touching only bytes in [bit_offset / 8, BytesForBits(bit_offset +
+// num_bits)). Bits at positions >= num_bits in `bits` must be 0.
+inline void WriteBits64(uint8_t* dst, int64_t bit_offset, uint64_t bits,
+                        int num_bits) noexcept {
+  DCHECK_GT(num_bits, 0);
+  DCHECK_LE(num_bits, 64);
+  const int64_t byte_idx = bit_offset >> 3;
+  const int bit_rem = static_cast<int>(bit_offset & 7);
+  const int num_bytes = static_cast<int>(bit_util::BytesForBits(bit_rem + num_bits));
+  if (bit_rem == 0) {
+    const uint64_t le = bit_util::ToLittleEndian(bits);
+    std::memcpy(dst + byte_idx, &le, static_cast<size_t>(num_bytes));
+  } else {
+    const uint8_t low_existing =
+        dst[byte_idx] & static_cast<uint8_t>((1U << bit_rem) - 1);
+    const uint64_t le = bit_util::ToLittleEndian((bits << bit_rem) | low_existing);
+    if (num_bytes <= 8) {
+      std::memcpy(dst + byte_idx, &le, static_cast<size_t>(num_bytes));
     } else {
-      return data_counter_.NextWord();
+      std::memcpy(dst + byte_idx, &le, 8);
+      dst[byte_idx + 8] = static_cast<uint8_t>(bits >> (64 - bit_rem));
     }
   }
+}
 
- private:
-  // For when just data is present, but no validity bitmap
-  BitBlockCounter data_counter_;
-
-  // For when both validity bitmap and data are present
-  BinaryBitBlockCounter data_and_validity_counter_;
-  const bool has_validity_;
-};
+// Compact bits of `data_word` at positions where `mask` has 1s into the low `pop` bits
+// of the returned uint64_t (with upper bits zeroed).
+inline uint64_t CompactBitmapWord(uint64_t data_word, uint64_t mask, int pop) noexcept {
+  if (mask == ~uint64_t{0}) {
+    return data_word;
+  }
+  if (data_word == ~uint64_t{0}) {
+    return (pop == 64) ? ~uint64_t{0} : ((uint64_t{1} << pop) - 1);
+  }
+  if (data_word == 0) {
+    return 0;
+  }
+  if (pop > 32) {
+    uint64_t acc = data_word;
+    uint64_t inv = ~mask;
+    while (inv != 0) {
+      const int bit_pos = 63 - std::countl_zero(inv);
+      const uint64_t low_mask = (uint64_t{1} << bit_pos) - 1;
+      acc = (acc & low_mask) | ((acc >> 1) & ~low_mask);
+      inv ^= (uint64_t{1} << bit_pos);
+    }
+    return acc;
+  }
+  uint64_t acc = 0;
+  int acc_bits = 0;
+  uint64_t rem = mask;
+  while (rem != 0) {
+    const int tz = std::countr_zero(rem);
+    acc |= ((data_word >> tz) & uint64_t{1}) << acc_bits;
+    ++acc_bits;
+    rem &= rem - 1;
+  }
+  return acc;
+}
 
 /// \brief The Filter implementation for primitive (fixed-width) types does not
 /// use the logical Arrow type but rather the physical C type. This way we only
@@ -239,136 +274,252 @@ class PrimitiveFilterImpl {
     if (filter_.type->id() == Type::RUN_END_ENCODED) {
       return ExecREEFilter();
     }
+    if (values_length_ == 0 || out_length_ == 0) {
+      return;
+    }
+
     const auto* filter_is_valid = filter_.buffers[0].data;
     const auto* filter_data = filter_.buffers[1].data;
     const auto filter_offset = filter_.offset;
-    if (filter_.null_count == 0 && values_null_count_ == 0) {
-      // Fast filter when values and filter are not null
+    const bool has_filter_nulls = (filter_is_valid != nullptr && filter_.null_count != 0);
+    const bool has_data_nulls = (values_is_valid_ != nullptr && values_null_count_ != 0);
+
+    // For very high selectivity (>93.75%) with no nulls in filter or values,
+    // VisitSetBitRunsVoid coalesces long contiguous runs across word boundaries into
+    // large memcpy calls.
+    if (!has_filter_nulls && !has_data_nulls && out_is_valid_ == nullptr &&
+        out_length_ > values_length_ - (values_length_ >> 4)) {
       ::arrow::internal::VisitSetBitRunsVoid(
-          filter_data, filter_.offset, values_length_,
+          filter_data, filter_offset, values_length_,
           [&](int64_t position, int64_t length) { WriteValueSegment(position, length); });
       return;
     }
 
-    // Bit counters used for both null_selection behaviors
-    DropNullCounter drop_null_counter(filter_is_valid, filter_data, filter_offset,
-                                      values_length_);
-    OptionalBitBlockCounter data_counter(values_is_valid_, values_offset_,
-                                         values_length_);
-    OptionalBitBlockCounter filter_valid_counter(filter_is_valid, filter_offset,
-                                                 values_length_);
+    // If output validity bitmap exists but every emitted element is guaranteed valid,
+    // fill it once up front and skip validity tracking inside the hot loop.
+    const bool write_out_validity =
+        (out_is_valid_ != nullptr) &&
+        (has_data_nulls ||
+         (has_filter_nulls && null_selection_ == FilterOptions::EMIT_NULL));
+    if (out_is_valid_ != nullptr && !write_out_validity) {
+      bit_util::SetBitsTo(out_is_valid_, 0, out_length_, true);
+    }
 
-    auto WriteNotNull = [&](int64_t index) {
-      bit_util::SetBit(out_is_valid_, out_position_);
-      // Increments out_position_
-      WriteValue(index);
-    };
-
-    auto WriteMaybeNull = [&](int64_t index) {
-      bit_util::SetBitTo(out_is_valid_, out_position_,
-                         bit_util::GetBit(values_is_valid_, values_offset_ + index));
-      // Increments out_position_
-      WriteValue(index);
-    };
+    ::arrow::internal::BitmapWordReader<uint64_t> filter_data_reader(
+        filter_data, filter_offset, values_length_);
+    ::arrow::internal::BitmapWordReader<uint64_t> filter_valid_reader;
+    if (has_filter_nulls) {
+      filter_valid_reader = ::arrow::internal::BitmapWordReader<uint64_t>(
+          filter_is_valid, filter_offset, values_length_);
+    }
+    ::arrow::internal::BitmapWordReader<uint64_t> data_valid_reader;
+    if (has_data_nulls) {
+      data_valid_reader = ::arrow::internal::BitmapWordReader<uint64_t>(
+          values_is_valid_, values_offset_, values_length_);
+    }
+    ::arrow::internal::BitmapWordReader<uint64_t> bool_data_reader;
+    if constexpr (kIsBoolean) {
+      bool_data_reader = ::arrow::internal::BitmapWordReader<uint64_t>(
+          values_data_, values_offset_, values_length_);
+    }
 
     int64_t in_position = 0;
-    while (in_position < values_length_) {
-      BitBlockCount filter_block = drop_null_counter.NextBlock();
-      BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
-      BitBlockCount data_block = data_counter.NextWord();
-      if (filter_block.AllSet() && data_block.AllSet()) {
-        // Fastest path: all values in block are included and not null
-        bit_util::SetBitsTo(out_is_valid_, out_position_, filter_block.length, true);
-        WriteValueSegment(in_position, filter_block.length);
-        in_position += filter_block.length;
-      } else if (filter_block.AllSet()) {
-        // Faster: all values are selected, but some values are null
-        // Batch copy bits from values validity bitmap to output validity bitmap
-        CopyBitmap(values_is_valid_, values_offset_ + in_position, filter_block.length,
-                   out_is_valid_, out_position_);
-        WriteValueSegment(in_position, filter_block.length);
-        in_position += filter_block.length;
-      } else if (filter_block.NoneSet() && null_selection_ == FilterOptions::DROP) {
-        // For this exceedingly common case in low-selectivity filters we can
-        // skip further analysis of the data and move on to the next block.
-        in_position += filter_block.length;
-      } else {
-        // Some filter values are false or null
-        if (data_block.AllSet()) {
-          // No values are null
-          if (filter_valid_block.AllSet()) {
-            // Filter is non-null but some values are false
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
-                WriteNotNull(in_position);
-              }
-              ++in_position;
-            }
-          } else if (null_selection_ == FilterOptions::DROP) {
-            // If any values are selected, they ARE NOT null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
-                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
-                WriteNotNull(in_position);
-              }
-              ++in_position;
-            }
-          } else {  // null_selection == FilterOptions::EMIT_NULL
-            // Data values in this block are not null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              const bool is_valid =
-                  bit_util::GetBit(filter_is_valid, filter_offset + in_position);
-              if (is_valid &&
-                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
-                // Filter slot is non-null and set
-                WriteNotNull(in_position);
-              } else if (!is_valid) {
-                // Filter slot is null, so we have a null in the output
-                bit_util::ClearBit(out_is_valid_, out_position_);
-                WriteNull();
-              }
-              ++in_position;
-            }
-          }
-        } else {  // !data_block.AllSet()
-          // Some values are null
-          if (filter_valid_block.AllSet()) {
-            // Filter is non-null but some values are false
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (bit_util::GetBit(filter_data, filter_offset + in_position)) {
-                WriteMaybeNull(in_position);
-              }
-              ++in_position;
-            }
-          } else if (null_selection_ == FilterOptions::DROP) {
-            // If any values are selected, they ARE NOT null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              if (bit_util::GetBit(filter_is_valid, filter_offset + in_position) &&
-                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
-                WriteMaybeNull(in_position);
-              }
-              ++in_position;
-            }
-          } else {  // null_selection == FilterOptions::EMIT_NULL
-            // Data values in this block are not null
-            for (int64_t i = 0; i < filter_block.length; ++i) {
-              const bool is_valid =
-                  bit_util::GetBit(filter_is_valid, filter_offset + in_position);
-              if (is_valid &&
-                  bit_util::GetBit(filter_data, filter_offset + in_position)) {
-                // Filter slot is non-null and set
-                WriteMaybeNull(in_position);
-              } else if (!is_valid) {
-                // Filter slot is null, so we have a null in the output
-                bit_util::ClearBit(out_is_valid_, out_position_);
-                WriteNull();
-              }
-              ++in_position;
-            }
+    int64_t full_run_start = -1;
+    int64_t full_run_length = 0;
+
+    auto flush_full_run = [&]() {
+      if (full_run_length > 0) {
+        if (write_out_validity) {
+          if (has_data_nulls) {
+            CopyBitmap(values_is_valid_, values_offset_ + full_run_start, full_run_length,
+                       out_is_valid_, out_position_);
+          } else {
+            bit_util::SetBitsTo(out_is_valid_, out_position_, full_run_length, true);
           }
         }
-      }  // !filter_block.AllSet()
-    }  // while(in_position < values_length_)
+        WriteValueSegment(full_run_start, full_run_length);
+        full_run_length = 0;
+      }
+    };
+
+    int64_t nwords = filter_data_reader.words();
+    while (nwords-- > 0) {
+      const uint64_t fd = filter_data_reader.NextWord();
+      const uint64_t fv =
+          has_filter_nulls ? filter_valid_reader.NextWord() : ~uint64_t{0};
+      const uint64_t dv = has_data_nulls ? data_valid_reader.NextWord() : ~uint64_t{0};
+      const uint64_t bd = [&]() -> uint64_t {
+        if constexpr (kIsBoolean) {
+          return bool_data_reader.NextWord();
+        } else {
+          return 0;
+        }
+      }();
+
+      if (null_selection_ == FilterOptions::DROP || fv == ~uint64_t{0}) {
+        const uint64_t mask = fd & fv;
+        if (mask == ~uint64_t{0}) {
+          if (full_run_length == 0) {
+            full_run_start = in_position;
+          }
+          full_run_length += 64;
+        } else {
+          flush_full_run();
+          if (mask != 0) {
+            const int pop = std::popcount(mask);
+            if (write_out_validity) {
+              const uint64_t out_valid = CompactBitmapWord(dv, mask, pop);
+              WriteBits64(out_is_valid_, out_position_, out_valid, pop);
+            }
+            CompactBlock64(mask, pop, in_position, bd);
+          }
+        }
+      } else {
+        flush_full_run();
+        // EMIT_NULL with at least one filter null in this 64-bit block.
+        const uint64_t emit_mask = (~fv) | fd;
+        if (emit_mask != 0) {
+          const int64_t out_start = out_position_;
+          uint64_t rem = emit_mask;
+          uint64_t out_valid_acc = 0;
+          int acc_bits = 0;
+          while (rem != 0) {
+            const int tz = std::countr_zero(rem);
+            if ((fv >> tz) & uint64_t{1}) {
+              const bool v = !has_data_nulls || (((dv >> tz) & uint64_t{1}) != 0);
+              out_valid_acc |= static_cast<uint64_t>(v) << acc_bits;
+              WriteValue(in_position + tz);
+            } else {
+              WriteNull();
+            }
+            ++acc_bits;
+            rem &= rem - 1;
+          }
+          if (write_out_validity) {
+            WriteBits64(out_is_valid_, out_start, out_valid_acc, acc_bits);
+          }
+        }
+      }
+      in_position += 64;
+    }
+    flush_full_run();
+
+    int trailing_bytes = filter_data_reader.trailing_bytes();
+    while (trailing_bytes-- > 0) {
+      int valid_bits = 0;
+      const uint64_t fd = filter_data_reader.NextTrailingByte(valid_bits);
+      int unused_bits = 0;
+      const uint64_t fv = has_filter_nulls
+                              ? filter_valid_reader.NextTrailingByte(unused_bits)
+                              : ((uint64_t{1} << valid_bits) - 1);
+      const uint64_t dv = has_data_nulls ? data_valid_reader.NextTrailingByte(unused_bits)
+                                         : ((uint64_t{1} << valid_bits) - 1);
+      const uint64_t valid_mask = (uint64_t{1} << valid_bits) - 1;
+
+      if (null_selection_ == FilterOptions::DROP || (fv & valid_mask) == valid_mask) {
+        const uint64_t mask = fd & fv & valid_mask;
+        if (mask != 0) {
+          const int64_t out_start = out_position_;
+          uint64_t rem = mask;
+          uint64_t out_valid_acc = 0;
+          int acc_bits = 0;
+          while (rem != 0) {
+            const int tz = std::countr_zero(rem);
+            out_valid_acc |= ((dv >> tz) & uint64_t{1}) << acc_bits;
+            ++acc_bits;
+            WriteValue(in_position + tz);
+            rem &= rem - 1;
+          }
+          if (write_out_validity) {
+            WriteBits64(out_is_valid_, out_start, out_valid_acc, acc_bits);
+          }
+        }
+      } else {
+        const uint64_t emit_mask = ((~fv) | fd) & valid_mask;
+        if (emit_mask != 0) {
+          const int64_t out_start = out_position_;
+          uint64_t rem = emit_mask;
+          uint64_t out_valid_acc = 0;
+          int acc_bits = 0;
+          while (rem != 0) {
+            const int tz = std::countr_zero(rem);
+            if ((fv >> tz) & uint64_t{1}) {
+              out_valid_acc |= ((dv >> tz) & uint64_t{1}) << acc_bits;
+              WriteValue(in_position + tz);
+            } else {
+              WriteNull();
+            }
+            ++acc_bits;
+            rem &= rem - 1;
+          }
+          if (write_out_validity) {
+            WriteBits64(out_is_valid_, out_start, out_valid_acc, acc_bits);
+          }
+        }
+      }
+      in_position += valid_bits;
+    }
+  }
+
+  template <typename T>
+  void CompactTypedBlock64(uint64_t mask, int pop, int64_t in_pos) noexcept {
+    const uint8_t* in_bytes = values_data_ + in_pos * static_cast<int64_t>(sizeof(T));
+    uint8_t* out_bytes = out_data_ + out_position_ * static_cast<int64_t>(sizeof(T));
+    if (pop <= 8 || out_position_ + 64 > out_length_) {
+      uint64_t rem = mask;
+      while (rem != 0) {
+        const int tz = std::countr_zero(rem);
+        const T v = util::SafeLoadAs<T>(in_bytes + tz * static_cast<int64_t>(sizeof(T)));
+        util::SafeStore(out_bytes, v);
+        out_bytes += sizeof(T);
+        rem &= rem - 1;
+      }
+      out_position_ += pop;
+      return;
+    }
+    // Branchless compaction: safe because out_position_ + 64 <= out_length_, so even at
+    // b = 63, dst_idx <= 63 and out_position_ + dst_idx < out_length_.
+    uint64_t m = mask;
+    int64_t dst_idx = 0;
+    for (int b = 0; b < 64; ++b) {
+      const T v = util::SafeLoadAs<T>(in_bytes + b * static_cast<int64_t>(sizeof(T)));
+      util::SafeStore(out_bytes + dst_idx * static_cast<int64_t>(sizeof(T)), v);
+      dst_idx += static_cast<int64_t>(m & 1);
+      m >>= 1;
+    }
+    DCHECK_EQ(dst_idx, pop);
+    out_position_ += dst_idx;
+  }
+
+  void CompactBlock64(uint64_t mask, int pop, int64_t in_pos, uint64_t bool_word) {
+    DCHECK_NE(mask, uint64_t{0});
+    DCHECK_NE(mask, ~uint64_t{0});
+    if constexpr (kIsBoolean) {
+      const uint64_t compacted = CompactBitmapWord(bool_word, mask, pop);
+      WriteBits64(out_data_, out_position_, compacted, pop);
+      out_position_ += pop;
+    } else if constexpr (kByteWidth == 1) {
+      CompactTypedBlock64<uint8_t>(mask, pop, in_pos);
+    } else if constexpr (kByteWidth == 2) {
+      CompactTypedBlock64<uint16_t>(mask, pop, in_pos);
+    } else if constexpr (kByteWidth == 4) {
+      CompactTypedBlock64<uint32_t>(mask, pop, in_pos);
+    } else if constexpr (kByteWidth == 8) {
+      CompactTypedBlock64<uint64_t>(mask, pop, in_pos);
+    } else if constexpr (kByteWidth == 16) {
+      struct Bytes16 {
+        uint64_t lo;
+        uint64_t hi;
+      };
+      CompactTypedBlock64<Bytes16>(mask, pop, in_pos);
+    } else {
+      uint64_t rem = mask;
+      while (rem != 0) {
+        const int tz = std::countr_zero(rem);
+        WriteValue(in_pos + tz);
+        rem &= rem - 1;
+      }
+    }
   }
 
   // Write the next out_position given the selected in_position for the input
