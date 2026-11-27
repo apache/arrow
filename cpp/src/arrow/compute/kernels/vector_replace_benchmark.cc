@@ -81,10 +81,56 @@ static void ReplaceWithMaskHighSelectivityBench(
   state.SetBytesProcessed(state.iterations() * (len - offset) * 8);
 }
 
+static void ReplaceWithIndicesLowSelectivityBench(
+    benchmark::State& state) {  // NOLINT non-const reference
+  random::RandomArrayGenerator generator(kRandomSeed);
+  const int64_t len = state.range(0);
+  const int64_t offset = state.range(1);
+
+  auto values =
+      generator.Int64(len, /*min=*/-65536, /*max=*/65536, /*null_probability=*/0.1)
+          ->Slice(offset);
+  const int64_t count = static_cast<int64_t>((len - offset) * 0.1);
+  auto indices = generator.Int32(count, /*min=*/0, /*max=*/(len - offset) - 1,
+                                 /*null_probability=*/0.1);
+  auto replacements =
+      generator.Int64(count, /*min=*/-65536, /*max=*/65536, /*null_probability=*/0.1);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(ReplaceWithIndices(values, indices, replacements));
+  }
+  state.SetBytesProcessed(state.iterations() * (len - offset) * 8);
+}
+
+static void ReplaceWithIndicesHighSelectivityBench(
+    benchmark::State& state) {  // NOLINT non-const reference
+  random::RandomArrayGenerator generator(kRandomSeed);
+  const int64_t len = state.range(0);
+  const int64_t offset = state.range(1);
+
+  auto values =
+      generator.Int64(len, /*min=*/-65536, /*max=*/65536, /*null_probability=*/0.1)
+          ->Slice(offset);
+  const int64_t count = static_cast<int64_t>((len - offset) * 0.9);
+  auto indices = generator.Int32(count, /*min=*/0, /*max=*/(len - offset) - 1,
+                                 /*null_probability=*/0.1);
+  auto replacements =
+      generator.Int64(count, /*min=*/-65536, /*max=*/65536, /*null_probability=*/0.1);
+
+  for (auto _ : state) {
+    ABORT_NOT_OK(ReplaceWithIndices(values, indices, replacements));
+  }
+  state.SetBytesProcessed(state.iterations() * (len - offset) * 8);
+}
+
 BENCHMARK(ReplaceWithMaskLowSelectivityBench)->Args({kLongLength, 0});
 BENCHMARK(ReplaceWithMaskLowSelectivityBench)->Args({kLongLength, 99});
 BENCHMARK(ReplaceWithMaskHighSelectivityBench)->Args({kLongLength, 0});
 BENCHMARK(ReplaceWithMaskHighSelectivityBench)->Args({kLongLength, 99});
+BENCHMARK(ReplaceWithIndicesLowSelectivityBench)->Args({kLongLength, 0});
+BENCHMARK(ReplaceWithIndicesLowSelectivityBench)->Args({kLongLength, 99});
+BENCHMARK(ReplaceWithIndicesHighSelectivityBench)->Args({kLongLength, 0});
+BENCHMARK(ReplaceWithIndicesHighSelectivityBench)->Args({kLongLength, 99});
 
 }  // namespace compute
 }  // namespace arrow
