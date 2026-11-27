@@ -125,6 +125,11 @@ void WriteMetadataSetArgs(benchmark::internal::Benchmark* bench) {
   for (int num_row_groups : {1, 100}) {
     bench->Args({/*num_columns=*/1000, num_row_groups});
   }
+
+  // Stress very wide schemas separately with a single row group.
+  for (int num_columns : {5000, 10000, 20000, 50000}) {
+    bench->Args({num_columns, /*num_row_groups=*/1});
+  }
 }
 
 void ReadMetadataSetArgs(benchmark::internal::Benchmark* bench) {
