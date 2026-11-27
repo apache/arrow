@@ -61,6 +61,13 @@ GitHub issues.
 The issues labeled as good first issues should take no more than two days or
 a weekend to fix them.
 
+The issues labeled ``good-first-issue`` and ``good-second-issue`` are subject
+to a 15-day inactivity policy. If there is no activity on an assignee's linked
+pull request for 15 days, they will be automatically unassigned and their open
+pull request will be closed. Activity on the pull request resets the inactivity
+period. If no pull request has been opened, the inactivity period starts from
+the most recent assignment.
+
 Another way to find issues is to look for the **"Status: needs champion"**
 label. These are enhancement requests that the community has confirmed are
 still wanted, but that have no current owner. They may be more complex than
