@@ -22,8 +22,6 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_union.h"
-// TODO ipc shouldn't be included here
-#include "arrow/ipc/test_common.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -37,7 +35,7 @@ using internal::checked_pointer_cast;
 
 TEST(TestUnionArray, TestSliceEquals) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(ipc::test::MakeUnion(&batch));
+  ASSERT_OK(MakeUnion(&batch));
 
   auto CheckUnion = [](std::shared_ptr<Array> array) {
     const int64_t size = array->length();
