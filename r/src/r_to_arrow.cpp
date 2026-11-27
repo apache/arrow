@@ -32,6 +32,8 @@
 #include <arrow/util/float16.h>
 #include <arrow/util/logging.h>
 
+#include <cmath>
+
 #include "./r_task_group.h"
 
 namespace arrow {
@@ -567,8 +569,17 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
       return Status::OK();
     };
     auto append_value = [this](r_value_type value) {
-      this->primitive_builder_->UnsafeAppend(FromRDate(this->primitive_type_, value));
-      return Status::OK();
+      using CType = typename T::c_type;
+      constexpr double kUnitsPerDay = T::UNIT == DateUnit::DAY ? 1 : 86400000;
+      constexpr double kMin = static_cast<double>(std::numeric_limits<CType>::min());
+      double converted = std::floor(value * kUnitsPerDay);
+      // The exclusive upper bound is exact in double even for int64_t.
+      if (converted >= kMin && converted < -kMin) {
+        this->primitive_builder_->UnsafeAppend(static_cast<CType>(converted));
+        return Status::OK();
+      }
+      return Status::Invalid("R Date value ", value, " cannot be represented as ",
+                             this->primitive_type_->ToString());
     };
     return VisitVector(it, size, append_null, append_value);
   }
@@ -596,15 +607,6 @@ class RPrimitiveConverter<T, enable_if_t<is_date_type<T>::value>>
       return Status::OK();
     };
     return VisitVector(it, size, append_null, append_value);
-  }
-
-  static int FromRDate(const Date32Type*, double from) {
-    return static_cast<int>(std::floor(from));
-  }
-
-  static int64_t FromRDate(const Date64Type*, double from) {
-    constexpr int64_t kMilliSecondsPerDay = 86400000;
-    return static_cast<int64_t>(std::floor(from * kMilliSecondsPerDay));
   }
 
   static int FromPosixct(const Date32Type*, double from) {

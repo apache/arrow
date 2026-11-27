@@ -276,6 +276,27 @@ test_that("array supports Date (ARROW-3340)", {
   expect_array_roundtrip(d, date32())
 })
 
+test_that("R Date conversion only accepts values representable in the Arrow date type", {
+  date <- function(days) as.Date(days, origin = "1970-01-01")
+  dates <- date(c(-1, 0, NA_real_, 1))
+  expect_equal(as.vector(arrow_array(dates, type = date32())), dates)
+  timestamps <- as.vector(arrow_array(dates, type = date64()))
+  expect_equal(as.numeric(timestamps), c(-86400, 0, NA, 86400))
+
+  for (type in list(date32(), date64())) {
+    for (value in c(Inf, -Inf, NaN)) {
+      expect_error(arrow_array(date(c(1, value)), type = type), "cannot be represented as date")
+    }
+  }
+
+  date32_limits <- date(c(-2^31, 2^31 - 1))
+  expect_equal(as.vector(arrow_array(date32_limits, type = date32())), date32_limits)
+  for (value in c(-2^31 - 1, 2^31)) {
+    expect_error(arrow_array(date(value)), "cannot be represented as date32")
+  }
+  expect_error(arrow_array(date(2^37), type = date64()), "cannot be represented as date64")
+})
+
 test_that("array supports POSIXct (ARROW-3340)", {
   times <- lubridate::ymd_hms("2018-10-07 19:04:05") + 1:10
   expect_array_roundtrip(times, timestamp("us", "UTC"))
