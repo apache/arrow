@@ -103,6 +103,7 @@ from pyarrow._compute import (  # noqa
 )
 
 from collections import namedtuple
+from functools import wraps
 import inspect
 from textwrap import dedent
 import warnings
@@ -343,6 +344,24 @@ def _make_global_functions():
 _make_global_functions()
 # Alias for consistency; globals() is needed to avoid Python lint errors
 utf8_zfill = utf8_zero_fill = globals()["utf8_zero_fill"]
+
+
+_fill_null_forward = globals()["fill_null_forward"]
+_fill_null_backward = globals()["fill_null_backward"]
+
+
+@wraps(_fill_null_forward)
+def fill_null_forward(values, memory_pool=None):
+    if isinstance(values, pa.Scalar):
+        return values
+    return _fill_null_forward(values, memory_pool=memory_pool)
+
+
+@wraps(_fill_null_backward)
+def fill_null_backward(values, memory_pool=None):
+    if isinstance(values, pa.Scalar):
+        return values
+    return _fill_null_backward(values, memory_pool=memory_pool)
 
 
 def cast(arr, target_type=None, safe=None, options=None, memory_pool=None):

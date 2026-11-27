@@ -2121,6 +2121,19 @@ def test_fill_null():
     assert result.equals(expected)
 
 
+@pytest.mark.parametrize('func', [pc.fill_null_forward, pc.fill_null_backward])
+def test_fill_null_scalar(func):
+    value = pa.scalar(5, type=pa.int64())
+    result = func(value)
+    assert isinstance(result, pa.Scalar)
+    assert result.equals(value)
+
+    null_value = pa.scalar(None, type=pa.int64())
+    result = func(null_value)
+    assert isinstance(result, pa.Scalar)
+    assert result.equals(null_value)
+
+
 @pytest.mark.parametrize('arrow_type', numerical_arrow_types)
 def test_fill_null_array(arrow_type):
     arr = pa.array([1, 2, None, 4], type=arrow_type)
