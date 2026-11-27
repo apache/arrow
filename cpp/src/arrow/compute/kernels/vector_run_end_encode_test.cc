@@ -22,10 +22,12 @@
 #include "arrow/builder.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace compute {
@@ -626,6 +628,39 @@ TEST(TestRunEndEncodeDecodeNested, Struct) {
 
   AssertNestedRunEndEncodeDecode(ArrayFromJSON(value_type, "[]"), "[]",
                                  ArrayFromJSON(value_type, "[]"));
+}
+
+TEST(TestRunEndEncodeDecodeNested, NaN) {
+  auto value_type = struct_({field("a", int32()), field("b", float32())});
+  std::vector<uint8_t> valid_bytes(12, 1);
+  float nan_value_1 = util::SafeCopy<float>(uint32_t{0x7FC00000});
+  float nan_value_2 = util::SafeCopy<float>(uint32_t{0x7FC00001});
+
+  ASSERT_OK_AND_ASSIGN(auto raw_builder, MakeBuilder(value_type));
+  auto struct_builder =
+      arrow::internal::checked_pointer_cast<StructBuilder>(std::move(raw_builder));
+
+  auto int_builder = arrow::internal::checked_pointer_cast<Int32Builder>(
+      struct_builder->child_builder(0));
+
+  auto float_builder = arrow::internal::checked_pointer_cast<FloatBuilder>(
+      struct_builder->child_builder(1));
+
+  ASSERT_OK(int_builder->AppendValues({0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3}));
+  ASSERT_OK(float_builder->AppendValues({nan_value_1, nan_value_1, nan_value_1, 1.0, 1.0,
+                                         1.0, nan_value_2, nan_value_2, 1.0, nan_value_1,
+                                         nan_value_1, nan_value_2}));
+  ASSERT_OK(struct_builder->AppendValues(valid_bytes.size(), valid_bytes.data()));
+  ASSERT_OK_AND_ASSIGN(auto struct_array, struct_builder->Finish());
+
+  ASSERT_OK(struct_builder->AppendScalars(
+      {*struct_array->GetScalar(0), *struct_array->GetScalar(3),
+       *struct_array->GetScalar(6), *struct_array->GetScalar(8),
+       *struct_array->GetScalar(9), *struct_array->GetScalar(11)}));
+
+  ASSERT_OK_AND_ASSIGN(auto expected_values, struct_builder->Finish());
+
+  AssertNestedRunEndEncodeDecode(struct_array, "[3, 6, 8, 9, 11, 12]", expected_values);
 }
 
 }  // namespace compute

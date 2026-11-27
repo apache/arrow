@@ -2543,6 +2543,39 @@ void CheckFloatApproxEqualsWithUlpDistance() {
   ASSERT_FALSE(array_a->Equals(array_b, options.nans_equal(true).ulp_distance(1)));
 }
 
+template <typename Type>
+void CheckFloatEqualsWithPhysicalRepresentation() {
+  using CType =
+      std::conditional_t<is_half_float_type<Type>::value, Float16, typename Type::c_type>;
+  using UIntType =
+      std::conditional_t<sizeof(CType) == 2, uint16_t,
+                         std::conditional_t<sizeof(CType) == 4, uint32_t, uint64_t>>;
+
+  auto nan_value_1 = CType(NAN);
+  auto nan_value_2 = util::SafeCopy<CType>(
+      static_cast<UIntType>(util::SafeCopy<UIntType>(nan_value_1) + 1));
+
+  std::shared_ptr<Array> arr1;
+  std::shared_ptr<Array> arr2;
+  std::shared_ptr<Array> arr3;
+
+  ArrayFromVector<Type, CType>({CType(1), CType(2), CType(3), nan_value_1}, &arr1);
+  ArrayFromVector<Type, CType>({CType(1), CType(2), CType(3), nan_value_2}, &arr2);
+  ArrayFromVector<Type, CType>({CType(1), CType(2), CType(3), nan_value_1}, &arr3);
+
+  auto opts = EqualOptions::Defaults();
+
+  ASSERT_FALSE(arr1->Equals(*arr2, opts));
+  ASSERT_FALSE(arr1->Equals(*arr3, opts));
+
+  // nan_equal is false
+  ASSERT_FALSE(arr1->Equals(*arr2, opts.physical_repr_equal(true)));
+  ASSERT_TRUE(arr1->Equals(*arr3, opts.physical_repr_equal(true)));
+
+  ASSERT_TRUE(arr1->Equals(*arr2, opts.physical_repr_equal(true).nans_equal(true)));
+  ASSERT_TRUE(arr1->Equals(*arr3, opts.physical_repr_equal(true).nans_equal(true)));
+}
+
 TEST(TestPrimitiveAdHoc, FloatingApproxEquals) {
   CheckApproxEquals<FloatType>();
   CheckApproxEquals<DoubleType>();
@@ -2580,6 +2613,51 @@ TEST(TestPrimitiveAdHoc, FloatingUlpDistanceEquality) {
   CheckFloatApproxEqualsWithUlpDistance<HalfFloatType>();
   CheckFloatApproxEqualsWithUlpDistance<FloatType>();
   CheckFloatApproxEqualsWithUlpDistance<DoubleType>();
+}
+
+TEST(TestPrimitiveAdHoc, FloatingPhysicalRepresentationEquality) {
+  CheckFloatEqualsWithPhysicalRepresentation<HalfFloatType>();
+  CheckFloatEqualsWithPhysicalRepresentation<FloatType>();
+  CheckFloatEqualsWithPhysicalRepresentation<DoubleType>();
+}
+
+TEST(TestRunEncodedBuilder, MergeConsecutiveNaNs) {
+  auto run_end_encoded_type = run_end_encoded(int32(), float32());
+  std::shared_ptr<RunEndEncodedArray> result;
+  auto run_end_builder = std::make_shared<Int32Builder>();
+  auto value_builder = std::make_shared<FloatBuilder>();
+  RunEndEncodedBuilder builder(default_memory_pool(), run_end_builder, value_builder,
+                               run_end_encoded_type);
+
+  // Identical NaN bits should merge into one run.
+  const float nan = util::SafeCopy<float>(uint32_t{0x7FC00001});
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), nan), 3));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), nan), 3));
+
+  // Quiet NaNs with different payloads should remain separate.
+  const float nan_payload_1 = util::SafeCopy<float>(uint32_t{0x7FC00002});
+  const float nan_payload_2 = util::SafeCopy<float>(uint32_t{0x7FC00003});
+
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), nan_payload_1), 3));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), nan_payload_2), 3));
+
+  // Adjacent signed zeros should remain separate.
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), +0.0f), 3));
+  ASSERT_OK(builder.AppendScalar(**MakeScalar(float32(), -0.0f), 3));
+
+  ASSERT_OK(builder.Finish(&result));
+
+  std::shared_ptr<Array> expected_run_end_array;
+  std::shared_ptr<Array> expected_value_array;
+
+  ArrayFromVector<Int32Type>({6, 9, 12, 15, 18}, &expected_run_end_array);
+  ArrayFromVector<FloatType>({nan, nan_payload_1, nan_payload_2, +0.0f, -0.0f},
+                             &expected_value_array);
+
+  AssertArraysEqual(*expected_run_end_array, *result->run_ends());
+  AssertArraysEqual(
+      *expected_value_array, *result->values(), false,
+      EqualOptions::Defaults().signed_zeros_equal(false).physical_repr_equal(true));
 }
 
 // ----------------------------------------------------------------------
