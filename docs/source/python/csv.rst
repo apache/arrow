@@ -115,6 +115,7 @@ Available parsing options are:
   ~ParseOptions.newlines_in_values
   ~ParseOptions.ignore_empty_lines
   ~ParseOptions.invalid_row_handler
+  ~ParseOptions.pad_short_rows
 
 .. seealso::
 
