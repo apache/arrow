@@ -253,6 +253,9 @@ class ARROW_EXPORT AlpEncodedVectorView {
   const AlpVector<AlpFormatConstants::PositionType>& exception_positions() const {
     return exception_positions_;
   }
+  bool exception_positions_strictly_increasing() const {
+    return exception_positions_strictly_increasing_;
+  }
 
   const AlpVector<T>& exceptions() const { return exceptions_; }
 
@@ -279,6 +282,7 @@ class ARROW_EXPORT AlpEncodedVectorView {
   std::span<const uint8_t> packed_values_;
   AlpVector<AlpFormatConstants::PositionType> exception_positions_;
   AlpVector<T> exceptions_;
+  bool exception_positions_strictly_increasing_{true};
 };
 
 /// Returns the metadata size for one per-vector integer encoding.

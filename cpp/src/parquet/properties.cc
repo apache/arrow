@@ -61,6 +61,24 @@ std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties() {
   return default_writer_properties;
 }
 
+void ColumnProperties::set_encoding_options(const EncodingOptions& options) {
+  options.Validate();
+  encoding_options_ = options;
+}
+
+WriterProperties::Builder* WriterProperties::Builder::encoding_options(
+    const EncodingOptions& options) {
+  default_column_properties_.set_encoding_options(options);
+  return this;
+}
+
+WriterProperties::Builder* WriterProperties::Builder::encoding_options(
+    const std::string& path, const EncodingOptions& options) {
+  options.Validate();
+  encoding_options_[path] = options;
+  return this;
+}
+
 void WriterProperties::Builder::CopyColumnSpecificProperties(
     const WriterProperties& properties) {
   for (const auto& [col_path, col_props] : properties.column_properties_) {
@@ -105,6 +123,10 @@ void WriterProperties::Builder::CopyColumnSpecificProperties(
 
     if (col_props.bloom_filter_options().has_value()) {
       this->enable_bloom_filter(col_path, col_props.bloom_filter_options().value());
+    }
+
+    if (!col_props.encoding_options().options.empty()) {
+      this->encoding_options(col_path, col_props.encoding_options());
     }
   }
 }

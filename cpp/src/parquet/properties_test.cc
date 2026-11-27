@@ -71,6 +71,29 @@ TEST(TestWriterProperties, Basics) {
   ASSERT_FALSE(props->page_checksum_enabled());
 }
 
+TEST(TestWriterProperties, AlpOptions) {
+  WriterProperties::Builder builder;
+  const AlpOptions alp_options{/*vector_size=*/4096};
+  EncodingOptions options;
+  options.options.emplace(Encoding::ALP, alp_options);
+  auto properties = builder.encoding_options(options)->build();
+  const auto& stored = properties->encoding_options().Get<AlpOptions>(Encoding::ALP);
+  EXPECT_EQ(alp_options.vector_size, stored.vector_size);
+
+  auto copy = WriterProperties::Builder(*properties).build();
+  const auto& copied = copy->encoding_options().Get<AlpOptions>(Encoding::ALP);
+  EXPECT_EQ(alp_options.vector_size, copied.vector_size);
+
+  for (int32_t invalid_size : {0, 7, 1000, 65536}) {
+    EncodingOptions invalid_options;
+    invalid_options.options.emplace(Encoding::ALP, AlpOptions{invalid_size});
+    EXPECT_THROW(builder.encoding_options(invalid_options), ParquetException);
+  }
+  EncodingOptions unsupported_options;
+  unsupported_options.options.emplace(Encoding::PLAIN, alp_options);
+  EXPECT_THROW(builder.encoding_options(unsupported_options), ParquetException);
+}
+
 TEST(TestWriterProperties, DefaultCompression) {
   std::shared_ptr<WriterProperties> props = WriterProperties::Builder().build();
 
