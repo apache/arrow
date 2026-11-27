@@ -1321,6 +1321,128 @@ TYPED_TEST(TestUnaryRoundFloating, Round) {
   }
 }
 
+TYPED_TEST(TestUnaryRoundFloating, RoundRegressionGH55393) {
+  this->SetNansEqual(true);
+
+  if constexpr (std::is_same_v<TypeParam, DoubleType>) {
+    // Powers of 10 must retain double precision for large negative ndigits (GH-55393)
+    std::vector<std::pair<int64_t, std::pair<std::string, std::string>>> pow10_tests = {
+        {-1, {"[25.0]", "[20.0]"}},
+        {-2, {"[250.0]", "[200.0]"}},
+        {-6, {"[2500000.0]", "[2000000.0]"}},
+        {-8, {"[250000000.0]", "[200000000.0]"}},
+        {-10, {"[25000000000.0]", "[20000000000.0]"}},
+        {-11, {"[250000000000.0]", "[200000000000.0]"}},
+        {-12, {"[2500000000000.0]", "[2000000000000.0]"}},
+        {-14, {"[250000000000000.0]", "[200000000000000.0]"}},
+        {-15, {"[2500000000000000.0]", "[2000000000000000.0]"}},
+        {-18, {"[2.5e18]", "[2.0e18]"}},
+        {-20, {"[2.5e20]", "[2.0e20]"}},
+        {-22, {"[2.5e22]", "[2.0e22]"}},
+    };
+    this->SetRoundMode(RoundMode::HALF_TO_EVEN);
+    for (const auto& test : pow10_tests) {
+      this->SetRoundNdigits(test.first);
+      this->AssertUnaryOp(Round, test.second.first, test.second.second);
+    }
+
+    // Negative values with negative ndigits under different tie-breaking modes
+    this->SetRoundNdigits(-11);
+    this->SetRoundMode(RoundMode::HALF_UP);
+    this->AssertUnaryOp(Round, "[250000000000.0, -250000000000.0]",
+                        "[300000000000.0, -200000000000.0]");
+    this->SetRoundMode(RoundMode::HALF_DOWN);
+    this->AssertUnaryOp(Round, "[250000000000.0, -250000000000.0]",
+                        "[200000000000.0, -300000000000.0]");
+    this->SetRoundMode(RoundMode::HALF_TO_ODD);
+    this->AssertUnaryOp(Round, "[250000000000.0, -250000000000.0]",
+                        "[300000000000.0, -300000000000.0]");
+
+    // Negative inputs near halfway points must not falsely trigger tie-breaking
+    this->SetRoundNdigits(-14);
+    for (const auto mode : {RoundMode::HALF_DOWN, RoundMode::HALF_UP,
+                            RoundMode::HALF_TO_EVEN, RoundMode::HALF_TOWARDS_ZERO,
+                            RoundMode::HALF_TOWARDS_INFINITY, RoundMode::HALF_TO_ODD}) {
+      this->SetRoundMode(mode);
+      this->AssertUnaryOp(Round, "[-49999999999999.9921875]", "[-0.0]");
+    }
+  }
+
+  // Exact ties across all 10 rounding modes
+  std::string ties("[-2.5, -1.5, -0.5, 0.5, 1.5, 2.5]");
+  std::vector<std::pair<RoundMode, std::string>> tie_expected{{
+      {RoundMode::DOWN, "[-3.0, -2.0, -1.0, 0.0, 1.0, 2.0]"},
+      {RoundMode::UP, "[-2.0, -1.0, -0.0, 1.0, 2.0, 3.0]"},
+      {RoundMode::TOWARDS_ZERO, "[-2.0, -1.0, -0.0, 0.0, 1.0, 2.0]"},
+      {RoundMode::TOWARDS_INFINITY, "[-3.0, -2.0, -1.0, 1.0, 2.0, 3.0]"},
+      {RoundMode::HALF_DOWN, "[-3.0, -2.0, -1.0, 0.0, 1.0, 2.0]"},
+      {RoundMode::HALF_UP, "[-2.0, -1.0, -0.0, 1.0, 2.0, 3.0]"},
+      {RoundMode::HALF_TOWARDS_ZERO, "[-2.0, -1.0, -0.0, 0.0, 1.0, 2.0]"},
+      {RoundMode::HALF_TOWARDS_INFINITY, "[-3.0, -2.0, -1.0, 1.0, 2.0, 3.0]"},
+      {RoundMode::HALF_TO_EVEN, "[-2.0, -2.0, -0.0, 0.0, 2.0, 2.0]"},
+      {RoundMode::HALF_TO_ODD, "[-3.0, -1.0, -1.0, 1.0, 1.0, 3.0]"},
+  }};
+  this->SetRoundNdigits(0);
+  for (const auto& pair : tie_expected) {
+    this->SetRoundMode(pair.first);
+    this->AssertUnaryOp(Round, ties, pair.second);
+  }
+
+  // Non-ties near halfway boundaries
+  std::string non_ties("[-0.49, 0.49, -0.51, 0.51, -1.49, 1.49, -1.51, 1.51]");
+  this->SetRoundMode(RoundMode::HALF_TO_EVEN);
+  this->AssertUnaryOp(Round, non_ties, "[-0.0, 0.0, -1.0, 1.0, -1.0, 1.0, -2.0, 2.0]");
+  this->SetRoundMode(RoundMode::HALF_UP);
+  this->AssertUnaryOp(Round, non_ties, "[-0.0, 0.0, -1.0, 1.0, -1.0, 1.0, -2.0, 2.0]");
+  this->SetRoundMode(RoundMode::HALF_DOWN);
+  this->AssertUnaryOp(Round, non_ties, "[-0.0, 0.0, -1.0, 1.0, -1.0, 1.0, -2.0, 2.0]");
+
+  // Adjacent floating-point neighbors of halfway points via std::nextafter
+  using CType = typename TypeTraits<TypeParam>::CType;
+  const CType half = static_cast<CType>(0.5);
+  const CType neg_half = static_cast<CType>(-0.5);
+  const CType neg_half_towards_zero = std::nextafter(neg_half, static_cast<CType>(0.0));
+  const CType neg_half_away_from_zero =
+      std::nextafter(neg_half, -std::numeric_limits<CType>::infinity());
+  const CType pos_half_below = std::nextafter(half, static_cast<CType>(0.0));
+  const CType pos_half_above =
+      std::nextafter(half, std::numeric_limits<CType>::infinity());
+
+  std::shared_ptr<Array> nextafter_inputs;
+  ArrayFromVector<TypeParam>(
+      std::vector<CType>{neg_half_towards_zero, neg_half_away_from_zero, pos_half_below,
+                         pos_half_above, neg_half, half},
+      &nextafter_inputs);
+
+  std::shared_ptr<Array> nextafter_expected_even;
+  ArrayFromVector<TypeParam>(
+      std::vector<CType>{static_cast<CType>(-0.0), static_cast<CType>(-1.0),
+                         static_cast<CType>(0.0), static_cast<CType>(1.0),
+                         static_cast<CType>(-0.0), static_cast<CType>(0.0)},
+      &nextafter_expected_even);
+
+  this->SetRoundNdigits(0);
+  this->SetRoundMode(RoundMode::HALF_TO_EVEN);
+  this->AssertUnaryOp(Round, nextafter_inputs, nextafter_expected_even);
+
+  // Preserve signed zero for floating-point values
+  auto check_sign = [&](CType in_val, bool expect_negative) {
+    auto in_scalar = this->MakeScalar(in_val);
+    ASSERT_OK_AND_ASSIGN(auto res_datum, Round(in_scalar, this->options_, nullptr));
+    CType out_val =
+        checked_cast<const NumericScalar<TypeParam>&>(*res_datum.scalar()).value;
+    EXPECT_EQ(out_val, static_cast<CType>(0.0));
+    EXPECT_EQ(std::signbit(out_val), expect_negative);
+  };
+  this->SetRoundMode(RoundMode::HALF_TO_EVEN);
+  check_sign(static_cast<CType>(-0.0), true);
+  check_sign(static_cast<CType>(0.0), false);
+  check_sign(static_cast<CType>(-0.1), true);
+  check_sign(static_cast<CType>(0.1), false);
+  check_sign(neg_half, true);
+  check_sign(half, false);
+}
+
 TYPED_TEST_SUITE(TestBinaryRoundIntegral, IntegralTypes);
 TYPED_TEST_SUITE(TestBinaryRoundSigned, SignedIntegerTypes);
 TYPED_TEST_SUITE(TestBinaryRoundUnsigned, UnsignedIntegerTypes);
@@ -1484,6 +1606,19 @@ TYPED_TEST(TestBinaryRoundFloating, Round) {
   this->SetRoundMode(RoundMode::HALF_TOWARDS_INFINITY);
   for (const auto& pair : ndigits_and_expected) {
     this->AssertBinaryOp(RoundBinary, values, pair.first, pair.second);
+  }
+}
+
+TYPED_TEST(TestBinaryRoundFloating, RoundRegressionGH55393) {
+  this->SetNansEqual(true);
+
+  if constexpr (std::is_same_v<TypeParam, DoubleType>) {
+    // GH-55393: Power-of-ten precision and halfway-tie classification in RoundBinary
+    this->SetRoundMode(RoundMode::HALF_TO_EVEN);
+    this->AssertBinaryOp(RoundBinary, "[250000000000.0]", -11, "[200000000000.0]");
+
+    this->SetRoundMode(RoundMode::HALF_DOWN);
+    this->AssertBinaryOp(RoundBinary, "[-49999999999999.9921875]", -14, "[-0.0]");
   }
 }
 
@@ -1690,6 +1825,21 @@ TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultiple) {
   this->SetRoundMultiple(-2);
   this->AssertUnaryOpRaises(RoundToMultiple, values,
                             "Rounding multiple must be positive");
+}
+
+TYPED_TEST(TestUnaryRoundToMultipleFloating, RoundToMultipleRegressionGH55393) {
+  this->SetNansEqual(true);
+
+  if constexpr (std::is_same_v<TypeParam, DoubleType>) {
+    // GH-55393: Halfway-tie classification with large multiples in RoundToMultiple
+    this->SetRoundMultiple(100000000000.0);
+    this->SetRoundMode(RoundMode::HALF_TO_EVEN);
+    this->AssertUnaryOp(RoundToMultiple, "[250000000000.0]", "[200000000000.0]");
+
+    this->SetRoundMultiple(100000000000000.0);
+    this->SetRoundMode(RoundMode::HALF_DOWN);
+    this->AssertUnaryOp(RoundToMultiple, "[-49999999999999.9921875]", "[-0.0]");
+  }
 }
 
 TYPED_TEST(TestUnaryRoundArithmeticSigned, Floor) {
