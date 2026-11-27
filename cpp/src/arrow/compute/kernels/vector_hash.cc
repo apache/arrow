@@ -445,9 +445,11 @@ class NullHashKernel : public HashKernel {
 
 class DictionaryHashKernel : public HashKernel {
  public:
-  explicit DictionaryHashKernel(std::unique_ptr<HashKernel> indices_kernel,
-                                std::shared_ptr<DataType> dictionary_value_type)
+  DictionaryHashKernel(std::unique_ptr<HashKernel> indices_kernel,
+                       std::shared_ptr<DataType> index_type,
+                       std::shared_ptr<DataType> dictionary_value_type)
       : indices_kernel_(std::move(indices_kernel)),
+        index_type_(std::move(index_type)),
         dictionary_value_type_(std::move(dictionary_value_type)) {}
 
   Status Reset() override { return indices_kernel_->Reset(); }
@@ -478,6 +480,23 @@ class DictionaryHashKernel : public HashKernel {
       auto in_array = arr.ToArray();
       const auto& in_dict_array =
           arrow::internal::checked_cast<const DictionaryArray&>(*in_array);
+      if (index_type_->bit_width() < 32) {
+        // The transposed indices keep the input index type, which may be too narrow
+        // for the unified dictionary.  Only the indices actually used (non-null)
+        // matter, not the size of the unified dictionary: check them before
+        // narrowing, as the transposition itself would silently wrap around.
+        ARROW_ASSIGN_OR_RAISE(
+            auto wide,
+            in_dict_array.Transpose(::arrow::dictionary(int32(), dictionary_value_type_),
+                                    in_dict_array.dictionary(), transpose));
+        ArraySpan wide_indices(
+            *checked_cast<const DictionaryArray&>(*wide).indices()->data());
+        if (!::arrow::internal::IntegersCanFit(wide_indices, *index_type_).ok()) {
+          return Status::Invalid(
+              "These dictionaries cannot be combined.  The unified dictionary requires "
+              "a larger index type.");
+        }
+      }
       ARROW_ASSIGN_OR_RAISE(
           auto tmp, in_dict_array.Transpose(arr.type->GetSharedPtr(),
                                             in_dict_array.dictionary(), transpose));
@@ -522,6 +541,7 @@ class DictionaryHashKernel : public HashKernel {
  private:
   std::unique_ptr<HashKernel> indices_kernel_;
   std::shared_ptr<Array> first_dictionary_;
+  std::shared_ptr<DataType> index_type_;
   std::shared_ptr<DataType> dictionary_value_type_;
   std::unique_ptr<DictionaryUnifier> dictionary_unifier_;
 };
@@ -597,7 +617,7 @@ Result<std::unique_ptr<KernelState>> DictionaryHashInit(KernelContext* ctx,
   ARROW_ASSIGN_OR_RAISE(auto indices_hasher,
                         GetHashInit<Action>(dict_type.index_type()->id())(ctx, args));
   return std::make_unique<DictionaryHashKernel>(
-      checked_pointer_cast<HashKernel>(std::move(indices_hasher)),
+      checked_pointer_cast<HashKernel>(std::move(indices_hasher)), dict_type.index_type(),
       dict_type.value_type());
 }
 
