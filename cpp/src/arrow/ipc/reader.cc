@@ -2412,9 +2412,8 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
           indptr_minimum_bytes.value() > indptr_buffer->length()) {
         return Status::Invalid("shape is inconsistent to the size of indptr buffer");
       }
-      return std::make_shared<SparseCSRIndex>(
-          std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
-          std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
+      return SparseCSRIndex::Make(indptr_type, indices_type, indptr_shape, indices_shape,
+                                  indptr_data, indices_data);
     }
     case flatbuf::SparseMatrixCompressedAxis::SparseMatrixCompressedAxis_Column: {
       const auto indptr_length = AddWithOverflow<int64_t>({shape[1], 1});
@@ -2428,9 +2427,8 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
           indptr_minimum_bytes.value() > indptr_buffer->length()) {
         return Status::Invalid("shape is inconsistent to the size of indptr buffer");
       }
-      return std::make_shared<SparseCSCIndex>(
-          std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
-          std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
+      return SparseCSCIndex::Make(indptr_type, indices_type, indptr_shape, indices_shape,
+                                  indptr_data, indices_data);
     }
     default:
       return Status::Invalid("Invalid value of SparseMatrixCompressedAxis");
@@ -2621,10 +2619,9 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
       RETURN_NOT_OK(internal::GetSparseCSXIndexMetadata(
           sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX(), &indptr_type,
           &indices_type));
-      ARROW_CHECK_EQ(indptr_type, indices_type);
       ARROW_ASSIGN_OR_RAISE(
           sparse_index,
-          SparseCSRIndex::Make(indices_type, shape, non_zero_length,
+          SparseCSRIndex::Make(indptr_type, indices_type, shape, non_zero_length,
                                payload.body_buffers[0], payload.body_buffers[1]));
       return MakeSparseTensorWithSparseCSRIndex(type, shape, dim_names, sparse_index,
                                                 non_zero_length, payload.body_buffers[2]);
@@ -2636,10 +2633,9 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensorPayload(const IpcPayload& 
       RETURN_NOT_OK(internal::GetSparseCSXIndexMetadata(
           sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX(), &indptr_type,
           &indices_type));
-      ARROW_CHECK_EQ(indptr_type, indices_type);
       ARROW_ASSIGN_OR_RAISE(
           sparse_index,
-          SparseCSCIndex::Make(indices_type, shape, non_zero_length,
+          SparseCSCIndex::Make(indptr_type, indices_type, shape, non_zero_length,
                                payload.body_buffers[0], payload.body_buffers[1]));
       return MakeSparseTensorWithSparseCSCIndex(type, shape, dim_names, sparse_index,
                                                 non_zero_length, payload.body_buffers[2]);
