@@ -4377,7 +4377,7 @@ def month_interval():
     >>> pc.month_interval_between(arr1, arr2)
     <pyarrow.lib.MonthIntervalArray object at ...>
     [
-    4M
+      4M
     ]
 
     or select a scalar with the same type:
@@ -4414,7 +4414,7 @@ def day_time_interval():
     >>> pc.day_time_interval_between(arr1, arr2)
     <pyarrow.lib.DayTimeIntervalArray object at ...>
     [
-    125d0ms
+      125d0ms
     ]
 
     or select a scalar with the same type:
