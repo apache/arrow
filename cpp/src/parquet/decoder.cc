@@ -973,7 +973,11 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
     size_t i = 0;
     VisitNullBitmapInline(
         valid_bits, valid_bits_offset, num_values, null_count,
-        [&]() { valid_bytes[i++] = 1; }, [&]() { ++i; });
+        [&]() {
+          PARQUET_THROW_NOT_OK(IndexInBounds(indices_buffer[i]));
+          valid_bytes[i++] = 1;
+        },
+        [&]() { ++i; });
 
     auto binary_builder = checked_cast<::arrow::BinaryDictionary32Builder*>(builder);
     PARQUET_THROW_NOT_OK(
@@ -995,6 +999,7 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
     if (num_values != idx_decoder_.GetBatch(indices_buffer, num_values)) {
       ParquetException::EofException();
     }
+    CheckIndicesInBounds(indices_buffer, num_values);
     auto binary_builder = checked_cast<::arrow::BinaryDictionary32Builder*>(builder);
     PARQUET_THROW_NOT_OK(binary_builder->AppendIndices(indices_buffer, num_values));
     this->num_values_ -= num_values;
@@ -1005,6 +1010,7 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
     if (num_values != idx_decoder_.GetBatch(indices, num_values)) {
       ParquetException::EofException();
     }
+    CheckIndicesInBounds(indices, num_values);
     this->num_values_ -= num_values;
     return num_values;
   }
@@ -1020,6 +1026,12 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
       return Status::OK();
     }
     return Status::Invalid("Index not in dictionary bounds");
+  }
+
+  void CheckIndicesInBounds(const int32_t* indices, int num_values) const {
+    for (int i = 0; i < num_values; ++i) {
+      PARQUET_THROW_NOT_OK(IndexInBounds(indices[i]));
+    }
   }
 
   inline void DecodeDict(TypedDecoder<Type>* dictionary) {
