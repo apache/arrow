@@ -32,3 +32,4 @@ C++ Development
    fuzzing
    compute
    acero
+   flight

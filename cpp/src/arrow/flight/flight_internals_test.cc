@@ -33,8 +33,10 @@
 #include "arrow/flight/cookie_internal.h"
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/server.h"
+#include "arrow/flight/server_async.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/transport.h"
+#include "arrow/flight/transport/grpc/async_grpc_compat.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/types.h"
 #include "arrow/ipc/reader.h"
@@ -868,9 +870,44 @@ TEST(TransportErrorHandling, ReconstructStatus) {
 
 #if !defined(_WIN32) && defined(ARROW_ENABLE_THREADING)
 
-// Serve() must not leave the process signal handlers overridden when it fails
-TEST(TestServerSignalState, ServeBeforeInitRestoresSignalHandlers) {
-  FlightServerBase server;
+namespace {
+
+/// Wait, bounded, for Serve() to replace the SIGUSR1 handler.
+bool WaitForSignalHandlerChange(const ::arrow::internal::SignalHandler& original) {
+  for (int i = 0; i < 2000; i++) {
+    auto current = ::arrow::internal::GetSignalHandler(SIGUSR1);
+    if (!current.ok()) {
+      return false;
+    }
+    if (current->callback() != original.callback()) {
+      return true;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return false;
+}
+
+}  // namespace
+
+// The process-wide signal handling lives in the shared server lifecycle, so both
+// server classes must behave the same way: run the same body over each instead of
+// duplicating the regressions.
+template <typename Server>
+class TestServerSignalState : public ::testing::Test {};
+
+// Both server classes share one lifecycle, but the async server only exists
+// against gRPC >= 1.65: below that its Init() answers NotImplemented, so it
+// cannot serve and the lifecycle has nothing to compare.
+#  if ARROW_FLIGHT_HAS_ASYNC_SERVER
+using ServerTypes = ::testing::Types<FlightServerBase, AsyncGenericFlightServerBase>;
+#  else
+using ServerTypes = ::testing::Types<FlightServerBase>;
+#  endif
+TYPED_TEST_SUITE(TestServerSignalState, ServerTypes);
+
+// Serve() must not leave the process signal handlers overridden when it fails.
+TYPED_TEST(TestServerSignalState, ServeBeforeInitRestoresSignalHandlers) {
+  TypeParam server;
   ASSERT_OK(server.SetShutdownOnSignals({SIGUSR1}));
   ASSERT_OK_AND_ASSIGN(auto before, ::arrow::internal::GetSignalHandler(SIGUSR1));
 
@@ -881,46 +918,70 @@ TEST(TestServerSignalState, ServeBeforeInitRestoresSignalHandlers) {
 }
 
 // Shutdown() on a server that was never initialized must not clear the
-// process-wide signal target of another, serving instance
-TEST(TestServerSignalState, ShutdownUninitializedKeepsOtherServerSignalable) {
-  FlightServerBase serving_server;
+// process-wide signal target of another, serving instance.
+TYPED_TEST(TestServerSignalState, ShutdownUninitializedKeepsOtherServerSignalable) {
+  TypeParam serving_server;
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 0));
   FlightServerOptions options(location);
   ASSERT_OK(serving_server.Init(options));
   ASSERT_OK(serving_server.SetShutdownOnSignals({SIGUSR1}));
 
   std::atomic<bool> returned{false};
+  std::atomic<bool> handler_installed{false};
+  ASSERT_OK_AND_ASSIGN(auto original, ::arrow::internal::GetSignalHandler(SIGUSR1));
   std::thread serving_thread([&] {
-    auto status = serving_server.Serve();
-    ARROW_UNUSED(status);
-    returned = true;
+    ARROW_UNUSED(serving_server.Serve());
+    returned.store(true);
   });
 
-  // Wait for Serve() to install the process signal handler.
-  ASSERT_OK_AND_ASSIGN(auto original, ::arrow::internal::GetSignalHandler(SIGUSR1));
-  for (int i = 0; i < 1000 && !returned.load(); ++i) {
-    ASSERT_OK_AND_ASSIGN(auto current, ::arrow::internal::GetSignalHandler(SIGUSR1));
-    if (current.callback() != original.callback()) {
-      break;
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  }
+  // Wait, bounded, for Serve() to install the process signal handler: the signal
+  // may only be raised once it has.
+  handler_installed.store(WaitForSignalHandlerChange(original));
+  ASSERT_TRUE(handler_installed.load()) << "Serve() never installed its signal handler";
 
-  FlightServerBase uninitialized;
+  TypeParam uninitialized;
   ASSERT_RAISES(Invalid, uninitialized.Shutdown());
 
   ::raise(SIGUSR1);
   for (int i = 0; i < 500 && !returned.load(); ++i) {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
-  EXPECT_TRUE(returned.load());
+  EXPECT_TRUE(returned.load()) << "the signal never stopped Serve()";
   if (!returned.load()) {
-    ASSERT_OK(serving_server.Shutdown());
+    ARROW_UNUSED(serving_server.Shutdown());
   }
   serving_thread.join();
+
+  // The lifecycle also reports its own misuse by naming the server class.
+  ASSERT_RAISES(Invalid, uninitialized.Shutdown());
+  EXPECT_THAT(uninitialized.Shutdown().ToString(),
+              ::testing::HasSubstr("Shutdown() on uninitialized "));
+  EXPECT_THAT(uninitialized.Wait().ToString(),
+              ::testing::HasSubstr("Wait() on uninitialized "));
 }
 
 #endif
+
+// An async server must report why it cannot start, in every build: either it
+// starts, or Init() answers NotImplemented naming the gRPC requirement.  Before
+// this was pinned, a build against gRPC < 1.65 never registered an async server
+// factory and Init() failed with the generic "no async server transport
+// implementation" KeyError, hiding the real cause.
+TEST(TestAsyncServerAvailability, InitReportsWhetherAsyncServerIsSupported) {
+  ASSERT_OK_AND_ASSIGN(auto location, Location::Parse("grpc://localhost:0"));
+  FlightServerOptions options(location);
+  AsyncGenericFlightServerBase server;
+  const auto status = server.Init(options);
+#if ARROW_FLIGHT_HAS_ASYNC_SERVER
+  ASSERT_OK(status);
+  ASSERT_OK(server.Shutdown());
+#else
+  ASSERT_FALSE(status.ok());
+  ASSERT_EQ(StatusCode::NotImplemented, status.code());
+  ASSERT_NE(std::string::npos, status.message().find("1.65"))
+      << "the error must name the gRPC version requirement, got: " << status.message();
+#endif
+}
 
 }  // namespace flight
 }  // namespace arrow

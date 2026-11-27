@@ -38,14 +38,6 @@
 #    undef DeleteFile
 #  endif
 
-// Other annoying Windows macro definitions...
-#  ifdef IN
-#    undef IN
-#  endif
-#  ifdef OUT
-#    undef OUT
-#  endif
-
 // Note that we can't undefine OPTIONAL, because it can be used in other
 // Windows headers...
 

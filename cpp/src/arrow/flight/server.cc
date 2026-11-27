@@ -43,8 +43,7 @@ namespace flight {
 /// Server implementation. Manages the lifecycle of the "real" server
 /// (ServerTransport) and contains
 struct FlightServerBase::Impl {
-  std::unique_ptr<internal::ServerTransport> transport_;
-  internal::ServerSignalState signal_state_;
+  internal::ServerLifecycle lifecycle{"FlightServerBase"};
 };
 
 FlightServerOptions::FlightServerOptions(const Location& location_)
@@ -67,63 +66,29 @@ Status FlightServerBase::Init(const FlightServerOptions& options) {
   flight::transport::grpc::InitializeFlightGrpcServer();
 
   const auto scheme = options.location.scheme();
-  ARROW_ASSIGN_OR_RAISE(impl_->transport_,
+  ARROW_ASSIGN_OR_RAISE(auto transport,
                         internal::GetDefaultTransportRegistry()->MakeServer(
                             scheme, this, options.memory_manager));
-  ARROW_ASSIGN_OR_RAISE(auto uri, options.location.uri());
-  return impl_->transport_->Init(options, uri);
+  return impl_->lifecycle.Init(options, std::move(transport));
 }
 
-int FlightServerBase::port() const { return location().port(); }
+int FlightServerBase::port() const { return impl_->lifecycle.port(); }
 
-Location FlightServerBase::location() const { return impl_->transport_->location(); }
+Location FlightServerBase::location() const { return impl_->lifecycle.location(); }
 
 Status FlightServerBase::SetShutdownOnSignals(const std::vector<int> sigs) {
-  return impl_->signal_state_.SetShutdownOnSignals(sigs);
+  return impl_->lifecycle.SetShutdownOnSignals(sigs);
 }
 
-Status FlightServerBase::Serve() {
-  // Check before entering the signal helper: a failing wait() callback would
-  // otherwise leave the process signal handlers overridden, and clearing the
-  // signal target on the error path would disable signals for another server.
-  if (!impl_->transport_) {
-    return Status::UnknownError("Server did not start properly");
-  }
-  return impl_->signal_state_.Serve(
-      [this]() -> Status { return impl_->transport_->Wait(); },
-      [this](const std::chrono::system_clock::time_point* deadline) -> Status {
-        if (deadline) {
-          return impl_->transport_->Shutdown(*deadline);
-        }
-        return impl_->transport_->Shutdown();
-      },
-      "Error shutting down server");
-}
+Status FlightServerBase::Serve() { return impl_->lifecycle.Serve(); }
 
-int FlightServerBase::GotSignal() const { return impl_->signal_state_.GotSignal(); }
+int FlightServerBase::GotSignal() const { return impl_->lifecycle.GotSignal(); }
 
 Status FlightServerBase::Shutdown(const std::chrono::system_clock::time_point* deadline) {
-  if (!impl_->transport_) {
-    return Status::Invalid("Shutdown() on uninitialized FlightServerBase");
-  }
-  return impl_->signal_state_.Shutdown(
-      [this](const std::chrono::system_clock::time_point* maybe_deadline) -> Status {
-        if (maybe_deadline) {
-          return impl_->transport_->Shutdown(*maybe_deadline);
-        }
-        return impl_->transport_->Shutdown();
-      },
-      deadline);
+  return impl_->lifecycle.Shutdown(deadline);
 }
 
-Status FlightServerBase::Wait() {
-  return impl_->signal_state_.Wait([this] {
-    if (!impl_->transport_) {
-      return Status::Invalid("Wait() on uninitialized FlightServerBase");
-    }
-    return impl_->transport_->Wait();
-  });
-}
+Status FlightServerBase::Wait() { return impl_->lifecycle.Wait(); }
 
 Status FlightServerBase::ListFlights(const ServerCallContext& context,
                                      const Criteria* criteria,

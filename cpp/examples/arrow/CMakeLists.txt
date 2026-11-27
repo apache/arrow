@@ -127,6 +127,22 @@ if(ARROW_FLIGHT)
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.pb.cc"
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.cc")
 
+  if(MSVC)
+    set(FLIGHT_GRPC_EXAMPLE_FORCE_INCLUDE
+        "/FI${ARROW_SOURCE_DIR}/src/arrow/flight/transport/grpc/customize_absl.h")
+  else()
+    set(FLIGHT_GRPC_EXAMPLE_FORCE_INCLUDE
+        "-include" "${ARROW_SOURCE_DIR}/src/arrow/flight/transport/grpc/customize_absl.h")
+  endif()
+  target_compile_options(flight-grpc-example PRIVATE ${FLIGHT_GRPC_EXAMPLE_FORCE_INCLUDE})
+
+  add_arrow_example(flight_async_server_example
+                    EXTRA_LINK_LIBS
+                    ${FLIGHT_EXAMPLES_LINK_LIBS}
+                    gRPC::grpc++
+                    ${ARROW_PROTOBUF_LIBPROTOBUF}
+                    ${GFLAGS_LIBRARIES})
+
   if(ARROW_FLIGHT_SQL)
     if(ARROW_BUILD_SHARED AND ARROW_GRPC_USE_SHARED)
       set(FLIGHT_SQL_EXAMPLES_LINK_LIBS arrow_flight_sql_shared)

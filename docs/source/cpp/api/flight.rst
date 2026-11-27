@@ -184,6 +184,15 @@ Servers
    :project: arrow_cpp
    :members:
 
+Asynchronous Servers
+====================
+
+See :ref:`cpp-flight-async-server` for an overview.
+
+.. doxygenclass:: arrow::flight::AsyncGenericFlightServerBase
+   :project: arrow_cpp
+   :members:
+
 Error Handling
 ==============
 
