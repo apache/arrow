@@ -1075,3 +1075,14 @@ test_that("cast to float16 roundtrips values correctly", {
     collect()
   expect_identical(result$x, df$x)
 })
+
+test_that("as.integer() and as.integer64() error on out of range values", {
+  expect_error(
+    arrow_table(dbl = 3e9) |> mutate(int = as.integer(dbl)) |> collect(),
+    "out of range converting to int32"
+  )
+  expect_error(
+    arrow_table(dbl = 1e19) |> mutate(i64 = as.integer64(dbl)) |> collect(),
+    "out of range converting to int64"
+  )
+})

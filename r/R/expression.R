@@ -211,7 +211,7 @@ Expression$op <- function(FUN, ..., args = list(...)) {
         "if_else",
         Expression$op("==", args[[2]], 0L),
         Scalar$create(NA_integer_, out_type),
-        cast(out, out_type, allow_float_truncate = TRUE)
+        cast(out, out_type, allow_float_truncate = TRUE, allow_int_overflow = TRUE)
       )
     }
     return(out)
