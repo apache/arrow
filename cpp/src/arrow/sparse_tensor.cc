@@ -384,6 +384,21 @@ Result<std::shared_ptr<SparseCSFIndex>> SparseCSFIndex::Make(
     const std::vector<std::shared_ptr<Buffer>>& indptr_data,
     const std::vector<std::shared_ptr<Buffer>>& indices_data) {
   int64_t ndim = axis_order.size();
+
+  // Validate input dimensions before accessing buffers
+  if (ndim == 0) {
+    return Status::Invalid("axis_order cannot be empty");
+  }
+  if (indices_shapes.size() != static_cast<size_t>(ndim)) {
+    return Status::Invalid("indices_shapes must have the same size as axis_order");
+  }
+  if (indptr_data.size() != static_cast<size_t>(ndim - 1)) {
+    return Status::Invalid("indptr_data must have size equal to ndim - 1");
+  }
+  if (indices_data.size() != static_cast<size_t>(ndim)) {
+    return Status::Invalid("indices_data must have the same size as axis_order");
+  }
+
   std::vector<std::shared_ptr<Tensor>> indptr(ndim - 1);
   std::vector<std::shared_ptr<Tensor>> indices(ndim);
 
