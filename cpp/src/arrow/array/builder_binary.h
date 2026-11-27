@@ -125,18 +125,13 @@ class BaseBinaryBuilder
 
   Status AppendEmptyValue() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppendNextOffset();
-    UnsafeAppendToBitmap(true);
+    UnsafeAppendEmptyValue();
     return Status::OK();
   }
 
   Status AppendEmptyValues(int64_t length) final {
-    const int64_t num_bytes = value_data_builder_.length();
     ARROW_RETURN_NOT_OK(Reserve(length));
-    for (int64_t i = 0; i < length; ++i) {
-      offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
-    }
-    UnsafeAppendToBitmap(length, true);
+    UnsafeAppendEmptyValues(length);
     return Status::OK();
   }
 
@@ -178,10 +173,18 @@ class BaseBinaryBuilder
     UnsafeAppendToBitmap(false);
   }
 
-  void UnsafeAppendEmptyValue() {
+  void UnsafeAppendEmptyValue() final {
     const int64_t num_bytes = value_data_builder_.length();
     offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
     UnsafeAppendToBitmap(true);
+  }
+
+  void UnsafeAppendEmptyValues(int64_t length) final {
+    const int64_t num_bytes = value_data_builder_.length();
+    for (int64_t i = 0; i < length; ++i) {
+      offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
+    }
+    UnsafeAppendToBitmap(length, true);
   }
 
   /// \brief Append a sequence of strings in one shot.
@@ -670,16 +673,14 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
   /// \brief Append a empty element (length-0 inline string)
   Status AppendEmptyValue() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    data_builder_.UnsafeAppend(BinaryViewType::c_type{});
-    UnsafeAppendToBitmap(true);
+    UnsafeAppendEmptyValue();
     return Status::OK();
   }
 
   /// \brief Append several empty elements
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
-    data_builder_.UnsafeAppend(length, BinaryViewType::c_type{});
-    UnsafeSetNotNull(length);
+    UnsafeAppendEmptyValues(length);
     return Status::OK();
   }
 
@@ -688,9 +689,14 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     UnsafeAppendToBitmap(false);
   }
 
-  void UnsafeAppendEmptyValue() {
+  void UnsafeAppendEmptyValue() final {
     data_builder_.UnsafeAppend(BinaryViewType::c_type{});
     UnsafeAppendToBitmap(true);
+  }
+
+  void UnsafeAppendEmptyValues(int64_t length) final {
+    data_builder_.UnsafeAppend(length, BinaryViewType::c_type{});
+    UnsafeSetNotNull(length);
   }
 
   /// \brief Append a slice of a BinaryViewArray passed as an ArraySpan. Copies
@@ -818,6 +824,16 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   void UnsafeAppendNull() {
     UnsafeAppendToBitmap(false);
     byte_builder_.UnsafeAppend(/*num_copies=*/byte_width_, 0);
+  }
+
+  void UnsafeAppendEmptyValue() final {
+    UnsafeAppendToBitmap(true);
+    byte_builder_.UnsafeAppend(/*num_copies=*/byte_width_, 0);
+  }
+
+  void UnsafeAppendEmptyValues(int64_t length) final {
+    UnsafeAppendToBitmap(length, true);
+    byte_builder_.UnsafeAppend(/*num_copies=*/length * byte_width_, 0);
   }
 
   Status ValidateOverflow(int64_t new_bytes) const {

@@ -247,6 +247,16 @@ Status FixedSizeListBuilder::AppendEmptyValues(int64_t length) {
   return value_builder_->AppendEmptyValues(list_size_ * length);
 }
 
+void FixedSizeListBuilder::UnsafeAppendEmptyValue() {
+  UnsafeAppendToBitmap(true);
+  value_builder_->UnsafeAppendEmptyValues(list_size_);
+}
+
+void FixedSizeListBuilder::UnsafeAppendEmptyValues(int64_t length) {
+  UnsafeAppendToBitmap(length, true);
+  value_builder_->UnsafeAppendEmptyValues(list_size_ * length);
+}
+
 Status FixedSizeListBuilder::Resize(int64_t capacity) {
   RETURN_NOT_OK(CheckCapacity(capacity));
   return ArrayBuilder::Resize(capacity);

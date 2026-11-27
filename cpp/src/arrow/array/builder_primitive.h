@@ -56,6 +56,13 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
 
   Status AppendEmptyValue() final { return AppendEmptyValues(1); }
 
+  void UnsafeAppendEmptyValue() final { UnsafeAppendEmptyValues(1); }
+
+  void UnsafeAppendEmptyValues(int64_t length) final {
+    null_count_ += length;
+    length_ += length;
+  }
+
   Status Append(std::nullptr_t) { return AppendNull(); }
 
   Status AppendArraySlice(const ArraySpan&, int64_t, int64_t length) override {
@@ -127,17 +134,25 @@ class NumericBuilder
   /// \brief Append a empty element
   Status AppendEmptyValue() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    data_builder_.UnsafeAppend(value_type{});  // zero
-    UnsafeAppendToBitmap(true);
+    UnsafeAppendEmptyValue();
     return Status::OK();
   }
 
   /// \brief Append several empty elements
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendEmptyValues(length);
+    return Status::OK();
+  }
+
+  void UnsafeAppendEmptyValue() final {
+    data_builder_.UnsafeAppend(value_type{});  // zero
+    UnsafeAppendToBitmap(true);
+  }
+
+  void UnsafeAppendEmptyValues(int64_t length) final {
     data_builder_.UnsafeAppend(length, value_type{});  // zero
     UnsafeSetNotNull(length);
-    return Status::OK();
   }
 
   value_type GetValue(int64_t index) const { return data_builder_.data()[index]; }
@@ -515,16 +530,21 @@ class ARROW_EXPORT BooleanBuilder
 
   Status AppendEmptyValue() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    data_builder_.UnsafeAppend(false);
-    UnsafeSetNotNull(1);
+    UnsafeAppendEmptyValue();
     return Status::OK();
   }
 
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
+    UnsafeAppendEmptyValues(length);
+    return Status::OK();
+  }
+
+  void UnsafeAppendEmptyValue() final { UnsafeAppendEmptyValues(1); }
+
+  void UnsafeAppendEmptyValues(int64_t length) final {
     data_builder_.UnsafeAppend(length, false);
     UnsafeSetNotNull(length);
-    return Status::OK();
   }
 
   /// Scalar append
