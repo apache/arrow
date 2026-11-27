@@ -57,6 +57,9 @@ updates:
       # Revisit when 3.11 is dropped
       - dependency-name: "numpy"
         versions: [">=2.5"]
+      # scipy-stubs 1.18.1.1 require Python 3.12, revisit when 3.11 is dropped
+      - dependency-name: "scipy-stubs[scipy]"
+        versions: [">=1.18.1.1"]
     # Only update the pins of python/requirements-stubs.txt. Skip the other
     # manifests in python/ and also .txt files in pyarrow-stubs-tests/
     exclude-paths:
