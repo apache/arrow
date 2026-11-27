@@ -184,6 +184,43 @@ Servers
    :project: arrow_cpp
    :members:
 
+Asynchronous Servers
+====================
+
+See :ref:`cpp-flight-async-server` for an overview.
+
+.. doxygenclass:: arrow::flight::AsyncGenericFlightServerBase
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::AsyncFlightDataStream
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::AsyncFlightListing
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::AsyncResultStream
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::AsyncFlightMessageReader
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::AsyncFlightMessageWriter
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::AsyncFlightDataListener
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::AsyncFlightDataWriter
+   :project: arrow_cpp
+   :members:
+
 Error Handling
 ==============
 

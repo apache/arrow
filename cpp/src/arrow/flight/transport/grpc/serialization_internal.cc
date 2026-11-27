@@ -276,6 +276,14 @@ bool ReadPayload(::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* read
   return reader->Read(data);
 }
 
+std::string PutResultAppMetadata(const std::string& serialized) {
+  pb::PutResult result;
+  if (!result.ParseFromString(serialized)) {
+    return std::string();
+  }
+  return result.app_metadata();
+}
+
 #ifndef _WIN32
 #  pragma GCC diagnostic pop
 #endif

@@ -21,6 +21,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "arrow/flight/protocol_internal.h"
 #include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
@@ -64,6 +65,13 @@ bool ReadPayload(::grpc::ServerReaderWriter<pb::FlightData, pb::FlightData>* rea
 // Overload to make genericity easier in DoPutPayloadWriter
 bool ReadPayload(::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>* reader,
                  pb::PutResult* data);
+
+/// \brief The app_metadata of one serialized PutResult reply.
+///
+/// Returns an empty string when the message does not parse or carries no
+/// metadata. Exposed so a test can inspect a PutResult it captured off the wire
+/// without naming the protobuf type, which is not exported from the DLL.
+ARROW_FLIGHT_EXPORT std::string PutResultAppMetadata(const std::string& serialized);
 
 }  // namespace grpc
 }  // namespace transport

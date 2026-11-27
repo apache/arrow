@@ -180,6 +180,7 @@ ARROW_FLIGHT_EXPORT Status ToProto(const CloseSessionRequest& request,
 ARROW_FLIGHT_EXPORT Status ToProto(const CloseSessionResult& result,
                                    pb::CloseSessionResult* pb_result);
 
+ARROW_FLIGHT_EXPORT
 Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out);
 
 /// \brief Serialize a FlightPayload to a vector of buffers.

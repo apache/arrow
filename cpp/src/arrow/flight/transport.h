@@ -72,6 +72,7 @@ namespace ipc {
 class Message;
 }
 namespace flight {
+class AsyncGenericFlightServerBase;
 class FlightStatusDetail;
 namespace internal {
 
@@ -216,6 +217,9 @@ class ARROW_FLIGHT_EXPORT TransportRegistry {
   using ClientFactory = std::function<arrow::Result<std::unique_ptr<ClientTransport>>()>;
   using ServerFactory = std::function<arrow::Result<std::unique_ptr<ServerTransport>>(
       FlightServerBase*, std::shared_ptr<MemoryManager> memory_manager)>;
+  using AsyncServerFactory =
+      std::function<arrow::Result<std::unique_ptr<ServerTransport>>(
+          AsyncGenericFlightServerBase*, std::shared_ptr<MemoryManager> memory_manager)>;
 
   TransportRegistry();
   ~TransportRegistry();
@@ -226,8 +230,13 @@ class ARROW_FLIGHT_EXPORT TransportRegistry {
       const std::string& scheme, FlightServerBase* base,
       std::shared_ptr<MemoryManager> memory_manager) const;
 
+  arrow::Result<std::unique_ptr<ServerTransport>> MakeServerAsync(
+      const std::string& scheme, AsyncGenericFlightServerBase* async_base,
+      std::shared_ptr<MemoryManager> memory_manager) const;
+
   Status RegisterClient(const std::string& scheme, ClientFactory factory);
   Status RegisterServer(const std::string& scheme, ServerFactory factory);
+  Status RegisterAsyncServer(const std::string& scheme, AsyncServerFactory factory);
 
  private:
   class Impl;
