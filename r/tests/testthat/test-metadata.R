@@ -525,3 +525,109 @@ test_that("metadata keys starting with 'r' don't cause partial matching - GH-501
   expect_no_warning(as.data.frame(tbl))
   expect_no_warning(collect.ArrowTabular(tbl))
 })
+
+test_that("wide data frame metadata is restored without changing column order", {
+  x <- tibble::tibble(`a b` = 1:3, untouched = letters[1:3], z = 4:6)
+  metadata <- list(
+    columns = list(
+      z = list(attributes = list(label = "last")),
+      missing = list(attributes = list(label = "absent")),
+      `a b` = list(attributes = list(label = "first"))
+    ),
+    attributes = list(description = "table")
+  )
+  expected <- x
+  attr(expected$z, "label") <- "last"
+  attr(expected[["a b"]], "label") <- "first"
+  attr(expected, "description") <- "table"
+  expect_identical(apply_arrow_r_metadata(x, metadata), expected)
+  expect_identical(
+    apply_arrow_r_metadata(as.data.frame(x), metadata),
+    as.data.frame(expected)
+  )
+})
+
+test_that("metadata restoration preserves duplicate names and empty rows", {
+  for (n in c(0L, 3L)) {
+    x <- data.frame(a = seq_len(n), b = seq_len(n))
+    names(x) <- c("same", "same")
+    metadata <- list(columns = list(same = list(attributes = list(label = "first"))))
+    expected <- x
+    attr(expected[[1]], "label") <- "first"
+    expect_identical(apply_arrow_r_metadata(x, metadata), expected)
+  }
+})
+
+test_that("metadata restoration retains replacement methods for subclasses", {
+  rlang::local_bindings(
+    `[[<-.metadata_test_df` = function(x, i, value) {
+      attr(value, "restored") <- TRUE
+      NextMethod()
+    },
+    `[<-.metadata_test_df` = function(x, i, value) {
+      stop("Should use the subclass's single-column replacement method")
+    },
+    .env = globalenv()
+  )
+  x <- structure(data.frame(a = 1:3), class = c("metadata_test_df", "data.frame"))
+  metadata <- list(columns = list(a = list(attributes = list(label = "a"))))
+  result <- apply_arrow_r_metadata(x, metadata)
+  expect_identical(attr(result$a, "label"), "a")
+  expect_true(attr(result$a, "restored"))
+  expect_identical(class(result), class(x))
+})
+
+test_that("metadata restoration preserves empty and missing column names", {
+  metadata_for <- function(name) list(attributes = list(label = name))
+  for (special_name in c("", NA_character_)) {
+    x <- data.frame(a = 1:3, unnamed = 4:6, b = 7:9)
+    names(x)[[2]] <- special_name
+    metadata <- list(
+      columns = setNames(lapply(c("a", "ignored", "b"), metadata_for), names(x)),
+      attributes = list(description = "table")
+    )
+    # Preserve the existing single-column replacement behavior for unusual names.
+    expected <- x
+    if (is.na(special_name)) {
+      expected[[NA_character_]] <- NULL
+    }
+    attr(expected$a, "label") <- "a"
+    attr(expected$b, "label") <- "b"
+    attr(expected, "description") <- "table"
+    expect_identical(apply_arrow_r_metadata(x, metadata), expected)
+  }
+})
+
+test_that("invalid column metadata preserves earlier restored columns", {
+  x <- data.frame(a = 1:4, b = 5:8, c = 9:12)
+  metadata <- list(columns = list(
+    a = list(attributes = list(label = "first")),
+    b = list(attributes = list(dim = c(2L, 2L))),
+    c = list(attributes = list(label = "last"))
+  ))
+  expected <- x
+  attr(expected$a, "label") <- "first"
+  expect_warning(result <- apply_arrow_r_metadata(x, metadata), "Invalid metadata", fixed = TRUE)
+  expect_identical(result, expected)
+})
+
+test_that("failed metadata restoration does not visit later custom columns", {
+  visits <- 0L
+  rlang::local_bindings(
+    `[[<-.metadata_nested_df` = function(x, i, value) {
+      visits <<- visits + 1L
+      NextMethod()
+    },
+    .env = globalenv()
+  )
+  x <- data.frame(a = 1:4, b = 5:8)
+  x$c <- structure(data.frame(k = 1:4), class = c("metadata_nested_df", "data.frame"))
+  metadata <- list(columns = list(
+    a = list(attributes = list(label = "first")),
+    b = list(attributes = list(dim = c(2L, 2L))),
+    c = list(columns = list(k = list(attributes = list(label = "nested"))))
+  ))
+  expect_warning(result <- apply_arrow_r_metadata(x, metadata), "Invalid metadata", fixed = TRUE)
+  expect_identical(visits, 0L)
+  expect_identical(attr(result$a, "label"), "first")
+})
