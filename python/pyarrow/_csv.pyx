@@ -700,6 +700,14 @@ cdef class ConvertOptions(_Weakrefable):
         value ISO8601() can also be given).  By default, a fast built-in
         ISO-8601 parser is used.
 
+        These parsers are also used as a fallback when converting columns
+        explicitly typed (using `column_types`) as date32 or date64, after
+        the built-in ISO-8601 parser failed on a value.  A timestamp produced
+        by a fallback parser is floored to the day boundary (like casting a
+        timestamp to a date type).  Strptime parsers without a date
+        directive are skipped.  Type inference of date columns is not
+        affected.
+
     Examples
     --------
 
