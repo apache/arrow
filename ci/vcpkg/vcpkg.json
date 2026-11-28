@@ -3,7 +3,7 @@
   "version-string": "",
   "description": "Cross-language development platform for in-memory analytics",
   "homepage": "https://arrow.apache.org",
-  "supports": "x64 | (arm64 & !windows)",
+  "supports": "x64 | arm64",
   "dependencies": [
     {
       "name": "boost-multiprecision",
@@ -20,7 +20,10 @@
     "snappy",
     "uriparser",
     "utf8proc",
-    "xsimd",
+    {
+      "name": "xsimd",
+      "platform": "!(arm64 & windows)"
+    },
     "zlib",
     "zstd",
     {
