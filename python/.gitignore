@@ -35,6 +35,8 @@ htmlcov
 .hypothesis/
 # Cache
 .cache
+# benchmark envs / results
+.asv
 
 pyarrow/_table_api.h
 
