@@ -29,6 +29,10 @@
 
 namespace parquet {
 
+namespace internal {
+struct DirectSchemaElement;
+}
+
 namespace format {
 class SchemaElement;
 }
@@ -45,6 +49,12 @@ std::shared_ptr<SchemaDescriptor> SchemaFromThrift(
 PARQUET_EXPORT
 std::unique_ptr<Node> Unflatten(std::span<const format::SchemaElement> schema,
                                 int max_depth);
+
+// Build a schema tree directly from the compact parser's lightweight schema
+// representation, avoiding a generated SchemaElement vector.
+PARQUET_EXPORT
+NodePtr UnflattenDirect(
+    std::span<const internal::DirectSchemaElement> schema, int max_depth);
 
 // ----------------------------------------------------------------------
 // Conversion to Parquet Thrift metadata
