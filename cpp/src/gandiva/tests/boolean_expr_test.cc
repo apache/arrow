@@ -434,4 +434,41 @@ TEST_F(TestBooleanExpr, IfInsideBooleanAnd) {
   EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
 }
 
+TEST_F(TestBooleanExpr, CacheKeepsAndOrStructure) {
+  auto field_a = field("cache_key_a", boolean());
+  auto field_b = field("cache_key_b", boolean());
+  auto field_c = field("cache_key_c", boolean());
+  auto schema = arrow::schema({field_a, field_b, field_c});
+  auto field_result = field("res", boolean());
+
+  auto node_a = TreeExprBuilder::MakeField(field_a);
+  auto node_b = TreeExprBuilder::MakeField(field_b);
+  auto node_c = TreeExprBuilder::MakeField(field_c);
+  // a && (b || c) and (a && b) || c print as the same text.
+  auto and_or =
+      TreeExprBuilder::MakeAnd({node_a, TreeExprBuilder::MakeOr({node_b, node_c})});
+  auto or_and =
+      TreeExprBuilder::MakeOr({TreeExprBuilder::MakeAnd({node_a, node_b}), node_c});
+  ASSERT_EQ(and_or->ToString(), or_and->ToString());
+
+  // a = false, b = false, c = true
+  auto in_a = MakeArrowArrayBool({false}, {true});
+  auto in_b = MakeArrowArrayBool({false}, {true});
+  auto in_c = MakeArrowArrayBool({true}, {true});
+  auto batch = arrow::RecordBatch::Make(schema, 1, {in_a, in_b, in_c});
+
+  auto configuration = TestConfiguration();
+  auto evaluate = [&](const NodePtr& node,
+                      const std::shared_ptr<arrow::Array>& expected) {
+    std::shared_ptr<Projector> projector;
+    auto expr = TreeExprBuilder::MakeExpression(node, field_result);
+    ASSERT_OK(Projector::Make(schema, {expr}, configuration, &projector));
+    arrow::ArrayVector outputs;
+    ASSERT_OK(projector->Evaluate(*batch, pool_, &outputs));
+    EXPECT_ARROW_ARRAY_EQUALS(expected, outputs.at(0));
+  };
+  evaluate(and_or, MakeArrowArrayBool({false}, {true}));
+  evaluate(or_and, MakeArrowArrayBool({true}, {true}));
+}
+
 }  // namespace gandiva

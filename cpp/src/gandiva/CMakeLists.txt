@@ -68,6 +68,7 @@ set(SRC_FILES
     expr_decomposer.cc
     expr_validator.cc
     expression.cc
+    expression_cache_key.cc
     expression_registry.cc
     exported_funcs_registry.cc
     exported_funcs.cc
