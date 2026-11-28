@@ -126,6 +126,15 @@ if(ARROW_FLIGHT)
                     EXTRA_SOURCES
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.pb.cc"
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.cc")
+  if(NOT MSVC)
+    # Work around absl::Mutex::Dtor ABI mismatch in debug builds against
+    # an NDEBUG-built Abseil. See absl_mutex_ndebug.h.
+    # Same issue as:
+    # https://github.com/apache/arrow/blob/d58f83f3131cb57ede40d99ac4d0978748d1a970/cpp/src/arrow/flight/transport/grpc/customize_grpc.h#L25-L59
+    target_compile_options(flight-grpc-example
+                           PRIVATE "SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/absl_mutex_ndebug.h"
+    )
+  endif()
 
   if(ARROW_FLIGHT_SQL)
     if(ARROW_BUILD_SHARED AND ARROW_GRPC_USE_SHARED)

@@ -282,7 +282,9 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
   // Plan the query
   FlightDescriptor descriptor;
   descriptor.type = FlightDescriptor::CMD;
-  perf.SerializeToString(&descriptor.cmd);
+  if (!perf.SerializeToString(&descriptor.cmd)) {
+    return Status::Invalid("cannot serialize perf command");
+  }
 
   ARROW_ASSIGN_OR_RAISE(auto plan, client->GetFlightInfo(call_options, descriptor));
 
@@ -307,7 +309,9 @@ Status DoSinglePerfRun(FlightClient* client, const FlightClientOptions client_op
     }
 
     perf::Token token;
-    token.ParseFromString(endpoint.ticket.ticket);
+    if (!token.ParseFromString(endpoint.ticket.ticket)) {
+      return Status::Invalid("cannot parse ticket");
+    }
 
     const auto& result = test_loop(data_client, call_options, token, endpoint, stats);
     if (result.ok()) {
