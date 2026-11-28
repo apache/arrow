@@ -209,6 +209,8 @@ arrow_util_srcs = [
     'util/mutex.cc',
     'util/ree_util.cc',
     'util/secure_string.cc',
+    'util/spaced.cc',
+    'util/spaced_simd_128.cc',
     'util/string.cc',
     'util/string_util.cc',
     'util/task_group.cc',
