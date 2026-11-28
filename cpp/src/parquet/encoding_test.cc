@@ -23,7 +23,10 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <span>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -47,6 +50,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/string.h"
 #include "parquet/encoding.h"
+#include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/test_util.h"
@@ -2477,6 +2481,233 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
     auto array = ::arrow::ArrayFromJSON(type, values);
     CheckEncode(array, lengths);
     CheckDecode(encoded, array);
+  }
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc, RejectsInvalidAndOverflowingOffsets) {
+  auto descr = ExampleDescr<ByteArrayType>();
+  const std::shared_ptr<Buffer> one_byte = ::arrow::Buffer::FromString("x");
+
+  auto MakeOffsetsBuffer = [](const auto& offsets) {
+    using OffsetType = typename std::decay_t<decltype(offsets)>::value_type;
+    const auto nbytes = static_cast<int64_t>(offsets.size() * sizeof(OffsetType));
+    std::shared_ptr<ResizableBuffer> buf = AllocateBuffer(default_memory_pool(), nbytes);
+    std::memcpy(buf->mutable_data(), offsets.data(), static_cast<size_t>(nbytes));
+    return buf;
+  };
+  auto MakeBinary = [&](const std::vector<int32_t>& offsets) {
+    return ::arrow::BinaryArray(static_cast<int64_t>(offsets.size() - 1),
+                                MakeOffsetsBuffer(offsets), one_byte,
+                                /*null_bitmap=*/nullptr, /*null_count=*/0);
+  };
+  auto MakeLargeBinary = [&](const std::vector<int64_t>& offsets) {
+    return ::arrow::LargeBinaryArray(static_cast<int64_t>(offsets.size() - 1),
+                                     MakeOffsetsBuffer(offsets), one_byte,
+                                     /*null_bitmap=*/nullptr, /*null_count=*/0);
+  };
+  auto ExpectPutThrows = [](TypedEncoder<ByteArrayType>* enc, const ::arrow::Array& arr,
+                            std::string_view expected_substr) {
+    try {
+      enc->Put(arr);
+      FAIL() << "Expected ParquetException containing: " << expected_substr;
+    } catch (const ParquetException& e) {
+      EXPECT_NE(std::string_view(e.what()).find(expected_substr), std::string_view::npos)
+          << "Actual message: " << e.what();
+    }
+  };
+  auto ExpectFreshPutThrows = [&](const ::arrow::Array& arr,
+                                  std::string_view expected_substr) {
+    auto enc = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                               /*use_dictionary=*/false, descr.get());
+    ExpectPutThrows(enc.get(), arr, expected_substr);
+  };
+
+  // (1) sink_.length()-aware excess expansion rejects without mutating encoder state.
+  {
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                                   /*use_dictionary=*/false, descr.get());
+    encoder->Put(*::arrow::ArrayFromJSON(::arrow::utf8(), R"(["a"])"));
+    ExpectPutThrows(encoder.get(), MakeBinary({0, std::numeric_limits<int32_t>::max()}),
+                    "excess expansion");
+    ExpectPutThrows(encoder.get(),
+                    MakeLargeBinary({0, int64_t{1} << 30, (int64_t{1} << 31) - 1}),
+                    "excess expansion");
+    EXPECT_EQ(1, encoder->ReportUnencodedDataBytes());
+    EXPECT_EQ(DeltaEncode(std::vector<int32_t>{1})->ToString() + "a",
+              encoder->FlushValues()->ToString());
+  }
+
+  // (2) LargeBinary >= 2GB element rejection (both monotonic and non-monotonic offsets).
+  ExpectFreshPutThrows(MakeLargeBinary({0, int64_t{1} << 31}), "size 2GB or more");
+  ExpectFreshPutThrows(MakeLargeBinary({0, std::numeric_limits<int64_t>::max()}),
+                       "size 2GB or more");
+  ExpectFreshPutThrows(MakeLargeBinary({0, int64_t{1} << 31, 1}), "size 2GB or more");
+  ExpectFreshPutThrows(MakeLargeBinary({0, int64_t{3} << 30, 10}), "size 2GB or more");
+
+  // (3) Negative start offsets and negative element steps (including INT64_MIN bounds).
+  ExpectFreshPutThrows(MakeBinary({-5, 0}), "Negative offset");
+  ExpectFreshPutThrows(MakeBinary({5, 2}), "Negative string length");
+  ExpectFreshPutThrows(MakeBinary({0, 5, 3}), "Negative string length");
+  ExpectFreshPutThrows(MakeLargeBinary({-1, 0}), "Negative offset");
+  ExpectFreshPutThrows(MakeLargeBinary({0, -5}), "Negative string length");
+  ExpectFreshPutThrows(MakeLargeBinary({5, std::numeric_limits<int64_t>::min()}),
+                       "Negative string length");
+  ExpectFreshPutThrows(MakeLargeBinary({0, 5, std::numeric_limits<int64_t>::min(), 6}),
+                       "Negative string length");
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc,
+     PutAccumulatesAcrossFastAndGeneralPathsBeforeFlush) {
+  auto descr = ExampleDescr<ByteArrayType>();
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                                 /*use_dictionary=*/false, descr.get());
+  auto nullable = ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["ab", null, "", "cde"])");
+  auto dense_slice =
+      ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["x", "yz", "w"])")->Slice(1);
+  auto all_null = ::arrow::ArrayFromJSON(::arrow::utf8(), R"([null, null])");
+  auto empty_arr = ::arrow::ArrayFromJSON(::arrow::utf8(), R"([])");
+  auto view = ::arrow::ArrayFromJSON(::arrow::utf8_view(), R"(["fgh", ""])");
+  const std::string tail = "ij";
+  const ByteArray raw[] = {ByteArray(2, reinterpret_cast<const uint8_t*>(tail.data()))};
+
+  encoder->Put(*nullable);     // general path (nullable)
+  encoder->Put(*dense_slice);  // fast path, start offset 1
+  encoder->Put(*all_null);     // no-op early return
+  encoder->Put(*empty_arr);    // no-op early return
+  encoder->Put(*view);         // general path (StringView)
+  encoder->Put(raw, 1);        // raw ByteArray path
+
+  EXPECT_EQ(13, encoder->ReportUnencodedDataBytes());
+  EXPECT_EQ(0, encoder->ReportUnencodedDataBytes());
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  const std::vector<int32_t> expected_lengths = {2, 0, 3, 2, 1, 3, 0, 2};
+  ASSERT_EQ(DeltaEncode(expected_lengths)->ToString() + "abcdeyzwfghij", buf->ToString());
+
+  auto decoder =
+      MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr.get());
+  const int num_values = static_cast<int>(expected_lengths.size());
+  decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
+  ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(::arrow::utf8()));
+  ASSERT_EQ(num_values, decoder->DecodeArrowNonNull(num_values, &acc));
+  std::shared_ptr<::arrow::Array> decoded;
+  ASSERT_OK(acc.builder->Finish(&decoded));
+  auto expected = ::arrow::ArrayFromJSON(
+      ::arrow::utf8(), R"(["ab", "", "cde", "yz", "w", "fgh", "", "ij"])");
+  ::arrow::AssertArraysEqual(*expected, *decoded, /*verbose=*/true);
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc, BatchedLengthsAndSlices) {
+  auto descr = ExampleDescr<ByteArrayType>();
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                                 /*use_dictionary=*/false, descr.get());
+  auto decoder =
+      MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr.get());
+
+  auto VerifyArrayRoundTrip = [&](const std::shared_ptr<::arrow::Array>& arr,
+                                  const std::vector<int32_t>& expected_valid_lengths,
+                                  const std::string& expected_payload) {
+    encoder->Put(*arr);
+    EXPECT_EQ(static_cast<int64_t>(expected_payload.size()),
+              encoder->ReportUnencodedDataBytes());
+    auto buf = encoder->FlushValues();
+
+    auto expected_len_buf = DeltaEncode(expected_valid_lengths);
+    ASSERT_EQ(expected_len_buf->ToString() + expected_payload, buf->ToString());
+
+    const int num_valid = static_cast<int>(expected_valid_lengths.size());
+    decoder->SetData(num_valid, buf->data(), static_cast<int>(buf->size()));
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(arr->type()));
+    ASSERT_EQ(num_valid,
+              decoder->DecodeArrow(static_cast<int>(arr->length()),
+                                   static_cast<int>(arr->null_count()),
+                                   arr->null_bitmap_data(), arr->offset(), &acc));
+    std::shared_ptr<::arrow::Array> decoded;
+    ASSERT_OK(acc.builder->Finish(&decoded));
+    ::arrow::AssertArraysEqual(*arr, *decoded, /*verbose=*/true);
+  };
+
+  // Exercise kBatchSize = 256 boundaries on both dense and nullable arrays, plus 0-length
+  // empty and all-null arrays. Nullable arrays batch only non-null values (every 5th row
+  // is null), so 319/320/322 rows give 255/256/257 non-null values.
+  for (int count : {0, 1, 255, 256, 257, 319, 320, 322, 512, 600}) {
+    ARROW_SCOPED_TRACE("count = ", count);
+    ::arrow::StringBuilder dense_b;
+    ::arrow::StringBuilder nullable_b;
+    ::arrow::StringBuilder empty_b;
+    ::arrow::StringBuilder nulls_b;
+    std::vector<int32_t> dense_lens, nullable_lens, empty_lens(count, 0);
+    std::string dense_payload, nullable_payload;
+
+    for (int i = 0; i < count; ++i) {
+      std::string s = (i % 11 == 0) ? "" : ("v_" + std::to_string(i));
+      ASSERT_OK(dense_b.Append(s));
+      dense_lens.push_back(static_cast<int32_t>(s.size()));
+      dense_payload.append(s);
+
+      if (i % 5 == 0) {
+        ASSERT_OK(nullable_b.AppendNull());
+      } else {
+        ASSERT_OK(nullable_b.Append(s));
+        nullable_lens.push_back(static_cast<int32_t>(s.size()));
+        nullable_payload.append(s);
+      }
+      ASSERT_OK(empty_b.Append(""));
+      ASSERT_OK(nulls_b.AppendNull());
+    }
+    ASSERT_OK_AND_ASSIGN(auto dense_arr, dense_b.Finish());
+    ASSERT_OK_AND_ASSIGN(auto nullable_arr, nullable_b.Finish());
+    ASSERT_OK_AND_ASSIGN(auto empty_arr, empty_b.Finish());
+    ASSERT_OK_AND_ASSIGN(auto nulls_arr, nulls_b.Finish());
+
+    ASSERT_NO_FATAL_FAILURE(VerifyArrayRoundTrip(dense_arr, dense_lens, dense_payload));
+    ASSERT_NO_FATAL_FAILURE(
+        VerifyArrayRoundTrip(nullable_arr, nullable_lens, nullable_payload));
+    ASSERT_NO_FATAL_FAILURE(VerifyArrayRoundTrip(empty_arr, empty_lens, ""));
+    ASSERT_NO_FATAL_FAILURE(VerifyArrayRoundTrip(nulls_arr, {}, ""));
+  }
+
+  // Sliced non-null LargeStringArray with non-zero start offset across batch boundary.
+  {
+    ::arrow::LargeStringBuilder large_b;
+    std::vector<std::string> vals;
+    for (int i = 0; i < 300; ++i) {
+      vals.push_back((i % 13 == 0) ? "" : ("slice_item_" + std::to_string(i)));
+      ASSERT_OK(large_b.Append(vals.back()));
+    }
+    ASSERT_OK_AND_ASSIGN(auto large_arr, large_b.Finish());
+    auto sliced = large_arr->Slice(17, 260);
+    std::vector<int32_t> lens;
+    std::string payload;
+    for (int i = 17; i < 17 + 260; ++i) {
+      lens.push_back(static_cast<int32_t>(vals[i].size()));
+      payload.append(vals[i]);
+    }
+    ASSERT_NO_FATAL_FAILURE(VerifyArrayRoundTrip(sliced, lens, payload));
+  }
+
+  // StringViewArray mixing inline (<=12B), out-of-line (>12B), empty, and nulls
+  // (288 rows with every 9th null gives exactly 256 non-nulls = kBatchSize).
+  {
+    ::arrow::StringViewBuilder view_b;
+    std::vector<int32_t> lens;
+    std::string payload;
+    for (int i = 0; i < 288; ++i) {
+      if (i % 9 == 0) {
+        ASSERT_OK(view_b.AppendNull());
+        continue;
+      }
+      std::string s = (i % 3 == 0)   ? ""
+                      : (i % 3 == 1) ? ("in_" + std::to_string(i))
+                                     : ("out_of_line_string_view_" + std::to_string(i));
+      ASSERT_OK(view_b.Append(s));
+      lens.push_back(static_cast<int32_t>(s.size()));
+      payload.append(s);
+    }
+    ASSERT_OK_AND_ASSIGN(auto view_arr, view_b.Finish());
+    ASSERT_NO_FATAL_FAILURE(VerifyArrayRoundTrip(view_arr, lens, payload));
   }
 }
 
