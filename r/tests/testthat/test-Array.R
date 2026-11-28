@@ -1687,3 +1687,35 @@ test_that("list of struct with an extension type column converts (GH-50514)", {
   expect_identical(result[[2]]$x, vctr[1])
   expect_identical(attr(result, "ptype")$x, vctr[0])
 })
+
+test_that("a null struct is null in all of its fields", {
+  valid_struct <- StructArray$create(
+    int = 1:3,
+    dbl = c(1, 2, 3),
+    chr = c("a", "b", "c"),
+    lgl = c(TRUE, FALSE, TRUE)
+  )
+  # null in the struct only: the values of its fields stay valid
+  null_struct <- call_function(
+    "if_else",
+    arrow_array(c(TRUE, NA, TRUE)),
+    valid_struct,
+    valid_struct
+  )
+  expect_equal(null_struct$null_count, 1)
+  expect_equal(null_struct$field(0)$null_count, 0)
+
+  expected <- tibble::tibble(
+    int = c(1L, NA, 3L),
+    dbl = c(1, NA, 3),
+    chr = c("a", NA, "c"),
+    lgl = c(TRUE, NA, TRUE)
+  )
+  # int, dbl and chr fields can be altrep, which doesn't go through the same
+  # code as when they can't
+  for (use_altrep in c(TRUE, FALSE)) {
+    withr::local_options(arrow.use_altrep = use_altrep)
+    expect_identical(as.vector(null_struct), expected)
+    expect_identical(as.data.frame(arrow_table(s = null_struct))$s, expected)
+  }
+})

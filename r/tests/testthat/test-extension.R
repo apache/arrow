@@ -351,3 +351,129 @@ test_that("Handling vctrs_rcrd type", {
   tab <- arrow_table(df)
   expect_identical(as.data.frame(tab), df)
 })
+
+test_that("extension types defined outside of R can be used", {
+  # arrow.uuid is a canonical extension type registered by libarrow itself, so
+  # there is no R6 class registered for it from R (GH-53951). An IPC round trip
+  # with the extension metadata on the field gives us an instance.
+  roundtrip <- function(table) {
+    read_ipc_stream(write_to_raw(table), as_data_frame = FALSE)
+  }
+  storage <- Array$create(
+    list(as.raw(1:16), NULL, as.raw(17:32)),
+    type = fixed_size_binary(16)
+  )
+  uuid_field <- field(
+    "x",
+    fixed_size_binary(16),
+    metadata = c("ARROW:extension:name" = "arrow.uuid")
+  )
+  table <- roundtrip(Table$create(x = storage, schema = schema(uuid_field)))
+
+  type <- table$x$type
+  expect_identical(class(type)[1], "ExtensionType")
+  expect_identical(type$r6_class(), ExtensionType)
+  expect_identical(type$extension_name(), "arrow.uuid")
+  expect_identical(type$ToString(), "extension<arrow.uuid>")
+  # The C++ guard is unreachable through r6_class(), so exercise it directly
+  expect_error(ExtensionType__r6_class(type), "was not created from R")
+
+  # Storage arrays can be wrapped
+  wrapped <- type$WrapArray(storage)
+  expect_r6_class(wrapped, "ExtensionArray")
+  expect_true(wrapped$Equals(table$x$chunk(0)))
+  expect_true(new_extension_array(storage, type)$Equals(wrapped))
+
+  # Conversion to R falls back to the storage array, including for slices,
+  # multiple chunks, and columns nested in a struct or list
+  expect_identical(as.vector(table$x), as.vector(storage))
+  expect_identical(as.vector(table$x$Slice(1, 2)), as.vector(storage$Slice(1, 2)))
+  chunked <- concat_tables(table, table)
+  expect_equal(chunked$x$num_chunks, 2L)
+  expect_identical(as.data.frame(chunked)$x, as.vector(concat_arrays(storage, storage)))
+
+  # struct() drops field metadata, so build the type from the Field directly
+  nested <- roundtrip(Table$create(
+    s = StructArray$create(x = storage),
+    schema = schema(field("s", struct__(list(uuid_field))))
+  ))
+  expect_identical(nested$s$type$GetFieldByName("x")$type$extension_name(), "arrow.uuid")
+  expect_identical(as.data.frame(nested)$s$x, as.vector(storage))
+
+  # A null struct is null in its extension field, even if the field's value is valid
+  valid_storage <- storage$Slice(2, 1)
+  null_struct <- StructArray$create(x = valid_storage)
+  null_struct <- call_function("if_else", arrow_array(NA), null_struct, null_struct)
+  expect_equal(null_struct$null_count, 1)
+  expect_equal(null_struct$field(0)$null_count, 0)
+  nested_null <- roundtrip(Table$create(
+    s = null_struct,
+    schema = schema(field("s", struct__(list(uuid_field))))
+  ))
+  expect_identical(as.data.frame(nested_null)$s$x, as.vector(storage$Slice(1, 1)))
+
+  list_storage <- Array$create(
+    list(list(as.raw(1:16)), NULL),
+    type = list_of(fixed_size_binary(16))
+  )
+  listed <- roundtrip(Table$create(
+    l = list_storage,
+    schema = schema(field("l", list_of(uuid_field)))
+  ))
+  expect_identical(listed$l$type$value_type$extension_name(), "arrow.uuid")
+  expect_identical(as.vector(listed$l), as.vector(list_storage))
+
+  # arrow.json has utf8 storage, which converts to an ALTREP vector
+  json_storage <- Array$create(c('{"a":1}', NA))
+  json_field <- field("j", utf8(), metadata = c("ARROW:extension:name" = "arrow.json"))
+  json <- roundtrip(Table$create(
+    j = json_storage,
+    s = StructArray$create(j = json_storage),
+    schema = schema(json_field, field("s", struct__(list(json_field))))
+  ))
+  json_df <- as.data.frame(json)
+  expect_true(is_arrow_altrep(json_df$j))
+  expect_true(is_arrow_altrep(json_df$s$j))
+  expect_identical(json_df$j, as.vector(json_storage))
+  expect_identical(json_df$s$j, as.vector(json_storage))
+})
+
+test_that("a null struct is null in a field with an extension type defined in R", {
+  type <- new_extension_type(int32(), "arrow_r_test.null_struct")
+  valid_struct <- StructArray$create(x = 1:3)
+  # null in the struct only: the value of its field stays valid
+  null_struct <- call_function(
+    "if_else",
+    arrow_array(c(TRUE, NA, TRUE)),
+    valid_struct,
+    valid_struct
+  )$cast(struct(x = type))
+  expect_equal(null_struct$null_count, 1)
+  expect_equal(null_struct$field(0)$null_count, 0)
+
+  expect_identical(as.vector(null_struct)$x, c(1L, NA, 3L))
+  expect_identical(as.vector(chunked_array(null_struct, null_struct))$x, c(1L, NA, 3L, 1L, NA, 3L))
+})
+
+test_that("list elements of an extension type defined outside of R convert consistently", {
+  # arrow.opaque is only registered when libarrow is built with JSON support
+  skip_if_not_available("json")
+
+  # int64 is converted to integer or integer64 depending on the values, which
+  # has to be decided once for all of the elements of the list
+  storage <- Array$create(list(1, 2^40, NULL), type = list_of(int64()))
+  opaque_field <- field(
+    "item",
+    int64(),
+    metadata = c(
+      "ARROW:extension:name" = "arrow.opaque",
+      "ARROW:extension:metadata" = '{"type_name":"type","vendor_name":"vendor"}'
+    )
+  )
+  table <- read_ipc_stream(
+    write_to_raw(Table$create(l = storage, schema = schema(field("l", list_of(opaque_field))))),
+    as_data_frame = FALSE
+  )
+  expect_identical(table$l$type$value_type$extension_name(), "arrow.opaque")
+  expect_identical(as.vector(table$l), as.vector(storage))
+})

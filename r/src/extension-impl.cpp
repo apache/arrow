@@ -168,15 +168,26 @@ std::shared_ptr<arrow::DataType> ExtensionType__storage_type(
 std::shared_ptr<arrow::Array> ExtensionType__MakeArray(
     const std::shared_ptr<arrow::ExtensionType>& type,
     const std::shared_ptr<arrow::ArrayData>& data) {
-  return type->MakeArray(data);
+  // data has the storage type; shallow copy so we can set the extension type
+  std::shared_ptr<arrow::ArrayData> extension_data = data->Copy();
+  extension_data->type = type;
+  return type->MakeArray(std::move(extension_data));
 }
 
 // [[arrow::export]]
 cpp11::environment ExtensionType__r6_class(
     const std::shared_ptr<arrow::ExtensionType>& type) {
-  auto r_type =
-      arrow::internal::checked_pointer_cast<RExtensionType, arrow::ExtensionType>(type);
+  auto r_type = std::dynamic_pointer_cast<RExtensionType>(type);
+  if (r_type == nullptr) {
+    cpp11::stop("Extension type '%s' was not created from R and has no R6 class",
+                type->extension_name().c_str());
+  }
   return r_type->r6_class();
+}
+
+// [[arrow::export]]
+bool ExtensionType__is_r_type(const std::shared_ptr<arrow::ExtensionType>& type) {
+  return std::dynamic_pointer_cast<RExtensionType>(type) != nullptr;
 }
 
 // [[arrow::export]]

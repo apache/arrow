@@ -1200,6 +1200,10 @@ ExtensionType__r6_class <- function(type) {
   .Call(`_arrow_ExtensionType__r6_class`, type)
 }
 
+ExtensionType__is_r_type <- function(type) {
+  .Call(`_arrow_ExtensionType__is_r_type`, type)
+}
+
 ExtensionArray__storage <- function(array) {
   .Call(`_arrow_ExtensionArray__storage`, array)
 }

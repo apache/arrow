@@ -785,10 +785,20 @@ class Converter_Struct : public Converter {
 
     int nf = struct_type.num_fields();
 
-    std::shared_ptr<arrow::Table> array_as_table =
-        ValueOrStop(arrow::Table::FromChunkedStructArray(chunked_array));
+    // Flatten() merges the nulls of the struct into its fields. Not every field
+    // converter gets them from Ingest_some_nulls() (altrep and extension types
+    // convert the arrays they were made with), so they are made with them.
+    std::vector<ArrayVector> fields(nf);
+    for (const auto& chunk : chunked_array->chunks()) {
+      auto flattened = ValueOrStop(
+          checked_cast<const arrow::StructArray&>(*chunk).Flatten(gc_memory_pool()));
+      for (int i = 0; i < nf; i++) {
+        fields[i].push_back(std::move(flattened[i]));
+      }
+    }
     for (int i = 0; i < nf; i++) {
-      converters.push_back(Converter::Make(array_as_table->column(i)));
+      converters.push_back(Converter::Make(std::make_shared<ChunkedArray>(
+          std::move(fields[i]), struct_type.field(i)->type())));
     }
   }
 
@@ -1273,16 +1283,30 @@ class Converter_Null : public Converter {
 class Converter_Extension : public Converter {
  public:
   explicit Converter_Extension(const std::shared_ptr<ChunkedArray>& chunked_array)
-      : Converter(chunked_array) {}
+      : Converter(chunked_array) {
+    r_extension_type_ = dynamic_cast<const RExtensionType*>(chunked_array_->type().get());
+    if (r_extension_type_ == nullptr) {
+      // Not an extension type created from R (e.g., a canonical extension type
+      // such as arrow.uuid registered by libarrow itself), so there is no R-level
+      // as_vector() to call: convert the storage arrays instead, which is what
+      // the default ExtensionType$as_vector() does.
+      storage_converter_ = Converter::Make(Storage());
+    }
+  }
 
   SEXP Allocate(R_xlen_t n) const {
-    auto extension_type =
-        dynamic_cast<const RExtensionType*>(chunked_array_->type().get());
-    if (extension_type == nullptr) {
-      Rf_error("Converter_Extension can't be used with a non-R extension type");
+    if (r_extension_type_ != nullptr) {
+      return r_extension_type_->Convert(chunked_array_);
     }
 
-    return extension_type->Convert(chunked_array_);
+    // The outer conversion's task group isn't reachable from Allocate(), so the
+    // storage is converted serially here
+    RTasks tasks(false);
+    SEXP out =
+        PROTECT(storage_converter_->ScheduleConvertTasks(tasks, storage_converter_));
+    StopIfNotOk(tasks.Finish());
+    UNPROTECT(1);
+    return out;
   }
 
   // The conversion happens in Allocate() over the whole chunked array, so a slice
@@ -1292,11 +1316,20 @@ class Converter_Extension : public Converter {
     if (n != 0) {
       cpp11::stop("Cannot allocate a non-empty slice of an extension array");
     }
-    return Converter::Convert(chunked_array_->Slice(0, 0), false);
+    if (r_extension_type_ != nullptr) {
+      return Converter::Convert(chunked_array_->Slice(0, 0), false);
+    }
+    return storage_converter_->AllocateSlice(0);
   }
 
   SEXP ConvertSlice(const std::shared_ptr<Array>& slice, size_t chunk_index) const {
-    return Converter::Convert(slice);
+    if (r_extension_type_ != nullptr) {
+      return Converter::Convert(slice);
+    }
+    // Through the converter of the whole storage, so that every slice is
+    // converted to the same R type (e.g. integer or integer64 for int64 storage)
+    return storage_converter_->ConvertSlice(
+        checked_cast<const arrow::ExtensionArray&>(*slice).storage(), chunk_index);
   }
 
   // At this point we have already done the conversion
@@ -1307,6 +1340,25 @@ class Converter_Extension : public Converter {
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
     return Status::OK();
+  }
+
+ private:
+  // nullptr if the extension type was not created from R
+  const RExtensionType* r_extension_type_;
+  // Only for extension types that were not created from R
+  std::shared_ptr<Converter> storage_converter_;
+
+  std::shared_ptr<ChunkedArray> Storage() const {
+    const auto& extension_type =
+        checked_cast<const arrow::ExtensionType&>(*chunked_array_->type());
+    ArrayVector storage_chunks;
+    storage_chunks.reserve(chunked_array_->num_chunks());
+    for (const auto& chunk : chunked_array_->chunks()) {
+      storage_chunks.push_back(
+          checked_cast<const arrow::ExtensionArray&>(*chunk).storage());
+    }
+    return std::make_shared<ChunkedArray>(std::move(storage_chunks),
+                                          extension_type.storage_type());
   }
 };
 

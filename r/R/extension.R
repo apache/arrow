@@ -122,7 +122,14 @@ ExtensionType <- R6Class(
     # available from C++. We need this in order to produce the correct
     # R6 subclass when a shared_ptr<ExtensionType> is returned to R.
     r6_class = function() {
-      ExtensionType__r6_class(self)
+      if (ExtensionType__is_r_type(self)) {
+        ExtensionType__r6_class(self)
+      } else {
+        # Not created from R (e.g., a canonical extension type registered by
+        # libarrow such as arrow.uuid), so there is no R6 subclass to
+        # dispatch to: fall back to this class
+        ExtensionType
+      }
     },
     storage_type = function() {
       ExtensionType__storage_type(self)
@@ -183,6 +190,12 @@ ExtensionType <- R6Class(
       }
     },
     ToString = function() {
+      if (!ExtensionType__is_r_type(self)) {
+        # Not created from R (e.g., a canonical extension type registered by
+        # libarrow such as arrow.uuid), so use libarrow's representation
+        return(DataType__ToString(self))
+      }
+
       # metadata is probably valid UTF-8 (e.g., JSON), but might not be
       # and it's confusing to error when printing the object. This heuristic
       # isn't perfect (but subclasses should override this method anyway)
