@@ -29,9 +29,21 @@ namespace io {
 struct ReadRange;
 }
 
+namespace util {
+class Codec;
+}
+
 namespace ipc {
 
+struct IpcReadOptions;
+
 namespace internal {
+
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& buf,
+                                                 const IpcReadOptions& options,
+                                                 util::Codec* codec);
+
 /// \class IoRecordedRandomAccessFile
 /// \brief An RandomAccessFile that doesn't perform real IO, but only save all the IO
 /// operations it receives, including read operation's <offset, length>, for replaying

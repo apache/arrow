@@ -26,6 +26,42 @@ IpcWriteOptions IpcWriteOptions::Defaults() { return IpcWriteOptions(); }
 
 IpcReadOptions IpcReadOptions::Defaults() { return IpcReadOptions(); }
 
+Status IpcReadOptions::Validate() const {
+  if (max_recursion_depth < 0) {
+    return Status::Invalid("max_recursion_depth must be non-negative, got ",
+                           max_recursion_depth);
+  }
+  if (max_metadata_length < -1) {
+    return Status::Invalid("max_metadata_length must be -1 or non-negative, got ",
+                           max_metadata_length);
+  }
+  if (max_body_length < -1) {
+    return Status::Invalid("max_body_length must be -1 or non-negative, got ",
+                           max_body_length);
+  }
+  if (max_decompression_ratio < -1) {
+    return Status::Invalid("max_decompression_ratio must be -1 or non-negative, got ",
+                           max_decompression_ratio);
+  }
+  return Status::OK();
+}
+
+Status IpcReadOptions::CheckMetadataLength(int64_t length, const char* prefix) const {
+  if (max_metadata_length >= 0 && length > max_metadata_length) {
+    return Status::Invalid(prefix, length, " exceeds maximum allowed metadata length ",
+                           max_metadata_length);
+  }
+  return Status::OK();
+}
+
+Status IpcReadOptions::CheckBodyLength(int64_t length) const {
+  if (max_body_length >= 0 && length > max_body_length) {
+    return Status::Invalid("IPC body length ", length,
+                           " exceeds maximum allowed body length ", max_body_length);
+  }
+  return Status::OK();
+}
+
 namespace internal {
 
 Status CheckCompressionSupported(Compression::type codec) {

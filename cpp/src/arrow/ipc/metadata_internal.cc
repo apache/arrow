@@ -1290,6 +1290,7 @@ Result<std::shared_ptr<KeyValueMetadata>> GetKeyValueMetadata(
 
   metadata->reserve(fb_metadata->size());
   for (const auto pair : *fb_metadata) {
+    CHECK_FLATBUFFERS_NOT_NULL(pair, "custom_metadata.pair");
     CHECK_FLATBUFFERS_NOT_NULL(pair->key(), "custom_metadata.key");
     CHECK_FLATBUFFERS_NOT_NULL(pair->value(), "custom_metadata.value");
     metadata->Append(pair->key()->str(), pair->value()->str());
@@ -1474,11 +1475,16 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
   if (tensor == nullptr) {
     return Status::IOError("Header-type of flatbuffer-encoded Message is not Tensor.");
   }
+  CHECK_FLATBUFFERS_NOT_NULL(tensor->shape(), "Tensor.shape");
 
   flatbuffers::uoffset_t ndim = tensor->shape()->size();
 
   for (flatbuffers::uoffset_t i = 0; i < ndim; ++i) {
     auto dim = tensor->shape()->Get(i);
+    CHECK_FLATBUFFERS_NOT_NULL(dim, "Tensor.shape[i]");
+    if (dim->size() < 0) {
+      return Status::Invalid("Invalid tensor dimension size: ", dim->size());
+    }
 
     shape->push_back(dim->size());
     dim_names->push_back(StringFromFlatbuffers(dim->name()));
@@ -1551,11 +1557,13 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
     return Status::IOError(
         "Header-type of flatbuffer-encoded Message is not SparseTensor.");
   }
+  CHECK_FLATBUFFERS_NOT_NULL(sparse_tensor->shape(), "SparseTensor.shape");
   int ndim = static_cast<int>(sparse_tensor->shape()->size());
 
   if (shape || dim_names) {
     for (int i = 0; i < ndim; ++i) {
       auto dim = sparse_tensor->shape()->Get(i);
+      CHECK_FLATBUFFERS_NOT_NULL(dim, "SparseTensor.shape[i]");
 
       if (shape) {
         if (dim->size() < 0) {
