@@ -1016,6 +1016,8 @@ String transforms
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 | utf8_lower              | Unary  | String-like                             | String-like            |                                   | \(9)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
+| utf8_normalize          | Unary  | String-like                             | String-like            | :struct:`Utf8NormalizeOptions`    |       |
++-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 | utf8_replace_slice      | Unary  | String-like                             | String-like            | :struct:`ReplaceSliceOptions`     | \(7)  |
 +-------------------------+--------+-----------------------------------------+------------------------+-----------------------------------+-------+
 | utf8_reverse            | Unary  | String-like                             | String-like            |                                   | \(11) |
@@ -1792,18 +1794,20 @@ Statistical functions
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
 
-+-------------------+-------+-----------------------------------+-------------+-------+
-| Function name     | Arity | Input types                       | Output type | Notes |
-+===================+=======+===================================+=============+=======+
-| dictionary_encode | Unary | Boolean, Null, Numeric,           | Dictionary  | \(1)  |
-|                   |       | Temporal, Binary- and String-like |             |       |
-+-------------------+-------+-----------------------------------+-------------+-------+
-| unique            | Unary | Boolean, Null, Numeric,           | Input type  | \(2)  |
-|                   |       | Temporal, Binary- and String-like |             |       |
-+-------------------+-------+-----------------------------------+-------------+-------+
-| value_counts      | Unary | Boolean, Null, Numeric,           | Input type  | \(3)  |
-|                   |       | Temporal, Binary- and String-like |             |       |
-+-------------------+-------+-----------------------------------+-------------+-------+
++-------------------+-------+-----------------------------------+-------------+------------------------------------+-------+
+| Function name     | Arity | Input types                       | Output type | Options class                      | Notes |
++===================+=======+===================================+=============+====================================+=======+
+| dictionary_encode | Unary | Boolean, Null, Numeric,           | Dictionary  | :struct:`DictionaryEncodeOptions`  | \(1)  |
+|                   |       | Temporal, Binary- and String-like |             |                                    |       |
++-------------------+-------+-----------------------------------+-------------+------------------------------------+-------+
+| dictionary_decode | Unary | Dictionary                        | Input type  |                                    | \(4)  |
++-------------------+-------+-----------------------------------+-------------+------------------------------------+-------+
+| unique            | Unary | Boolean, Null, Numeric,           | Input type  |                                    | \(2)  |
+|                   |       | Temporal, Binary- and String-like |             |                                    |       |
++-------------------+-------+-----------------------------------+-------------+------------------------------------+-------+
+| value_counts      | Unary | Boolean, Null, Numeric,           | Input type  |                                    | \(3)  |
+|                   |       | Temporal, Binary- and String-like |             |                                    |       |
++-------------------+-------+-----------------------------------+-------------+------------------------------------+-------+
 
 * \(1) Output is ``Dictionary(Int32, input type)``. It is a no-op if input is
   already a Dictionary array.
@@ -1814,6 +1818,8 @@ Associative transforms
 * \(3) Output is a ``{"values": input type, "counts": Int64}`` Struct.
   Each output element corresponds to a unique value in the input, along
   with the number of times this value has appeared.
+
+* \(4) If the input is not a Dictionary array, it is returned unchanged.
 
 Selections
 ~~~~~~~~~~
