@@ -1061,6 +1061,16 @@ DecimalStatus DecimalRescale(const DecimalClass& value, int32_t original_scale,
   }
 
   const int32_t delta_scale = new_scale - original_scale;
+
+  // GetScaleMultiplier only covers scales in [0, kMaxScale]; a larger delta would
+  // index the scale-multiplier table out of bounds. A rescale that big can never be
+  // represented without overflow or truncation, so reject it here instead of reading
+  // past the table. Testing delta_scale before std::abs also avoids abs(INT32_MIN).
+  if (ARROW_PREDICT_FALSE(delta_scale > DecimalClass::kMaxScale ||
+                          delta_scale < -DecimalClass::kMaxScale)) {
+    return DecimalStatus::kRescaleDataLoss;
+  }
+
   const int32_t abs_delta_scale = std::abs(delta_scale);
 
   DecimalClass multiplier = DecimalClass::GetScaleMultiplier(abs_delta_scale);
