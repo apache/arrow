@@ -661,6 +661,19 @@ def test_head(dataset, dataset_reader):
     result = fragment.head(1024, columns=['i64']).to_pydict()
     assert result == {'i64': list(range(5))}
 
+# ARROW-#55295: Check for negative num_rows
+@pytest.mark.parquet
+def test_head_negative_num_rows(dataset):
+    with pytest.raises(pa.ArrowInvalid, match="num_rows must be non-negative"):
+        dataset.head(-1)
+
+    with pytest.raises(pa.ArrowInvalid, match="num_rows must be non-negative"):
+        dataset.scanner().head(-1)
+
+    fragment = next(dataset.get_fragments())
+    with pytest.raises(pa.ArrowInvalid, match="num_rows must be non-negative"):
+        fragment.head(-1)
+
 
 @pytest.mark.parquet
 def test_take(dataset, dataset_reader):
