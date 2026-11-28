@@ -1433,13 +1433,6 @@ provided by a concrete function :func:`~arrow::compute::Cast`.
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
 | cast            | Unary      | Many               | Variable         | :struct:`CastOptions`          |       |
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
-| run_end_decode  | Unary      | Run-end encoded    | Input type       |                                |       |
-+-----------------+------------+--------------------+------------------+--------------------------------+-------+
-| run_end_encode  | Unary      | Boolean, Null,     | Run-end encoded  | :struct:`RunEndEncodeOptions`  |       |
-|                 |            | Numeric, Temporal, |                  |                                |       |
-|                 |            | Binary-, String-   |                  |                                |       |
-|                 |            | and Nested types   |                  |                                |       |
-+-----------------+------------+--------------------+------------------+--------------------------------+-------+
 | strftime        | Unary      | Temporal           | String           | :struct:`StrftimeOptions`      | \(1)  |
 +-----------------+------------+--------------------+------------------+--------------------------------+-------+
 | strptime        | Unary      | String-like        | Timestamp        | :struct:`StrptimeOptions`      |       |
@@ -1801,20 +1794,20 @@ Statistical functions
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
 
-+-------------------+-------+-----------------------------------+-------------+-------+
-| Function name     | Arity | Input types                       | Output type | Notes |
-+===================+=======+===================================+=============+=======+
-| dictionary_encode | Unary | Boolean, Null, Numeric,           | Dictionary  | \(1)  |
-|                   |       | Temporal, Binary- and String-like |             |       |
-+-------------------+-------+-----------------------------------+-------------+-------+
-| dictionary_decode | Unary | Dictionary                        | Input type  | \(4)  |
-+-------------------+-------+-----------------------------------+-------------+-------+
-| unique            | Unary | Boolean, Null, Numeric,           | Input type  | \(2)  |
-|                   |       | Temporal, Binary- and String-like |             |       |
-+-------------------+-------+-----------------------------------+-------------+-------+
-| value_counts      | Unary | Boolean, Null, Numeric,           | Input type  | \(3)  |
-|                   |       | Temporal, Binary- and String-like |             |       |
-+-------------------+-------+-----------------------------------+-------------+-------+
++-------------------+-------+-----------------------------------+-------------+------------------------------------+-------+
+| Function name     | Arity | Input types                       | Output type | Options class                      | Notes |
++===================+=======+===================================+=============+====================================+=======+
+| dictionary_encode | Unary | Boolean, Null, Numeric,           | Dictionary  | :struct:`DictionaryEncodeOptions`  | \(1)  |
+|                   |       | Temporal, Binary- and String-like |             |                                    |       |
++-------------------+-------+-----------------------------------+-------------+------------------------------------+-------+
+| dictionary_decode | Unary | Dictionary                        | Input type  |                                    | \(4)  |
++-------------------+-------+-----------------------------------+-------------+------------------------------------+-------+
+| unique            | Unary | Boolean, Null, Numeric,           | Input type  |                                    | \(2)  |
+|                   |       | Temporal, Binary- and String-like |             |                                    |       |
++-------------------+-------+-----------------------------------+-------------+------------------------------------+-------+
+| value_counts      | Unary | Boolean, Null, Numeric,           | Input type  |                                    | \(3)  |
+|                   |       | Temporal, Binary- and String-like |             |                                    |       |
++-------------------+-------+-----------------------------------+-------------+------------------------------------+-------+
 
 * \(1) Output is ``Dictionary(Int32, input type)``. It is a no-op if input is
   already a Dictionary array.

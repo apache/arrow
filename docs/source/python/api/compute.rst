@@ -552,8 +552,8 @@ Sorts and Partitions
    rank
    rank_normal
    rank_quantile
-   select_k_unstable
    search_sorted
+   select_k_unstable
    sort_indices
    top_k_unstable
 
@@ -638,6 +638,7 @@ Compute Options
    RunEndEncodeOptions
    ScalarAggregateOptions
    ScatterOptions
+   SearchSortedOptions
    SelectKOptions
    SetLookupOptions
    SkewOptions
