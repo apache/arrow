@@ -60,6 +60,28 @@ test_that("try_arrow_dplyr/abandon_ship adds the right message about collect()",
   }
 })
 
+test_that("abandon_ship errors when the call can't be captured (GH-55793)", {
+  # Through a wrapper that forwards `...`, try_arrow_dplyr() can't capture the
+  # call, so abandon_ship() can't fall back to dplyr. It should raise
+  # arrow_not_supported, as it does for a Dataset.
+  tab <- arrow_table(x = 1:3)
+  summarise_wrapper <- function(.data, ...) dplyr::summarise(.data, ...)
+  mutate_wrapper <- function(.data, ...) dplyr::mutate(.data, ...)
+
+  expect_error(
+    summarise_wrapper(tab, y = dplyr::first(x)),
+    "Call collect() first to pull data into R",
+    fixed = TRUE,
+    class = "arrow_not_supported"
+  )
+  expect_error(
+    mutate_wrapper(tab, y = dplyr::first(x)),
+    "Call collect() first to pull data into R",
+    fixed = TRUE,
+    class = "arrow_not_supported"
+  )
+})
+
 test_that("dplyr verbs error clearly on empty column names", {
   skip_if_not_available("acero")
   # GH-40303
