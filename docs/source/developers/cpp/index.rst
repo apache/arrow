@@ -29,6 +29,7 @@ C++ Development
    windows
    emscripten
    conventions
+   support
    fuzzing
    compute
    acero
